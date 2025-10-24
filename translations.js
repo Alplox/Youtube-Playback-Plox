@@ -10,7 +10,7 @@ const LANGUAGE_FLAGS = {
     it: '🇮🇹', // Italiano
     pt: '🇵🇹', // Portugués
     ru: '🇷🇺', // Ruso
-    zh: '🇨🇳', // Chino (Mandarín)
+    zh: '🇨🇳', // Chino
     ja: '🇯🇵', // Japonés
     ko: '🇰🇷', // Coreano
     ar: '🇸🇦', // Árabe
@@ -43,11 +43,15 @@ const LANGUAGE_FLAGS = {
     fa: '🇮🇷', // Persa
     he: '🇮🇱', // Hebreo
     ta: '🇱🇰', // Tamil
+    am: '🇪🇹', // Amárico
+    ha: '🇳🇬', // Hausa
+    ur: '🇵🇰', // Urdu
+    te: '🇮🇳', // Telugu
     mr: '🇮🇳', // Marathi
     tl: '🇵🇭', // Tagalo / Filipino
     my: '🇲🇲', // Birmano / Myanmar
-    yue: '🇭🇰', // Cantonés (Hong Kong)
-    ca: '🇦🇩', // Catalán
+    yue: '🇭🇰', // Cantonés
+    ca: '🇪🇸', // Catalán
     zu: '🇿🇦', // Zulú
 };
 
@@ -76,6 +80,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Intervalo segundos mínimos entre guardados",
         showFloatingButton: "Mostrar botón flotante",
         language: "Idioma",
+        alertStyle: "Estilo de alertas en la barra de reproducción",
+        alertIconText: "Icono + Texto",
+        alertIconOnly: "Solo Icono",
+        alertTextOnly: "Solo Texto",
+        alertHidden: "Oculto",
 
         // Lista de videos
         noSavedVideos: "No hay videos guardados.",
@@ -104,6 +113,7 @@ const TRANSLATIONS = {
         // Video Entry
         progress: "Progreso",
         alwaysStartFrom: "Siempre desde",
+        resumedAt: "Reanudado en",
         locked: "🔒",
         percentWatched: "% visto",
         remaining: "restantes",
@@ -139,6 +149,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimum seconds between saves",
         showFloatingButton: "Show floating button",
         language: "Language",
+        alertStyle: "Alert style in playback bar",
+        alertIconText: "Icon + Text",
+        alertIconOnly: "Icon Only",
+        alertTextOnly: "Text Only",
+        alertHidden: "Hidden",
 
         // Video list
         noSavedVideos: "No saved videos.",
@@ -167,6 +182,7 @@ const TRANSLATIONS = {
         // Video Entry
         progress: "Progress",
         alwaysStartFrom: "Always start from",
+        resumedAt: "Resumed at",
         locked: "🔒",
         percentWatched: "% watched",
         remaining: "remaining",
@@ -202,6 +218,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Secondes minimales entre les sauvegardes",
         showFloatingButton: "Afficher le bouton flottant",
         language: "Langue",
+        alertStyle: "Style d'alerte dans la barre de lecture",
+        alertIconText: "Icône + Texte",
+        alertIconOnly: "Icône uniquement",
+        alertTextOnly: "Texte uniquement",
+        alertHidden: "Masqué",
 
         // Video list
         noSavedVideos: "Aucune vidéo enregistrée.",
@@ -230,6 +251,7 @@ const TRANSLATIONS = {
         // Video Entry
         progress: "Progrès",
         alwaysStartFrom: "Toujours commencer à",
+        resumedAt: "Repris à",
         locked: "🔒",
         percentWatched: "% regardé",
         remaining: "restant",
@@ -263,6 +285,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimale Sekunden zwischen Speicherungen",
         showFloatingButton: "Schwebenden Button anzeigen",
         language: "Sprache",
+        alertStyle: "Benachrichtigungsstil in der Wiedergabeleiste",
+        alertIconText: "Symbol + Text",
+        alertIconOnly: "Nur Symbol",
+        alertTextOnly: "Nur Text",
+        alertHidden: "Versteckt",
 
         noSavedVideos: "Keine gespeicherten Videos.",
         sortBy: "Sortieren nach",
@@ -288,6 +315,7 @@ const TRANSLATIONS = {
 
         progress: "Fortschritt",
         alwaysStartFrom: "Immer starten bei",
+        resumedAt: "Fortgesetzt bei",
         locked: "🔒",
         percentWatched: "% angesehen",
         remaining: "verbleibend",
@@ -320,6 +348,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Secondi minimi tra i salvataggi",
         showFloatingButton: "Mostra pulsante flottante",
         language: "Lingua",
+        alertStyle: "Stile degli avvisi nella barra di riproduzione",
+        alertIconText: "Icona + Testo",
+        alertIconOnly: "Solo Icona",
+        alertTextOnly: "Solo Testo",
+        alertHidden: "Nascosto",
 
         noSavedVideos: "Nessun video salvato.",
         sortBy: "Ordina per",
@@ -345,6 +378,7 @@ const TRANSLATIONS = {
 
         progress: "Progresso",
         alwaysStartFrom: "Inizia sempre da",
+        resumedAt: "Ripreso a",
         locked: "🔒",
         percentWatched: "% guardato",
         remaining: "rimanenti",
@@ -377,6 +411,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Segundos mínimos entre salvamentos",
         showFloatingButton: "Mostrar botão flutuante",
         language: "Idioma",
+        alertStyle: "Estilo de alertas na barra de reprodução",
+        alertIconText: "Ícone + Texto",
+        alertIconOnly: "Apenas Ícone",
+        alertTextOnly: "Apenas Texto",
+        alertHidden: "Oculto",
 
         noSavedVideos: "Nenhum vídeo salvo.",
         sortBy: "Ordenar por",
@@ -402,6 +441,7 @@ const TRANSLATIONS = {
 
         progress: "Progresso",
         alwaysStartFrom: "Sempre começar em",
+        resumedAt: "Retomado em",
         locked: "🔒",
         percentWatched: "% assistido",
         remaining: "restantes",
@@ -434,6 +474,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Минимальное время между сохранениями (сек)",
         showFloatingButton: "Показывать плавающую кнопку",
         language: "Язык",
+        alertStyle: "Стиль уведомлений на панели воспроизведения",
+        alertIconText: "Иконка + Текст",
+        alertIconOnly: "Только Иконка",
+        alertTextOnly: "Только Текст",
+        alertHidden: "Скрыто",
 
         noSavedVideos: "Нет сохранённых видео.",
         sortBy: "Сортировать по",
@@ -459,6 +504,7 @@ const TRANSLATIONS = {
 
         progress: "Прогресс",
         alwaysStartFrom: "Всегда начинать с",
+        resumedAt: "Возобновлено в",
         locked: "🔒",
         percentWatched: "% просмотрено",
         remaining: "осталось",
@@ -493,6 +539,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "两次保存的最少间隔（秒）：",
         showFloatingButton: "显示浮动按钮",
         language: "语言：",
+        alertStyle: "播放栏中的提醒样式",
+        alertIconText: "图标 + 文字",
+        alertIconOnly: "仅图标",
+        alertTextOnly: "仅文字",
+        alertHidden: "隐藏",
 
         // 视频列表
         noSavedVideos: "没有已保存的视频。",
@@ -521,6 +572,7 @@ const TRANSLATIONS = {
         // 视频条目
         progress: "进度：",
         alwaysStartFrom: "始终从：",
+        resumedAt: "已恢复至",
         locked: "🔒",
         percentWatched: "观看百分比",
         remaining: "剩余",
@@ -553,6 +605,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "保存間隔（秒）：",
         showFloatingButton: "フローティングボタンを表示",
         language: "言語：",
+        alertStyle: "再生バーのアラートスタイル",
+        alertIconText: "アイコン + テキスト",
+        alertIconOnly: "アイコンのみ",
+        alertTextOnly: "テキストのみ",
+        alertHidden: "非表示",
 
         noSavedVideos: "保存された動画はありません。",
         sortBy: "並び替え：",
@@ -578,6 +635,7 @@ const TRANSLATIONS = {
 
         progress: "進行状況：",
         alwaysStartFrom: "常に次から開始：",
+        resumedAt: "次の位置から再開しました：",
         locked: "🔒",
         percentWatched: "視聴済み %",
         remaining: "残り",
@@ -610,6 +668,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "저장 간 최소 시간(초)",
         showFloatingButton: "플로팅 버튼 표시",
         language: "언어",
+        alertStyle: "재생 바 알림 스타일",
+        alertIconText: "아이콘 + 텍스트",
+        alertIconOnly: "아이콘만",
+        alertTextOnly: "텍스트만",
+        alertHidden: "숨김",
 
         noSavedVideos: "저장된 동영상이 없습니다.",
         sortBy: "정렬 기준",
@@ -635,6 +698,7 @@ const TRANSLATIONS = {
 
         progress: "진행",
         alwaysStartFrom: "항상 다음부터 시작",
+        resumedAt: "다음 위치에서 재개됨",
         locked: "🔒",
         percentWatched: "시청률 %",
         remaining: "남음",
@@ -667,6 +731,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "الحد الأدنى للفاصل بين الحفظ (بالثواني)",
         showFloatingButton: "إظهار الزر العائم",
         language: "اللغة",
+        alertStyle: "أسلوب التنبيهات في شريط التشغيل",
+        alertIconText: "رمز + نص",
+        alertIconOnly: "رمز فقط",
+        alertTextOnly: "نص فقط",
+        alertHidden: "مخفي",
 
         noSavedVideos: "لا توجد مقاطع فيديو محفوظة.",
         sortBy: "ترتيب حسب",
@@ -692,6 +761,7 @@ const TRANSLATIONS = {
 
         progress: "التقدم",
         alwaysStartFrom: "ابدأ دائمًا من",
+        resumedAt: "تم الاستئناف عند",
         locked: "🔒",
         percentWatched: "% المشاهدة",
         remaining: "المتبقي",
@@ -724,6 +794,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "सहेजने के बीच न्यूनतम सेकंड",
         showFloatingButton: "फ़्लोटिंग बटन दिखाएं",
         language: "भाषा",
+        alertStyle: "प्लेबैक बार में चेतावनी शैली",
+        alertIconText: "आइकन + टेक्स्ट",
+        alertIconOnly: "केवल आइकन",
+        alertTextOnly: "केवल टेक्स्ट",
+        alertHidden: "छिपा हुआ",
 
         noSavedVideos: "कोई सहेजे गए वीडियो नहीं हैं।",
         sortBy: "क्रमबद्ध करें",
@@ -749,6 +824,7 @@ const TRANSLATIONS = {
 
         progress: "प्रगति",
         alwaysStartFrom: "हमेशा यहाँ से शुरू करें",
+        resumedAt: "यहाँ से पुनः आरंभ किया गया",
         locked: "🔒",
         percentWatched: "% देखा गया",
         remaining: "शेष",
@@ -781,6 +857,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "সংরক্ষণের মধ্যে সর্বনিম্ন সেকেন্ড",
         showFloatingButton: "ভাসমান বোতাম দেখান",
         language: "ভাষা",
+        alertStyle: "প্লেব্যাক বার-এ সতর্কতা শৈলী",
+        alertIconText: "আইকন + লেখা",
+        alertIconOnly: "শুধু আইকন",
+        alertTextOnly: "শুধু লেখা",
+        alertHidden: "লুকানো",
 
         noSavedVideos: "কোনও সংরক্ষিত ভিডিও নেই।",
         sortBy: "সাজান",
@@ -806,6 +887,7 @@ const TRANSLATIONS = {
 
         progress: "অগ্রগতি",
         alwaysStartFrom: "সবসময় এখান থেকে শুরু করুন",
+        resumedAt: "এখান থেকে পুনরায় শুরু হয়েছে",
         locked: "🔒",
         percentWatched: "% দেখা হয়েছে",
         remaining: "বাকি",
@@ -838,6 +920,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Thời gian tối thiểu giữa các lần lưu (giây)",
         showFloatingButton: "Hiển thị nút nổi",
         language: "Ngôn ngữ",
+        alertStyle: "Kiểu cảnh báo trên thanh phát",
+        alertIconText: "Biểu tượng + Văn bản",
+        alertIconOnly: "Chỉ biểu tượng",
+        alertTextOnly: "Chỉ văn bản",
+        alertHidden: "Ẩn",
 
         noSavedVideos: "Không có video nào được lưu.",
         sortBy: "Sắp xếp theo",
@@ -863,6 +950,7 @@ const TRANSLATIONS = {
 
         progress: "Tiến trình",
         alwaysStartFrom: "Luôn bắt đầu từ",
+        resumedAt: "Tiếp tục từ",
         locked: "🔒",
         percentWatched: "% đã xem",
         remaining: "còn lại",
@@ -895,6 +983,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Detik minimum antar penyimpanan",
         showFloatingButton: "Tampilkan tombol mengambang",
         language: "Bahasa",
+        alertStyle: "Gaya peringatan di bilah pemutaran",
+        alertIconText: "Ikon + Teks",
+        alertIconOnly: "Hanya Ikon",
+        alertTextOnly: "Hanya Teks",
+        alertHidden: "Tersembunyi",
 
         noSavedVideos: "Tidak ada video tersimpan.",
         sortBy: "Urutkan berdasarkan",
@@ -920,6 +1013,7 @@ const TRANSLATIONS = {
 
         progress: "Progres",
         alwaysStartFrom: "Selalu mulai dari",
+        resumedAt: "Dilanjutkan pada",
         locked: "🔒",
         percentWatched: "% ditonton",
         remaining: "tersisa",
@@ -952,6 +1046,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Kaydetmeler arasındaki minimum saniye",
         showFloatingButton: "Yüzen düğmeyi göster",
         language: "Dil",
+        alertStyle: "Oynatma çubuğunda uyarı stili",
+        alertIconText: "Simge + Metin",
+        alertIconOnly: "Sadece Simge",
+        alertTextOnly: "Sadece Metin",
+        alertHidden: "Gizli",
 
         noSavedVideos: "Kaydedilmiş video yok.",
         sortBy: "Sıralama ölçütü",
@@ -977,6 +1076,7 @@ const TRANSLATIONS = {
 
         progress: "İlerleme",
         alwaysStartFrom: "Her zaman buradan başla",
+        resumedAt: "Şuradan devam edildi",
         locked: "🔒",
         percentWatched: "% izlendi",
         remaining: "kaldı",
@@ -1009,6 +1109,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimalny czas między zapisami (sekundy)",
         showFloatingButton: "Pokaż przycisk pływający",
         language: "Język",
+        alertStyle: "Styl powiadomień na pasku odtwarzania",
+        alertIconText: "Ikona + Tekst",
+        alertIconOnly: "Tylko Ikona",
+        alertTextOnly: "Tylko Tekst",
+        alertHidden: "Ukryte",
 
         noSavedVideos: "Brak zapisanych filmów.",
         sortBy: "Sortuj według",
@@ -1034,6 +1139,7 @@ const TRANSLATIONS = {
 
         progress: "Postęp",
         alwaysStartFrom: "Zawsze zaczynaj od",
+        resumedAt: "Wznowiono od",
         locked: "🔒",
         percentWatched: "% obejrzano",
         remaining: "pozostało",
@@ -1066,6 +1172,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimale seconden tussen opslag",
         showFloatingButton: "Toon zwevende knop",
         language: "Taal",
+        alertStyle: "Waarschuwingsstijl in de afspeelbalk",
+        alertIconText: "Pictogram + Tekst",
+        alertIconOnly: "Alleen pictogram",
+        alertTextOnly: "Alleen tekst",
+        alertHidden: "Verborgen",
 
         noSavedVideos: "Geen opgeslagen video's.",
         sortBy: "Sorteren op",
@@ -1091,6 +1202,7 @@ const TRANSLATIONS = {
 
         progress: "Voortgang",
         alwaysStartFrom: "Altijd starten vanaf",
+        resumedAt: "Hervat bij",
         locked: "🔒",
         percentWatched: "% bekeken",
         remaining: "resterend",
@@ -1123,6 +1235,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minsta sekunder mellan sparningar",
         showFloatingButton: "Visa flytande knapp",
         language: "Språk",
+        alertStyle: "Aviseringsstil i uppspelningsfältet",
+        alertIconText: "Ikon + Text",
+        alertIconOnly: "Endast ikon",
+        alertTextOnly: "Endast text",
+        alertHidden: "Dold",
 
         noSavedVideos: "Inga sparade videor.",
         sortBy: "Sortera efter",
@@ -1148,6 +1265,7 @@ const TRANSLATIONS = {
 
         progress: "Framsteg",
         alwaysStartFrom: "Börja alltid från",
+        resumedAt: "Återupptagen vid",
         locked: "🔒",
         percentWatched: "% tittat",
         remaining: "återstår",
@@ -1180,6 +1298,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimum sekunder mellem gemninger",
         showFloatingButton: "Vis flydende knap",
         language: "Sprog",
+        alertStyle: "Advarselstil i afspilningslinjen",
+        alertIconText: "Ikon + Tekst",
+        alertIconOnly: "Kun ikon",
+        alertTextOnly: "Kun tekst",
+        alertHidden: "Skjult",
 
         noSavedVideos: "Ingen gemte videoer.",
         sortBy: "Sorter efter",
@@ -1205,6 +1328,7 @@ const TRANSLATIONS = {
 
         progress: "Fremskridt",
         alwaysStartFrom: "Start altid fra",
+        resumedAt: "Genoptaget ved",
         locked: "🔒",
         percentWatched: "% set",
         remaining: "tilbage",
@@ -1237,6 +1361,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimum sekunder mellom lagringer",
         showFloatingButton: "Vis flytende knapp",
         language: "Språk",
+        alertStyle: "Varselstil i avspillingslinjen",
+        alertIconText: "Ikon + Tekst",
+        alertIconOnly: "Kun ikon",
+        alertTextOnly: "Kun tekst",
+        alertHidden: "Skjult",
 
         noSavedVideos: "Ingen lagrede videoer.",
         sortBy: "Sorter etter",
@@ -1262,6 +1391,7 @@ const TRANSLATIONS = {
 
         progress: "Fremdrift",
         alwaysStartFrom: "Start alltid fra",
+        resumedAt: "Gjenopptatt ved",
         locked: "🔒",
         percentWatched: "% sett",
         remaining: "gjenstår",
@@ -1294,6 +1424,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Tallennusten välinen vähimmäisaika (sekuntia)",
         showFloatingButton: "Näytä kelluva painike",
         language: "Kieli",
+        alertStyle: "Ilmoitustyyli toistopalkissa",
+        alertIconText: "Kuvake + Teksti",
+        alertIconOnly: "Vain kuvake",
+        alertTextOnly: "Vain teksti",
+        alertHidden: "Piilotettu",
 
         noSavedVideos: "Ei tallennettuja videoita.",
         sortBy: "Lajittele",
@@ -1319,6 +1454,7 @@ const TRANSLATIONS = {
 
         progress: "Edistyminen",
         alwaysStartFrom: "Aloita aina kohdasta",
+        resumedAt: "Jatkettiin kohdasta",
         locked: "🔒",
         percentWatched: "% katsottu",
         remaining: "jäljellä",
@@ -1351,6 +1487,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimális másodpercek mentések között",
         showFloatingButton: "Lebegő gomb megjelenítése",
         language: "Nyelv",
+        alertStyle: "Értesítési stílus a lejátszósávon",
+        alertIconText: "Ikon + Szöveg",
+        alertIconOnly: "Csak ikon",
+        alertTextOnly: "Csak szöveg",
+        alertHidden: "Elrejtve",
 
         noSavedVideos: "Nincsenek mentett videók.",
         sortBy: "Rendezés",
@@ -1376,6 +1517,7 @@ const TRANSLATIONS = {
 
         progress: "Előrehaladás",
         alwaysStartFrom: "Mindig innen induljon",
+        resumedAt: "Innen folytatva",
         locked: "🔒",
         percentWatched: "% megtekintve",
         remaining: "hátralévő",
@@ -1408,6 +1550,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimální sekundy mezi uložením",
         showFloatingButton: "Zobrazit plovoucí tlačítko",
         language: "Jazyk",
+        alertStyle: "Styl upozornění na přehrávacím panelu",
+        alertIconText: "Ikona + Text",
+        alertIconOnly: "Pouze ikona",
+        alertTextOnly: "Pouze text",
+        alertHidden: "Skryto",
 
         noSavedVideos: "Žádná uložená videa.",
         sortBy: "Seřadit podle",
@@ -1433,6 +1580,7 @@ const TRANSLATIONS = {
 
         progress: "Postup",
         alwaysStartFrom: "Vždy začít od",
+        resumedAt: "Pokračováno od",
         locked: "🔒",
         percentWatched: "% shlédnuto",
         remaining: "zbývá",
@@ -1465,6 +1613,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimálne sekundy medzi uloženiami",
         showFloatingButton: "Zobraziť plávajúce tlačidlo",
         language: "Jazyk",
+        alertStyle: "Štýl upozornení na prehrávacej lište",
+        alertIconText: "Ikona + Text",
+        alertIconOnly: "Iba ikona",
+        alertTextOnly: "Iba text",
+        alertHidden: "Skryté",
 
         noSavedVideos: "Žiadne uložené videá.",
         sortBy: "Zoradiť podľa",
@@ -1490,6 +1643,7 @@ const TRANSLATIONS = {
 
         progress: "Postup",
         alwaysStartFrom: "Vždy začať od",
+        resumedAt: "Pokračované od",
         locked: "🔒",
         percentWatched: "% pozreté",
         remaining: "zostáva",
@@ -1522,6 +1676,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Secunde minime între salvări",
         showFloatingButton: "Afișează buton plutitor",
         language: "Limbă",
+        alertStyle: "Stil al alertelor în bara de redare",
+        alertIconText: "Icon + Text",
+        alertIconOnly: "Doar Icon",
+        alertTextOnly: "Doar Text",
+        alertHidden: "Ascuns",
 
         noSavedVideos: "Nu există videoclipuri salvate.",
         sortBy: "Sortează după",
@@ -1547,6 +1706,7 @@ const TRANSLATIONS = {
 
         progress: "Progres",
         alwaysStartFrom: "Pornește întotdeauna de la",
+        resumedAt: "Reluat de la",
         locked: "🔒",
         percentWatched: "% vizionat",
         remaining: "rămas",
@@ -1579,6 +1739,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Минимални секунди между запазванията",
         showFloatingButton: "Покажи плаващ бутон",
         language: "Език",
+        alertStyle: "Стил на известията в лентата за възпроизвеждане",
+        alertIconText: "Икона + Текст",
+        alertIconOnly: "Само икона",
+        alertTextOnly: "Само текст",
+        alertHidden: "Скрито",
 
         noSavedVideos: "Няма запазени видеа.",
         sortBy: "Сортирай по",
@@ -1604,6 +1769,7 @@ const TRANSLATIONS = {
 
         progress: "Напредък",
         alwaysStartFrom: "Винаги започвай от",
+        resumedAt: "Възобновено от",
         locked: "🔒",
         percentWatched: "% гледано",
         remaining: "остава",
@@ -1636,6 +1802,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimalne sekunde između spremanja",
         showFloatingButton: "Prikaži plutajući gumb",
         language: "Jezik",
+        alertStyle: "Stil obavijesti na traci za reprodukciju",
+        alertIconText: "Ikona + Tekst",
+        alertIconOnly: "Samo Ikona",
+        alertTextOnly: "Samo Tekst",
+        alertHidden: "Skriveno",
 
         noSavedVideos: "Nema spremljenih videozapisa.",
         sortBy: "Sortiraj prema",
@@ -1661,6 +1832,7 @@ const TRANSLATIONS = {
 
         progress: "Napredak",
         alwaysStartFrom: "Uvijek započni od",
+        resumedAt: "Nastavljeno od",
         locked: "🔒",
         percentWatched: "% pogledano",
         remaining: "preostalo",
@@ -1693,6 +1865,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Najmanj sekund med shranjevanji",
         showFloatingButton: "Prikaži plavajoči gumb",
         language: "Jezik",
+        alertStyle: "Slog opozoril na predvajalni vrstici",
+        alertIconText: "Ikona + Besedilo",
+        alertIconOnly: "Samo ikona",
+        alertTextOnly: "Samo besedilo",
+        alertHidden: "Skrito",
 
         noSavedVideos: "Ni shranjenih videoposnetkov.",
         sortBy: "Razvrsti po",
@@ -1718,6 +1895,7 @@ const TRANSLATIONS = {
 
         progress: "Napredek",
         alwaysStartFrom: "Vedno začni od",
+        resumedAt: "Nadaljevanje pri",
         locked: "🔒",
         percentWatched: "% ogledano",
         remaining: "preostalo",
@@ -1750,6 +1928,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Минимум секунди између чувања",
         showFloatingButton: "Прикажи плутајуће дугме",
         language: "Језик",
+        alertStyle: "Стил упозорења на траци за репродукцију",
+        alertIconText: "Икона + Текст",
+        alertIconOnly: "Само Икона",
+        alertTextOnly: "Само Текст",
+        alertHidden: "Скривено",
 
         noSavedVideos: "Нема сачуваних видео снимака.",
         sortBy: "Сортирај по",
@@ -1775,6 +1958,7 @@ const TRANSLATIONS = {
 
         progress: "Напредак",
         alwaysStartFrom: "Увек почињи од",
+        resumedAt: "Настављено од",
         locked: "🔒",
         percentWatched: "% погледано",
         remaining: "преостало",
@@ -1807,6 +1991,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimalus sekundžių skaičius tarp išsaugojimų",
         showFloatingButton: "Rodyti plaukiojantį mygtuką",
         language: "Kalba",
+        alertStyle: "Įspėjimų stilius atkūrimo juostoje",
+        alertIconText: "Piktograma + Tekstas",
+        alertIconOnly: "Tik piktograma",
+        alertTextOnly: "Tik tekstas",
+        alertHidden: "Paslėpta",
 
         noSavedVideos: "Nėra išsaugotų vaizdo įrašų.",
         sortBy: "Rūšiuoti pagal",
@@ -1832,6 +2021,7 @@ const TRANSLATIONS = {
 
         progress: "Progresas",
         alwaysStartFrom: "Visada pradėti nuo",
+        resumedAt: "Tęsiama nuo",
         locked: "🔒",
         percentWatched: "% peržiūrėta",
         remaining: "liko",
@@ -1864,6 +2054,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Minimālais sekunžu skaits starp saglabāšanām",
         showFloatingButton: "Rādīt peldošu pogu",
         language: "Valoda",
+        alertStyle: "Brīdinājumu stils atskaņošanas joslā",
+        alertIconText: "Ikona + Teksts",
+        alertIconOnly: "Tikai ikona",
+        alertTextOnly: "Tikai teksts",
+        alertHidden: "Paslēpts",
 
         noSavedVideos: "Nav saglabātu videoklipu.",
         sortBy: "Kārtot pēc",
@@ -1889,6 +2084,7 @@ const TRANSLATIONS = {
 
         progress: "Progress",
         alwaysStartFrom: "Vienmēr sākt no",
+        resumedAt: "Turpināts no",
         locked: "🔒",
         percentWatched: "% skatīts",
         remaining: "atlikušais",
@@ -1921,6 +2117,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Мінімальні секунди між збереженнями",
         showFloatingButton: "Показувати плаваючу кнопку",
         language: "Мова",
+        alertStyle: "Стиль сповіщень на панелі відтворення",
+        alertIconText: "Іконка + Текст",
+        alertIconOnly: "Тільки іконка",
+        alertTextOnly: "Тільки текст",
+        alertHidden: "Приховано",
 
         noSavedVideos: "Немає збережених відео.",
         sortBy: "Сортувати за",
@@ -1946,6 +2147,7 @@ const TRANSLATIONS = {
 
         progress: "Прогрес",
         alwaysStartFrom: "Завжди починати з",
+        resumedAt: "Відновлено з",
         locked: "🔒",
         percentWatched: "% переглянуто",
         remaining: "залишилось",
@@ -1978,6 +2180,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Ελάχιστα δευτερόλεπτα μεταξύ αποθηκεύσεων",
         showFloatingButton: "Εμφάνιση αιωρούμενου κουμπιού",
         language: "Γλώσσα",
+        alertStyle: "Στυλ ειδοποιήσεων στη γραμμή αναπαραγωγής",
+        alertIconText: "Εικονίδιο + Κείμενο",
+        alertIconOnly: "Μόνο εικονίδιο",
+        alertTextOnly: "Μόνο κείμενο",
+        alertHidden: "Απόκρυψη",
 
         noSavedVideos: "Δεν υπάρχουν αποθηκευμένα βίντεο.",
         sortBy: "Ταξινόμηση κατά",
@@ -2003,6 +2210,7 @@ const TRANSLATIONS = {
 
         progress: "Πρόοδος",
         alwaysStartFrom: "Να ξεκινά πάντα από",
+        resumedAt: "Συνέχεια από",
         locked: "🔒",
         percentWatched: "% παρακολουθήθηκε",
         remaining: "απομένει",
@@ -2035,6 +2243,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "จำนวนวินาทีขั้นต่ำระหว่างการบันทึก",
         showFloatingButton: "แสดงปุ่มลอย",
         language: "ภาษา",
+        alertStyle: "สไตล์แจ้งเตือนในแถบเล่น",
+        alertIconText: "ไอคอน + ข้อความ",
+        alertIconOnly: "ไอคอนเท่านั้น",
+        alertTextOnly: "ข้อความเท่านั้น",
+        alertHidden: "ซ่อน",
 
         noSavedVideos: "ยังไม่มีวิดีโอที่บันทึกไว้",
         sortBy: "จัดเรียงตาม",
@@ -2060,6 +2273,7 @@ const TRANSLATIONS = {
 
         progress: "ความคืบหน้า",
         alwaysStartFrom: "เริ่มจาก",
+        resumedAt: "ดำเนินการต่อจาก",
         locked: "🔒",
         percentWatched: "% ที่ดูแล้ว",
         remaining: "เหลือ",
@@ -2092,6 +2306,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Bilangan saat minimum antara simpanan",
         showFloatingButton: "Tunjukkan butang terapung",
         language: "Bahasa",
+        alertStyle: "Gaya amaran di bar main balik",
+        alertIconText: "Ikon + Teks",
+        alertIconOnly: "Hanya Ikon",
+        alertTextOnly: "Hanya Teks",
+        alertHidden: "Tersembunyi",
 
         noSavedVideos: "Tiada video disimpan.",
         sortBy: "Susun mengikut",
@@ -2117,6 +2336,7 @@ const TRANSLATIONS = {
 
         progress: "Kemajuan",
         alwaysStartFrom: "Sentiasa mula dari",
+        resumedAt: "Disambung dari",
         locked: "🔒",
         percentWatched: "% ditonton",
         remaining: "tinggal",
@@ -2149,6 +2369,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Sekunde chache kati ya kuhifadhi",
         showFloatingButton: "Onyesha kitufe kinachoelea",
         language: "Lugha",
+        alertStyle: "Mtindo wa onyo kwenye upau wa kucheza",
+        alertIconText: "Ikoni + Maandishi",
+        alertIconOnly: "Ikoni Pekee",
+        alertTextOnly: "Maandishi Pekee",
+        alertHidden: "Fichwa",
 
         noSavedVideos: "Hakuna video zilizohifadhiwa.",
         sortBy: "Panga kwa",
@@ -2174,6 +2399,7 @@ const TRANSLATIONS = {
 
         progress: "Maendeleo",
         alwaysStartFrom: "Kila mara anza kutoka",
+        resumedAt: "Iliendelea kutoka",
         locked: "🔒",
         percentWatched: "% imeangaliwa",
         remaining: "iliyobaki",
@@ -2206,6 +2432,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "حداقل ثانیه بین ذخیره‌ها",
         showFloatingButton: "نمایش دکمه شناور",
         language: "زبان",
+        alertStyle: "سبک هشدارها در نوار پخش",
+        alertIconText: "نماد + متن",
+        alertIconOnly: "فقط نماد",
+        alertTextOnly: "فقط متن",
+        alertHidden: "مخفی",
 
         noSavedVideos: "ویدیویی ذخیره نشده است.",
         sortBy: "مرتب‌سازی بر اساس",
@@ -2231,6 +2462,7 @@ const TRANSLATIONS = {
 
         progress: "پیشرفت",
         alwaysStartFrom: "همیشه شروع از",
+        resumedAt: "ادامه از",
         locked: "🔒",
         percentWatched: "% تماشا شده",
         remaining: "باقی‌مانده",
@@ -2263,6 +2495,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "מספר שניות מינימלי בין שמירות",
         showFloatingButton: "הצג כפתור צף",
         language: "שפה",
+        alertStyle: "סגנון התראות בסרגל הניגון",
+        alertIconText: "אייקון + טקסט",
+        alertIconOnly: "רק אייקון",
+        alertTextOnly: "רק טקסט",
+        alertHidden: "מוסתר",
 
         noSavedVideos: "אין סרטונים שנשמרו.",
         sortBy: "מיין לפי",
@@ -2288,6 +2525,7 @@ const TRANSLATIONS = {
 
         progress: "התקדמות",
         alwaysStartFrom: "תמיד התחל מ־",
+        resumedAt: "המשך מ־",
         locked: "🔒",
         percentWatched: "% נצפה",
         remaining: "נותר",
@@ -2320,6 +2558,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "சேமிப்புகளுக்கிடையே குறைந்தபட்ச விநாடிகள்",
         showFloatingButton: "மிதக்கும் பொத்தானைக் காட்டவும்",
         language: "மொழி",
+        alertStyle: "பிளேபேக் பட்டையில் அலர்ட் பாணி",
+        alertIconText: "சின்னம் + உரை",
+        alertIconOnly: "சின்னம் மட்டும்",
+        alertTextOnly: "உரை மட்டும்",
+        alertHidden: "மறைக்கப்பட்டது",
 
         noSavedVideos: "சேமிக்கப்பட்ட வீடியோக்கள் இல்லை.",
         sortBy: "வரிசைப்படுத்து",
@@ -2345,6 +2588,7 @@ const TRANSLATIONS = {
 
         progress: "முன்னேற்றம்",
         alwaysStartFrom: "எப்போதும் இதிலிருந்து தொடங்கு",
+        resumedAt: "இருந்த இடத்தில் தொடரப்பட்டது",
         locked: "🔒",
         percentWatched: "% பார்க்கப்பட்டது",
         remaining: "மீதம்",
@@ -2376,6 +2620,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "በማስቀመጫ መካከል የተገደበ ሰከንዶች",
         showFloatingButton: "የታተመ አዝራር አሳይ",
         language: "ቋንቋ",
+        alertStyle: "በመስመር ላይ የማሳወቂያ ቅርጸት",
+        alertIconText: "አዶ + ጽሑፍ",
+        alertIconOnly: "አዶ ብቻ",
+        alertTextOnly: "ጽሑፍ ብቻ",
+        alertHidden: "ተሰይሯል",
         noSavedVideos: "ምንም ቪዲዮ አልተቀረጠም።",
         sortBy: "በይፋ ይዘው ይዘው",
         mostRecent: "ቅርብ ጊዜ",
@@ -2398,6 +2647,7 @@ const TRANSLATIONS = {
         itemDeleted: "ተሰወረ።",
         progress: "እድገት",
         alwaysStartFrom: "ሁልጊዜ ይጀምሩ ከ",
+        resumedAt: "ከዚህ ቦታ ተቀጥሏል",
         locked: "🔒",
         percentWatched: "% ተመልከቱ",
         remaining: "ቀሪ",
@@ -2428,6 +2678,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Mafi ƙarancin dakika tsakanin ajiye",
         showFloatingButton: "Nuna maɓallin mai yin tashi",
         language: "Harshe",
+        alertStyle: "Salon sanarwa a sandar sake kunnawa",
+        alertIconText: "Alamar + Rubutu",
+        alertIconOnly: "Alama Kaɗai",
+        alertTextOnly: "Rubutu Kaɗai",
+        alertHidden: "An ɓoye",
         noSavedVideos: "Babu bidiyo da aka adana.",
         sortBy: "Tsara ta",
         mostRecent: "Mafi sabo",
@@ -2450,6 +2705,7 @@ const TRANSLATIONS = {
         itemDeleted: "an goge.",
         progress: "Ci gaba",
         alwaysStartFrom: "Kullum fara daga",
+        resumedAt: "An ci gaba daga",
         locked: "🔒",
         percentWatched: "% an kalla",
         remaining: "da saura",
@@ -2480,6 +2736,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "محفوظ کرنے کے درمیان کم از کم سیکنڈ",
         showFloatingButton: "تھرتھراتا بٹن دکھائیں",
         language: "زبان",
+        alertStyle: "پلے بیک بار میں الرٹ اسٹائل",
+        alertIconText: "آئیکن + متن",
+        alertIconOnly: "صرف آئیکن",
+        alertTextOnly: "صرف متن",
+        alertHidden: "چھپایا گیا",
         noSavedVideos: "کوئی محفوظ شدہ ویڈیوز نہیں۔",
         sortBy: "ترتیب دیں",
         mostRecent: "سب سے حالیہ",
@@ -2502,6 +2763,7 @@ const TRANSLATIONS = {
         itemDeleted: "حذف ہو گیا۔",
         progress: "پیش رفت",
         alwaysStartFrom: "ہمیشہ شروع کریں",
+        resumedAt: "سے دوبارہ شروع کیا گیا",
         locked: "🔒",
         percentWatched: "% دیکھا گیا",
         remaining: "باقی",
@@ -2532,6 +2794,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "సేవ్‌ల మధ్య కనీస సెకండ్లు",
         showFloatingButton: "ఫ్లోటింగ్ బటన్ చూపించు",
         language: "భాష",
+        alertStyle: "ప్లేబ్యాక్ బార్‌లో అలర్ట్ శైలి",
+        alertIconText: "చిహ్నం + టెక్స్ట్",
+        alertIconOnly: "కేవలం చిహ్నం",
+        alertTextOnly: "కేవలం టెక్స్ట్",
+        alertHidden: "దాచబడింది",
         noSavedVideos: "ఏ సేవ్ చేసిన వీడియోలు లేవు.",
         sortBy: "వర్గీకరించు",
         mostRecent: "తాజాగా",
@@ -2554,6 +2821,7 @@ const TRANSLATIONS = {
         itemDeleted: "తొలగించబడింది.",
         progress: "ప్రగతి",
         alwaysStartFrom: "ఎల్లప్పుడూ ప్రారంభించు",
+        resumedAt: "నుండి పునఃప్రారంభించబడింది",
         locked: "🔒",
         percentWatched: "% చూసారు",
         remaining: "మిగిలింది",
@@ -2584,6 +2852,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "जतन करण्यामध्ये किमान सेकंद",
         showFloatingButton: "फ्लोटिंग बटण दर्शवा",
         language: "भाषा",
+        alertStyle: "प्लेबॅक बारमधील सूचना शैली",
+        alertIconText: "आयकॉन + मजकूर",
+        alertIconOnly: "फक्त आयकॉन",
+        alertTextOnly: "फक्त मजकूर",
+        alertHidden: "लपवलेले",
         noSavedVideos: "कोणतेही जतन केलेले व्हिडिओ नाहीत.",
         sortBy: "क्रमवारी लावा",
         mostRecent: "सर्वात नवीन",
@@ -2606,6 +2879,7 @@ const TRANSLATIONS = {
         itemDeleted: "काढले.",
         progress: "प्रगती",
         alwaysStartFrom: "नेहमीपासून सुरू करा",
+        resumedAt: "पासून पुन्हा सुरू केले",
         locked: "🔒",
         percentWatched: "% पाहिले",
         remaining: "शेष",
@@ -2636,6 +2910,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Pinakamababang segundo sa pagitan ng pag-save",
         showFloatingButton: "Ipakita ang Floating Button",
         language: "Wika",
+        alertStyle: "Estilo ng alerto sa playback bar",
+        alertIconText: "Icon + Teksto",
+        alertIconOnly: "Icon Lamang",
+        alertTextOnly: "Teksto Lamang",
+        alertHidden: "Nakatago",
         noSavedVideos: "Walang na-save na video.",
         sortBy: "Ayusin ayon sa",
         mostRecent: "Pinakabago",
@@ -2658,6 +2937,7 @@ const TRANSLATIONS = {
         itemDeleted: "Natanggal.",
         progress: "Progreso",
         alwaysStartFrom: "Laging Magsimula Mula sa",
+        resumedAt: "Nagpatuloy Mula sa",
         locked: "🔒",
         percentWatched: "% Napanood",
         remaining: "Natitira",
@@ -2688,6 +2968,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "သိမ်းဆည်းမှုအကြား အနည်းဆုံး စက္ကန့်များ",
         showFloatingButton: "အကြွပ်ခလုတ်ပြပါ",
         language: "ဘာသာစကား",
+        alertStyle: "ပြန်လည်ဖွင့်ဘားတွင် သတိပေးပုံစံ",
+        alertIconText: "အိုင်ကွန် + စာသား",
+        alertIconOnly: "အိုင်ကွန်သာ",
+        alertTextOnly: "စာသားသာ",
+        alertHidden: "ဖျောက်ထားသည်",
         noSavedVideos: "သိမ်းဆည်းထားသော ဗီဒီယိုမရှိပါ။",
         sortBy: "အလိုက်စီပါ",
         mostRecent: "နောက်ဆုံး",
@@ -2710,6 +2995,7 @@ const TRANSLATIONS = {
         itemDeleted: "ဖျက်ပြီး။",
         progress: "တိုးတက်မှု",
         alwaysStartFrom: "အမြဲ စတင်ပါ",
+        resumedAt: "မှ ပြန်လည်စတင်ခဲ့သည်",
         locked: "🔒",
         percentWatched: "% ကြည့်ပြီး",
         remaining: "ကျန်ရှိသည်",
@@ -2740,6 +3026,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "儲存之間最少秒數：",
         showFloatingButton: "顯示浮動按鈕",
         language: "語言：",
+        alertStyle: "播放欄警示樣式",
+        alertIconText: "圖標 + 文字",
+        alertIconOnly: "只顯示圖標",
+        alertTextOnly: "只顯示文字",
+        alertHidden: "隱藏",
         noSavedVideos: "沒有已儲存的影片。",
         sortBy: "排序方式：",
         mostRecent: "最新",
@@ -2762,6 +3053,7 @@ const TRANSLATIONS = {
         itemDeleted: "已刪除。",
         progress: "進度：",
         alwaysStartFrom: "總是從以下開始：",
+        resumedAt: "從以下位置繼續播放：",
         locked: "🔒",
         percentWatched: "% 已觀看",
         remaining: "剩餘",
@@ -2792,6 +3084,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Segons mínims entre desades",
         showFloatingButton: "Mostra botó flotant",
         language: "Idioma",
+        alertStyle: "Estil d'alertes a la barra de reproducció",
+        alertIconText: "Icona + Text",
+        alertIconOnly: "Només Icona",
+        alertTextOnly: "Només Text",
+        alertHidden: "Ocult",
         noSavedVideos: "No hi ha vídeos desats.",
         sortBy: "Ordena per",
         mostRecent: "Més recent",
@@ -2814,6 +3111,7 @@ const TRANSLATIONS = {
         itemDeleted: "Eliminat.",
         progress: "Progrés",
         alwaysStartFrom: "Sempre començar des de",
+        resumedAt: "Reprèn des de",
         locked: "🔒",
         percentWatched: "% vist",
         remaining: "Restant",
@@ -2844,6 +3142,11 @@ const TRANSLATIONS = {
         minSecondsBetweenSaves: "Iminithi encane phakathi kokulondoloza",
         showFloatingButton: "Khombisa inkinobho eshukumayo",
         language: "Ulimi",
+        alertStyle: "Isitayela sezexwayiso kubha yokudlala",
+        alertIconText: "Isithonjana + Umbhalo",
+        alertIconOnly: "Isithonjana Kuphela",
+        alertTextOnly: "Umbhalo Kuphela",
+        alertHidden: "Fihliwe",
         noSavedVideos: "Alukho uvidiyo olugcinwe.",
         sortBy: "Hlela ngokwe",
         mostRecent: "Okwamuva",
@@ -2866,6 +3169,7 @@ const TRANSLATIONS = {
         itemDeleted: "Susiwe.",
         progress: "Inqubekela phambili",
         alwaysStartFrom: "Qala njalo ukusuka ku",
+        resumedAt: "Qhubeka kusuka ku",
         locked: "🔒",
         percentWatched: "% Kubukwe",
         remaining: "Okuqhubekayo",

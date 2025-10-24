@@ -1,7 +1,8 @@
 // ==UserScript==
 // @namespace    youtube-playback-plox
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
-// @version      0.0.2
+// @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
+// @version      0.0.3
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @name         YouTube Playback Plox
@@ -17,79 +18,79 @@
 // @description:fr  Enregistre et reprend automatiquement la progression de la lecture des vidéos sur YouTube sans avoir besoin de se connecter.
 
 // @name:de      YouTube Wiedergabe Plox
-// @description:de  Speichert und setzt den Wiedergabefortschritt von Videos auf YouTube automatisch fort, ohne dass eine Anmeldung erforderlich ist.
+// @description:de  Speichert und setzt den Fortschritt von YouTube-Videos automatisch fort, ohne dass eine Anmeldung erforderlich ist.
 
 // @name:it      YouTube Riproduzione Plox
-// @description:it  Salva e riprende automaticamente il progresso di riproduzione dei video su YouTube senza bisogno di effettuare l'accesso.
+// @description:it  Salva e riprende automaticamente la riproduzione dei video su YouTube senza bisogno di accedere.
 
 // @name:pt      YouTube Reprodução Plox
-// @description:pt  Salva e retoma automaticamente o progresso de reprodução de vídeos no YouTube sem necessidade de login.
+// @description:pt  Salva e retoma automaticamente o progresso da reprodução de vídeos no YouTube sem precisar fazer login.
 
 // @name:ru      YouTube Воспроизведение Plox
-// @description:ru  Автоматически сохраняет и возобновляет прогресс воспроизведения видео на YouTube без необходимости входа в систему.
+// @description:ru  Автоматически сохраняет и возобновляет прогресс воспроизведения видео на YouTube без входа в аккаунт.
 
-// @name:zh      YouTube 播放进度 Plox
-// @description:zh  自动保存并恢复YouTube视频的播放进度，无需登录。
+// @name:zh      YouTube 播放 Plox
+// @description:zh  自动保存并恢复 YouTube 视频的播放进度，无需登录。
 
-// @name:ja      YouTube 再生進捗 Plox
-// @description:ja  YouTubeでの動画再生の進行状況を自動的に保存および再開し、ログインの必要はありません。
+// @name:ja      YouTube 再生 Plox
+// @description:ja  YouTube の動画再生の進行状況を自動で保存・再開します。ログインは不要です。
 
-// @name:ko      YouTube 재생 진행 Plox
-// @description:ko  YouTube에서 동영상 재생 진행 상황을 자동으로 저장하고 로그인 없이 재개합니다。
+// @name:ko      YouTube 재생 Plox
+// @description:ko  YouTube 동영상 재생 진행 상황을 자동으로 저장하고 이어서 재생합니다. 로그인 불필요.
 
-// @name:ar      YouTube تقدم التشغيل Plox
-// @description:ar  يحفظ ويستأنف تلقائيًا تقدم تشغيل الفيديو على YouTube دون الحاجة إلى تسجيل الدخول.
+// @name:ar      يوتيوب بلايباك Plox
+// @description:ar  يقوم بحفظ واستئناف تقدم تشغيل الفيديوهات على يوتيوب تلقائيًا دون الحاجة لتسجيل الدخول.
 
 // @name:hi      YouTube प्लेबैक Plox
-// @description:hi  YouTube पर वीडियो प्लेबैक प्रगति को स्वचालित रूप से सहेजता है और पुनः आरंभ करता है बिना लॉग इन किए।
+// @description:hi  YouTube पर वीडियो प्लेबैक की प्रगति को स्वचालित रूप से सहेजें और पुनः प्रारंभ करें, लॉगिन की आवश्यकता नहीं। 
 
 // @name:bn      YouTube প্লেব্যাক Plox
-// @description:bn  YouTube-এ ভিডিও প্লেব্যাক অগ্রগতি স্বয়ংক্রিয়ভাবে সংরক্ষণ এবং পুনরায় শুরু করে লগইন ছাড়াই।
+// @description:bn  YouTube ভিডিও প্লেব্যাকের অগ্রগতি স্বয়ংক্রিয়ভাবে সংরক্ষণ এবং পুনরায় শুরু করুন, লগইনের প্রয়োজন নেই। 
 
 // @name:vi      YouTube Phát lại Plox
 // @description:vi  Tự động lưu và tiếp tục tiến trình phát video trên YouTube mà không cần đăng nhập.
 
 // @name:id      YouTube Pemutaran Plox
-// @description:id  Secara otomatis menyimpan dan melanjutkan kemajuan pemutaran video di YouTube tanpa perlu masuk.
+// @description:id  Menyimpan dan melanjutkan kemajuan pemutaran video di YouTube secara otomatis tanpa perlu login.
 
 // @name:tr      YouTube Oynatma Plox
-// @description:tr  YouTube'da video oynatma ilerlemesini otomatik olarak kaydeder ve oturum açmadan devam ettirir.
+// @description:tr  YouTube'daki video oynatma ilerlemesini otomatik olarak kaydeder ve devam ettirir, giriş yapmaya gerek yok.
 
 // @name:pl      YouTube Odtwarzanie Plox
-// @description:pl  Automatycznie zapisuje i wznawia postęp odtwarzania wideo na YouTube bez konieczności logowania.
+// @description:pl  Automatycznie zapisuje i wznawia postęp odtwarzania wideo na YouTube bez logowania.
 
 // @name:nl      YouTube Afspelen Plox
-// @description:nl  Slaat automatisch de voortgang van videoweergave op YouTube op en hervat deze zonder in te loggen.
+// @description:nl  Slaat automatisch de voortgang van video’s op YouTube op en hervat deze zonder in te loggen.
 
 // @name:sv      YouTube Uppspelning Plox
-// @description:sv  Sparar och återupptar automatiskt videouppspelningsframsteg på YouTube utan att behöva logga in.
+// @description:sv  Sparar och återupptar automatiskt videoframsteg på YouTube utan att behöva logga in.
 
 // @name:da      YouTube Afspilning Plox
-// @description:da  Gemmer og genoptager automatisk videofremskridt på YouTube uden at skulle logge ind.
+// @description:da  Gemmer og genoptager automatisk videoafspilning på YouTube uden at logge ind.
 
 // @name:no      YouTube Avspilling Plox
-// @description:no  Lagrer og gjenopptar automatisk videofremdrift på YouTube uten å måtte logge inn.
+// @description:no  Lagrer og gjenopptar automatisk videofremdrift på YouTube uten å logge inn.
 
 // @name:fi      YouTube Toisto Plox
-// @description:fi  Tallentaa ja jatkaa automaattisesti videon toiston etenemistä YouTubessa ilman kirjautumista.
+// @description:fi  Tallentaa ja jatkaa automaattisesti YouTube-videoiden toistopistettä ilman kirjautumista.
 
 // @name:hu      YouTube Lejátszás Plox
-// @description:hu  Automatikusan menti és folytatja a videólejátszás előrehaladását a YouTube-on bejelentkezés nélkül.
+// @description:hu  Automatikusan menti és folytatja a YouTube-videók lejátszási előrehaladását bejelentkezés nélkül.
 
 // @name:cs      YouTube Přehrávání Plox
-// @description:cs  Automaticky ukládá a obnovuje průběh přehrávání videí na YouTube bez nutnosti přihlášení.
+// @description:cs  Automaticky ukládá a obnovuje postup přehrávání videí na YouTube bez nutnosti přihlášení.
 
 // @name:sk      YouTube Prehrávanie Plox
-// @description:sk  Automaticky ukladá a obnovuje priebeh prehrávania videí na YouTube bez nutnosti prihlásenia.
+// @description:sk  Automaticky ukladá a obnovuje priebeh prehrávania videí na YouTube bez potreby prihlásenia.
 
 // @name:ro      YouTube Redare Plox
 // @description:ro  Salvează și reia automat progresul redării videoclipurilor pe YouTube fără a fi nevoie să te conectezi.
 
 // @name:bg      YouTube Възпроизвеждане Plox
-// @description:bg  Автоматично запазва и възобновява напредъка на възпроизвеждането на видеоклипове в YouTube без нужда от вход.
+// @description:bg  Автоматично записва и възобновява прогреса на видеото в YouTube без нужда от вход.
 
 // @name:hr      YouTube Reprodukcija Plox
-// @description:hr  Automatski sprema i nastavlja napredak reprodukcije videozapisa na YouTubeu bez potrebe za prijavom.
+// @description:hr  Automatski sprema i nastavlja napredak reprodukcije videozapisa na YouTubeu bez prijave.
 
 // @name:sl      YouTube Predvajanje Plox
 // @description:sl  Samodejno shrani in nadaljuje napredek predvajanja videoposnetkov na YouTubu brez prijave.
@@ -97,35 +98,65 @@
 // @name:sr      YouTube Репродукција Plox
 // @description:sr  Аутоматски чува и наставља напредак репродукције видео записа на YouTube-у без пријављивања.
 
-// @name:lt      YouTube Atkūrimas Plox
-// @description:lt  Automatiškai išsaugo ir tęsia „YouTube“ vaizdo įrašų atkūrimo eigą be prisijungimo.
+// @name:lt      YouTube Grotuvas Plox
+// @description:lt  Automatiškai išsaugo ir atnaujina YouTube vaizdo įrašų atkūrimo pažangą be prisijungimo.
 
 // @name:lv      YouTube Atskaņošana Plox
-// @description:lv  Automātiski saglabā un turpina YouTube videoklipu atskaņošanas progresu bez pierakstīšanās.
+// @description:lv  Automātiski saglabā un atsāk video atskaņošanas progresu YouTube bez pieteikšanās.
 
 // @name:uk      YouTube Відтворення Plox
-// @description:uk  Автоматично зберігає та відновлює прогрес відтворення відео на YouTube без необхідності входу в систему.
+// @description:uk  Автоматично зберігає та відновлює прогрес відтворення відео на YouTube без входу в акаунт.
 
 // @name:el      YouTube Αναπαραγωγή Plox
-// @description:el  Αποθηκεύει και συνεχίζει αυτόματα την πρόοδο αναπαραγωγής βίντεο στο YouTube χωρίς να απαιτείται σύνδεση.
+// @description:el  Αποθηκεύει και συνεχίζει αυτόματα την πρόοδο αναπαραγωγής βίντεο στο YouTube χωρίς να χρειάζεται σύνδεση.
 
-// @name:th      YouTube เล่นซ้ำ Plox
-// @description:th  บันทึกและดำเนินการต่อความคืบหน้าในการเล่นวิดีโอบน YouTube โดยอัตโนมัติ โดยไม่ต้องเข้าสู่ระบบ.
+// @name:th      YouTube เล่นต่อ Plox
+// @description:th  บันทึกและเล่นต่อความคืบหน้าของวิดีโอบน YouTube โดยอัตโนมัติ โดยไม่ต้องเข้าสู่ระบบ.
 
-// @name:ms      YouTube Pemutaran Plox
-// @description:ms  Menyimpan dan meneruskan secara automatik kemajuan main balik video di YouTube tanpa perlu log masuk.
+// @name:ms      YouTube Main Semula Plox
+// @description:ms  Menyimpan dan menyambung semula kemajuan main balik video di YouTube secara automatik tanpa perlu log masuk.
 
-// @name:sw      YouTube Uchezaji Plox
-// @description:sw  Huhifadhi na kuendelea kiotomatiki maendeleo ya uchezaji wa video kwenye YouTube bila kuhitaji kuingia akaunti.
+// @name:sw      YouTube Uchezesha Plox
+// @description:sw  Hifadhi na endelea kwa kiotomatiki maendeleo ya uchezaji wa video kwenye YouTube bila kuingia.
 
-// @name:fa      YouTube پخش Plox
-// @description:fa  به‌ طور خودکار پیشرفت پخش ویدیوها در YouTube را ذخیره و ادامه می‌دهد، بدون نیاز به ورود به حساب کاربری.
+// @name:fa      پخش یوتیوب Plox
+// @description:fa  پیشرفت پخش ویدیوها در یوتیوب را به صورت خودکار ذخیره و ادامه می‌دهد بدون نیاز به ورود.
 
-// @name:he      YouTube הפעלה Plox
-// @description:he  שומר ומחדש אוטומטית את התקדמות ההפעלה של סרטונים ב-YouTube ללא צורך בהתחברות.
+// @name:he      YouTube השמעה Plox
+// @description:he  שומר ומחדש אוטומטית את התקדמות הניגון של סרטונים ביוטיוב ללא צורך בהתחברות.
 
-// @name:ta      YouTube பிளேபேக் Plox
-// @description:ta  YouTube-இல் வீடியோக்களின் பிளேபேக் முன்னேற்றத்தை தானாக சேமித்து, உள்நுழையாமல் தொடர்கிறது.
+// @name:ta      YouTube பிளேபாக் Plox
+// @description:ta  YouTube வீடியோக்களின் பிளேபாக் முன்னேற்றத்தை தானாகச் சேமித்து மீண்டும் தொடங்கும், உள்நுழைவு தேவையில்லை.
+
+// @name:am      የYouTube ተጫዋች Plox
+// @description:am  በYouTube ላይ የቪዲዮ መጫወቻ እድገትን በራሱ ያስቀምጣል እና ያቀጥላል በመግባት ያስፈልጋል።
+
+// @name:ha      YouTube Playback Plox
+// @description:ha  Ajiye kuma ci gaba da ci gaban kallon bidiyo a YouTube ta atomatik ba tare da shiga ba.
+
+// @name:ur      YouTube پلے بیک Plox
+// @description:ur  YouTube پر ویڈیوز کی پلے بیک کی پیش رفت کو خودکار طریقے سے محفوظ اور دوبارہ شروع کریں، لاگ ان کی ضرورت نہیں۔ 
+
+// @name:te      YouTube ప్లేబ్యాక్ Plox
+// @description:te  YouTube వీడియో ప్లేబ్యాక్ పురోగతిని ఆటోమేటిక్‌గా సేవ్ చేసి, తిరిగి ప్రారంభిస్తుంది, లాగిన్ అవసరం లేదు.
+
+// @name:mr      YouTube प्लेबॅक Plox
+// @description:mr  YouTube व्हिडिओ प्लेबॅक प्रगती आपोआप जतन करते आणि पुन्हा सुरू करते, लॉगिन आवश्यक नाही.
+
+// @name:tl      YouTube Playback Plox
+// @description:tl  Awtomatikong ini-save at ipinagpapatuloy ang progreso ng video playback sa YouTube nang hindi nagla-log in.
+
+// @name:my      YouTube ဖလေ့ဘက် Plox
+// @description:my  YouTube ဗီဒီယိုဖလေ့ဘက် တိုးတက်မှုကို အလိုအလျောက် သိမ်းဆည်းပြီး ထပ်မံစတင်နိုင်သည်။ ဝင်ရောက်ရန် မလိုအပ်ပါ။
+
+// @name:yue      YouTube 播放 Plox
+// @description:yue  自動儲存及繼續 YouTube 影片播放進度，無需登入。
+
+// @name:ca      YouTube Reproducció Plox
+// @description:ca  Desa i reprèn automàticament el progrés de reproducció de vídeos a YouTube sense necessitat d'iniciar sessió.
+
+// @name:zu      YouTube Playback Plox
+// @description:zu  Igcina futhi uqhubeke ngokuzenzakalelayo nokuqhubeka kwevidiyo ku-YouTube ngaphandle kokungena.
 
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
 // @grant        GM_getValue
@@ -140,6 +171,321 @@
 
 (() => {
     'use strict';
+
+    // ────────────────
+    // 🌐 Carga de Traducciones
+    // MARK: 🌐 Carga de Traducciones
+    // ────────────────
+
+    // URL del archivo de traducciones
+    const TRANSLATIONS_URL = 'https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/translations.js';
+    const TRANSLATIONS_URL_BACKUP = 'https://cdn.jsdelivr.net/gh/Alplox/Youtube-Playback-Plox@main/translations.js';
+
+    // Variables globales para las traducciones
+    let TRANSLATIONS = {};
+    let LANGUAGE_FLAGS = {};
+
+    // Traducciones básicas de fallback en caso de error
+    const FALLBACK_TRANSLATIONS = {
+        es: {
+            // UI General
+            settings: "Configuración",
+            savedVideos: "Ver videos guardados",
+            close: "Cerrar",
+            save: "Guardar",
+            cancel: "Cancelar",
+            delete: "Eliminar",
+            undo: "Deshacer",
+
+            // Configuración
+            enableSavingFor: "Activar guardado para",
+            regularVideos: "Videos regulares",
+            shorts: "Shorts",
+            liveStreams: "Directos (Livestreams)",
+            showNotifications: "Mostrar notificaciones de guardado",
+            minSecondsBetweenSaves: "Intervalo segundos mínimos entre guardados",
+            showFloatingButton: "Mostrar botón flotante",
+            language: "Idioma",
+            alertStyle: "Estilo de alertas en la barra de reproducción",
+            alertIconText: "Icono + Texto",
+            alertIconOnly: "Solo Icono",
+            alertTextOnly: "Solo Texto",
+            alertHidden: "Oculto",
+
+            // Lista de videos
+            noSavedVideos: "No hay videos guardados.",
+            sortBy: "Ordenar por",
+            mostRecent: "Más recientes",
+            oldest: "Más antiguos",
+            titleAZ: "Título (A-Z)",
+            filterByType: "Filtrar por tipo",
+            all: "Todos",
+            videos: "Videos",
+            playlist: "Playlist",
+            searchByTitleOrAuthor: "Buscar por título o autor...",
+            export: "Exportar",
+            import: "Importar",
+
+            // Notificaciones
+            progressSaved: "Progreso guardado",
+            dataExported: "Datos exportados",
+            itemsImported: "Importados {count} elementos",
+            importError: "Error al importar. Asegúrate de que el archivo sea válido.",
+            configurationSaved: "Configuración guardada",
+            startTimeSet: "Tiempo de inicio establecido en",
+            fixedTimeRemoved: "Tiempo fijo eliminado.",
+            itemDeleted: "eliminado.",
+
+            // Video Entry
+            progress: "Progreso",
+            alwaysStartFrom: "Siempre desde",
+            resumedAt: "Reanudado en",
+            locked: "🔒",
+            percentWatched: "% visto",
+            remaining: "restantes",
+            setStartTime: "Establecer tiempo de inicio",
+            changeOrRemoveStartTime: "Siempre empezar en {time} (Click para cambiar o eliminar)",
+            enterStartTime: "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23)",
+            enterStartTimeOrEmpty: "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23) o deja vacío para eliminar",
+            deleteEntry: "Eliminar entrada",
+
+            // Otros
+            youtubePlaybackPlox: "YouTube Playback Plox",
+            playlistPrefix: "Playlist",
+            unknown: "Desconocido",
+            notAvailable: "N/A"
+        },
+
+        en: {
+            // UI General
+            settings: "Settings",
+            savedVideos: "View saved videos",
+            close: "Close",
+            save: "Save",
+            cancel: "Cancel",
+            delete: "Delete",
+            undo: "Undo",
+
+            // Config
+            enableSavingFor: "Enable saving for",
+            regularVideos: "Regular videos",
+            shorts: "Shorts",
+            liveStreams: "Live streams",
+            showNotifications: "Show save notifications",
+            minSecondsBetweenSaves: "Minimum seconds between saves",
+            showFloatingButton: "Show floating button",
+            language: "Language",
+            alertStyle: "Alert style in playback bar",
+            alertIconText: "Icon + Text",
+            alertIconOnly: "Icon Only",
+            alertTextOnly: "Text Only",
+            alertHidden: "Hidden",
+
+            // Video list
+            noSavedVideos: "No saved videos.",
+            sortBy: "Sort by",
+            mostRecent: "Most recent",
+            oldest: "Oldest",
+            titleAZ: "Title (A-Z)",
+            filterByType: "Filter by type",
+            all: "All",
+            videos: "Videos",
+            playlist: "Playlist",
+            searchByTitleOrAuthor: "Search by title or author...",
+            export: "Export",
+            import: "Import",
+
+            // Notifications
+            progressSaved: "Progress saved",
+            dataExported: "Data exported",
+            itemsImported: "Imported {count} items",
+            importError: "Error importing. Make sure the file is valid.",
+            configurationSaved: "Configuration saved",
+            startTimeSet: "Start time set to",
+            fixedTimeRemoved: "Fixed time removed.",
+            itemDeleted: "deleted.",
+
+            // Video Entry
+            progress: "Progress",
+            alwaysStartFrom: "Always start from",
+            resumedAt: "Resumed at",
+            locked: "🔒",
+            percentWatched: "% watched",
+            remaining: "remaining",
+            setStartTime: "Set start time",
+            changeOrRemoveStartTime: "Always start from {time} (Click to change or remove)",
+            enterStartTime: "Enter the start time you always want to use (example: 1:23)",
+            enterStartTimeOrEmpty: "Enter the start time you always want to use (example: 1:23) or leave empty to remove",
+            deleteEntry: "Delete entry",
+
+            // Other
+            youtubePlaybackPlox: "YouTube Playback Plox",
+            playlistPrefix: "Playlist",
+            unknown: "Unknown",
+            notAvailable: "N/A"
+        },
+
+        fr: {
+            // UI General
+            settings: "Paramètres",
+            savedVideos: "Voir les vidéos enregistrées",
+            close: "Fermer",
+            save: "Enregistrer",
+            cancel: "Annuler",
+            delete: "Supprimer",
+            undo: "Annuler",
+
+            // Config
+            enableSavingFor: "Activer la sauvegarde pour",
+            regularVideos: "Vidéos régulières",
+            shorts: "Shorts",
+            liveStreams: "Diffusions en direct",
+            showNotifications: "Afficher les notifications de sauvegarde",
+            minSecondsBetweenSaves: "Secondes minimales entre les sauvegardes",
+            showFloatingButton: "Afficher le bouton flottant",
+            language: "Langue",
+            alertStyle: "Style d'alerte dans la barre de lecture",
+            alertIconText: "Icône + Texte",
+            alertIconOnly: "Icône uniquement",
+            alertTextOnly: "Texte uniquement",
+            alertHidden: "Masqué",
+
+            // Video list
+            noSavedVideos: "Aucune vidéo enregistrée.",
+            sortBy: "Trier par",
+            mostRecent: "Plus récent",
+            oldest: "Plus ancien",
+            titleAZ: "Titre (A-Z)",
+            filterByType: "Filtrer par type",
+            all: "Tous",
+            videos: "Vidéos",
+            playlist: "Playlist",
+            searchByTitleOrAuthor: "Rechercher par titre ou auteur...",
+            export: "Exporter",
+            import: "Importer",
+
+            // Notifications
+            progressSaved: "Progrès enregistré",
+            dataExported: "Données exportées",
+            itemsImported: "{count} éléments importés",
+            importError: "Erreur lors de l'importation. Assurez-vous que le fichier est valide.",
+            configurationSaved: "Configuration enregistrée",
+            startTimeSet: "Heure de début définie à",
+            fixedTimeRemoved: "Heure fixe supprimée.",
+            itemDeleted: "supprimé.",
+
+            // Video Entry
+            progress: "Progrès",
+            alwaysStartFrom: "Toujours commencer à",
+            resumedAt: "Repris à",
+            locked: "🔒",
+            percentWatched: "% regardé",
+            remaining: "restant",
+            setStartTime: "Définir l'heure de début",
+            changeOrRemoveStartTime: "Toujours commencer à {time} (Cliquez pour changer ou supprimer)",
+            enterStartTime: "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23)",
+            enterStartTimeOrEmpty: "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23) ou laissez vide pour supprimer",
+            deleteEntry: "Supprimer l'entrée",
+
+            // Other
+            youtubePlaybackPlox: "YouTube Playback Plox",
+            playlistPrefix: "Playlist",
+            unknown: "Inconnu",
+            notAvailable: "N/A"
+        }
+    };
+
+    const FALLBACK_FLAGS = {
+        es: '🇪🇸', // Español
+        en: '🇬🇧', // Inglés (Reino Unido)
+        fr: '🇫🇷', // Francés
+    };
+
+    // Función para cargar las traducciones desde el archivo externo
+    async function loadTranslations() {
+        return new Promise((resolve) => {
+            // Función para intentar cargar desde una URL específica
+            function tryLoadFromUrl(url, isSecondAttempt = false) {
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url: url,
+                    timeout: 5000, // Añadir timeout de 5 segundos
+                    onload: function (response) {
+                        try {
+                            // Crear una función para ejecutar el código en el contexto global
+                            const executeScript = new Function(`
+                        ${response.responseText}
+                        // Devolver las variables como un objeto
+                        return {
+                            LANGUAGE_FLAGS: typeof LANGUAGE_FLAGS !== 'undefined' ? LANGUAGE_FLAGS : {},
+                            TRANSLATIONS: typeof TRANSLATIONS !== 'undefined' ? TRANSLATIONS : {}
+                        };
+                    `);
+
+                            // Ejecutar el script y obtener las variables
+                            const result = executeScript();
+
+                            // Verificar si las variables se cargaron correctamente
+                            if (result.LANGUAGE_FLAGS && Object.keys(result.LANGUAGE_FLAGS).length > 0 &&
+                                result.TRANSLATIONS && Object.keys(result.TRANSLATIONS).length > 0) {
+                                console.log('Traducciones externas cargadas correctamente desde: ' + url);
+                                resolve(result);
+                            } else {
+                                if (!isSecondAttempt) {
+                                    console.warn('No se pudieron cargar las traducciones desde el primer enlace, intentando con el segundo...');
+                                    tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
+                                } else {
+                                    console.warn('No se pudieron cargar las traducciones desde ningún enlace, usando fallback');
+                                    resolve({
+                                        LANGUAGE_FLAGS: FALLBACK_FLAGS,
+                                        TRANSLATIONS: FALLBACK_TRANSLATIONS
+                                    });
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error al procesar el archivo de traducciones desde ' + url + ':', error);
+                            if (!isSecondAttempt) {
+                                console.warn('Intentando con el segundo enlace...');
+                                tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
+                            } else {
+                                resolve({
+                                    LANGUAGE_FLAGS: FALLBACK_FLAGS,
+                                    TRANSLATIONS: FALLBACK_TRANSLATIONS
+                                });
+                            }
+                        }
+                    },
+                    onerror: function (error) {
+                        console.error('Error al cargar el archivo de traducciones desde ' + url + ':', error);
+                        if (!isSecondAttempt) {
+                            console.warn('Intentando con el segundo enlace...');
+                            tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
+                        } else {
+                            resolve({
+                                LANGUAGE_FLAGS: FALLBACK_FLAGS,
+                                TRANSLATIONS: FALLBACK_TRANSLATIONS
+                            });
+                        }
+                    },
+                    ontimeout: function () {
+                        console.error('Timeout al cargar el archivo de traducciones desde ' + url);
+                        if (!isSecondAttempt) {
+                            console.warn('Intentando con el segundo enlace...');
+                            tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
+                        } else {
+                            resolve({
+                                LANGUAGE_FLAGS: FALLBACK_FLAGS,
+                                TRANSLATIONS: FALLBACK_TRANSLATIONS
+                            });
+                        }
+                    }
+                });
+            }
+
+            // Iniciar el proceso con el primer enlace
+            tryLoadFromUrl(TRANSLATIONS_URL);
+        });
+    }
 
     // ────────────────
     // 📦 Config
@@ -174,6 +520,8 @@
             saveRegularVideos: true, // Por defecto, guardar videos regulares
             saveShorts: false, // Por defecto, no guardar Shorts
             saveLiveStreams: false, // Por defecto, no guardar directos
+            language: 'es', // Idioma predeterminado
+            alertStyle: 'iconText', // Estilo de alerta predeterminado: iconText, iconOnly, textOnly, hidden
         },
 
         /** Clave para guardar filtros del usuario en GM_* */
@@ -186,6 +534,74 @@
             searchQuery: ""
         }
     };
+
+    // ────────────────
+    // 🌐 Funciones de traducción
+    // MARK: 🌐 Funciones de traducción
+    // ────────────────
+
+    let currentLanguage = 'es'; // Idioma predeterminado
+
+    // Función para obtener el texto traducido
+    function t(key, params = {}) {
+        if (!TRANSLATIONS[currentLanguage] || !TRANSLATIONS[currentLanguage][key]) {
+            // Si no hay traducción, intentar con inglés
+            if (TRANSLATIONS.en && TRANSLATIONS.en[key]) {
+                return replaceParams(TRANSLATIONS.en[key], params);
+            }
+            // Si no hay ni en inglés, devolver la clave
+            return key;
+        }
+        return replaceParams(TRANSLATIONS[currentLanguage][key], params);
+    }
+
+    // Función para reemplazar parámetros en las traducciones
+    function replaceParams(text, params) {
+        if (!text || typeof text !== 'string') return text;
+        return text.replace(/{(\w+)}/g, (match, param) => {
+            return params[param] !== undefined ? params[param] : match;
+        });
+    }
+
+    // Función para cambiar el idioma
+    async function setLanguage(lang) {
+        if (!TRANSLATIONS[lang]) {
+            console.warn(`Language '${lang}' not supported`);
+            return false;
+        }
+
+        currentLanguage = lang;
+
+        // Guardar preferencia de idioma
+        const settings = await Settings.get();
+        settings.language = lang;
+        await Settings.set(settings);
+
+        // Actualizar textos en la interfaz si es necesario
+        updateUITexts();
+
+        return true;
+    }
+
+    // Función para actualizar textos en la interfaz
+    function updateUITexts() {
+        // Esta función se implementará más adelante para actualizar dinámicamente los textos
+        // cuando el usuario cambie el idioma
+    }
+
+    // Función para detectar el idioma del navegador
+    function detectBrowserLanguage() {
+        const browserLang = navigator.language || navigator.userLanguage;
+        const langCode = browserLang.split('-')[0]; // Obtener solo el código de idioma principal
+
+        // Verificar si el idioma está soportado
+        if (TRANSLATIONS[langCode]) {
+            return langCode;
+        }
+
+        // Si no, devolver el idioma predeterminado
+        return CONFIG.defaultSettings.language;
+    }
 
     // ────────────────
     // 🎨 Styles
@@ -585,6 +1001,21 @@
   display: flex;
   gap: 10px;
 }
+
+/* =========================
+   Selector de Idioma con Banderas
+========================= */
+
+.ypp-language-selector {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ypp-language-flag {
+  font-size: 1.2em;
+  margin-right: 5px;
+}
 `;
         document.head.appendChild(style);
     }
@@ -812,7 +1243,7 @@
         const closeBtn = createElement('button', {
             className: 'ypp-btn',
             text: '✖',
-            atribute: { 'aria-label': 'Cerrar', title: 'Cerrar', type: 'button' },
+            atribute: { 'aria-label': t('close'), title: t('close'), type: 'button' },
             onClickEvent: closeModal
         });
         header.appendChild(titleEl);
@@ -831,11 +1262,30 @@
     let cachedSettings = null;
     async function handleNotification(timestamp) {
         if (!cachedSettings) cachedSettings = await Settings.get();
-        if (!cachedSettings.showNotifications) return;
+        if (!cachedSettings.showNotifications || cachedSettings.alertStyle === 'hidden') return;
+
         const now = Date.now();
         if (now - lastNotifyTimestamp < cachedSettings.minSecondsBetweenSaves * 1000) return;
         lastNotifyTimestamp = now;
-        showToast(`💾 Progreso guardado: ${formatTime(timestamp)}`, 2500);
+
+        const timeStr = formatTime(timestamp);
+        const progressText = t('progressSaved');
+        let message = '';
+
+        switch (cachedSettings.alertStyle) {
+            case 'iconOnly':
+                message = `💾 ${timeStr}`;
+                break;
+            case 'textOnly':
+                message = `${progressText}: ${timeStr}`;
+                break;
+            case 'iconText':
+            default: // Default to iconText
+                message = `💾 ${progressText}: ${timeStr}`;
+                break;
+        }
+
+        showToast(message, 2500);
     }
 
     // ────────────────
@@ -902,14 +1352,14 @@
     function getVideoInfo(player, vid) {
         const vd = player.getVideoData() || {};
         const title = vd.title || vid;
-        const author = vd.author || 'Desconocido';
+        const author = vd.author || t('unknown');
         const duration = player.getDuration?.() || 0;
         let thumb = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
         if (vd.thumbnail_url && typeof vd.thumbnail_url === 'object' && vd.thumbnail_url.url) {
             thumb = vd.thumbnail_url.url;
         }
         const viewsEl = document.querySelector('.view-count');
-        let views = 'N/A';
+        let views = t('notAvailable');
         if (viewsEl) {
             views = viewsEl.textContent.trim();
         }
@@ -930,8 +1380,6 @@
         if (hasFixedTime) {
             return; // No guardar progreso ni notificar
         }
-
-
 
         const finishThreshold = Math.min(duration * 0.01, CONFIG.staticFinishSec);
         const isFinished = duration - currentTime < finishThreshold;
@@ -1097,9 +1545,34 @@
         });
 
         // Mostrar mensaje persistente en la barra de tiempo
-        if (timeDisplay) {
+        if (timeDisplay && cachedSettings.alertStyle !== 'hidden') {
             isPlayerSeeking = true; // Activarar flag
-            const message = isForced ? `⏱️ Iniciando en tiempo fijo: ${formatTime(time)}` : `⏯ Retomado en ${formatTime(time)}`;
+
+            const timeStr = formatTime(time);
+            let icon, text;
+
+            if (isForced) {
+                icon = '⏱️';
+                text = `${t('alwaysStartFrom')}: ${timeStr}`;
+            } else {
+                icon = '⏯';
+                text = `${t('resumedAt')}: ${timeStr}`;
+            }
+
+            let message = '';
+            switch (cachedSettings.alertStyle) {
+                case 'iconOnly':
+                    message = `${icon} ${timeStr}`;
+                    break;
+                case 'textOnly':
+                    message = text;
+                    break;
+                case 'iconText':
+                default:
+                    message = `${icon} ${text}`;
+                    break;
+            }
+
             timeDisplay.textContent = message;
             lastRenderedText = message;
         }
@@ -1111,12 +1584,12 @@
     // ────────────────
     function createSortSelector(currentValue, onChange) {
         const wrapper = document.createElement('div');
-        const label = createElement('label', { className: 'ypp-label', text: 'Ordenar por:', atribute: { for: 'sort-selector' } });
+        const label = createElement('label', { className: 'ypp-label', text: t('sortBy') + ':', atribute: { for: 'sort-selector' } });
         const select = createElement('select', {
             className: 'ypp-input', id: 'sort-selector', html: `
-        <option value="recent" ${currentValue === 'recent' ? 'selected' : ''}>📅 Más recientes</option>
-        <option value="oldest" ${currentValue === 'oldest' ? 'selected' : ''}>📆 Más antiguos</option>
-        <option value="title" ${currentValue === 'title' ? 'selected' : ''}>🔤 Título (A-Z)</option>`
+        <option value="recent" ${currentValue === 'recent' ? 'selected' : ''}>📅 ${t('mostRecent')}</option>
+        <option value="oldest" ${currentValue === 'oldest' ? 'selected' : ''}>📆 ${t('oldest')}</option>
+        <option value="title" ${currentValue === 'title' ? 'selected' : ''}>🔤 ${t('titleAZ')}</option>`
         });
         select.onchange = () => onChange(select.value);
         label.appendChild(select);
@@ -1125,14 +1598,14 @@
     }
     function createFilterSelector(currentValue, onChange) {
         const wrapper = document.createElement('div');
-        const label = createElement('label', { className: 'ypp-label', text: 'Filtrar por tipo:', atribute: { for: 'filter-selector' } });
+        const label = createElement('label', { className: 'ypp-label', text: t('filterByType') + ':', atribute: { for: 'filter-selector' } });
         const select = createElement('select', {
             className: 'ypp-input', id: 'filter-selector', html: `
-        <option value="all" ${currentValue === 'all' ? 'selected' : ''}>🔎 Todos</option>
-        <option value="regular" ${currentValue === 'regular' ? 'selected' : ''}>▶️ Videos</option>
-        <option value="short" ${currentValue === 'short' ? 'selected' : ''}>📱 Shorts</option>
-        <option value="live" ${currentValue === 'live' ? 'selected' : ''}>🔴 Directos</option>
-        <option value="playlist" ${currentValue === 'playlist' ? 'selected' : ''}>📁 Playlists</option>`
+        <option value="all" ${currentValue === 'all' ? 'selected' : ''}>🔎 ${t('all')}</option>
+        <option value="regular" ${currentValue === 'regular' ? 'selected' : ''}>▶️ ${t('videos')}</option>
+        <option value="short" ${currentValue === 'short' ? 'selected' : ''}>📱 ${t('shorts')}</option>
+        <option value="live" ${currentValue === 'live' ? 'selected' : ''}>🔴 ${t('liveStreams')}</option>
+        <option value="playlist" ${currentValue === 'playlist' ? 'selected' : ''}>📁 ${t('playlist')}</option>`
         });
         select.onchange = () => onChange(select.value);
         label.appendChild(select);
@@ -1143,7 +1616,7 @@
         const wrapper = createElement('div');
         const input = createElement('input', { className: 'ypp-input', id: 'search-input' });
         input.type = 'text';
-        input.placeholder = '🔍 Buscar por título o autor...';
+        input.placeholder = '🔍 ' + t('searchByTitleOrAuthor');
         input.value = currentValue;
         input.addEventListener('input', () => onChange(input.value.trim()));
         wrapper.appendChild(input);
@@ -1180,7 +1653,7 @@
         const keys = Storage.keys().filter(k => !k.startsWith('userSettings'));
         listContainer.innerHTML = '';
         if (keys.length === 0) {
-            const p = createElement('p', { className: 'ypp-emptyMsg', text: 'No hay videos guardados.' });
+            const p = createElement('p', { className: 'ypp-emptyMsg', text: t('noSavedVideos') });
             listContainer.appendChild(p);
             return;
         }
@@ -1241,7 +1714,7 @@
                 if (item.playlistKey !== lastRenderedPlaylistKey) {
                     const h3 = createElement('a', {
                         className: 'ypp-playlistTitle',
-                        text: `📁 Playlist: ${item.playlistTitle}`,
+                        text: `📁 ${t('playlistPrefix')}: ${item.playlistTitle}`,
                         atribute: {
                             href: `https://www.youtube.com/playlist?list=${item.playlistKey}`,
                             target: '_blank',
@@ -1273,7 +1746,7 @@
         const settings = await Settings.get();
         if (!settings.showFloatingButtons) return;
         const wrapper = createElement('div', { className: 'ypp-floatingBtnContainer' });
-        const btnConfig = createElement('div', { className: 'ypp-btn', text: '⚙️ YT Playback Plox', onClickEvent: showSettingsUI });
+        const btnConfig = createElement('div', { className: 'ypp-btn', text: '⚙️ ' + t('youtubePlaybackPlox'), onClickEvent: showSettingsUI });
         wrapper.appendChild(btnConfig);
         document.body.appendChild(wrapper);
         const updateVisibility = () => {
@@ -1306,11 +1779,11 @@
             }
             listContainer = createElement('div', { id: 'video-list-container' });
             const header = createElement('div', { className: 'ypp-header' });
-            const title = createElement('h2', { text: 'YouTube Playback Plox' });
+            const title = createElement('h2', { text: t('youtubePlaybackPlox') });
             const closeBtn = createElement('button', {
                 className: 'ypp-btn',
                 text: '✖',
-                atribute: { 'aria-label': 'Cerrar' },
+                atribute: { 'aria-label': t('close') },
                 onClickEvent: closeModalVideos
             });
             header.appendChild(title);
@@ -1354,7 +1827,7 @@
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-                showToast('📤 Datos exportados');
+                showToast('📤 ' + t('dataExported'));
             };
             const importDataFromFile = () => {
                 let inputFile = document.getElementById('ypp-import-file');
@@ -1378,12 +1851,12 @@
                                 Storage.set(key, value);
                                 count++;
                             }
-                            showToast(`📥 Importados ${count} elementos`);
+                            showToast(`📥 ${t('itemsImported', { count })}`);
                             closeModalVideos();
                             showSavedVideosList();
                         } catch (err) {
                             console.error('Error al importar datos:', err);
-                            showToast('⚠️ Error al importar. Asegúrate de que el archivo sea válido.');
+                            showToast('⚠️ ' + t('importError'));
                         } finally {
                             inputFile.value = '';
                         }
@@ -1392,8 +1865,8 @@
                 }
                 inputFile.click();
             };
-            const btnExport = createElement('button', { className: 'ypp-btn', text: '📤 Exportar', onClickEvent: exportDataToFile });
-            const btnImport = createElement('button', { className: 'ypp-btn', text: '📥 Importar', onClickEvent: importDataFromFile });
+            const btnExport = createElement('button', { className: 'ypp-btn', text: '📤 ' + t('export'), onClickEvent: exportDataToFile });
+            const btnImport = createElement('button', { className: 'ypp-btn', text: '📥 ' + t('import'), onClickEvent: importDataFromFile });
             footer.appendChild(btnExport);
             footer.appendChild(btnImport);
             videosContainer.appendChild(footer);
@@ -1438,12 +1911,12 @@
             },
             props: { target: '_blank', rel: 'noopener noreferrer' }
         });
-        const author = createElement('div', { className: 'ypp-author', text: info.author || 'Desconocido' });
-        const views = createElement('div', { className: 'ypp-views', text: info.views || 'N/A' });
+        const author = createElement('div', { className: 'ypp-author', text: info.author || t('unknown') });
+        const views = createElement('div', { className: 'ypp-views', text: info.views || t('notAvailable') });
 
-        let timestampText = `Progreso: ${videoTime}`;
+        let timestampText = `${t('progress')} ${videoTime}`;
         if (info.forceResumeTime > 0) {
-            timestampText = `⏱️ Siempre desde: ${formatTime(info.forceResumeTime)} 🔒`;
+            timestampText = `⏱️ ${t('alwaysStartFrom')}: ${formatTime(info.forceResumeTime)} ${t('locked')}`;
         }
         const timestamp = createElement('div', { className: `ypp-timestamp ${info.forceResumeTime > 0 ? 'forced' : ''}`, text: timestampText });
 
@@ -1452,7 +1925,7 @@
         infoDiv.appendChild(views);
         infoDiv.appendChild(timestamp);
         if (percent !== null) {
-            const progressInfo = createElement('div', { className: 'ypp-progressInfo', text: `📊 ${percent}% visto (${formatTime(remaining)} restantes)` });
+            const progressInfo = createElement('div', { className: 'ypp-progressInfo', text: `📊 ${percent}% ${t('percentWatched')} (${formatTime(remaining)} ${t('remaining')})` });
             infoDiv.appendChild(progressInfo);
         }
         wrapper.appendChild(infoDiv);
@@ -1462,11 +1935,11 @@
         const btnForceTime = createElement('button', {
             className: 'ypp-btn ypp-btn-small',
             text: '⏱️',
-            atribute: { title: info.forceResumeTime ? `Siempre empezar en ${formatTime(info.forceResumeTime)} (Click para cambiar o eliminar)` : 'Establecer tiempo de inicio' },
+            atribute: { title: info.forceResumeTime ? t('changeOrRemoveStartTime', { time: formatTime(info.forceResumeTime) }) : t('setStartTime') },
             onClickEvent: () => {
                 const promptText = info.forceResumeTime
-                    ? `Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23) o deja vacío para eliminar:`
-                    : `Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23 o 0:45):`;
+                    ? t('enterStartTimeOrEmpty') + ':'
+                    : t('enterStartTime') + ':';
                 const timeStr = prompt(promptText, info.forceResumeTime ? formatTime(info.forceResumeTime) : '');
 
                 if (timeStr === null) { // Usuario canceló
@@ -1480,10 +1953,10 @@
                     if (playlist?.videos?.[videoId]) {
                         if (timeSec > 0) {
                             playlist.videos[videoId].forceResumeTime = timeSec;
-                            showToast(`✅ Tiempo de inicio establecido en ${formatTime(timeSec)}`);
+                            showToast(`✅ ${t('startTimeSet')} ${formatTime(timeSec)}`);
                         } else {
                             delete playlist.videos[videoId].forceResumeTime;
-                            showToast('🔓 Tiempo fijo eliminado.');
+                            showToast('🔓 ' + t('fixedTimeRemoved'));
                         }
                         Storage.set(playlistKey, playlist);
                     }
@@ -1492,10 +1965,10 @@
                     if (data) {
                         if (timeSec > 0) {
                             data.forceResumeTime = timeSec;
-                            showToast(`✅ Tiempo de inicio establecido en ${formatTime(timeSec)}`);
+                            showToast(`✅ ${t('startTimeSet')} ${formatTime(timeSec)}`);
                         } else {
                             delete data.forceResumeTime;
-                            showToast('🔓 Tiempo fijo eliminado.');
+                            showToast('🔓 ' + t('fixedTimeRemoved'));
                         }
                         Storage.set(videoId, data);
                     }
@@ -1507,7 +1980,7 @@
 
         const btnDelete = createElement('button', {
             className: 'ypp-btn ypp-btn-delete ypp-btn-small',
-            atribute: { title: 'Eliminar entrada' },
+            atribute: { title: t('deleteEntry') },
             text: '🗑️',
             onClickEvent: () => {
                 const title = info.title || videoId;
@@ -1540,9 +2013,9 @@
                 };
 
                 performDelete();
-                showToast(`🗑️ "${title}" eliminado.`, 5000, {
+                showToast(`🗑️ "${title}" ${t('itemDeleted')}`, 5000, {
                     action: {
-                        label: 'Deshacer',
+                        label: t('undo'),
                         callback: undoDelete
                     }
                 });
@@ -1565,14 +2038,59 @@
         const settings = await Settings.get();
         const content = createElement('div', { className: 'ypp-settingsContent' });
 
+        // Selector de idioma con banderas
+        const languageGroup = createElement('div');
+        const languageLabel = createElement('label', {
+            className: 'ypp-label',
+            text: t('language') + ':',
+            atribute: { for: 'language-selector' }
+        });
+
+        // Crear el selector con banderas
+        const languageSelect = createElement('select', {
+            className: 'ypp-input ypp-language-selector',
+            id: 'language-selector',
+            html: Object.keys(TRANSLATIONS).map(lang => {
+                const flag = LANGUAGE_FLAGS[lang] || '🌐'; // Usar un emoji genérico si no hay bandera
+                const langName = lang.toUpperCase();
+                return `<option value="${lang}" ${settings.language === lang ? 'selected' : ''}>${flag} ${langName}</option>`;
+            }).join('')
+        });
+
+        languageLabel.appendChild(languageSelect);
+        languageGroup.appendChild(languageLabel);
+        content.appendChild(languageGroup);
+
+        // Selector de estilo de alerta
+        const alertStyleGroup = createElement('div');
+        const alertStyleLabel = createElement('label', {
+            className: 'ypp-label',
+            text: t('alertStyle') + ':',
+            atribute: { for: 'alert-style-selector' }
+        });
+
+        const alertStyleSelect = createElement('select', {
+            className: 'ypp-input',
+            id: 'alert-style-selector',
+            html: `
+                <option value="iconText" ${settings.alertStyle === 'iconText' ? 'selected' : ''}>${t('alertIconText')}</option>
+                <option value="iconOnly" ${settings.alertStyle === 'iconOnly' ? 'selected' : ''}>${t('alertIconOnly')}</option>
+                <option value="textOnly" ${settings.alertStyle === 'textOnly' ? 'selected' : ''}>${t('alertTextOnly')}</option>
+                <option value="hidden" ${settings.alertStyle === 'hidden' ? 'selected' : ''}>${t('alertHidden')}</option>
+            `
+        });
+        alertStyleLabel.appendChild(alertStyleSelect);
+        alertStyleGroup.appendChild(alertStyleLabel);
+        content.appendChild(alertStyleGroup);
+
         const activationGroup = createElement('div');
-        const activationLabel = createElement('div', { text: 'Activar guardado para:', style: 'font-weight: bold; margin-bottom: 8px;' });
+        const activationLabel = createElement('div', { text: t('enableSavingFor') + ':', style: 'font-weight: bold; margin-bottom: 8px;' });
         activationGroup.appendChild(activationLabel);
 
         const types = [
-            { key: 'saveRegularVideos', label: '▶️ Videos regulares' },
-            { key: 'saveShorts', label: '📱 Shorts' },
-            { key: 'saveLiveStreams', label: '🔴 Directos (Livestreams)' }
+            { key: 'saveRegularVideos', label: '▶️ ' + t('regularVideos') },
+            { key: 'saveShorts', label: '📱 ' + t('shorts') },
+            { key: 'saveLiveStreams', label: '🔴 ' + t('liveStreams') }
         ];
 
         types.forEach(type => {
@@ -1591,11 +2109,11 @@
 
         const notifGroup = createElement('div');
         const notifLabel = createElement('label', {
-            className: 'ypp-label', text: 'Mostrar notificaciones de guardado', atribute: { for: 'toggleNotif' },
+            className: 'ypp-label', text: t('showNotifications'), atribute: { for: 'toggleNotif' },
         });
         const toggleNotif = createElement('input', {
             id: 'toggleNotif',
-            atribute: { title: 'Mostrar notificaciones de guardado', for: 'toggleNotif', type: 'checkbox' },
+            atribute: { title: t('showNotifications'), for: 'toggleNotif', type: 'checkbox' },
             props: { checked: settings.showNotifications }
         });
         notifLabel.appendChild(toggleNotif);
@@ -1605,7 +2123,7 @@
         const intervalGroup = document.createElement('div');
         const intervalLabel = createElement('label', {
             className: 'ypp-label',
-            text: 'Intervalo segundos mínimos entre guardados: ',
+            text: t('minSecondsBetweenSaves') + ':' + ' ',
             atribute: { for: 'interval' }
         });
         const intervalInput = createElement('input', {
@@ -1621,12 +2139,12 @@
         const buttonsGroup = document.createElement('div');
         const buttonsLabel = createElement('label', {
             className: 'ypp-label',
-            atribute: { title: 'Mostrar boton flotante', for: 'toggleButtons' },
-            text: ' Mostrar boton flotante'
+            atribute: { title: t('showFloatingButton'), for: 'toggleButtons' },
+            text: ' ' + t('showFloatingButton')
         });
         const toggleButtons = createElement('input', {
             id: 'toggleButtons',
-            atribute: { title: 'Mostrar boton flotante', type: 'checkbox' },
+            atribute: { title: t('showFloatingButton'), type: 'checkbox' },
             props: { checked: settings.showFloatingButtons }
         });
         buttonsLabel.appendChild(toggleButtons);
@@ -1637,7 +2155,7 @@
         const saveBtn = createElement('button', {
             className: 'ypp-btn ypp-save-button',
             id: 'saveBtn',
-            text: 'Guardar',
+            text: t('save'),
             onClickEvent: async () => {
                 const newSettings = {
                     showNotifications: toggleNotif.checked,
@@ -1646,16 +2164,19 @@
                     saveRegularVideos: document.getElementById('saveRegularVideos').checked,
                     saveShorts: document.getElementById('saveShorts').checked,
                     saveLiveStreams: document.getElementById('saveLiveStreams').checked,
+                    language: languageSelect.value,
+                    alertStyle: alertStyleSelect.value,
                 };
                 await Settings.set(newSettings);
-                showToast('✅ Configuración guardada');
+                await setLanguage(languageSelect.value);
+                showToast('✅ ' + t('configurationSaved'));
                 location.reload();
             }
         });
         const viewBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-outlined',
             id: 'viewSavedBtn',
-            text: '📼 Ver videos guardados',
+            text: '📼 ' + t('savedVideos'),
             onClickEvent: () => {
                 host.remove();
                 showSavedVideosList();
@@ -1664,7 +2185,7 @@
         buttonGroup.appendChild(viewBtn);
         buttonGroup.appendChild(saveBtn);
         content.appendChild(buttonGroup);
-        const { host } = createModal('⚙️ Configuración', content);
+        const { host } = createModal('⚙️ ' + t('settings'), content);
         host.classList.add('settings-modal');
     }
 
@@ -1673,9 +2194,27 @@
     // MARK: ⚙️ Menu Commands
     // ────────────────
 
-    GM_registerMenuCommand('⚙️ Configuración', showSettingsUI);
-    GM_registerMenuCommand('📋 Ver videos guardados', showSavedVideosList);
+    // Variable para almacenar las referencias a los comandos del menú
+    let menuCommands = [];
 
+    // Función para registrar los comandos del menú con traducciones
+    function registerMenuCommands() {
+        // Eliminar comandos existentes
+        menuCommands.forEach(cmd => {
+            try {
+                GM_unregisterMenuCommand(cmd);
+            } catch (e) {
+                // Ignorar errores al eliminar comandos que no existen
+            }
+        });
+
+        // Registrar nuevos comandos con traducciones
+        const settingsCmd = GM_registerMenuCommand('⚙️ ' + t('settings'), showSettingsUI);
+        const videosCmd = GM_registerMenuCommand('📋 ' + t('savedVideos'), showSavedVideosList);
+
+        // Guardar referencias para poder eliminarlos después
+        menuCommands = [settingsCmd, videosCmd];
+    }
 
     // ────────────────
     // 🚀 Init
@@ -1683,7 +2222,41 @@
     // ────────────────
 
     const init = async () => {
+        // Cargar traducciones desde el archivo externo
+        console.log('Iniciando carga de traducciones...');
+
+        // Variable para rastrear si las traducciones externas se cargaron correctamente
+        let externalTranslationsLoaded = false;
+
+        try {
+            const { LANGUAGE_FLAGS: loadedFlags, TRANSLATIONS: loadedTranslations } = await loadTranslations();
+
+            // Verificar que las traducciones se cargaron correctamente
+            // Comprobamos si hay más idiomas que en el fallback (es, en y fr)
+            if (loadedTranslations && Object.keys(loadedTranslations).length > 3) {
+                LANGUAGE_FLAGS = loadedFlags;
+                TRANSLATIONS = loadedTranslations;
+                externalTranslationsLoaded = true;
+                console.log('Traducciones externas cargadas correctamente');
+            } else {
+                console.warn('Las traducciones externas no tienen suficientes idiomas, usando fallback');
+                LANGUAGE_FLAGS = FALLBACK_FLAGS;
+                TRANSLATIONS = FALLBACK_TRANSLATIONS;
+            }
+        } catch (error) {
+            console.error('Error al cargar traducciones:', error);
+            // Usar traducciones de fallback
+            LANGUAGE_FLAGS = FALLBACK_FLAGS;
+            TRANSLATIONS = FALLBACK_TRANSLATIONS;
+        }
+
+        // Cargar configuración y establecer idioma
         cachedSettings = await Settings.get();
+        await setLanguage(cachedSettings.language || detectBrowserLanguage());
+
+        // Registrar comandos del menú con traducciones
+        registerMenuCommands();
+
         injectStyles();
         const observePlayer = () => {
             const selectors = ['#movie_player', '#shorts-player'];

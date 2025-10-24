@@ -23,6 +23,7 @@ Ideal para quienes:
 - ⏱ Establecer un "tiempo de inicio fijo" por video para que siempre comience desde un punto concreto.
 - 🗂 Modal con lista de videos guardados, miniaturas, autor, porcentaje visto y tiempo restante.
 - 📦 Exporta/Importa todos los datos guardados a un JSON.
+- 🌐 Soporte diferentes lenguajes.
 
 ## 🛠️ Requisitos
 

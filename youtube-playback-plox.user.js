@@ -1,16 +1,137 @@
 // ==UserScript==
-// @name         YouTube Playback Plox
 // @namespace    youtube-playback-plox
-// @version      0.0.1
-// @description  Guarda y retoma automáticamente el progreso de videos en YouTube sin necesidad de iniciar sesión.
+// @homepage     https://github.com/Alplox/Youtube-Playback-Plox
+// @version      0.0.2
 // @author       Alplox
 // @match        https://www.youtube.com/*
-// @match        https://www.youtu.be/*
-// @match        https://www.youtube-nocookie.com/*
+// @name         YouTube Playback Plox
+// @description  Guarda y retoma automáticamente el progreso de videos en YouTube sin necesidad de iniciar sesión.
+
+// @name:en      YouTube Playback Plox
+// @description:en  Automatically saves and resumes video playback progress on YouTube without needing to log in.
+
+// @name:es      YouTube Reproducción Plox
+// @description:es  Guarda y retoma automáticamente el progreso de videos en YouTube sin necesidad de iniciar sesión.
+
+// @name:fr      YouTube Lecture Plox
+// @description:fr  Enregistre et reprend automatiquement la progression de la lecture des vidéos sur YouTube sans avoir besoin de se connecter.
+
+// @name:de      YouTube Wiedergabe Plox
+// @description:de  Speichert und setzt den Wiedergabefortschritt von Videos auf YouTube automatisch fort, ohne dass eine Anmeldung erforderlich ist.
+
+// @name:it      YouTube Riproduzione Plox
+// @description:it  Salva e riprende automaticamente il progresso di riproduzione dei video su YouTube senza bisogno di effettuare l'accesso.
+
+// @name:pt      YouTube Reprodução Plox
+// @description:pt  Salva e retoma automaticamente o progresso de reprodução de vídeos no YouTube sem necessidade de login.
+
+// @name:ru      YouTube Воспроизведение Plox
+// @description:ru  Автоматически сохраняет и возобновляет прогресс воспроизведения видео на YouTube без необходимости входа в систему.
+
+// @name:zh      YouTube 播放进度 Plox
+// @description:zh  自动保存并恢复YouTube视频的播放进度，无需登录。
+
+// @name:ja      YouTube 再生進捗 Plox
+// @description:ja  YouTubeでの動画再生の進行状況を自動的に保存および再開し、ログインの必要はありません。
+
+// @name:ko      YouTube 재생 진행 Plox
+// @description:ko  YouTube에서 동영상 재생 진행 상황을 자동으로 저장하고 로그인 없이 재개합니다。
+
+// @name:ar      YouTube تقدم التشغيل Plox
+// @description:ar  يحفظ ويستأنف تلقائيًا تقدم تشغيل الفيديو على YouTube دون الحاجة إلى تسجيل الدخول.
+
+// @name:hi      YouTube प्लेबैक Plox
+// @description:hi  YouTube पर वीडियो प्लेबैक प्रगति को स्वचालित रूप से सहेजता है और पुनः आरंभ करता है बिना लॉग इन किए।
+
+// @name:bn      YouTube প্লেব্যাক Plox
+// @description:bn  YouTube-এ ভিডিও প্লেব্যাক অগ্রগতি স্বয়ংক্রিয়ভাবে সংরক্ষণ এবং পুনরায় শুরু করে লগইন ছাড়াই।
+
+// @name:vi      YouTube Phát lại Plox
+// @description:vi  Tự động lưu và tiếp tục tiến trình phát video trên YouTube mà không cần đăng nhập.
+
+// @name:id      YouTube Pemutaran Plox
+// @description:id  Secara otomatis menyimpan dan melanjutkan kemajuan pemutaran video di YouTube tanpa perlu masuk.
+
+// @name:tr      YouTube Oynatma Plox
+// @description:tr  YouTube'da video oynatma ilerlemesini otomatik olarak kaydeder ve oturum açmadan devam ettirir.
+
+// @name:pl      YouTube Odtwarzanie Plox
+// @description:pl  Automatycznie zapisuje i wznawia postęp odtwarzania wideo na YouTube bez konieczności logowania.
+
+// @name:nl      YouTube Afspelen Plox
+// @description:nl  Slaat automatisch de voortgang van videoweergave op YouTube op en hervat deze zonder in te loggen.
+
+// @name:sv      YouTube Uppspelning Plox
+// @description:sv  Sparar och återupptar automatiskt videouppspelningsframsteg på YouTube utan att behöva logga in.
+
+// @name:da      YouTube Afspilning Plox
+// @description:da  Gemmer og genoptager automatisk videofremskridt på YouTube uden at skulle logge ind.
+
+// @name:no      YouTube Avspilling Plox
+// @description:no  Lagrer og gjenopptar automatisk videofremdrift på YouTube uten å måtte logge inn.
+
+// @name:fi      YouTube Toisto Plox
+// @description:fi  Tallentaa ja jatkaa automaattisesti videon toiston etenemistä YouTubessa ilman kirjautumista.
+
+// @name:hu      YouTube Lejátszás Plox
+// @description:hu  Automatikusan menti és folytatja a videólejátszás előrehaladását a YouTube-on bejelentkezés nélkül.
+
+// @name:cs      YouTube Přehrávání Plox
+// @description:cs  Automaticky ukládá a obnovuje průběh přehrávání videí na YouTube bez nutnosti přihlášení.
+
+// @name:sk      YouTube Prehrávanie Plox
+// @description:sk  Automaticky ukladá a obnovuje priebeh prehrávania videí na YouTube bez nutnosti prihlásenia.
+
+// @name:ro      YouTube Redare Plox
+// @description:ro  Salvează și reia automat progresul redării videoclipurilor pe YouTube fără a fi nevoie să te conectezi.
+
+// @name:bg      YouTube Възпроизвеждане Plox
+// @description:bg  Автоматично запазва и възобновява напредъка на възпроизвеждането на видеоклипове в YouTube без нужда от вход.
+
+// @name:hr      YouTube Reprodukcija Plox
+// @description:hr  Automatski sprema i nastavlja napredak reprodukcije videozapisa na YouTubeu bez potrebe za prijavom.
+
+// @name:sl      YouTube Predvajanje Plox
+// @description:sl  Samodejno shrani in nadaljuje napredek predvajanja videoposnetkov na YouTubu brez prijave.
+
+// @name:sr      YouTube Репродукција Plox
+// @description:sr  Аутоматски чува и наставља напредак репродукције видео записа на YouTube-у без пријављивања.
+
+// @name:lt      YouTube Atkūrimas Plox
+// @description:lt  Automatiškai išsaugo ir tęsia „YouTube“ vaizdo įrašų atkūrimo eigą be prisijungimo.
+
+// @name:lv      YouTube Atskaņošana Plox
+// @description:lv  Automātiski saglabā un turpina YouTube videoklipu atskaņošanas progresu bez pierakstīšanās.
+
+// @name:uk      YouTube Відтворення Plox
+// @description:uk  Автоматично зберігає та відновлює прогрес відтворення відео на YouTube без необхідності входу в систему.
+
+// @name:el      YouTube Αναπαραγωγή Plox
+// @description:el  Αποθηκεύει και συνεχίζει αυτόματα την πρόοδο αναπαραγωγής βίντεο στο YouTube χωρίς να απαιτείται σύνδεση.
+
+// @name:th      YouTube เล่นซ้ำ Plox
+// @description:th  บันทึกและดำเนินการต่อความคืบหน้าในการเล่นวิดีโอบน YouTube โดยอัตโนมัติ โดยไม่ต้องเข้าสู่ระบบ.
+
+// @name:ms      YouTube Pemutaran Plox
+// @description:ms  Menyimpan dan meneruskan secara automatik kemajuan main balik video di YouTube tanpa perlu log masuk.
+
+// @name:sw      YouTube Uchezaji Plox
+// @description:sw  Huhifadhi na kuendelea kiotomatiki maendeleo ya uchezaji wa video kwenye YouTube bila kuhitaji kuingia akaunti.
+
+// @name:fa      YouTube پخش Plox
+// @description:fa  به‌ طور خودکار پیشرفت پخش ویدیوها در YouTube را ذخیره و ادامه می‌دهد، بدون نیاز به ورود به حساب کاربری.
+
+// @name:he      YouTube הפעלה Plox
+// @description:he  שומר ומחדש אוטומטית את התקדמות ההפעלה של סרטונים ב-YouTube ללא צורך בהתחברות.
+
+// @name:ta      YouTube பிளேபேக் Plox
+// @description:ta  YouTube-இல் வீடியோக்களின் பிளேபேக் முன்னேற்றத்தை தானாக சேமித்து, உள்நுழையாமல் தொடர்கிறது.
+
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
+// @grant        GM_xmlhttpRequest
 // @run-at       document-end
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
@@ -33,7 +154,7 @@
         expireDays: {
             regular: 30,
             short: 1,
-            preview: 10 / (24 * 60), // 10 minutos en días
+            live: 0.1, // Los directos no se guardan mucho tiempo
         },
 
         /** Tiempo desde el final del video (en segundos) para considerarlo como "finalizado" */
@@ -49,7 +170,10 @@
         defaultSettings: {
             showNotifications: true,
             minSecondsBetweenSaves: 10,
-            showFloatingButtons: false
+            showFloatingButtons: false,
+            saveRegularVideos: true, // Por defecto, guardar videos regulares
+            saveShorts: false, // Por defecto, no guardar Shorts
+            saveLiveStreams: false, // Por defecto, no guardar directos
         },
 
         /** Clave para guardar filtros del usuario en GM_* */
@@ -89,6 +213,7 @@
   --color-primary: #2563eb;
   --color-primary-dark: #1e40af;
   --color-border: #ccc;
+  --color-playlist-bg: #f0f8ff; /* Fondo sutil para items de playlist */
 
   /* Tipografía */
   --font-base: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
@@ -133,11 +258,12 @@
   background: var(--color-bg);
   border-radius: 8px;
   box-shadow: var(--shadow-md);
-  padding: var(--spacing-lg);
+  padding: 0; /* Padding manejado por hijos */
   z-index: var(--z-modal);
-  width: 450px;
-  max-height: 70vh;
-  overflow-y: auto;
+  width: 550px; /* Un poco más ancho para los nuevos botones */
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
   font-family: var(--font-base);
   color: var(--color-text);
 }
@@ -151,19 +277,33 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--spacing-md);
+  padding: var(--spacing-sm);
+  border-bottom: 1px solid var(--color-border);
+  flex-shrink: 0; /* No encoger */
+}
+
+.ypp-filters {
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+  flex-shrink: 0; /* No encoger */
 }
 
 .ypp-footer {
-  position: sticky;
-  bottom: 0;
-  background: var(--color-bg);
-  padding: var(--spacing-md);
-  margin-top: var(--spacing-lg);
+  padding: var(--spacing-md) var(--spacing-lg);
+  border-top: 2px solid var(--color-border);
   display: flex;
   justify-content: space-between;
-  border-top: 2px solid var(--color-border);
   z-index: 10;
+  flex-shrink: 0; /* No encoger */
+}
+
+#video-list-container {
+  flex-grow: 1; /* Ocupar el espacio restante */
+  overflow-y: auto; /* Hacer scrollable solo esta parte */
+  padding: var(--spacing-md) var(--spacing-lg);
 }
 
 .ypp-settingsContent {
@@ -193,6 +333,13 @@
 .ypp-playlistTitle {
   margin: var(--spacing-md) 0 var(--spacing-sm);
   color: var(--color-muted);
+  cursor: pointer;
+  text-decoration: none;
+  display: block;
+}
+
+.ypp-playlistTitle:hover {
+  text-decoration: underline;
 }
 
 .ypp-titleLink {
@@ -224,6 +371,11 @@
   color: var(--color-muted);
 }
 
+.ypp-timestamp.forced {
+    color: var(--color-primary-dark);
+    font-weight: bold;
+}
+
 .ypp-progressInfo {
   color: red;
 }
@@ -240,6 +392,13 @@
   padding-bottom: var(--spacing-sm);
 }
 
+.ypp-videoWrapper.playlist-item {
+  background-color: var(--color-playlist-bg);
+  border-radius: 4px;
+  padding: var(--spacing-sm);
+  border: 1px solid #ddeeff;
+}
+
 .ypp-thumb {
   width: 90px;
   height: 50px;
@@ -251,6 +410,15 @@
 
 .ypp-infoDiv {
   flex-grow: 1;
+  min-width: 0; /* Permite que el contenedor se encoja correctamente */
+}
+
+.ypp-containerButtonsTime {
+    display: flex;
+    gap: 5px;
+    flex-shrink: 0;
+    align-items: center;
+    min-width: max-content;
 }
 
 /* =========================
@@ -269,10 +437,18 @@
   border-radius: 6px;
   cursor: pointer;
   transition: background-color 0.2s ease;
+  font-size: 1.2em;
 
   &:hover {
     background-color: var(--color-text);
   }
+}
+
+.ypp-btn-small {
+    padding: 0.3em 0.6em;
+    width: 32px; /* Tamaño fijo */
+    height: 32px; /* Tamaño fijo */
+    flex-shrink: 0; /* No encoger */
 }
 
 .ypp-btn-outlined {
@@ -288,6 +464,7 @@
 
 .ypp-btn-delete {
   background-color: transparent;
+  color: var(--color-danger);
 
   &:hover {
     background-color: var(--color-danger);
@@ -325,10 +502,24 @@
   opacity: 0;
   transition: opacity 0.3s ease;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
 }
 
 .ypp-toast.persistent {
   background: var(--color-muted);
+}
+
+.ypp-toast-action {
+    background: var(--color-primary);
+    border: none;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 12px;
+    margin-left: auto;
 }
 
 /* =========================
@@ -351,10 +542,12 @@
 .ypp-modalTitle {
   font-weight: 600;
   color: #111;
+  font-size: large;
 }
 
 .ypp-modalBody {
   font-size: 1.4rem;
+  padding: var(--spacing-sm) var(--spacing-md);
 }
 
 /* =========================
@@ -370,7 +563,7 @@
 
 .ypp-input {
   width: 100%;
-  padding: 6px 8px;
+  padding: 6px 2px;
   border: 1px solid var(--color-border);
   border-radius: 4px;
   margin-top: 5px;
@@ -402,11 +595,6 @@
     // ────────────────
 
     const Storage = {
-        /**
-         * Obtiene un valor del almacenamiento local.
-         * @param {string} key - Clave sin prefijo.
-         * @returns {any|null} - Valor parseado o null si no existe.
-         */
         get(key) {
             try {
                 const raw = localStorage.getItem(`${CONFIG.storagePrefix}${key}`);
@@ -416,12 +604,6 @@
                 return null;
             }
         },
-
-        /**
-         * Establece un valor en el almacenamiento local.
-         * @param {string} key - Clave sin prefijo.
-         * @param {any} value - Valor a almacenar (se serializa).
-         */
         set(key, value) {
             try {
                 const serialized = JSON.stringify(value);
@@ -430,11 +612,6 @@
                 console.error(`Storage.set: Error al guardar la clave "${key}"`, error);
             }
         },
-
-        /**
-         * Elimina una clave del almacenamiento local.
-         * @param {string} key - Clave sin prefijo.
-         */
         del(key) {
             try {
                 localStorage.removeItem(`${CONFIG.storagePrefix}${key}`);
@@ -442,11 +619,6 @@
                 console.error(`Storage.del: Error al eliminar la clave "${key}"`, error);
             }
         },
-
-        /**
-         * Devuelve todas las claves (sin prefijo) almacenadas con el prefijo definido.
-         * @returns {string[]} - Lista de claves sin prefijo.
-         */
         keys() {
             return Object.keys(localStorage)
                 .filter((fullKey) => fullKey.startsWith(CONFIG.storagePrefix))
@@ -455,11 +627,6 @@
     };
 
     const Settings = {
-        /**
-         * Obtiene la configuración del usuario desde el almacenamiento.
-         * Fusiona con los valores predeterminados.
-         * @returns {Promise<Object>} Configuración completa del usuario.
-         */
         async get() {
             try {
                 const raw = await GM_getValue(CONFIG.userSettingsKey, null);
@@ -470,12 +637,6 @@
                 return { ...CONFIG.defaultSettings };
             }
         },
-
-        /**
-         * Guarda la configuración del usuario en el almacenamiento.
-         * @param {Object} settings - Objeto de configuración del usuario.
-         * @returns {Promise<void>}
-         */
         async set(settings) {
             try {
                 const serialized = JSON.stringify(settings);
@@ -490,28 +651,19 @@
     // 🔧 Utils
     // MARK: 🔧 Utils
     // ────────────────
-    /**
-     * Formatea un tiempo en segundos a formato "mm:ss" o "hh:mm:ss" si es necesario.
-     * @param {number} seconds - Tiempo en segundos.
-     * @returns {string} - Tiempo formateado.
-     */
     const formatTime = (seconds) => {
         const iso = new Date(seconds * 1000).toISOString();
-        const time = iso.slice(11, 19); // hh:mm:ss
+        const time = iso.slice(11, 19);
         return time.startsWith('00:') ? time.slice(3) : time;
     };
 
-    /**
-        * Crea un elemento HTML con clase, texto o HTML interno.
-        * 
-        * @param {string} tag - Nombre de la etiqueta HTML a crear.
-        * @param {Object} options - Opciones para configurar el elemento.
-        * @param {string} [options.className] - Clase CSS para el elemento.
-        * @param {string} [options.id] - ID a asignar al elemento.
-        * @param {string} [options.text] - Texto plano a asignar al elemento.
-        * @param {string} [options.html] - HTML crudo a asignar al elemento.
-        * @returns {HTMLElement} Elemento creado.
-        */
+    const parseTimeToSeconds = (timeStr) => {
+        const parts = timeStr.split(':').map(Number);
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+        if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+        return 0;
+    };
+
     function createElement(tag, {
         className = '',
         id = '',
@@ -527,357 +679,414 @@
         if (text) el.textContent = text;
         if (html) el.innerHTML = html;
         if (onClickEvent && typeof onClickEvent === 'function') el.addEventListener('click', onClickEvent);
-
-        // Atributos HTML (como title, type, etc.)
         if (atribute && typeof atribute === 'object') {
             Object.entries(atribute).forEach(([k, v]) => el.setAttribute(k, v));
         }
-
-        // Propiedades DOM reales (como checked, disabled, value...)
         if (props && typeof props === 'object') {
             Object.entries(props).forEach(([k, v]) => {
                 if (k in el) el[k] = v;
             });
         }
-
         return el;
     }
 
-    // Mapa débil para asociar cada toast con su timeout
-    const toastTimeouts = new WeakMap();
+    // ───────────────
+    // 📢 Time Display (Player Bar)
+    // MARK: 📢 Time Display
+    // ────────────────
+    let timeDisplay;
+    let lastRenderedText = '';
+    let isPlayerSeeking = false; // Flag para mensaje persistente
 
-    /**
-     * Muestra un mensaje tipo "toast" en pantalla.
-     * - Si es un toast "persistente" (ej: guardado), se reutiliza siempre el mismo.
-     * - Si no, se crean toasts independientes en stack.
-     * @param {string} message - Texto a mostrar.
-     * @param {number} duration - Tiempo en milisegundos que se muestra el mensaje.
-     * @param {object} options - Config extra (ej: { persistent: true })
-     */
-    const showToast = (message, duration = 2500, options = {}) => {
-        let container = document.querySelector('.ypp-toast-container');
-        if (!container) {
-            container = document.createElement('div');
-            container.className = 'ypp-toast-container';
-            document.body.appendChild(container);
+    function initTimeDisplay() {
+        const timeContainer = document.querySelector('.ytp-time-contents');
+        if (!timeContainer || timeContainer.contains(timeDisplay)) return;
 
-            const updateVisibility = () => {
-                const isFullscreen = !!document.fullscreenElement;
-                container.style.display = isFullscreen ? 'none' : 'flex';
-            };
+        timeDisplay = document.createElement('span');
+        timeDisplay.style.display = 'inline-block';
+        timeDisplay.style.marginLeft = '10px';
+        timeDisplay.style.color = '#0f9d58'; // Verde de YouTube
+        timeDisplay.style.fontWeight = 'bold';
+        timeContainer.appendChild(timeDisplay);
+    }
 
-            document.addEventListener('fullscreenchange', updateVisibility);
-            window.addEventListener('yt-navigate-finish', updateVisibility);
-
-            updateVisibility();
+    function checkAndRestoreTimeDisplay() {
+        const timeContainer = document.querySelector('.ytp-time-contents');
+        if (timeContainer && !timeContainer.contains(timeDisplay)) {
+            initTimeDisplay();
         }
+    }
 
-        let toast;
+    const toastTimeouts = new WeakMap();
+    const showToast = (message, duration = 2500, options = {}) => {
+        // Si el mensaje es persistente o tiene una acción, usar el sistema de toasts flotantes
+        if (options.persistent || options.action) {
+            let container = document.querySelector('.ypp-toast-container');
+            if (!container) {
+                container = document.createElement('div');
+                container.className = 'ypp-toast-container';
+                document.body.appendChild(container);
+                const updateVisibility = () => {
+                    const isFullscreen = !!document.fullscreenElement;
+                    container.style.display = isFullscreen ? 'none' : 'flex';
+                };
+                document.addEventListener('fullscreenchange', updateVisibility);
+                window.addEventListener('yt-navigate-finish', updateVisibility);
+                updateVisibility();
+            }
+            let toast;
+            if (options.persistent) {
+                toast = container.querySelector('.ypp-toast.persistent');
+                if (!toast) {
+                    toast = document.createElement('div');
+                    toast.className = 'ypp-toast persistent';
+                    container.appendChild(toast);
+                    requestAnimationFrame(() => (toast.style.opacity = '1'));
+                }
+                toast.innerHTML = '';
+                const messageSpan = document.createElement('span');
+                messageSpan.textContent = message;
+                toast.appendChild(messageSpan);
 
-        if (options.persistent) {
-            // Buscar si ya existe un toast persistente
-            toast = container.querySelector('.ypp-toast.persistent');
-            if (!toast) {
+                if (options.action) {
+                    const actionBtn = createElement('button', {
+                        className: 'ypp-toast-action',
+                        text: options.action.label,
+                        onClickEvent: options.action.callback
+                    });
+                    toast.appendChild(actionBtn);
+                }
+
+                const prevTimeout = toastTimeouts.get(toast);
+                if (prevTimeout) clearTimeout(prevTimeout);
+                const timeoutId = setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+                    toastTimeouts.delete(toast);
+                }, duration);
+                toastTimeouts.set(toast, timeoutId);
+            } else {
                 toast = document.createElement('div');
-                toast.className = 'ypp-toast persistent';
+                toast.className = 'ypp-toast';
+                toast.textContent = message;
                 container.appendChild(toast);
                 requestAnimationFrame(() => (toast.style.opacity = '1'));
+                const timeoutId = setTimeout(() => {
+                    toast.style.opacity = '0';
+                    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+                    toastTimeouts.delete(toast);
+                }, duration);
+                toastTimeouts.set(toast, timeoutId);
             }
-            // Actualizar texto sin reiniciar animación
-            toast.textContent = message;
-
-            // Reiniciar timeout de ocultado
-            const prevTimeout = toastTimeouts.get(toast);
-            if (prevTimeout) clearTimeout(prevTimeout);
-
-            const timeoutId = setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.addEventListener('transitionend', () => toast.remove(), { once: true });
-                toastTimeouts.delete(toast);
-            }, duration);
-
-            toastTimeouts.set(toast, timeoutId);
         } else {
-            // Toast normal (se apila)
-            toast = document.createElement('div');
-            toast.className = 'ypp-toast';
-            toast.textContent = message;
-            container.appendChild(toast);
+            // Para mensajes no persistentes, mostrar en la barra de tiempo
+            if (timeDisplay) {
+                timeDisplay.textContent = message;
+                lastRenderedText = message;
 
-            requestAnimationFrame(() => (toast.style.opacity = '1'));
-
-            const timeoutId = setTimeout(() => {
-                toast.style.opacity = '0';
-                toast.addEventListener('transitionend', () => toast.remove(), { once: true });
-                toastTimeouts.delete(toast);
-            }, duration);
-
-            toastTimeouts.set(toast, timeoutId);
+                setTimeout(() => {
+                    if (timeDisplay && timeDisplay.textContent === message) {
+                        timeDisplay.textContent = '';
+                        lastRenderedText = '';
+                    }
+                }, duration);
+            }
         }
     };
 
-
-    /** 
-     * * Crea un modal con título, contenido y funcionalidad de cierre.
-     * * @param {string} [title] - Título del modal.
-     * * @param {string|HTMLElement} [content] - Contenido HTML o string.
-     * * @returns {Object} - Objeto con referencias al host, contenido y función de cierre.
-     * */
     function createModal(title = '', content = '') {
         const closeModal = () => {
             overlay.remove();
-            document.body.style.overflow = ''; // ♻️ Restaura scroll
+            document.body.style.overflow = '';
         };
-
         const overlay = createElement('div', {
             className: 'ypp-modalOverlay',
             atribute: { 'aria-modal': 'true', role: 'dialog' },
             onClickEvent: (e) => {
-                if (e.target === overlay) closeModal(); // Cerrar al hacer clic fuera del modal
+                if (e.target === overlay) closeModal();
             }
         });
         const modal = createElement('div', { className: 'ypp-modalBox' });
         const header = createElement('div', { className: 'ypp-modalHeader' });
         const titleEl = createElement('h3', { className: 'ypp-modalTitle', text: title });
-
         const closeBtn = createElement('button', {
             className: 'ypp-btn',
             text: '✖',
-            atribute: { 'aria-label': 'Cerrar', title: 'Cerrar', type: 'button'},
+            atribute: { 'aria-label': 'Cerrar', title: 'Cerrar', type: 'button' },
             onClickEvent: closeModal
         });
-
         header.appendChild(titleEl);
         header.appendChild(closeBtn);
-
         const body = createElement('div', { className: 'ypp-modalBody' });
-
         typeof content === 'string' ? body.innerHTML = content.replace(/\u200B/g, '') : body.appendChild(content);
-
         modal.appendChild(header);
         modal.appendChild(body);
         overlay.appendChild(modal);
-
         document.body.appendChild(overlay);
-        document.body.style.overflow = 'hidden'; // 🚫 Desactiva scroll del fondo
-
-        return {
-            host: overlay,
-            content: modal,
-            close: closeModal,
-        };
+        document.body.style.overflow = 'hidden';
+        return { host: overlay, content: modal, close: closeModal };
     }
-    // ────────────────
 
-    // 🔔 Notificaciones
-    /* // @grant        GM_notification */
-    /* function mostrarNotificacion(titulo, mensaje) {
-        GM_notification({
-            title: titulo,
-            text: mensaje,
-            timeout: 5000, // Opcional: tiempo en milisegundos antes de que la notificación desaparezca
-            onclick: function () {
-                window.focus();  // Al hacer clic, vuelve a poner el foco en la ventana
-            }
-        });
-    }
-    mostrarNotificacion("Hola", "Este es un mensaje de prueba."); */
-
-    // Variables para controlar notificaciones de guardado
     let lastNotifyTimestamp = 0;
     let cachedSettings = null;
-
     async function handleNotification(timestamp) {
-        if (!cachedSettings) {
-            cachedSettings = await Settings.get();
-        }
-
+        if (!cachedSettings) cachedSettings = await Settings.get();
         if (!cachedSettings.showNotifications) return;
-
         const now = Date.now();
         if (now - lastNotifyTimestamp < cachedSettings.minSecondsBetweenSaves * 1000) return;
-
         lastNotifyTimestamp = now;
-        showToast(`💾 Progreso guardado: ${formatTime(timestamp)}`, 2500, { persistent: true });
+        showToast(`💾 Progreso guardado: ${formatTime(timestamp)}`, 2500);
     }
 
     // ────────────────
+    // 🔧 Playlist Name Cache
+    // MARK: 🔧 Playlist Name Cache
+    // ────────────────
+    const playlistNameCache = new Map();
+    async function getPlaylistName(playlistId) {
+        if (playlistNameCache.has(playlistId)) {
+            return playlistNameCache.get(playlistId);
+        }
+        const url = new URL(location.href);
+        const currentPlaylistId = url.searchParams.get('list');
+        if (currentPlaylistId === playlistId) {
+            const playlistTitleElement = document.querySelector(
+                'ytd-playlist-panel-renderer #title span#text, ' +
+                '#header .ytd-playlist-header-renderer h1 yt-formatted-string, ' +
+                'ytd-browse[page-subtype="playlist"] ytd-playlist-header-renderer #title'
+            );
+            if (playlistTitleElement && playlistTitleElement.textContent) {
+                const name = playlistTitleElement.textContent.trim();
+                if (name) {
+                    playlistNameCache.set(playlistId, name);
+                    return name;
+                }
+            }
+        }
+        return new Promise((resolve) => {
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: `https://www.youtube.com/oembed?url=https://www.youtube.com/playlist?list=${playlistId}&format=json`,
+                onload: function (response) {
+                    try {
+                        const data = JSON.parse(response.responseText);
+                        const name = data.title || playlistId;
+                        playlistNameCache.set(playlistId, name);
+                        resolve(name);
+                    } catch (e) {
+                        console.error('Error parsing playlist info:', e);
+                        playlistNameCache.set(playlistId, playlistId);
+                        resolve(playlistId);
+                    }
+                },
+                onerror: function () {
+                    console.error('Error fetching playlist info');
+                    playlistNameCache.set(playlistId, playlistId);
+                    resolve(playlistId);
+                }
+            });
+        });
+    }
+    function getCurrentPlaylistName() {
+        const url = new URL(location.href);
+        const playlistId = url.searchParams.get('list');
+        if (playlistId && !playlistNameCache.has(playlistId)) {
+            getPlaylistName(playlistId);
+        }
+    }
+
+    // ───────────────
     // 🔧 Helpers
     // MARK: 🔧 Helpers
     // ────────────────
-
-    // Extrae información relevante del video actual
     function getVideoInfo(player, vid) {
         const vd = player.getVideoData() || {};
         const title = vd.title || vid;
         const author = vd.author || 'Desconocido';
         const duration = player.getDuration?.() || 0;
-
-        // Thumbnail seguro
         let thumb = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
         if (vd.thumbnail_url && typeof vd.thumbnail_url === 'object' && vd.thumbnail_url.url) {
             thumb = vd.thumbnail_url.url;
         }
-
-        // Views con limpieza simple
         const viewsEl = document.querySelector('.view-count');
         let views = 'N/A';
         if (viewsEl) {
-            // Ejemplo: "1,234,567 vistas" o "1.2M views"
             views = viewsEl.textContent.trim();
         }
-
         const savedAt = Date.now();
-
         return { title, author, thumb, views, savedAt, duration };
     }
 
     const updateStatus = (player, videoEl, type, plId) => {
         const vid = player.getVideoData()?.video_id;
         if (!vid) return;
-
         const currentTime = videoEl.currentTime;
         const duration = videoEl.duration;
+        if (!duration || isNaN(currentTime) || currentTime < 1 || !isFinite(duration)) return;
 
-        // Validaciones básicas
-        if (!duration || isNaN(currentTime) || currentTime < 0.5 || !isFinite(duration)) return;
+        const key = plId || vid;
+        const data = Storage.get(key);
+        const hasFixedTime = (plId ? data?.videos?.[vid]?.forceResumeTime : data?.forceResumeTime) > 0;
+        if (hasFixedTime) {
+            return; // No guardar progreso ni notificar
+        }
+
+
 
         const finishThreshold = Math.min(duration * 0.01, CONFIG.staticFinishSec);
         const isFinished = duration - currentTime < finishThreshold;
-
         const now = Date.now();
         const info = getVideoInfo(player, vid);
-
-        // Helper para guardar o borrar datos de video
         function saveOrDelete(key, data) {
             if (data) Storage.set(key, data);
             else Storage.del(key);
         }
-
         if (plId) {
-            const playlist = Storage.get(plId) || { lastWatchedVideoId: '', videos: {} };
-
+            const playlist = Storage.get(plId) || { lastWatchedVideoId: '', videos: {}, title: '' };
             if (isFinished) {
                 delete playlist.videos[vid];
             } else {
                 playlist.videos[vid] = { timestamp: currentTime, lastUpdated: now, videoType: 'playlist', ...info };
             }
-
             playlist.lastWatchedVideoId = vid;
-
-            // Si no hay videos en la playlist, eliminar storage
             saveOrDelete(plId, Object.keys(playlist.videos).length ? playlist : null);
+
+            if (!playlist.title) {
+                getPlaylistName(plId).then(name => {
+                    const updatedPlaylist = Storage.get(plId);
+                    if (updatedPlaylist && !updatedPlaylist.title) {
+                        updatedPlaylist.title = name;
+                        Storage.set(plId, updatedPlaylist);
+                    }
+                });
+            }
         } else {
             saveOrDelete(vid, isFinished ? null : { timestamp: currentTime, lastUpdated: now, videoType: type, ...info });
         }
-
         handleNotification(currentTime);
     };
 
     const resumePlayback = async (player, vid, videoEl, inPlaylist, plId, fromPlId) => {
-        // Determinar la clave para obtener datos almacenados (playlist o video individual)
         const key = inPlaylist ? plId : vid;
         const data = Storage.get(key);
         if (!data) return;
 
-        // Obtener el último tiempo guardado del video (según si está en playlist o no)
         let lastTime = inPlaylist ? data.videos?.[vid]?.timestamp : data.timestamp;
-        let resumeId = vid;
+        let forceTime = inPlaylist ? data.videos?.[vid]?.forceResumeTime : data.forceResumeTime;
 
-        // Si está en playlist y hay un video diferente al actual que se debería reanudar
-        if (
-            inPlaylist &&
-            data.lastWatchedVideoId &&
-            vid !== data.lastWatchedVideoId &&
-            plId !== fromPlId
-        ) {
+        let resumeId = vid;
+        if (inPlaylist && data.lastWatchedVideoId && vid !== data.lastWatchedVideoId && plId !== fromPlId) {
             resumeId = data.lastWatchedVideoId;
             lastTime = data.videos?.[resumeId]?.timestamp;
-
-            // Obtener playlist y reproducir el video correcto si existe
+            forceTime = data.videos?.[resumeId]?.forceResumeTime;
             const playlist = player.getPlaylist?.();
             const idx = playlist?.indexOf(resumeId);
             if (idx !== undefined && idx >= 0) {
                 player.playVideoAt(idx);
             }
-        } else if (lastTime) {
-            // Si no es el caso anterior, aplicar seek para reanudar en el tiempo guardado
-            await applySeek(player, videoEl, lastTime);
+        } else {
+            const waitForPlayer = () => {
+                if (player.getDuration() > 0) {
+                    const timeToSeek = forceTime > 0 ? forceTime : lastTime;
+                    if (timeToSeek && timeToSeek > 1) {
+                        applySeek(player, videoEl, timeToSeek, forceTime > 0);
+                    }
+                } else {
+                    setTimeout(waitForPlayer, 100);
+                }
+            };
+            waitForPlayer();
         }
     };
 
-    // Variables para manejar el listener activo y la última playlist procesada
     let activeCleanup = null;
     let lastPlaylistId = null;
+    let currentPlayer = null;
+    let currentVideoEl = null;
+    let isProcessing = false;
 
     const processVideo = (container, player, videoEl) => {
-        // Limpiar event listener anterior si existe
+        if (isProcessing) return;
+        isProcessing = true;
+
         if (activeCleanup) activeCleanup();
 
-        // Extraer parámetros relevantes de la URL actual
+        currentPlayer = player;
+        currentVideoEl = videoEl;
+
         const url = new URL(location.href);
-        const vid = url.searchParams.get('v') || player.getVideoData()?.video_id;
+        const urlVid = url.searchParams.get('v');
+        const playerVid = player.getVideoData()?.video_id;
         const plId = url.searchParams.get('list');
-        if (!vid) return;
 
-        // Determinar tipo de video
-        const type = url.pathname.startsWith('/shorts/')
-            ? 'short'
-            : container.id === /* 'inline-player' */ 'video-preview' // ID actualizado para previews
-                ? 'preview'
-                : 'regular';
+        if (urlVid && urlVid !== playerVid) {
+            isProcessing = false;
+            return;
+        }
 
-        let attempted = false;
+        if (!playerVid) {
+            isProcessing = false;
+            return;
+        }
 
-        // Manejador para actualizar el estado o reanudar la reproducción
+        const duration = player.getDuration?.() || 0;
+        let type = 'regular';
+        if (url.pathname.startsWith('/shorts/')) type = 'short';
+        else if (duration === 0 || !isFinite(duration)) type = 'live';
+
+        if (
+            (type === 'regular' && !cachedSettings.saveRegularVideos) ||
+            (type === 'short' && !cachedSettings.saveShorts) ||
+            (type === 'live' && !cachedSettings.saveLiveStreams)
+        ) {
+            isProcessing = false;
+            return;
+        }
+
+        resumePlayback(player, playerVid, videoEl, Boolean(plId), plId, lastPlaylistId);
+
         const handler = () => {
-            if (!attempted) {
-                attempted = true;
-                resumePlayback(player, vid, videoEl, Boolean(plId), plId, lastPlaylistId);
-            } else {
-                updateStatus(player, videoEl, type, plId);
+            // Limpiar mensaje persistente si el usuario avanza
+            if (isPlayerSeeking) {
+                isPlayerSeeking = false;
+                if (timeDisplay) {
+                    timeDisplay.textContent = '';
+                    lastRenderedText = '';
+                }
             }
+            updateStatus(player, videoEl, type, plId);
         };
 
         videoEl.addEventListener('timeupdate', handler);
-
-        // Guardar función para limpiar el listener en el futuro
         activeCleanup = () => videoEl.removeEventListener('timeupdate', handler);
-
-        // Actualizar última playlist procesada
         lastPlaylistId = plId;
+
+        setTimeout(() => { isProcessing = false; }, 500);
     };
 
     // ────────────────
     // ⏯ Seek
     // MARK: ⏯ Seek
     // ────────────────
-
     // Tiempo máximo para esperar al evento 'seeked' (en ms)
-    const SEEK_TIMEOUT = 1500; // ms
-
+    const SEEK_TIMEOUT = 1500;
     // Función para aplicar seek con espera y manejo de errores
-    const applySeek = async (player, videoEl, time) => {
+    const applySeek = async (player, videoEl, time, isForced = false) => {
         if (!player || !videoEl) return;
         if (typeof time !== 'number' || isNaN(time)) return;
-
         const current = player.getCurrentTime();
-        if (Math.abs(current - time) <= CONFIG.minSeekDiff) return; // no seek necesario
-
+        if (Math.abs(current - time) <= CONFIG.minSeekDiff) return;
         await new Promise((resolve) => {
             const onSeeked = () => {
                 clearTimeout(timeoutId);
                 videoEl.removeEventListener('seeked', onSeeked);
                 resolve();
             };
-
             const timeoutId = setTimeout(() => {
                 videoEl.removeEventListener('seeked', onSeeked);
                 resolve();
             }, SEEK_TIMEOUT);
-
             videoEl.addEventListener('seeked', onSeeked, { once: true });
-
             try {
                 player.seekTo(time, true);
             } catch (error) {
@@ -887,81 +1096,65 @@
             }
         });
 
-        showToast(`⏯ Retomado en ${formatTime(time)}`);
+        // Mostrar mensaje persistente en la barra de tiempo
+        if (timeDisplay) {
+            isPlayerSeeking = true; // Activarar flag
+            const message = isForced ? `⏱️ Iniciando en tiempo fijo: ${formatTime(time)}` : `⏯ Retomado en ${formatTime(time)}`;
+            timeDisplay.textContent = message;
+            lastRenderedText = message;
+        }
     };
 
     // ────────────────
     // 📂 Video List
     // MARK: 📂 Video List
     // ────────────────
-
-    // Crea selectores de orden
     function createSortSelector(currentValue, onChange) {
         const wrapper = document.createElement('div');
-
         const label = createElement('label', { className: 'ypp-label', text: 'Ordenar por:', atribute: { for: 'sort-selector' } });
-
         const select = createElement('select', {
             className: 'ypp-input', id: 'sort-selector', html: `
         <option value="recent" ${currentValue === 'recent' ? 'selected' : ''}>📅 Más recientes</option>
         <option value="oldest" ${currentValue === 'oldest' ? 'selected' : ''}>📆 Más antiguos</option>
         <option value="title" ${currentValue === 'title' ? 'selected' : ''}>🔤 Título (A-Z)</option>`
         });
-
         select.onchange = () => onChange(select.value);
-
         label.appendChild(select);
         wrapper.appendChild(label);
         return wrapper;
     }
-
     function createFilterSelector(currentValue, onChange) {
         const wrapper = document.createElement('div');
-
         const label = createElement('label', { className: 'ypp-label', text: 'Filtrar por tipo:', atribute: { for: 'filter-selector' } });
-
-
         const select = createElement('select', {
             className: 'ypp-input', id: 'filter-selector', html: `
         <option value="all" ${currentValue === 'all' ? 'selected' : ''}>🔎 Todos</option>
         <option value="regular" ${currentValue === 'regular' ? 'selected' : ''}>▶️ Videos</option>
         <option value="short" ${currentValue === 'short' ? 'selected' : ''}>📱 Shorts</option>
-        <option value="preview" ${currentValue === 'preview' ? 'selected' : ''}>🔍 Previews</option>
+        <option value="live" ${currentValue === 'live' ? 'selected' : ''}>🔴 Directos</option>
         <option value="playlist" ${currentValue === 'playlist' ? 'selected' : ''}>📁 Playlists</option>`
         });
-
         select.onchange = () => onChange(select.value);
-
-
         label.appendChild(select);
         wrapper.appendChild(label);
         return wrapper;
     }
-
     function createSearchInput(currentValue, onChange) {
         const wrapper = createElement('div');
         const input = createElement('input', { className: 'ypp-input', id: 'search-input' });
         input.type = 'text';
         input.placeholder = '🔍 Buscar por título o autor...';
         input.value = currentValue;
-
-
-        input.addEventListener('input', () => {
-            onChange(input.value.trim());
-        });
-
+        input.addEventListener('input', () => onChange(input.value.trim()));
         wrapper.appendChild(input);
         return wrapper;
     }
-
-    // Guarda los filtros del usuario en almacenamiento
     async function saveFilters(newValues) {
         const currentRaw = await GM_getValue(CONFIG.userFiltersKey, '{}');
         const current = JSON.parse(currentRaw);
         const updated = { ...current, ...newValues };
         await GM_setValue(CONFIG.userFiltersKey, JSON.stringify(updated));
     }
-
     async function getSavedFilters() {
         const raw = await GM_getValue(CONFIG.userFiltersKey, '{}');
         try {
@@ -974,88 +1167,95 @@
         }
     }
 
-    // Crear entrada de video en la lista
+    // ───────────────
+    // 📂 Video List UI
+    // MARK: 📂 Video List UI
+    // ────────────────
     let videosOverlay = null;
     let videosContainer = null;
     let listContainer = null;
-
     let currentOrderBy, currentFilterBy, currentSearchQuery;
 
     function updateVideoList() {
-        const keys = Storage.keys().filter(k =>
-            !k.startsWith('userSettings')
-        );
-
-        // Limpiar lista vieja
+        const keys = Storage.keys().filter(k => !k.startsWith('userSettings'));
         listContainer.innerHTML = '';
-
         if (keys.length === 0) {
             const p = createElement('p', { className: 'ypp-emptyMsg', text: 'No hay videos guardados.' });
             listContainer.appendChild(p);
             return;
         }
 
-        // Filtrado, búsqueda y orden según los filtros actuales
-        let keyDataPairs = keys
-            .map(k => [k, Storage.get(k)])
-            .filter(([, d]) => !!d)
-            .filter(([, d]) => {
-                if (currentFilterBy === 'playlist') return !!d.videos;
-                if (currentFilterBy === 'all') return true;
-                return d.videoType === currentFilterBy;
-            })
-            .filter(([, d]) => {
-                if (!currentSearchQuery) return true;
-                const query = currentSearchQuery.toLowerCase();
-                if (d.videos) {
-                    return Object.values(d.videos).some(v =>
-                        (v.title || '').toLowerCase().includes(query) ||
-                        (v.author || '').toLowerCase().includes(query)
-                    );
-                } else {
-                    return (d.title || '').toLowerCase().includes(query) ||
-                        (d.author || '').toLowerCase().includes(query);
-                }
-            });
+        let allItems = [];
+        keys.forEach(key => {
+            const data = Storage.get(key);
+            if (!data) return;
 
-        const getSortValue = (key, data) => {
-            if (currentOrderBy === 'title') return (data.title || key).toLowerCase();
-            if (currentOrderBy === 'oldest') return data.savedAt || 0;
-            return -(data.savedAt || 0); // recent
+            if (data.videos) {
+                const playlistTitle = data.title || key;
+                Object.entries(data.videos).forEach(([videoId, info]) => {
+                    allItems.push({
+                        type: 'playlist-video',
+                        videoId,
+                        info,
+                        playlistKey: key,
+                        playlistTitle
+                    });
+                });
+            } else {
+                allItems.push({
+                    type: 'regular-video',
+                    videoId: key,
+                    info: data,
+                    playlistKey: null
+                });
+            }
+        });
+
+        let filteredItems = allItems.filter(item => {
+            if (currentFilterBy === 'playlist') return item.type === 'playlist-video';
+            if (currentFilterBy === 'all') return true;
+            return item.info.videoType === currentFilterBy;
+        }).filter(item => {
+            if (!currentSearchQuery) return true;
+            const query = currentSearchQuery.toLowerCase();
+            return (item.info.title || '').toLowerCase().includes(query) ||
+                (item.info.author || '').toLowerCase().includes(query) ||
+                (item.playlistTitle || '').toLowerCase().includes(query);
+        });
+
+        const getSortValue = (item) => {
+            if (currentOrderBy === 'title') return (item.info.title || item.videoId).toLowerCase();
+            if (currentOrderBy === 'oldest') return item.info.savedAt || 0;
+            return -(item.info.savedAt || 0);
         };
-
-        keyDataPairs.sort((a, b) => {
-            const valA = getSortValue(a[0], a[1]);
-            const valB = getSortValue(b[0], b[1]);
+        filteredItems.sort((a, b) => {
+            const valA = getSortValue(a);
+            const valB = getSortValue(b);
             if (typeof valA === 'string') return valA.localeCompare(valB);
             return valA - valB;
         });
 
-        for (const [key, data] of keyDataPairs) {
-            if (data.videos) {
-                const h3 = createElement('h3', { className: 'ypp-playlistTitle', text: `📁 Playlist: ${key}` });
-                listContainer.appendChild(h3);
-
-                const videosSorted = Object.entries(data.videos)
-                    .filter(([, v]) => {
-                        if (currentFilterBy !== 'all' && currentFilterBy !== 'playlist' && v.videoType !== currentFilterBy) return false;
-                        if (!currentSearchQuery) return true;
-                        const q = currentSearchQuery.toLowerCase();
-                        return (v.title || '').toLowerCase().includes(q) || (v.author || '').toLowerCase().includes(q);
-                    })
-                    .sort(([, a], [, b]) => {
-                        const valA = getSortValue('', a);
-                        const valB = getSortValue('', b);
-                        return typeof valA === 'string' ? valA.localeCompare(valB) : valA - valB;
+        let lastRenderedPlaylistKey = null;
+        filteredItems.forEach(item => {
+            if (item.type === 'playlist-video') {
+                if (item.playlistKey !== lastRenderedPlaylistKey) {
+                    const h3 = createElement('a', {
+                        className: 'ypp-playlistTitle',
+                        text: `📁 Playlist: ${item.playlistTitle}`,
+                        atribute: {
+                            href: `https://www.youtube.com/playlist?list=${item.playlistKey}`,
+                            target: '_blank',
+                            rel: 'noopener noreferrer'
+                        }
                     });
-
-                for (const [videoId, info] of videosSorted) {
-                    listContainer.appendChild(createVideoEntry(videoId, info, key));
+                    listContainer.appendChild(h3);
+                    lastRenderedPlaylistKey = item.playlistKey;
                 }
+                listContainer.appendChild(createVideoEntry(item.videoId, item.info, item.playlistKey));
             } else {
-                listContainer.appendChild(createVideoEntry(key, data, null));
+                listContainer.appendChild(createVideoEntry(item.videoId, item.info, null));
             }
-        }
+        });
     }
 
     function closeModalVideos() {
@@ -1066,122 +1266,86 @@
             videosContainer = null;
             listContainer.remove();
             listContainer = null;
-            document.body.style.overflow = ''; // ♻️ Restaura scroll
+            document.body.style.overflow = '';
         }
     }
-
     const createFloatingButtons = async () => {
         const settings = await Settings.get();
         if (!settings.showFloatingButtons) return;
-
         const wrapper = createElement('div', { className: 'ypp-floatingBtnContainer' });
         const btnConfig = createElement('div', { className: 'ypp-btn', text: '⚙️ YT Playback Plox', onClickEvent: showSettingsUI });
-
         wrapper.appendChild(btnConfig);
         document.body.appendChild(wrapper);
-
-        // Ocultar en modo teatro o fullscreen
         const updateVisibility = () => {
             const isFullscreen = !!document.fullscreenElement;
             wrapper.style.display = isFullscreen ? 'none' : 'flex';
         };
-
         document.addEventListener('fullscreenchange', updateVisibility);
         window.addEventListener('yt-navigate-finish', updateVisibility);
-
         updateVisibility();
     };
-
     function syncUIWithCurrentFilters() {
-        // Actualizar los selectores e input en el modal si existen
         const sortSelect = document.getElementById('sort-selector');
         const filterSelect = document.getElementById('filter-selector');
         const searchInput = document.getElementById('search-input');
-
         if (sortSelect) sortSelect.value = currentOrderBy;
         if (filterSelect) filterSelect.value = currentFilterBy;
         if (searchInput) searchInput.value = currentSearchQuery;
     }
-
-
-    // ────────────────
-    // 👀 Show saved videos
-    // MARK: 👀 Show saved
-    // ────────────────
-
     async function showSavedVideosList() {
         if (!videosOverlay) {
             const saved = await getSavedFilters();
-
             currentOrderBy = saved.orderBy ?? CONFIG.defaultFilters.orderBy;
             currentFilterBy = saved.filterBy ?? CONFIG.defaultFilters.filterBy;
             currentSearchQuery = saved.searchQuery ?? CONFIG.defaultFilters.searchQuery;
-
             videosOverlay = createElement('div', { className: 'ypp-overlay' });
-
             videosContainer = createElement('div', { className: 'ypp-container' });
             if (!videosContainer) {
                 console.error("Failed to create videosContainer");
                 return;
             }
-
             listContainer = createElement('div', { id: 'video-list-container' });
-
             const header = createElement('div', { className: 'ypp-header' });
             const title = createElement('h2', { text: 'YouTube Playback Plox' });
-
             const closeBtn = createElement('button', {
                 className: 'ypp-btn',
                 text: '✖',
                 atribute: { 'aria-label': 'Cerrar' },
                 onClickEvent: closeModalVideos
             });
-
             header.appendChild(title);
             header.appendChild(closeBtn);
-
             videosContainer.appendChild(header);
 
-            // Añadir selectores e input con manejadores para actualizar filtros y lista
-            videosContainer.appendChild(createSortSelector(currentOrderBy, async (selected) => {
+            const filtersContainer = createElement('div', { className: 'ypp-filters' });
+            filtersContainer.appendChild(createSortSelector(currentOrderBy, async (selected) => {
                 currentOrderBy = selected;
                 await saveFilters({ orderBy: selected });
                 updateVideoList();
             }));
-
-            videosContainer.appendChild(createFilterSelector(currentFilterBy, async (selected) => {
+            filtersContainer.appendChild(createFilterSelector(currentFilterBy, async (selected) => {
                 currentFilterBy = selected;
                 await saveFilters({ filterBy: selected });
                 updateVideoList();
             }));
-
-            videosContainer.appendChild(createSearchInput(currentSearchQuery, async (query) => {
+            filtersContainer.appendChild(createSearchInput(currentSearchQuery, async (query) => {
                 currentSearchQuery = query;
                 await saveFilters({ searchQuery: query });
                 updateVideoList();
             }));
+            videosContainer.appendChild(filtersContainer);
 
+            videosContainer.appendChild(listContainer);
 
-            // Footer
             const footer = createElement('div', { className: 'ypp-footer' });
-
             const exportDataToFile = () => {
                 const exportData = {};
-
-                const keys = Storage.keys().filter(k =>
-                    !k.startsWith('userSettings')
-                );
-
+                const keys = Storage.keys().filter(k => !k.startsWith('userSettings'));
                 keys.forEach(k => {
                     const data = Storage.get(k);
                     if (data) exportData[k] = data;
                 });
-
-                const blob = new Blob(
-                    [JSON.stringify(exportData, null, 2)],
-                    { type: 'application/json' }
-                );
-
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
                 const url = URL.createObjectURL(blob);
                 const a = document.createElement('a');
                 a.href = url;
@@ -1190,42 +1354,30 @@
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-
                 showToast('📤 Datos exportados');
             };
-
             const importDataFromFile = () => {
-                // Reutilizar el input si ya existe
                 let inputFile = document.getElementById('ypp-import-file');
                 if (!inputFile) {
                     inputFile = createElement('input', {
                         id: 'ypp-import-file',
-                        atribute: {
-                            type: 'file'
-                        },
-                        props: {
-                            accept: 'application/json'
-                        }
+                        atribute: { type: 'file' },
+                        props: { accept: 'application/json' }
                     });
-
                     inputFile.addEventListener('change', async (e) => {
                         const file = e.target.files[0];
                         if (!file) return;
-
                         try {
                             const text = await file.text();
                             const importedData = JSON.parse(text);
-
                             if (typeof importedData !== 'object' || importedData === null) {
                                 throw new Error('Formato no válido');
                             }
-
                             let count = 0;
                             for (const [key, value] of Object.entries(importedData)) {
                                 Storage.set(key, value);
                                 count++;
                             }
-
                             showToast(`📥 Importados ${count} elementos`);
                             closeModalVideos();
                             showSavedVideosList();
@@ -1233,25 +1385,20 @@
                             console.error('Error al importar datos:', err);
                             showToast('⚠️ Error al importar. Asegúrate de que el archivo sea válido.');
                         } finally {
-                            inputFile.value = ''; // Permitir seleccionar el mismo archivo de nuevo
+                            inputFile.value = '';
                         }
                     });
                     document.body.appendChild(inputFile);
                 }
                 inputFile.click();
             };
-
             const btnExport = createElement('button', { className: 'ypp-btn', text: '📤 Exportar', onClickEvent: exportDataToFile });
             const btnImport = createElement('button', { className: 'ypp-btn', text: '📥 Importar', onClickEvent: importDataFromFile });
-
             footer.appendChild(btnExport);
             footer.appendChild(btnImport);
-
-            videosContainer.appendChild(listContainer);
             videosContainer.appendChild(footer);
 
             videosOverlay.addEventListener('click', closeModalVideos);
-
             document.body.appendChild(videosOverlay);
             document.body.appendChild(videosContainer);
         } else {
@@ -1261,19 +1408,16 @@
     }
 
     // ────────────────
-    // 🔏 Create video entry
-    // MARK: 🔏 Create entry
+    // 📂 Video Entry
+    // MARK: 📂 Video Entry
     // ────────────────
-
     function createVideoEntry(videoId, info, playlistKey = null) {
         const videoTime = formatTime(info.timestamp || 0);
         const duration = info.duration || 0;
         const watched = info.timestamp || 0;
         const remaining = Math.max(duration - watched, 0);
         const percent = duration ? Math.min(100, Math.round((watched / duration) * 100)) : null;
-        const wrapper = createElement('div', { className: 'ypp-videoWrapper' });
-
-        // Miniatura
+        const wrapper = createElement('div', { className: `ypp-videoWrapper ${playlistKey ? 'playlist-item' : ''}` });
         const thumb = createElement('img', {
             className: 'ypp-thumb',
             atribute: {
@@ -1284,12 +1428,8 @@
             },
             props: { draggable: false }
         });
-
         wrapper.appendChild(thumb);
-
-        // Info
         const infoDiv = createElement('div', { className: 'ypp-infoDiv' });
-
         const titleLink = createElement('a', {
             className: 'ypp-titleLink', text: info.title || videoId,
             atribute: {
@@ -1298,132 +1438,202 @@
             },
             props: { target: '_blank', rel: 'noopener noreferrer' }
         });
-
-
         const author = createElement('div', { className: 'ypp-author', text: info.author || 'Desconocido' });
         const views = createElement('div', { className: 'ypp-views', text: info.views || 'N/A' });
-        const timestamp = createElement('div', { className: 'ypp-timestamp', text: `Progreso: ${videoTime}` });
+
+        let timestampText = `Progreso: ${videoTime}`;
+        if (info.forceResumeTime > 0) {
+            timestampText = `⏱️ Siempre desde: ${formatTime(info.forceResumeTime)} 🔒`;
+        }
+        const timestamp = createElement('div', { className: `ypp-timestamp ${info.forceResumeTime > 0 ? 'forced' : ''}`, text: timestampText });
 
         infoDiv.appendChild(titleLink);
         infoDiv.appendChild(author);
         infoDiv.appendChild(views);
         infoDiv.appendChild(timestamp);
-
         if (percent !== null) {
             const progressInfo = createElement('div', { className: 'ypp-progressInfo', text: `📊 ${percent}% visto (${formatTime(remaining)} restantes)` });
             infoDiv.appendChild(progressInfo);
         }
-
         wrapper.appendChild(infoDiv);
 
-        // Botón de borrar
-        const btnDelete = createElement('button', {
-            className: 'ypp-btn ypp-btn-delete',
-            atribute: { title: 'Eliminar entrada' },
-            text: '🗑️',
+        const buttonContainer = createElement('div', { className: 'ypp-containerButtonsTime' });
+
+        const btnForceTime = createElement('button', {
+            className: 'ypp-btn ypp-btn-small',
+            text: '⏱️',
+            atribute: { title: info.forceResumeTime ? `Siempre empezar en ${formatTime(info.forceResumeTime)} (Click para cambiar o eliminar)` : 'Establecer tiempo de inicio' },
             onClickEvent: () => {
+                const promptText = info.forceResumeTime
+                    ? `Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23) o deja vacío para eliminar:`
+                    : `Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23 o 0:45):`;
+                const timeStr = prompt(promptText, info.forceResumeTime ? formatTime(info.forceResumeTime) : '');
+
+                if (timeStr === null) { // Usuario canceló
+                    return;
+                }
+
+                const timeSec = parseTimeToSeconds(timeStr);
+
                 if (playlistKey) {
                     const playlist = Storage.get(playlistKey);
                     if (playlist?.videos?.[videoId]) {
-                        delete playlist.videos[videoId];
-                        Object.keys(playlist.videos).length
-                            ? Storage.set(playlistKey, playlist)
-                            : Storage.del(playlistKey);
+                        if (timeSec > 0) {
+                            playlist.videos[videoId].forceResumeTime = timeSec;
+                            showToast(`✅ Tiempo de inicio establecido en ${formatTime(timeSec)}`);
+                        } else {
+                            delete playlist.videos[videoId].forceResumeTime;
+                            showToast('🔓 Tiempo fijo eliminado.');
+                        }
+                        Storage.set(playlistKey, playlist);
                     }
                 } else {
-                    Storage.del(videoId);
+                    const data = Storage.get(videoId);
+                    if (data) {
+                        if (timeSec > 0) {
+                            data.forceResumeTime = timeSec;
+                            showToast(`✅ Tiempo de inicio establecido en ${formatTime(timeSec)}`);
+                        } else {
+                            delete data.forceResumeTime;
+                            showToast('🔓 Tiempo fijo eliminado.');
+                        }
+                        Storage.set(videoId, data);
+                    }
                 }
-
-                showToast('🗑️ Entrada eliminada');
-                showSavedVideosList(); // recarga
+                updateVideoList();
             }
         });
+        buttonContainer.appendChild(btnForceTime);
 
-        wrapper.appendChild(btnDelete);
+        const btnDelete = createElement('button', {
+            className: 'ypp-btn ypp-btn-delete ypp-btn-small',
+            atribute: { title: 'Eliminar entrada' },
+            text: '🗑️',
+            onClickEvent: () => {
+                const title = info.title || videoId;
+                const itemData = { videoId, info, playlistKey };
+
+                const performDelete = () => {
+                    if (playlistKey) {
+                        const playlist = Storage.get(playlistKey);
+                        if (playlist?.videos?.[videoId]) {
+                            delete playlist.videos[videoId];
+                            Object.keys(playlist.videos).length
+                                ? Storage.set(playlistKey, playlist)
+                                : Storage.del(playlistKey);
+                        }
+                    } else {
+                        Storage.del(videoId);
+                    }
+                    updateVideoList();
+                };
+
+                const undoDelete = () => {
+                    if (playlistKey) {
+                        const playlist = Storage.get(playlistKey) || { lastWatchedVideoId: '', videos: {}, title: '' };
+                        playlist.videos[videoId] = itemData.info;
+                        Storage.set(playlistKey, playlist);
+                    } else {
+                        Storage.set(videoId, itemData.info);
+                    }
+                    updateVideoList();
+                };
+
+                performDelete();
+                showToast(`🗑️ "${title}" eliminado.`, 5000, {
+                    action: {
+                        label: 'Deshacer',
+                        callback: undoDelete
+                    }
+                });
+            }
+        });
+        buttonContainer.appendChild(btnDelete);
+        wrapper.appendChild(buttonContainer);
+
         return wrapper;
     }
 
     // ────────────────
-    // showSettingsUI
-    //  MARK: showSettingsUI
+    // ⚙️ Settings UI
+    // MARK: ⚙️ Settings UI
     // ────────────────
 
     async function showSettingsUI() {
-        // Prevenir múltiples instancias del modal
-        if (document.querySelector('.settings-modal')) {
-            return;
-        }
-
-        closeModalVideos(); // Cerrar lista de videos si está abierta
-
+        if (document.querySelector('.settings-modal')) return;
+        closeModalVideos();
         const settings = await Settings.get();
         const content = createElement('div', { className: 'ypp-settingsContent' });
 
-        // Grupo: Mostrar notificaciones de guardado
+        const activationGroup = createElement('div');
+        const activationLabel = createElement('div', { text: 'Activar guardado para:', style: 'font-weight: bold; margin-bottom: 8px;' });
+        activationGroup.appendChild(activationLabel);
+
+        const types = [
+            { key: 'saveRegularVideos', label: '▶️ Videos regulares' },
+            { key: 'saveShorts', label: '📱 Shorts' },
+            { key: 'saveLiveStreams', label: '🔴 Directos (Livestreams)' }
+        ];
+
+        types.forEach(type => {
+            const group = createElement('div');
+            const label = createElement('label', { className: 'ypp-label', text: type.label, atribute: { for: type.key } });
+            const toggle = createElement('input', {
+                id: type.key,
+                atribute: { type: 'checkbox' },
+                props: { checked: settings[type.key] }
+            });
+            label.appendChild(toggle);
+            group.appendChild(label);
+            activationGroup.appendChild(group);
+        });
+        content.appendChild(activationGroup);
+
         const notifGroup = createElement('div');
         const notifLabel = createElement('label', {
-            className: 'ypp-label', text: 'Mostrar notificaciones de guardado', atribute: { for: 'toggleNotif', },
+            className: 'ypp-label', text: 'Mostrar notificaciones de guardado', atribute: { for: 'toggleNotif' },
         });
-
         const toggleNotif = createElement('input', {
             id: 'toggleNotif',
             atribute: { title: 'Mostrar notificaciones de guardado', for: 'toggleNotif', type: 'checkbox' },
             props: { checked: settings.showNotifications }
         });
-
         notifLabel.appendChild(toggleNotif);
         notifGroup.appendChild(notifLabel);
         content.appendChild(notifGroup);
 
-        // Grupo: Intervalo entre guardados
         const intervalGroup = document.createElement('div');
-
         const intervalLabel = createElement('label', {
             className: 'ypp-label',
             text: 'Intervalo segundos mínimos entre guardados: ',
             atribute: { for: 'interval' }
         });
-
         const intervalInput = createElement('input', {
             className: 'ypp-input ypp-input-small',
             id: 'interval',
             atribute: { title: 'Segundos', min: '1', type: 'number' },
             props: { value: settings.minSecondsBetweenSaves }
         });
-
         intervalLabel.appendChild(intervalInput);
         intervalGroup.appendChild(intervalLabel);
         content.appendChild(intervalGroup);
 
-        // Grupo: Mostrar boton flotante
         const buttonsGroup = document.createElement('div');
-
         const buttonsLabel = createElement('label', {
             className: 'ypp-label',
-            atribute: {
-                title: 'Mostrar boton flotante', for: 'toggleButtons'
-            },
+            atribute: { title: 'Mostrar boton flotante', for: 'toggleButtons' },
             text: ' Mostrar boton flotante'
         });
-
         const toggleButtons = createElement('input', {
             id: 'toggleButtons',
-            atribute: {
-                title: 'Mostrar boton flotante',
-                type: 'checkbox'
-            },
-            props: {
-                checked: settings.showFloatingButtons
-            }
+            atribute: { title: 'Mostrar boton flotante', type: 'checkbox' },
+            props: { checked: settings.showFloatingButtons }
         });
-
         buttonsLabel.appendChild(toggleButtons);
         buttonsGroup.appendChild(buttonsLabel);
         content.appendChild(buttonsGroup);
 
-
         const buttonGroup = createElement('div', { className: 'ypp-btnGroup' });
-
         const saveBtn = createElement('button', {
             className: 'ypp-btn ypp-save-button',
             id: 'saveBtn',
@@ -1433,14 +1643,15 @@
                     showNotifications: toggleNotif.checked,
                     minSecondsBetweenSaves: Math.max(1, parseInt(intervalInput.value, 10)),
                     showFloatingButtons: toggleButtons.checked,
+                    saveRegularVideos: document.getElementById('saveRegularVideos').checked,
+                    saveShorts: document.getElementById('saveShorts').checked,
+                    saveLiveStreams: document.getElementById('saveLiveStreams').checked,
                 };
                 await Settings.set(newSettings);
                 showToast('✅ Configuración guardada');
                 location.reload();
             }
         });
-
-        // Botón Ver videos guardados
         const viewBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-outlined',
             id: 'viewSavedBtn',
@@ -1450,40 +1661,35 @@
                 showSavedVideosList();
             }
         });
-
         buttonGroup.appendChild(viewBtn);
         buttonGroup.appendChild(saveBtn);
         content.appendChild(buttonGroup);
-
         const { host } = createModal('⚙️ Configuración', content);
         host.classList.add('settings-modal');
     }
 
-    // ────────────────
-    // GM_registerMenuCommand
-    //  MARK: GM_registerMenuCommand
+    // ───────────────
+    // ⚙️ Menu Commands
+    // MARK: ⚙️ Menu Commands
     // ────────────────
 
     GM_registerMenuCommand('⚙️ Configuración', showSettingsUI);
     GM_registerMenuCommand('📋 Ver videos guardados', showSavedVideosList);
 
+
     // ────────────────
-    // Init
-    //  MARK: Init
+    // 🚀 Init
+    // MARK: 🚀 Init
     // ────────────────
 
-    const init = () => {
+    const init = async () => {
+        cachedSettings = await Settings.get();
         injectStyles();
         const observePlayer = () => {
             const selectors = ['#movie_player', '#shorts-player'];
-
-            const containers = selectors
-                .map(selector => document.querySelector(selector))
-                .filter(Boolean);
-
+            const containers = selectors.map(selector => document.querySelector(selector)).filter(Boolean);
             for (const container of containers) {
                 const videoEl = container.querySelector('video');
-                // En algunos casos, player puede estar en container.player_ o ser el container mismo
                 const player = container.player_ || container;
                 if (player && videoEl) {
                     processVideo(container, player, videoEl);
@@ -1491,79 +1697,41 @@
             }
         };
 
+        const stopActivePlayback = () => {
+            if (currentPlayer && currentVideoEl && !currentVideoEl.paused) {
+                try {
+                    currentVideoEl.pause();
+                    currentPlayer.pauseVideo();
+                } catch (e) {
+                    console.error('Error al detener la reproducción activa:', e);
+                }
+            }
+            if (activeCleanup) {
+                activeCleanup();
+                activeCleanup = null;
+            }
+            currentPlayer = null;
+            currentVideoEl = null;
+        };
+
+        const checkForPlaylist = () => {
+            const url = new URL(location.href);
+            const playlistId = url.searchParams.get('list');
+            if (playlistId) {
+                getCurrentPlaylistName();
+            }
+        };
+
         observePlayer();
         createFloatingButtons();
-        // Escuchar evento personalizado que YouTube dispara al navegar internamente
-        window.addEventListener('yt-navigate-finish', observePlayer);
-    };
+        initTimeDisplay();
 
+        window.addEventListener('yt-navigate-finish', () => {
+            stopActivePlayback();
+            setTimeout(observePlayer, 150);
+            checkForPlaylist();
+            checkAndRestoreTimeDisplay();
+        });
+    };
     init();
-
-    // ────────────────
-    // Código experimental para guardar avances desde previews de miniaturas homepage
-    //  MARK: Código experimental
-    // ────────────────
-
-    /* const init = () => {
-      injectStyles();
-    
-      // Detecta players principales
-      const observePlayer = () => {
-        const selectors = ['#movie_player', '#shorts-player', '#inline-player'];
-        selectors.forEach(sel => {
-          const container = document.querySelector(sel);
-          if (!container) return;
-          const videoEl = container.querySelector('video');
-          const player = container.player_ || container;
-          if (player && videoEl) {
-            processVideo(container, player, videoEl);
-          }
-        });
-      };
-    
-      // Detecta previews en miniaturas
-      const hookThumbnails = () => {
-        document.querySelectorAll('ytd-thumbnail').forEach(thumbnail => {
-          if (thumbnail.dataset.hooked) return;
-          thumbnail.dataset.hooked = 'true';
-    
-          thumbnail.addEventListener('mouseenter', () => {
-            // Buscar video en DOM normal
-            let videoEl = thumbnail.querySelector('video');
-            // Buscar en shadowRoot si existe
-            if (!videoEl && thumbnail.shadowRoot) {
-              videoEl = thumbnail.shadowRoot.querySelector('video');
-            }
-            if (videoEl) {
-              console.log('Preview detectada:', videoEl);
-              processVideo(thumbnail, thumbnail, videoEl);
-            }
-          });
-        });
-      };
-    
-      // Observer global para detectar nuevos thumbnails o videos
-      const observer = new MutationObserver(() => {
-        hookThumbnails();
-        document.querySelectorAll('ytd-thumbnail video').forEach(videoEl => {
-          if (!videoEl.dataset.processed) {
-            videoEl.dataset.processed = 'true';
-            console.log('Preview detectada (observer):', videoEl);
-            processVideo(videoEl.closest('ytd-thumbnail') || document.body, videoEl, videoEl);
-          }
-        });
-      });
-      observer.observe(document.body, { childList: true, subtree: true });
-    
-      observePlayer();
-      hookThumbnails();
-      createFloatingButtons();
-    
-      window.addEventListener('yt-navigate-finish', () => {
-        observePlayer();
-        hookThumbnails();
-      });
-    };
-    
-    init(); */
 })();

@@ -1260,7 +1260,7 @@
 
     let lastNotifyTimestamp = 0;
     let cachedSettings = null;
-    async function handleNotification(timestamp) {
+    async function handleNotification(timestamp, videoType) {
         if (!cachedSettings) cachedSettings = await Settings.get();
         if (!cachedSettings.showNotifications || cachedSettings.alertStyle === 'hidden') return;
 
@@ -1280,12 +1280,18 @@
                 message = `${progressText}: ${timeStr}`;
                 break;
             case 'iconText':
-            default: // Default to iconText
+            default: // Valor por defecto Icono + Texto
                 message = `💾 ${progressText}: ${timeStr}`;
                 break;
         }
 
-        showToast(message, 2500);
+        if (videoType === 'short') {
+            // Para los Shorts, usar siempre el sistema de notificaciones flotantes
+            showToast(message, 2500, { persistent: true });
+        } else {
+            // Para videos normales, usar el método por defecto (en barra de reproducción)
+            showToast(message, 2500);
+        }
     }
 
     // ────────────────
@@ -1411,7 +1417,7 @@
         } else {
             saveOrDelete(vid, isFinished ? null : { timestamp: currentTime, lastUpdated: now, videoType: type, ...info });
         }
-        handleNotification(currentTime);
+        handleNotification(currentTime, type);
     };
 
     const resumePlayback = async (player, vid, videoEl, inPlaylist, plId, fromPlId) => {

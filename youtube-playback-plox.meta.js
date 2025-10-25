@@ -2,7 +2,7 @@
 // @namespace    youtube-playback-plox
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.3
+// @version      0.0.4
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @name         YouTube Playback Plox
@@ -60,7 +60,7 @@
 // @description:pl  Automatycznie zapisuje i wznawia postęp odtwarzania wideo na YouTube bez logowania.
 
 // @name:nl      YouTube Afspelen Plox
-// @description:nl  Slaat automatisch de voortgang van video’s op YouTube op en hervat deze zonder in te loggen.
+// @description:nl  Slaat automatisch de voortgang van video's op YouTube op en hervat deze zonder in te loggen.
 
 // @name:sv      YouTube Uppspelning Plox
 // @description:sv  Sparar och återupptar automatiskt videoframsteg på YouTube utan att behöva logga in.

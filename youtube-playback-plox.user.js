@@ -2,7 +2,7 @@
 // @namespace    youtube-playback-plox
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.3
+// @version      0.0.4
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @name         YouTube Playback Plox
@@ -60,7 +60,7 @@
 // @description:pl  Automatycznie zapisuje i wznawia postęp odtwarzania wideo na YouTube bez logowania.
 
 // @name:nl      YouTube Afspelen Plox
-// @description:nl  Slaat automatisch de voortgang van video’s op YouTube op en hervat deze zonder in te loggen.
+// @description:nl  Slaat automatisch de voortgang van video's op YouTube op en hervat deze zonder in te loggen.
 
 // @name:sv      YouTube Uppspelning Plox
 // @description:sv  Sparar och återupptar automatiskt videoframsteg på YouTube utan att behöva logga in.
@@ -178,8 +178,8 @@
     // ────────────────
 
     // URL del archivo de traducciones
-    const TRANSLATIONS_URL = 'https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/translations.js';
-    const TRANSLATIONS_URL_BACKUP = 'https://cdn.jsdelivr.net/gh/Alplox/Youtube-Playback-Plox@main/translations.js';
+    const TRANSLATIONS_URL = 'https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/translations.json';
+    const TRANSLATIONS_URL_BACKUP = 'https://cdn.jsdelivr.net/gh/Alplox/Youtube-Playback-Plox@refs/heads/main/translations.json';
 
     // Variables globales para las traducciones
     let TRANSLATIONS = {};
@@ -401,7 +401,7 @@
         fr: '🇫🇷', // Francés
     };
 
-    // Función para cargar las traducciones desde el archivo externo
+    // Función para cargar las traducciones desde el archivo JSON externo
     async function loadTranslations() {
         return new Promise((resolve) => {
             // Función para intentar cargar desde una URL específica
@@ -412,24 +412,14 @@
                     timeout: 5000, // Añadir timeout de 5 segundos
                     onload: function (response) {
                         try {
-                            // Crear una función para ejecutar el código en el contexto global
-                            const executeScript = new Function(`
-                        ${response.responseText}
-                        // Devolver las variables como un objeto
-                        return {
-                            LANGUAGE_FLAGS: typeof LANGUAGE_FLAGS !== 'undefined' ? LANGUAGE_FLAGS : {},
-                            TRANSLATIONS: typeof TRANSLATIONS !== 'undefined' ? TRANSLATIONS : {}
-                        };
-                    `);
-
-                            // Ejecutar el script y obtener las variables
-                            const result = executeScript();
+                            // Parsear el JSON directamente
+                            const data = JSON.parse(response.responseText);
 
                             // Verificar si las variables se cargaron correctamente
-                            if (result.LANGUAGE_FLAGS && Object.keys(result.LANGUAGE_FLAGS).length > 0 &&
-                                result.TRANSLATIONS && Object.keys(result.TRANSLATIONS).length > 0) {
+                            if (data.LANGUAGE_FLAGS && Object.keys(data.LANGUAGE_FLAGS).length > 0 &&
+                                data.TRANSLATIONS && Object.keys(data.TRANSLATIONS).length > 0) {
                                 console.log('Traducciones externas cargadas correctamente desde: ' + url);
-                                resolve(result);
+                                resolve(data);
                             } else {
                                 if (!isSecondAttempt) {
                                     console.warn('No se pudieron cargar las traducciones desde el primer enlace, intentando con el segundo...');
@@ -1095,6 +1085,24 @@
         return 0;
     };
 
+    // Función para asignar HTML de forma segura
+    function setInnerHTML(element, html) {
+        if (window.trustedTypes && window.trustedTypes.createPolicy) {
+            try {
+                const policy = window.trustedTypes.createPolicy('youtube-playback-plox', {
+                    createHTML: (string) => string
+                });
+                element.innerHTML = policy.createHTML(html);
+            } catch (e) {
+                // Si la creación de la política falla, usar innerHTML directamente
+                element.innerHTML = html;
+            }
+        } else {
+            // Si TrustedHTML no está soportado, usar innerHTML
+            element.innerHTML = html;
+        }
+    }
+
     function createElement(tag, {
         className = '',
         id = '',
@@ -1108,7 +1116,7 @@
         if (className) el.className = className;
         if (id) el.id = id;
         if (text) el.textContent = text;
-        if (html) el.innerHTML = html;
+        if (html) setInnerHTML(el, html);
         if (onClickEvent && typeof onClickEvent === 'function') el.addEventListener('click', onClickEvent);
         if (atribute && typeof atribute === 'object') {
             Object.entries(atribute).forEach(([k, v]) => el.setAttribute(k, v));
@@ -1174,7 +1182,7 @@
                     container.appendChild(toast);
                     requestAnimationFrame(() => (toast.style.opacity = '1'));
                 }
-                toast.innerHTML = '';
+                setInnerHTML(toast, ''); // Limpiar contenido previo
                 const messageSpan = document.createElement('span');
                 messageSpan.textContent = message;
                 toast.appendChild(messageSpan);
@@ -1249,7 +1257,11 @@
         header.appendChild(titleEl);
         header.appendChild(closeBtn);
         const body = createElement('div', { className: 'ypp-modalBody' });
-        typeof content === 'string' ? body.innerHTML = content.replace(/\u200B/g, '') : body.appendChild(content);
+        if (typeof content === 'string') {
+            setInnerHTML(body, content.replace(/\u200B/g, ''));
+        } else {
+            body.appendChild(content);
+        }
         modal.appendChild(header);
         modal.appendChild(body);
         overlay.appendChild(modal);
@@ -1657,13 +1669,12 @@
 
     function updateVideoList() {
         const keys = Storage.keys().filter(k => !k.startsWith('userSettings'));
-        listContainer.innerHTML = '';
+        setInnerHTML(listContainer, ''); // Limpiar contenido previo
         if (keys.length === 0) {
             const p = createElement('p', { className: 'ypp-emptyMsg', text: t('noSavedVideos') });
             listContainer.appendChild(p);
             return;
         }
-
         let allItems = [];
         keys.forEach(key => {
             const data = Storage.get(key);
@@ -2228,7 +2239,7 @@
     // ────────────────
 
     const init = async () => {
-        // Cargar traducciones desde el archivo externo
+        // Cargar traducciones desde el archivo JSON externo
         console.log('Iniciando carga de traducciones...');
 
         // Variable para rastrear si las traducciones externas se cargaron correctamente

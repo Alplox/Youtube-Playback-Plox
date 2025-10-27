@@ -2,7 +2,7 @@
 // @namespace    youtube-playback-plox
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.4
+// @version      0.0.5
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @name         YouTube Playback Plox

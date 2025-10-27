@@ -2,7 +2,7 @@
 // @namespace    youtube-playback-plox
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.4
+// @version      0.0.5
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @name         YouTube Playback Plox
@@ -168,6 +168,42 @@
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
 // ==/UserScript==
+
+// ────────────────
+// 🔍 SISTEMA DE LOGGING
+// MARK: 🔍 SISTEMA DE LOGGING
+// ────────────────
+
+(function () {
+    'use strict';
+
+    // 1. Determinar si el modo debug está activo
+    const DEBUG = false; // Cambiar a 'false' para desactivar los logs de depuración en producción
+
+    // 2. Crear el objeto del logger en el ámbito global (window)
+    window.MyScriptLogger = {
+        log: (context, ...args) => {
+            if (DEBUG) {
+                console.log(`%c[${context}]`, 'color: #6a9955;', ...args);
+            }
+        },
+        warn: (context, ...args) => {
+            if (DEBUG) {
+                console.warn(`%c[${context}]`, 'color: #ce9178; font-weight: bold;', ...args);
+            }
+        },
+        error: (context, ...args) => {
+            // Los errores siempre se muestran
+            console.error(`%c[${context}]`, 'color: #f44747; font-weight: bold;', ...args);
+        }
+    };
+
+})();
+
+// Atajo para no tener que escribir window.MyScriptLogger cada vez
+const { log, warn, error: conError } = window.MyScriptLogger;
+
+// --- INICIO CARGA LÓGICA PRINCIPAL DEL USERSCRIPT ---
 
 (() => {
     'use strict';
@@ -409,23 +445,21 @@
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: url,
-                    timeout: 5000, // Añadir timeout de 5 segundos
+                    timeout: 5000,
                     onload: function (response) {
                         try {
-                            // Parsear el JSON directamente
                             const data = JSON.parse(response.responseText);
 
-                            // Verificar si las variables se cargaron correctamente
                             if (data.LANGUAGE_FLAGS && Object.keys(data.LANGUAGE_FLAGS).length > 0 &&
                                 data.TRANSLATIONS && Object.keys(data.TRANSLATIONS).length > 0) {
-                                console.log('Traducciones externas cargadas correctamente desde: ' + url);
+                                log('loadTranslations', 'Traducciones externas cargadas correctamente desde: ' + url);
                                 resolve(data);
                             } else {
                                 if (!isSecondAttempt) {
-                                    console.warn('No se pudieron cargar las traducciones desde el primer enlace, intentando con el segundo...');
+                                    warn('loadTranslations', 'No se pudieron cargar las traducciones desde el primer enlace, intentando con el segundo...');
                                     tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
                                 } else {
-                                    console.warn('No se pudieron cargar las traducciones desde ningún enlace, usando fallback');
+                                    warn('loadTranslations', 'No se pudieron cargar las traducciones desde ningún enlace, usando fallback');
                                     resolve({
                                         LANGUAGE_FLAGS: FALLBACK_FLAGS,
                                         TRANSLATIONS: FALLBACK_TRANSLATIONS
@@ -433,9 +467,9 @@
                                 }
                             }
                         } catch (error) {
-                            console.error('Error al procesar el archivo de traducciones desde ' + url + ':', error);
+                            conError('loadTranslations', 'Error al procesar el archivo de traducciones desde ' + url + ':', error);
                             if (!isSecondAttempt) {
-                                console.warn('Intentando con el segundo enlace...');
+                                warn('loadTranslations', 'Intentando con el segundo enlace de traducciones...');
                                 tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
                             } else {
                                 resolve({
@@ -446,9 +480,9 @@
                         }
                     },
                     onerror: function (error) {
-                        console.error('Error al cargar el archivo de traducciones desde ' + url + ':', error);
+                        conError('loadTranslations', 'Error al cargar el archivo de traducciones desde ' + url + ':', error);
                         if (!isSecondAttempt) {
-                            console.warn('Intentando con el segundo enlace...');
+                            warn('loadTranslations', 'Intentando con el segundo enlace de traducciones...');
                             tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
                         } else {
                             resolve({
@@ -458,9 +492,9 @@
                         }
                     },
                     ontimeout: function () {
-                        console.error('Timeout al cargar el archivo de traducciones desde ' + url);
+                        conError('loadTranslations', 'Timeout al cargar el archivo de traducciones desde ' + url);
                         if (!isSecondAttempt) {
-                            console.warn('Intentando con el segundo enlace...');
+                            warn('loadTranslations', 'Intentando con el segundo enlace de traducciones...');
                             tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
                         } else {
                             resolve({
@@ -486,18 +520,19 @@
         /** Diferencia mínima (en segundos) para considerar un cambio de posición como válido */
         minSeekDiff: 1.5,
 
-        /** Días de expiración para diferentes tipos de videos */
-        expireDays: {
-            regular: 30,
-            short: 1,
-            live: 0.1, // Los directos no se guardan mucho tiempo
-        },
-
         /** Tiempo desde el final del video (en segundos) para considerarlo como "finalizado" */
         staticFinishSec: 90,
 
         /** Prefijo para claves en localStorage */
         storagePrefix: 'YT_PLAYBACK_PLOX_',
+
+        /** Enumeración de estilos de alerta */
+        alertStylesSettings: {
+            icon_only: 'iconOnly',
+            text_only: 'textOnly',
+            icon_and_text: 'iconText',
+            no_icon_no_text: 'hidden'
+        },
 
         /** Clave para guardar configuraciones del usuario en GM_* */
         userSettingsKey: 'YT_PLAYBACK_PLOX_userSettings',
@@ -505,13 +540,13 @@
         /** Valores predeterminados para configuraciones del usuario */
         defaultSettings: {
             showNotifications: true,
-            minSecondsBetweenSaves: 10,
+            minSecondsBetweenSaves: 1,
             showFloatingButtons: false,
             saveRegularVideos: true, // Por defecto, guardar videos regulares
             saveShorts: false, // Por defecto, no guardar Shorts
             saveLiveStreams: false, // Por defecto, no guardar directos
             language: 'es', // Idioma predeterminado
-            alertStyle: 'iconText', // Estilo de alerta predeterminado: iconText, iconOnly, textOnly, hidden
+            alertStyle: 'iconText', // Estilo de alerta predeterminado
         },
 
         /** Clave para guardar filtros del usuario en GM_* */
@@ -556,7 +591,7 @@
     // Función para cambiar el idioma
     async function setLanguage(lang) {
         if (!TRANSLATIONS[lang]) {
-            console.warn(`Language '${lang}' not supported`);
+            warn('setLanguage', `Language '${lang}' not supported`);
             return false;
         }
 
@@ -567,16 +602,7 @@
         settings.language = lang;
         await Settings.set(settings);
 
-        // Actualizar textos en la interfaz si es necesario
-        updateUITexts();
-
         return true;
-    }
-
-    // Función para actualizar textos en la interfaz
-    function updateUITexts() {
-        // Esta función se implementará más adelante para actualizar dinámicamente los textos
-        // cuando el usuario cambie el idioma
     }
 
     // Función para detectar el idioma del navegador
@@ -585,9 +611,7 @@
         const langCode = browserLang.split('-')[0]; // Obtener solo el código de idioma principal
 
         // Verificar si el idioma está soportado
-        if (TRANSLATIONS[langCode]) {
-            return langCode;
-        }
+        if (TRANSLATIONS[langCode]) return langCode;
 
         // Si no, devolver el idioma predeterminado
         return CONFIG.defaultSettings.language;
@@ -685,7 +709,7 @@
   align-items: center;
   padding: var(--spacing-sm);
   border-bottom: 1px solid var(--color-border);
-  flex-shrink: 0; /* No encoger */
+  flex-shrink: 0;
 }
 
 .ypp-filters {
@@ -694,7 +718,7 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-md);
-  flex-shrink: 0; /* No encoger */
+  flex-shrink: 0;
 }
 
 .ypp-footer {
@@ -703,7 +727,7 @@
   display: flex;
   justify-content: space-between;
   z-index: 10;
-  flex-shrink: 0; /* No encoger */
+  flex-shrink: 0;
 }
 
 #video-list-container {
@@ -852,9 +876,9 @@
 
 .ypp-btn-small {
     padding: 0.3em 0.6em;
-    width: 32px; /* Tamaño fijo */
-    height: 32px; /* Tamaño fijo */
-    flex-shrink: 0; /* No encoger */
+    width: 32px;
+    height: 32px;
+    flex-shrink: 0;
 }
 
 .ypp-btn-outlined {
@@ -1021,7 +1045,7 @@
                 const raw = localStorage.getItem(`${CONFIG.storagePrefix}${key}`);
                 return raw ? JSON.parse(raw) : null;
             } catch (error) {
-                console.error(`Storage.get: Error al parsear la clave "${key}"`, error);
+                conError('Storage', `Storage.get: Error al parsear la clave "${key}"`, error);
                 return null;
             }
         },
@@ -1030,14 +1054,14 @@
                 const serialized = JSON.stringify(value);
                 localStorage.setItem(`${CONFIG.storagePrefix}${key}`, serialized);
             } catch (error) {
-                console.error(`Storage.set: Error al guardar la clave "${key}"`, error);
+                conError('Storage', `Storage.set: Error al guardar la clave "${key}"`, error);
             }
         },
         del(key) {
             try {
                 localStorage.removeItem(`${CONFIG.storagePrefix}${key}`);
             } catch (error) {
-                console.error(`Storage.del: Error al eliminar la clave "${key}"`, error);
+                conError('Storage', `Storage.del: Error al eliminar la clave "${key}"`, error);
             }
         },
         keys() {
@@ -1054,7 +1078,7 @@
                 const parsed = raw ? JSON.parse(raw) : {};
                 return { ...CONFIG.defaultSettings, ...parsed };
             } catch (error) {
-                console.error('Error al cargar configuración del usuario:', error);
+                conError('Settings', 'Error al cargar configuración del usuario:', error);
                 return { ...CONFIG.defaultSettings };
             }
         },
@@ -1063,7 +1087,7 @@
                 const serialized = JSON.stringify(settings);
                 await GM_setValue(CONFIG.userSettingsKey, serialized);
             } catch (error) {
-                console.error('Error al guardar configuración del usuario:', error);
+                conError('Settings', 'Error al guardar configuración del usuario:', error);
             }
         }
     };
@@ -1072,6 +1096,7 @@
     // 🔧 Utils
     // MARK: 🔧 Utils
     // ────────────────
+
     const formatTime = (seconds) => {
         const iso = new Date(seconds * 1000).toISOString();
         const time = iso.slice(11, 19);
@@ -1085,7 +1110,7 @@
         return 0;
     };
 
-    // Función para asignar HTML de forma segura
+    // Función para asignar HTML de forma segura para compatibilidad con Trusted Types (Chrome)
     function setInnerHTML(element, html) {
         if (window.trustedTypes && window.trustedTypes.createPolicy) {
             try {
@@ -1103,6 +1128,7 @@
         }
     }
 
+    // Función para crear elementos con opciones
     function createElement(tag, {
         className = '',
         id = '',
@@ -1126,112 +1152,144 @@
                 if (k in el) el[k] = v;
             });
         }
+
         return el;
     }
 
     // ───────────────
-    // 📢 Time Display (Player Bar)
+    // 📢 Time Display
     // MARK: 📢 Time Display
     // ────────────────
-    let timeDisplay;
-    let lastRenderedText = '';
-    let isPlayerSeeking = false; // Flag para mensaje persistente
 
+    let timeDisplay;
+
+    // Inicializa la visualización de tiempo en la barra de reproducción
     function initTimeDisplay() {
         const timeContainer = document.querySelector('.ytp-time-contents');
-        if (!timeContainer || timeContainer.contains(timeDisplay)) return;
+        log('initTimeDisplay', 'timeContainer encontrado:', timeContainer);
+        if (!timeContainer || timeDisplay) return;
 
         timeDisplay = document.createElement('span');
-        timeDisplay.style.display = 'inline-block';
-        timeDisplay.style.marginLeft = '10px';
-        timeDisplay.style.color = '#0f9d58'; // Verde de YouTube
-        timeDisplay.style.fontWeight = 'bold';
+        Object.assign(timeDisplay.style, {
+            display: 'inline-block',
+            marginLeft: '10px',
+            color: '#0f9d58',
+            fontWeight: 'bold'
+        });
         timeContainer.appendChild(timeDisplay);
+
+        log('initTimeDisplay', 'Creada visualización de tiempo en la barra de reproducción');
     }
 
-    function checkAndRestoreTimeDisplay() {
-        const timeContainer = document.querySelector('.ytp-time-contents');
-        if (timeContainer && !timeContainer.contains(timeDisplay)) {
-            initTimeDisplay();
+    /**
+    * Actualiza el mensaje en la barra de reproducción
+    * @param {string} message - Mensaje a mostrar
+    * @param {number} duration - Duración de mensajes temporales
+    * @param {object} options - Opciones: keep
+    */
+    function updatePlaybackBarMessage(message, duration = 2500, options = {}) {
+        log('updatePlaybackBarMessage', 'Llamado con:', { message, duration, options });
+        if (!timeDisplay) initTimeDisplay();
+
+        if (options.keep) { // Mensaje fijo (Solo se cambia texto)
+            timeDisplay.textContent = message;
+            log('updatePlaybackBarMessage', 'Mensaje fijo en barra actualizado', message);
+        } else { // Mensaje temporal
+            timeDisplay.textContent = message;
+            setTimeout(() => {
+                if (timeDisplay && timeDisplay.textContent === message) {
+                    timeDisplay.textContent = '';
+                    log('updatePlaybackBarMessage', 'Mensaje temporal eliminado de la barra', message);
+                }
+            }, duration);
         }
     }
+
+    // ───────────────
+    // 🍞 Toasts 
+    // MARK: 🍞 Toasts
+    // ───────────────
 
     const toastTimeouts = new WeakMap();
-    const showToast = (message, duration = 2500, options = {}) => {
-        // Si el mensaje es persistente o tiene una acción, usar el sistema de toasts flotantes
-        if (options.persistent || options.action) {
-            let container = document.querySelector('.ypp-toast-container');
-            if (!container) {
-                container = document.createElement('div');
-                container.className = 'ypp-toast-container';
-                document.body.appendChild(container);
-                const updateVisibility = () => {
-                    const isFullscreen = !!document.fullscreenElement;
-                    container.style.display = isFullscreen ? 'none' : 'flex';
-                };
-                document.addEventListener('fullscreenchange', updateVisibility);
-                window.addEventListener('yt-navigate-finish', updateVisibility);
-                updateVisibility();
-            }
-            let toast;
-            if (options.persistent) {
-                toast = container.querySelector('.ypp-toast.persistent');
-                if (!toast) {
-                    toast = document.createElement('div');
-                    toast.className = 'ypp-toast persistent';
-                    container.appendChild(toast);
-                    requestAnimationFrame(() => (toast.style.opacity = '1'));
-                }
-                setInnerHTML(toast, ''); // Limpiar contenido previo
-                const messageSpan = document.createElement('span');
-                messageSpan.textContent = message;
-                toast.appendChild(messageSpan);
 
-                if (options.action) {
-                    const actionBtn = createElement('button', {
-                        className: 'ypp-toast-action',
-                        text: options.action.label,
-                        onClickEvent: options.action.callback
-                    });
-                    toast.appendChild(actionBtn);
-                }
+    function createToastContainer() {
+        let container = document.querySelector('.ypp-toast-container');
+        if (!container) {
+            container = createElement('div', { className: 'ypp-toast-container' });
+            document.body.appendChild(container);
 
-                const prevTimeout = toastTimeouts.get(toast);
-                if (prevTimeout) clearTimeout(prevTimeout);
-                const timeoutId = setTimeout(() => {
-                    toast.style.opacity = '0';
-                    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
-                    toastTimeouts.delete(toast);
-                }, duration);
-                toastTimeouts.set(toast, timeoutId);
-            } else {
-                toast = document.createElement('div');
-                toast.className = 'ypp-toast';
-                toast.textContent = message;
+            const updateVisibility = () => {
+                container.style.display = document.fullscreenElement ? 'none' : 'flex';
+            };
+            document.addEventListener('fullscreenchange', updateVisibility);
+            window.addEventListener('yt-navigate-finish', updateVisibility);
+            updateVisibility();
+            log('createToastContainer', 'Contenedor de toasts creado');
+        }
+        return container;
+    }
+
+    function fadeAndRemoveToast(toast, duration) {
+        const timeoutId = setTimeout(() => {
+            toast.style.opacity = '0';
+            toast.addEventListener('transitionend', () => toast.remove(), { once: true });
+            toastTimeouts.delete(toast);
+        }, duration);
+        toastTimeouts.set(toast, timeoutId);
+    }
+
+    function showFloatingToast(message, duration = 2500, options = {}) {
+        const container = createToastContainer();
+        let toast;
+
+        if (options.persistent) {
+            // Reutiliza el mismo toast persistente
+            toast = container.querySelector('.ypp-toast.persistent');
+            if (!toast) {
+                toast = createElement('div', { className: 'ypp-toast persistent' });
                 container.appendChild(toast);
                 requestAnimationFrame(() => (toast.style.opacity = '1'));
-                const timeoutId = setTimeout(() => {
-                    toast.style.opacity = '0';
-                    toast.addEventListener('transitionend', () => toast.remove(), { once: true });
-                    toastTimeouts.delete(toast);
-                }, duration);
-                toastTimeouts.set(toast, timeoutId);
+            } else {
+                setInnerHTML(toast, ''); // Limpiar contenido previo
             }
         } else {
-            // Para mensajes no persistentes, mostrar en la barra de tiempo
-            if (timeDisplay) {
-                timeDisplay.textContent = message;
-                lastRenderedText = message;
-
-                setTimeout(() => {
-                    if (timeDisplay && timeDisplay.textContent === message) {
-                        timeDisplay.textContent = '';
-                        lastRenderedText = '';
-                    }
-                }, duration);
-            }
+            // Crea un toast independiente para apilarse
+            toast = createElement('div', { className: 'ypp-toast' });
+            if (options.action) toast.classList.add('has-action');
+            container.appendChild(toast);
+            requestAnimationFrame(() => (toast.style.opacity = '1'));
         }
-    };
+
+        // Contenido del toast
+        const messageSpan = createElement('span', { text: message });
+        toast.appendChild(messageSpan);
+
+        if (options.action) {
+            const actionBtn = createElement('button', {
+                className: 'ypp-toast-action',
+                text: options.action.label,
+                onClickEvent: () => {
+                    if (typeof options.action.callback === 'function') {
+                        options.action.callback();
+                    }
+                    // Quita el toast tan pronto se haga clic en la acción
+                    fadeAndRemoveToast(toast, 0);
+                },
+                atribute: { 'aria-label': options.action.label, type: 'button' }
+            });
+            toast.appendChild(actionBtn);
+        }
+
+        // Control del tiempo de vida
+        if (!options.keep) fadeAndRemoveToast(toast, duration);
+
+        log('showFloatingToast', 'Toast mostrado', { message, options });
+    }
+
+    // ────────────────
+    // 🛠 Create Modal
+    // MARK: 🛠 Create Modal
+    // ────────────────
 
     function createModal(title = '', content = '') {
         const closeModal = () => {
@@ -1270,39 +1328,88 @@
         return { host: overlay, content: modal, close: closeModal };
     }
 
-    let lastNotifyTimestamp = 0;
+    // ────────────────
+    // 📢 Notify Seek or Progress
+    // MARK: 📢 Notify Seek or Progress
+    // ────────────────
+
     let cachedSettings = null;
-    async function handleNotification(timestamp, videoType) {
-        if (!cachedSettings) cachedSettings = await Settings.get();
-        if (!cachedSettings.showNotifications || cachedSettings.alertStyle === 'hidden') return;
 
-        const now = Date.now();
-        if (now - lastNotifyTimestamp < cachedSettings.minSecondsBetweenSaves * 1000) return;
-        lastNotifyTimestamp = now;
+    /**
+     * Notifica al usuario sobre el progreso guardado o la posición de seek (reanudación)
+     * @param {number} time - Tiempo en segundos
+     * @param {string} context - 'seek' o 'progress'
+     * @param {object} options - Opciones adicionales
+     *      @param {boolean} options.isForced - Indica si el seek fue forzado
+     *      @param {string} options.videoType - 'normal' o 'short'
+     * 
+     */
+    function notifySeekOrProgress(time, context = 'progress', options = {}) {
+        log('notifySeekOrProgress', 'Llamado con:', { time, context, options });
+        if (!cachedSettings) {
+            Settings.get().then((settings) => {
+                cachedSettings = settings;
+            })
+                .catch((error) => {
+                    conError('notifySeekOrProgress', 'Error al cargar configuración para notificaciones (usaran defaults):', error);
+                    cachedSettings = CONFIG.defaultSettings;
+                });
+            log('notifySeekOrProgress', 'Cargando configuración para notificaciones...');
+            return;
+        }
 
-        const timeStr = formatTime(timestamp);
-        const progressText = t('progressSaved');
+        if (cachedSettings.showNotifications === false || cachedSettings.alertStyle === 'hidden') {
+            log('notifySeekOrProgress', 'Notificaciones deshabilitadas o estilo oculto, no se muestra mensaje');
+            return;
+        }
+
+        const { isForced = false, videoType = 'normal' } = options;
+        const timeStr = formatTime(time);
+
+        let icon = '';
+        let text = '';
+
+        // Preparar los textos según el contexto
+        if (context === 'seek') {
+            icon = isForced ? '⏱️📌 ' : '⏯';
+            text = `${t(isForced ? 'alwaysStartFrom' : 'resumedAt')}: ${timeStr}`;
+        } else {
+            icon = '💾';
+            text = `${t('progressSaved')}: ${timeStr}`;
+        }
+
+        // Aplicar estilo según alertStyle
         let message = '';
-
         switch (cachedSettings.alertStyle) {
             case 'iconOnly':
-                message = `💾 ${timeStr}`;
+                message = `${icon} ${timeStr}`;
                 break;
             case 'textOnly':
-                message = `${progressText}: ${timeStr}`;
+                message = text;
                 break;
             case 'iconText':
-            default: // Valor por defecto Icono + Texto
-                message = `💾 ${progressText}: ${timeStr}`;
+            default:
+                message = `${icon} ${text}`;
                 break;
         }
 
+        // Mostrar en toast o en barra de reproducción
         if (videoType === 'short') {
-            // Para los Shorts, usar siempre el sistema de notificaciones flotantes
-            showToast(message, 2500, { persistent: true });
+            showFloatingToast(message, 2500, { persistent: true, keep: true });
         } else {
-            // Para videos normales, usar el método por defecto (en barra de reproducción)
-            showToast(message, 2500);
+            //remover toasts de shorts si existen
+            const container = document.querySelector('.ypp-toast-container');
+            if (container) {
+                const toasts = container.querySelectorAll('.ypp-toast');
+                toasts.forEach(toast => {
+                    if (toast.textContent.includes('⏯') || toast.textContent.includes('⏱️📌') || toast.textContent.includes('💾')) {
+                        toast.remove();
+                    }
+                });
+            }
+
+            const keep = context === 'seek'; // Mensaje fijo solo si es seek
+            updatePlaybackBarMessage(message, 2500, { keep });
         }
     }
 
@@ -1310,19 +1417,24 @@
     // 🔧 Playlist Name Cache
     // MARK: 🔧 Playlist Name Cache
     // ────────────────
+
     const playlistNameCache = new Map();
+
     async function getPlaylistName(playlistId) {
         if (playlistNameCache.has(playlistId)) {
             return playlistNameCache.get(playlistId);
         }
+
         const url = new URL(location.href);
         const currentPlaylistId = url.searchParams.get('list');
+
         if (currentPlaylistId === playlistId) {
             const playlistTitleElement = document.querySelector(
                 'ytd-playlist-panel-renderer #title span#text, ' +
                 '#header .ytd-playlist-header-renderer h1 yt-formatted-string, ' +
                 'ytd-browse[page-subtype="playlist"] ytd-playlist-header-renderer #title'
             );
+
             if (playlistTitleElement && playlistTitleElement.textContent) {
                 const name = playlistTitleElement.textContent.trim();
                 if (name) {
@@ -1342,19 +1454,20 @@
                         playlistNameCache.set(playlistId, name);
                         resolve(name);
                     } catch (e) {
-                        console.error('Error parsing playlist info:', e);
+                        conError('youtube.com/oembed', 'Error parsing playlist info:', e);
                         playlistNameCache.set(playlistId, playlistId);
                         resolve(playlistId);
                     }
                 },
                 onerror: function () {
-                    console.error('Error fetching playlist info');
+                    conError('youtube.com/oembed', 'Error fetching playlist info');
                     playlistNameCache.set(playlistId, playlistId);
                     resolve(playlistId);
                 }
             });
         });
     }
+
     function getCurrentPlaylistName() {
         const url = new URL(location.href);
         const playlistId = url.searchParams.get('list');
@@ -1367,53 +1480,65 @@
     // 🔧 Helpers
     // MARK: 🔧 Helpers
     // ────────────────
+
     function getVideoInfo(player, vid) {
         const vd = player.getVideoData() || {};
         const title = vd.title || vid;
         const author = vd.author || t('unknown');
         const duration = player.getDuration?.() || 0;
         let thumb = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
+
         if (vd.thumbnail_url && typeof vd.thumbnail_url === 'object' && vd.thumbnail_url.url) {
             thumb = vd.thumbnail_url.url;
         }
-        const viewsEl = document.querySelector('.view-count');
+
         let views = t('notAvailable');
-        if (viewsEl) {
-            views = viewsEl.textContent.trim();
-        }
+        const viewCount = document.querySelector('.view-count');
+        if (viewCount) views = viewCount.textContent.trim();
+
         const savedAt = Date.now();
+
+        log('getVideoInfo', 'Información del video obtenida:', { title, author, thumb, views, savedAt, duration });
         return { title, author, thumb, views, savedAt, duration };
     }
 
     const updateStatus = (player, videoEl, type, plId) => {
         const vid = player.getVideoData()?.video_id;
         if (!vid) return;
+
         const currentTime = videoEl.currentTime;
         const duration = videoEl.duration;
         if (!duration || isNaN(currentTime) || currentTime < 1 || !isFinite(duration)) return;
 
-        const key = plId || vid;
-        const data = Storage.get(key);
-        const hasFixedTime = (plId ? data?.videos?.[vid]?.forceResumeTime : data?.forceResumeTime) > 0;
-        if (hasFixedTime) {
-            return; // No guardar progreso ni notificar
-        }
-
-        const finishThreshold = Math.min(duration * 0.01, CONFIG.staticFinishSec);
-        const isFinished = duration - currentTime < finishThreshold;
         const now = Date.now();
         const info = getVideoInfo(player, vid);
-        function saveOrDelete(key, data) {
-            if (data) Storage.set(key, data);
-            else Storage.del(key);
+        const finishThreshold = Math.min(duration * 0.01, CONFIG.staticFinishSec);
+        const isFinished = duration - currentTime < finishThreshold;
+
+        function saveOrDelete(saveKey, saveData) {
+            if (saveData) Storage.set(saveKey, saveData);
+            else Storage.del(saveKey);
         }
+
+        // Guardar progreso individual SIEMPRE bajo vid
+        const singleData = isFinished ? null : {
+            timestamp: currentTime,
+            lastUpdated: now,
+            videoType: type,
+            ...info
+        };
+        saveOrDelete(vid, singleData);
+
+        // Si existe plId (playlist normal o Mix), mantener también estructura de playlist
         if (plId) {
             const playlist = Storage.get(plId) || { lastWatchedVideoId: '', videos: {}, title: '' };
+
             if (isFinished) {
                 delete playlist.videos[vid];
             } else {
                 playlist.videos[vid] = { timestamp: currentTime, lastUpdated: now, videoType: 'playlist', ...info };
             }
+
             playlist.lastWatchedVideoId = vid;
             saveOrDelete(plId, Object.keys(playlist.videos).length ? playlist : null);
 
@@ -1426,183 +1551,255 @@
                     }
                 });
             }
-        } else {
-            saveOrDelete(vid, isFinished ? null : { timestamp: currentTime, lastUpdated: now, videoType: type, ...info });
         }
-        handleNotification(currentTime, type);
+
+        log('updateStatus', `Progreso ${isFinished ? 'eliminado' : 'guardado'} para video ${vid}:`, { currentTime, duration, isFinished, plId });
+        notifySeekOrProgress(currentTime, 'progress', { videoType: type });
     };
 
-    const resumePlayback = async (player, vid, videoEl, inPlaylist, plId, fromPlId) => {
-        const key = inPlaylist ? plId : vid;
+    const resumePlayback = async (player, vid, videoEl, inPlaylist, plId, fromPlId, type) => {
+        const isDynamicMix = plId && plId.startsWith('RD');
+        const key = (inPlaylist && !isDynamicMix) ? plId : vid;
         const data = Storage.get(key);
-        if (!data) return;
 
-        let lastTime = inPlaylist ? data.videos?.[vid]?.timestamp : data.timestamp;
-        let forceTime = inPlaylist ? data.videos?.[vid]?.forceResumeTime : data.forceResumeTime;
+        log('resumePlayback', 'Llamado con:', { vid, inPlaylist, plId, fromPlId, type, key, isDynamicMix, data });
 
-        let resumeId = vid;
-        if (inPlaylist && data.lastWatchedVideoId && vid !== data.lastWatchedVideoId && plId !== fromPlId) {
-            resumeId = data.lastWatchedVideoId;
-            lastTime = data.videos?.[resumeId]?.timestamp;
-            forceTime = data.videos?.[resumeId]?.forceResumeTime;
-            const playlist = player.getPlaylist?.();
-            const idx = playlist?.indexOf(resumeId);
-            if (idx !== undefined && idx >= 0) {
-                player.playVideoAt(idx);
-            }
-        } else {
-            const waitForPlayer = () => {
-                if (player.getDuration() > 0) {
-                    const timeToSeek = forceTime > 0 ? forceTime : lastTime;
-                    if (timeToSeek && timeToSeek > 1) {
-                        applySeek(player, videoEl, timeToSeek, forceTime > 0);
-                    }
-                } else {
-                    setTimeout(waitForPlayer, 100);
-                }
-            };
-            waitForPlayer();
+        if (!data) {
+            log('resumePlayback', '⚠️ No se encontró información para reanudar');
+            return;
         }
+
+        // Para Mixes RD, tratar como video suelto
+        let lastTime, forceTime;
+        if (isDynamicMix) {
+            lastTime = data.timestamp;
+            forceTime = data.forceResumeTime;
+        } else {
+            lastTime = inPlaylist ? data.videos?.[vid]?.timestamp : data.timestamp;
+            forceTime = inPlaylist ? data.videos?.[vid]?.forceResumeTime : data.forceResumeTime;
+        }
+
+        const resumeId = vid;
+        const timeToSeek = forceTime > 0 ? forceTime : lastTime;
+
+        log('resumePlayback', `🎬 Reanudando video ${resumeId} en ${timeToSeek}s (forceTime: ${forceTime}, key: ${key})`);
+
+        if (!timeToSeek || timeToSeek <= 1) {
+            log('resumePlayback', '⏩ No hay tiempo válido para reanudar');
+            return;
+        }
+
+        const waitForPlayer = () => {
+            if (player.getDuration() > 0) {
+                applySeek(player, videoEl, timeToSeek, {
+                    bypassMinDiff: true,
+                    isForced: forceTime > 0,
+                    type
+                });
+            } else {
+                setTimeout(waitForPlayer, 150);
+            }
+        };
+        waitForPlayer();
     };
 
-    let activeCleanup = null;
-    let lastPlaylistId = null;
+    // ────────────────
+    // ▶ Process Video
+    // MARK: ▶ Process Video
+    // ────────────────
+
+    let isPlayerSeeking = false; // Para mensaje persistente
     let currentPlayer = null;
     let currentVideoEl = null;
-    let isProcessing = false;
+    let lastPlaylistId = null;
 
-    const processVideo = (container, player, videoEl) => {
-        if (isProcessing) return;
-        isProcessing = true;
+    let lastProcessedVideoId = null;
+    let lastProcessedVideoType = null;
 
-        if (activeCleanup) activeCleanup();
+    let lastUrl = ''; // Rastrear la última URL procesada
+    let lastSaveTime = 0; // Para controlar la frecuencia de guardado
+    let lastResumeId = null;
+    let currentlyProcessingVideoId = null;
 
-        currentPlayer = player;
-        currentVideoEl = videoEl;
-
-        const url = new URL(location.href);
-        const urlVid = url.searchParams.get('v');
-        const playerVid = player.getVideoData()?.video_id;
-        const plId = url.searchParams.get('list');
-
-        if (urlVid && urlVid !== playerVid) {
-            isProcessing = false;
+    const processVideo = async (container, player, videoEl) => {
+        if (!container || !player || !videoEl) {
+            warn('processVideo', 'Container, player o videoEl no proporcionados. Abortando.');
             return;
         }
 
+        const playerVid = player.getVideoData()?.video_id || container.getVideoData?.()?.video_id;
         if (!playerVid) {
-            isProcessing = false;
+            warn('processVideo', 'No se pudo obtener video_id del reproductor. Abortando.');
             return;
         }
 
-        const duration = player.getDuration?.() || 0;
-        let type = 'regular';
-        if (url.pathname.startsWith('/shorts/')) type = 'short';
-        else if (duration === 0 || !isFinite(duration)) type = 'live';
-
-        if (
-            (type === 'regular' && !cachedSettings.saveRegularVideos) ||
-            (type === 'short' && !cachedSettings.saveShorts) ||
-            (type === 'live' && !cachedSettings.saveLiveStreams)
-        ) {
-            isProcessing = false;
+        // Si ya estamos procesando este video, salimos para evitar duplicados.
+        if (currentlyProcessingVideoId === playerVid) {
+            log('processVideo', `El video ${playerVid} ya está siendo procesado. Ignorando.`);
             return;
         }
 
-        resumePlayback(player, playerVid, videoEl, Boolean(plId), plId, lastPlaylistId);
+        // Marcamos este video como "en proceso"
+        currentlyProcessingVideoId = playerVid;
 
-        const handler = () => {
-            // Limpiar mensaje persistente si el usuario avanza
-            if (isPlayerSeeking) {
-                isPlayerSeeking = false;
-                if (timeDisplay) {
-                    timeDisplay.textContent = '';
-                    lastRenderedText = '';
+        try {
+            const currentUrl = location.href;
+            const url = new URL(currentUrl);
+            const urlVid = url.searchParams.get('v');
+            const plId = url.searchParams.get('list');
+
+            if (urlVid && urlVid !== playerVid) return;
+
+            // Detectar tipo
+            const isShort = url.pathname.startsWith('/shorts/') ||
+                (container.id === 'shorts-player' && container.closest('ytd-reel-video-renderer')) ||
+                (videoEl.classList.contains('reel-video-player-element') && container.closest('ytd-reel-video-renderer'));
+
+            let type = 'regular';
+            if (isShort) type = 'short';
+            else if ((player.getDuration?.() || 0) === 0) type = 'live';
+
+            // Revisar configuración
+            if ((type === 'regular' && !cachedSettings.saveRegularVideos) ||
+                (type === 'short' && !cachedSettings.saveShorts) ||
+                (type === 'live' && !cachedSettings.saveLiveStreams)) {
+                return;
+            }
+
+            // Evitar reanudar mismo short varias veces
+            if (playerVid !== lastResumeId) {
+                log('processVideo', 'Procesando video:', { playerVid, type, plId });
+                const savedData = Storage.get(playerVid);
+                if (savedData?.timestamp > 0) {
+                    log('processVideo', 'Progreso guardado encontrado para este video:', savedData);
+                    resumePlayback(player, playerVid, videoEl, Boolean(plId), plId, lastPlaylistId, type);
+                    lastResumeId = playerVid;
                 }
             }
-            updateStatus(player, videoEl, type, plId);
-        };
 
-        videoEl.addEventListener('timeupdate', handler);
-        activeCleanup = () => videoEl.removeEventListener('timeupdate', handler);
-        lastPlaylistId = plId;
+            // Handler para guardar progreso
+            const handler = () => {
+                if (isPlayerSeeking) {
+                    isPlayerSeeking = false;
+                    if (timeDisplay) timeDisplay.textContent = '';
+                }
 
-        setTimeout(() => { isProcessing = false; }, 500);
+                const now = Date.now();
+                const minInterval = (cachedSettings.minSecondsBetweenSaves || 1) * 1000;
+                if (now - lastSaveTime >= minInterval) {
+                    updateStatus(player, videoEl, type, plId);
+                    lastSaveTime = now;
+                }
+            };
+
+            // Evitar duplicar listener
+            videoEl.removeEventListener('timeupdate', handler);
+            videoEl.addEventListener('timeupdate', handler);
+
+            // Actualizar estados
+            currentPlayer = player;
+            currentVideoEl = videoEl;
+            lastProcessedVideoId = playerVid;
+            lastProcessedVideoType = type;
+            lastUrl = currentUrl;
+            lastPlaylistId = plId;
+
+        } catch (error) {
+            conError('processVideo', `Ocurrió un error inesperado al procesar el video ${playerVid}:`, error);
+        } finally {
+            // Usamos un timeout para limpiar el estado, asegurándonos de que el ID coincida
+            // para no limpiar el estado de un video que empezó a procesarse más tarde.
+            currentlyProcessingVideoId = null;
+        }
     };
 
     // ────────────────
     // ⏯ Seek
     // MARK: ⏯ Seek
     // ────────────────
-    // Tiempo máximo para esperar al evento 'seeked' (en ms)
-    const SEEK_TIMEOUT = 1500;
-    // Función para aplicar seek con espera y manejo de errores
-    const applySeek = async (player, videoEl, time, isForced = false) => {
-        if (!player || !videoEl) return;
-        if (typeof time !== 'number' || isNaN(time)) return;
-        const current = player.getCurrentTime();
-        if (Math.abs(current - time) <= CONFIG.minSeekDiff) return;
+
+    const SEEK_TIMEOUT = 3000;
+
+    const applySeek = async (player, videoEl, time, options = {}) => {
+        const { bypassMinDiff = false, isForced = false, type = 'normal' } = options;
+
+        log('applySeek', `Iniciando. Hacia: ${time}s, Forzado: ${isForced}, BypassMinDiff: ${bypassMinDiff}`);
+
+        if (!player || !videoEl) {
+            warn('applySeek', 'Player o videoEl no proporcionados. Abortando.');
+            return;
+        }
+        if (typeof time !== 'number' || isNaN(time)) {
+            warn('applySeek', 'Tiempo de seek inválido:', time, '. Abortando.');
+            return;
+        }
+
+        // Evitar seeks innecesarios, PERO SOLO SI NO SE INDICA LO CONTRARIO
+        if (!bypassMinDiff) {
+            try {
+                const current = player.getCurrentTime();
+                const diff = Math.abs(current - time);
+                if (diff <= CONFIG.minSeekDiff) {
+                    log('applySeek', `Diferencia de tiempo (${diff}s) es mínima. Omitiendo seek.`);
+                    return;
+                }
+                log('applySeek', `Diferencia de tiempo (${diff}s) es significativa. Procederá con el seek.`);
+            } catch (e) {
+                conError('applySeek', 'Error al obtener el tiempo actual:', e);
+                return;
+            }
+        } else {
+            log('applySeek', 'Seek con bypass activado. Omitiendo comprobación de diferencia mínima.');
+        }
+
+        // Seek asíncrono
+        log('applySeek', 'Iniciando operación de seek asíncrona...');
         await new Promise((resolve) => {
-            const onSeeked = () => {
+            let timeoutId;
+            const cleanup = () => {
                 clearTimeout(timeoutId);
                 videoEl.removeEventListener('seeked', onSeeked);
+            };
+
+            const onSeeked = () => {
+                log('applySeek', 'Evento "seeked" recibido. Seek completado con éxito.');
+                cleanup();
                 resolve();
             };
-            const timeoutId = setTimeout(() => {
-                videoEl.removeEventListener('seeked', onSeeked);
+
+            timeoutId = setTimeout(() => {
+                warn('applySeek', `Timeout de ${SEEK_TIMEOUT}ms alcanzado. El evento 'seeked' no se disparó.`);
+                cleanup();
                 resolve();
             }, SEEK_TIMEOUT);
+
             videoEl.addEventListener('seeked', onSeeked, { once: true });
+
             try {
+                log('applySeek', `Llamando a player.seekTo(${time}, true).`);
                 player.seekTo(time, true);
-            } catch (error) {
-                clearTimeout(timeoutId);
-                videoEl.removeEventListener('seeked', onSeeked);
+            } catch (seekError) {
+                conError('applySeek', 'Falló la ejecución de player.seekTo:', seekError);
+                cleanup();
                 resolve();
             }
         });
 
-        // Mostrar mensaje persistente en la barra de tiempo
-        if (timeDisplay && cachedSettings.alertStyle !== 'hidden') {
-            isPlayerSeeking = true; // Activarar flag
+        // Mostrar mensaje en UI
+        const videoType = type === 'short' ? 'short' : 'normal';
+        notifySeekOrProgress(time, 'seek', { isForced, videoType });
 
-            const timeStr = formatTime(time);
-            let icon, text;
-
-            if (isForced) {
-                icon = '⏱️';
-                text = `${t('alwaysStartFrom')}: ${timeStr}`;
-            } else {
-                icon = '⏯';
-                text = `${t('resumedAt')}: ${timeStr}`;
-            }
-
-            let message = '';
-            switch (cachedSettings.alertStyle) {
-                case 'iconOnly':
-                    message = `${icon} ${timeStr}`;
-                    break;
-                case 'textOnly':
-                    message = text;
-                    break;
-                case 'iconText':
-                default:
-                    message = `${icon} ${text}`;
-                    break;
-            }
-
-            timeDisplay.textContent = message;
-            lastRenderedText = message;
-        }
+        log('applySeek', 'applySeek completado.');
     };
 
     // ────────────────
-    // 📂 Video List
-    // MARK: 📂 Video List
+    // 📂 Sort UI
+    // MARK: 📂 Sort UI
     // ────────────────
+
     function createSortSelector(currentValue, onChange) {
         const wrapper = document.createElement('div');
-        const label = createElement('label', { className: 'ypp-label', text: t('sortBy') + ':', atribute: { for: 'sort-selector' } });
+        const label = createElement('label', { className: 'ypp-label', text: `${t('sortBy')} :`, atribute: { for: 'sort-selector' } });
         const select = createElement('select', {
             className: 'ypp-input', id: 'sort-selector', html: `
         <option value="recent" ${currentValue === 'recent' ? 'selected' : ''}>📅 ${t('mostRecent')}</option>
@@ -1614,9 +1811,15 @@
         wrapper.appendChild(label);
         return wrapper;
     }
+
+    // ────────────────
+    // 📂 Filters UI
+    // MARK: 📂 Filters UI
+    // ────────────────
+
     function createFilterSelector(currentValue, onChange) {
         const wrapper = document.createElement('div');
-        const label = createElement('label', { className: 'ypp-label', text: t('filterByType') + ':', atribute: { for: 'filter-selector' } });
+        const label = createElement('label', { className: 'ypp-label', text: `${t('filterByType')} :`, atribute: { for: 'filter-selector' } });
         const select = createElement('select', {
             className: 'ypp-input', id: 'filter-selector', html: `
         <option value="all" ${currentValue === 'all' ? 'selected' : ''}>🔎 ${t('all')}</option>
@@ -1630,22 +1833,32 @@
         wrapper.appendChild(label);
         return wrapper;
     }
+
     function createSearchInput(currentValue, onChange) {
         const wrapper = createElement('div');
-        const input = createElement('input', { className: 'ypp-input', id: 'search-input' });
-        input.type = 'text';
-        input.placeholder = '🔍 ' + t('searchByTitleOrAuthor');
+        const input = createElement('input', {
+            className: 'ypp-input',
+            id: 'search-input',
+            atribute: {
+                'aria-label': t('searchByTitleOrAuthor'),
+                title: t('searchByTitleOrAuthor'),
+                placeholder: `🔍 ${t('searchByTitleOrAuthor')}`,
+                type: 'text'
+            }
+        });
         input.value = currentValue;
         input.addEventListener('input', () => onChange(input.value.trim()));
         wrapper.appendChild(input);
         return wrapper;
     }
+
     async function saveFilters(newValues) {
         const currentRaw = await GM_getValue(CONFIG.userFiltersKey, '{}');
         const current = JSON.parse(currentRaw);
         const updated = { ...current, ...newValues };
         await GM_setValue(CONFIG.userFiltersKey, JSON.stringify(updated));
     }
+
     async function getSavedFilters() {
         const raw = await GM_getValue(CONFIG.userFiltersKey, '{}');
         try {
@@ -1653,7 +1866,7 @@
             const merged = { ...CONFIG.defaultFilters, ...saved };
             return merged;
         } catch (e) {
-            console.warn('Error parsing saved filters:', e);
+            warn('getSavedFilters', 'Error parsing saved filters:', e);
             return { ...CONFIG.defaultFilters };
         }
     }
@@ -1662,6 +1875,7 @@
     // 📂 Video List UI
     // MARK: 📂 Video List UI
     // ────────────────
+
     let videosOverlay = null;
     let videosContainer = null;
     let listContainer = null;
@@ -1752,20 +1966,33 @@
         if (videosOverlay) {
             videosOverlay.remove();
             videosOverlay = null;
+        }
+        if (videosContainer) {
             videosContainer.remove();
             videosContainer = null;
+        }
+        if (listContainer) {
             listContainer.remove();
             listContainer = null;
-            document.body.style.overflow = '';
         }
+        document.body.style.overflow = '';
     }
+
+    // ────────────────
+    // 🔘 Floating Button
+    // MARK: 🔘 Floating Button
+    // ────────────────
+
     const createFloatingButtons = async () => {
         const settings = await Settings.get();
+
         if (!settings.showFloatingButtons) return;
+
         const wrapper = createElement('div', { className: 'ypp-floatingBtnContainer' });
-        const btnConfig = createElement('div', { className: 'ypp-btn', text: '⚙️ ' + t('youtubePlaybackPlox'), onClickEvent: showSettingsUI });
+        const btnConfig = createElement('div', { className: 'ypp-btn', text: `⚙️ ${t('youtubePlaybackPlox')}`, onClickEvent: showSettingsUI });
         wrapper.appendChild(btnConfig);
         document.body.appendChild(wrapper);
+
         const updateVisibility = () => {
             const isFullscreen = !!document.fullscreenElement;
             wrapper.style.display = isFullscreen ? 'none' : 'flex';
@@ -1774,6 +2001,7 @@
         window.addEventListener('yt-navigate-finish', updateVisibility);
         updateVisibility();
     };
+
     function syncUIWithCurrentFilters() {
         const sortSelect = document.getElementById('sort-selector');
         const filterSelect = document.getElementById('filter-selector');
@@ -1782,19 +2010,24 @@
         if (filterSelect) filterSelect.value = currentFilterBy;
         if (searchInput) searchInput.value = currentSearchQuery;
     }
+
+    // ────────────────
+    // 📂 Show Saved Videos List
+    // MARK: 📂 Show Saved Videos List
+    // ────────────────
+
     async function showSavedVideosList() {
         if (!videosOverlay) {
             const saved = await getSavedFilters();
+
             currentOrderBy = saved.orderBy ?? CONFIG.defaultFilters.orderBy;
             currentFilterBy = saved.filterBy ?? CONFIG.defaultFilters.filterBy;
             currentSearchQuery = saved.searchQuery ?? CONFIG.defaultFilters.searchQuery;
+
             videosOverlay = createElement('div', { className: 'ypp-overlay' });
             videosContainer = createElement('div', { className: 'ypp-container' });
-            if (!videosContainer) {
-                console.error("Failed to create videosContainer");
-                return;
-            }
             listContainer = createElement('div', { id: 'video-list-container' });
+
             const header = createElement('div', { className: 'ypp-header' });
             const title = createElement('h2', { text: t('youtubePlaybackPlox') });
             const closeBtn = createElement('button', {
@@ -1803,6 +2036,7 @@
                 atribute: { 'aria-label': t('close') },
                 onClickEvent: closeModalVideos
             });
+
             header.appendChild(title);
             header.appendChild(closeBtn);
             videosContainer.appendChild(header);
@@ -1844,7 +2078,7 @@
                 a.click();
                 a.remove();
                 URL.revokeObjectURL(url);
-                showToast('📤 ' + t('dataExported'));
+                showFloatingToast(`📤 ${t('dataExported')}`);
             };
             const importDataFromFile = () => {
                 let inputFile = document.getElementById('ypp-import-file');
@@ -1868,12 +2102,12 @@
                                 Storage.set(key, value);
                                 count++;
                             }
-                            showToast(`📥 ${t('itemsImported', { count })}`);
+                            showFloatingToast(`📥 ${t('itemsImported', { count })}`);
                             closeModalVideos();
                             showSavedVideosList();
                         } catch (err) {
-                            console.error('Error al importar datos:', err);
-                            showToast('⚠️ ' + t('importError'));
+                            conError('importDataFromFile', 'Error al importar datos:', err);
+                            showFloatingToast(`⚠️ ${t('importError')}`);
                         } finally {
                             inputFile.value = '';
                         }
@@ -1882,8 +2116,8 @@
                 }
                 inputFile.click();
             };
-            const btnExport = createElement('button', { className: 'ypp-btn', text: '📤 ' + t('export'), onClickEvent: exportDataToFile });
-            const btnImport = createElement('button', { className: 'ypp-btn', text: '📥 ' + t('import'), onClickEvent: importDataFromFile });
+            const btnExport = createElement('button', { className: 'ypp-btn', text: `📤 ${t('export')}`, onClickEvent: exportDataToFile });
+            const btnImport = createElement('button', { className: 'ypp-btn', text: `📥 ${t('import')}`, onClickEvent: importDataFromFile });
             footer.appendChild(btnExport);
             footer.appendChild(btnImport);
             videosContainer.appendChild(footer);
@@ -1901,6 +2135,7 @@
     // 📂 Video Entry
     // MARK: 📂 Video Entry
     // ────────────────
+
     function createVideoEntry(videoId, info, playlistKey = null) {
         const videoTime = formatTime(info.timestamp || 0);
         const duration = info.duration || 0;
@@ -1955,8 +2190,8 @@
             atribute: { title: info.forceResumeTime ? t('changeOrRemoveStartTime', { time: formatTime(info.forceResumeTime) }) : t('setStartTime') },
             onClickEvent: () => {
                 const promptText = info.forceResumeTime
-                    ? t('enterStartTimeOrEmpty') + ':'
-                    : t('enterStartTime') + ':';
+                    ? `${t('enterStartTimeOrEmpty')}:`
+                    : `${t('enterStartTime')}:`;
                 const timeStr = prompt(promptText, info.forceResumeTime ? formatTime(info.forceResumeTime) : '');
 
                 if (timeStr === null) { // Usuario canceló
@@ -1970,10 +2205,10 @@
                     if (playlist?.videos?.[videoId]) {
                         if (timeSec > 0) {
                             playlist.videos[videoId].forceResumeTime = timeSec;
-                            showToast(`✅ ${t('startTimeSet')} ${formatTime(timeSec)}`);
+                            showFloatingToast(`✅ ${t('startTimeSet')} ${formatTime(timeSec)}`);
                         } else {
                             delete playlist.videos[videoId].forceResumeTime;
-                            showToast('🔓 ' + t('fixedTimeRemoved'));
+                            showFloatingToast(`🔓 ${t('fixedTimeRemoved')}`);
                         }
                         Storage.set(playlistKey, playlist);
                     }
@@ -1982,10 +2217,10 @@
                     if (data) {
                         if (timeSec > 0) {
                             data.forceResumeTime = timeSec;
-                            showToast(`✅ ${t('startTimeSet')} ${formatTime(timeSec)}`);
+                            showFloatingToast(`✅ ${t('startTimeSet')} ${formatTime(timeSec)}`);
                         } else {
                             delete data.forceResumeTime;
-                            showToast('🔓 ' + t('fixedTimeRemoved'));
+                            showFloatingToast(`🔓 ${t('fixedTimeRemoved')}`);
                         }
                         Storage.set(videoId, data);
                     }
@@ -2030,7 +2265,7 @@
                 };
 
                 performDelete();
-                showToast(`🗑️ "${title}" ${t('itemDeleted')}`, 5000, {
+                showFloatingToast(`🗑️ "${title}" ${t('itemDeleted')}`, 5000, {
                     action: {
                         label: t('undo'),
                         callback: undoDelete
@@ -2055,11 +2290,11 @@
         const settings = await Settings.get();
         const content = createElement('div', { className: 'ypp-settingsContent' });
 
-        // Selector de idioma con banderas
+        // Selector de idioma
         const languageGroup = createElement('div');
         const languageLabel = createElement('label', {
             className: 'ypp-label',
-            text: t('language') + ':',
+            text: `${t('language')}:`,
             atribute: { for: 'language-selector' }
         });
 
@@ -2082,7 +2317,7 @@
         const alertStyleGroup = createElement('div');
         const alertStyleLabel = createElement('label', {
             className: 'ypp-label',
-            text: t('alertStyle') + ':',
+            text: `${t('alertStyle')}:`,
             atribute: { for: 'alert-style-selector' }
         });
 
@@ -2101,13 +2336,13 @@
         content.appendChild(alertStyleGroup);
 
         const activationGroup = createElement('div');
-        const activationLabel = createElement('div', { text: t('enableSavingFor') + ':', style: 'font-weight: bold; margin-bottom: 8px;' });
+        const activationLabel = createElement('div', { text: `${t('enableSavingFor')}:`, style: 'font-weight: bold; margin-bottom: 8px;' });
         activationGroup.appendChild(activationLabel);
 
         const types = [
-            { key: 'saveRegularVideos', label: '▶️ ' + t('regularVideos') },
-            { key: 'saveShorts', label: '📱 ' + t('shorts') },
-            { key: 'saveLiveStreams', label: '🔴 ' + t('liveStreams') }
+            { key: 'saveRegularVideos', label: `▶️ ${t('regularVideos')}` },
+            { key: 'saveShorts', label: `📱 ${t('shorts')}` },
+            { key: 'saveLiveStreams', label: `🔴 ${t('liveStreams')}` }
         ];
 
         types.forEach(type => {
@@ -2140,7 +2375,7 @@
         const intervalGroup = document.createElement('div');
         const intervalLabel = createElement('label', {
             className: 'ypp-label',
-            text: t('minSecondsBetweenSaves') + ':' + ' ',
+            text: `${t('minSecondsBetweenSaves')}: `,
             atribute: { for: 'interval' }
         });
         const intervalInput = createElement('input', {
@@ -2157,7 +2392,7 @@
         const buttonsLabel = createElement('label', {
             className: 'ypp-label',
             atribute: { title: t('showFloatingButton'), for: 'toggleButtons' },
-            text: ' ' + t('showFloatingButton')
+            text: ` ${t('showFloatingButton')}`
         });
         const toggleButtons = createElement('input', {
             id: 'toggleButtons',
@@ -2186,14 +2421,14 @@
                 };
                 await Settings.set(newSettings);
                 await setLanguage(languageSelect.value);
-                showToast('✅ ' + t('configurationSaved'));
+                showFloatingToast(`✅ ${t('configurationSaved')}`);
                 location.reload();
             }
         });
         const viewBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-outlined',
             id: 'viewSavedBtn',
-            text: '📼 ' + t('savedVideos'),
+            text: `📼 ${t('savedVideos')}`,
             onClickEvent: () => {
                 host.remove();
                 showSavedVideosList();
@@ -2202,7 +2437,7 @@
         buttonGroup.appendChild(viewBtn);
         buttonGroup.appendChild(saveBtn);
         content.appendChild(buttonGroup);
-        const { host } = createModal('⚙️ ' + t('settings'), content);
+        const { host } = createModal(`⚙️ ${t('settings')}`, content);
         host.classList.add('settings-modal');
     }
 
@@ -2211,26 +2446,55 @@
     // MARK: ⚙️ Menu Commands
     // ────────────────
 
-    // Variable para almacenar las referencias a los comandos del menú
-    let menuCommands = [];
-
     // Función para registrar los comandos del menú con traducciones
     function registerMenuCommands() {
-        // Eliminar comandos existentes
-        menuCommands.forEach(cmd => {
-            try {
-                GM_unregisterMenuCommand(cmd);
-            } catch (e) {
-                // Ignorar errores al eliminar comandos que no existen
+        GM_registerMenuCommand(`⚙️ ${t('settings')}`, showSettingsUI);
+        GM_registerMenuCommand(`📋 ${t('savedVideos')}`, showSavedVideosList);
+    }
+
+    // ───────────────
+    // 📢 Ad Monitor
+    // MARK: 📢 Ad Monitor
+    // ────────────────
+
+    let isAdPlaying = false; // Bandera para indicar si hay un anuncio activo
+
+    function createAdMonitor(container, { onAdStart, onAdEnd } = {}) {
+        isAdPlaying = container.classList.contains('ad-showing');
+        let observer = null;
+
+        const start = () => {
+            stop(); // Por si ya hay uno activo
+            log('adMonitor', 'Iniciando monitoreo de anuncios.');
+
+            observer = new MutationObserver(() => {
+                const adNow = container.classList.contains('ad-showing');
+                if (adNow !== isAdPlaying) {
+                    isAdPlaying = adNow;
+                    if (isAdPlaying) {
+                        log('adMonitor', '⏹ Anuncio iniciado.');
+                        onAdStart?.();
+                    } else {
+                        log('adMonitor', '✅ Anuncio finalizado.');
+                        onAdEnd?.();
+                    }
+                }
+            });
+
+            observer.observe(container, { attributes: true, attributeFilter: ['class'] });
+        };
+
+        const stop = () => {
+            if (observer) {
+                observer.disconnect();
+                observer = null;
+                log('adMonitor', 'Monitoreo de anuncios detenido.');
             }
-        });
+        };
 
-        // Registrar nuevos comandos con traducciones
-        const settingsCmd = GM_registerMenuCommand('⚙️ ' + t('settings'), showSettingsUI);
-        const videosCmd = GM_registerMenuCommand('📋 ' + t('savedVideos'), showSavedVideosList);
+        const getStatus = () => isAdPlaying;
 
-        // Guardar referencias para poder eliminarlos después
-        menuCommands = [settingsCmd, videosCmd];
+        return { start, stop, getStatus };
     }
 
     // ────────────────
@@ -2239,30 +2503,27 @@
     // ────────────────
 
     const init = async () => {
-        // Cargar traducciones desde el archivo JSON externo
-        console.log('Iniciando carga de traducciones...');
+        log('init', 'Iniciando carga de traducciones.');
 
         // Variable para rastrear si las traducciones externas se cargaron correctamente
         let externalTranslationsLoaded = false;
 
         try {
             const { LANGUAGE_FLAGS: loadedFlags, TRANSLATIONS: loadedTranslations } = await loadTranslations();
-
             // Verificar que las traducciones se cargaron correctamente
             // Comprobamos si hay más idiomas que en el fallback (es, en y fr)
             if (loadedTranslations && Object.keys(loadedTranslations).length > 3) {
                 LANGUAGE_FLAGS = loadedFlags;
                 TRANSLATIONS = loadedTranslations;
                 externalTranslationsLoaded = true;
-                console.log('Traducciones externas cargadas correctamente');
+                log('init', 'Traducciones externas cargadas correctamente');
             } else {
-                console.warn('Las traducciones externas no tienen suficientes idiomas, usando fallback');
+                warn('init', 'Las traducciones externas no tienen suficientes idiomas, usando fallback');
                 LANGUAGE_FLAGS = FALLBACK_FLAGS;
                 TRANSLATIONS = FALLBACK_TRANSLATIONS;
             }
         } catch (error) {
-            console.error('Error al cargar traducciones:', error);
-            // Usar traducciones de fallback
+            conError('init', 'Error al cargar traducciones:', error);
             LANGUAGE_FLAGS = FALLBACK_FLAGS;
             TRANSLATIONS = FALLBACK_TRANSLATIONS;
         }
@@ -2275,35 +2536,344 @@
         registerMenuCommands();
 
         injectStyles();
-        const observePlayer = () => {
-            const selectors = ['#movie_player', '#shorts-player'];
-            const containers = selectors.map(selector => document.querySelector(selector)).filter(Boolean);
-            for (const container of containers) {
-                const videoEl = container.querySelector('video');
-                const player = container.player_ || container;
-                if (player && videoEl) {
-                    processVideo(container, player, videoEl);
-                }
-            }
-        };
 
-        const stopActivePlayback = () => {
-            if (currentPlayer && currentVideoEl && !currentVideoEl.paused) {
-                try {
-                    currentVideoEl.pause();
-                    currentPlayer.pauseVideo();
-                } catch (e) {
-                    console.error('Error al detener la reproducción activa:', e);
-                }
+        // Variables para controlar el estado de inicialización
+        let shortsInitialized = false;
+        let regularPlayerInitialized = false;
+        let lastUrl = location.href;
+        let navigationTimeout = null;
+
+        let isNavigating = false;
+        let navigationDebounceTimeout = null;
+        let playerCheckInterval = null;
+
+        // Función para limpiar todos los observadores y estados
+        const cleanup = () => {
+            log('cleanup', 'Limpiando observadores y estados');
+
+            // Limpiar intervalo de verificación del reproductor
+            if (playerCheckInterval) {
+                clearInterval(playerCheckInterval);
+                playerCheckInterval = null;
+                log('cleanup', 'Intervalo de verificación del reproductor limpiado');
             }
-            if (activeCleanup) {
-                activeCleanup();
-                activeCleanup = null;
+
+            if (navigationTimeout) {
+                clearTimeout(navigationTimeout);
+                navigationTimeout = null;
+                log('cleanup', 'Timeout de navegación limpiado');
             }
+
+            if (navigationDebounceTimeout) {
+                clearTimeout(navigationDebounceTimeout);
+                navigationDebounceTimeout = null;
+                log('cleanup', 'Timeout de debounce de navegación limpiado');
+            }
+
+            // Resetear estados para evitar problemas al navegar de vuelta
+            shortsInitialized = false;
+            regularPlayerInitialized = false;
+            currentlyProcessingVideoId = null;
+            lastResumeId = null;
+            lastProcessedVideoId = null;
+            lastProcessedVideoType = null;
+            lastPlaylistId = null;
+
+            // Limpiar intervalo de verificación del reproductor (ahora usado para shorts)
+            if (playerCheckInterval) {
+                clearInterval(playerCheckInterval);
+                playerCheckInterval = null;
+                log('cleanup', 'Intervalo de sondeo de Shorts limpiado');
+            }
+
+            log('cleanup', 'Estados de inicialización reseteados');
+
+            // Limpiar eventos del video anterior
+            if (currentVideoEl) {
+                currentVideoEl.removeEventListener('timeupdate', updateStatus);
+                currentVideoEl = null;
+            }
+
             currentPlayer = null;
-            currentVideoEl = null;
+            log('cleanup', 'Limpieza completa realizada');
         };
 
+
+        // ────────────────
+        // 🎥 Observer Regular Player
+        // MARK: 🎥 Observer Regular Player
+        // ────────────────
+
+        function observePlayer() {
+            if (location.pathname.startsWith('/shorts/')) {
+                log('observePlayer', 'Página de Shorts detectada, deteniendo observación del reproductor regular.');
+                return;
+            }
+
+            let attempts = 0;
+            const maxAttempts = 40;
+            const checkDelay = 500;
+            let checkInterval = null;
+
+            const selectors = ['#movie_player', '.html5-video-player', '.html5-video-container'];
+
+            const findPlayer = () => {
+                attempts++;
+                log('observePlayer', `Intento ${attempts} de encontrar el reproductor de video.`);
+
+                if (!location.pathname.startsWith('/watch')) {
+                    log('observePlayer', 'No estamos en "/watch", deteniendo observación.');
+                    stopChecking();
+                    return false;
+                }
+
+                for (const selector of selectors) {
+                    const container = document.querySelector(selector);
+                    if (!container) continue;
+
+                    const videoEl = container.querySelector('video');
+                    if (!videoEl || videoEl.offsetWidth < 400) continue;
+
+                    const player = getPlayerInstance(container);
+                    if (player && videoEl.src) {
+                        handleFoundPlayer(container, player, videoEl);
+                        return true;
+                    }
+                }
+
+                if (attempts >= 5) tryFallback();
+                return false;
+            };
+
+            const getPlayerInstance = (container) => {
+                if (window.yt?.player?.Application?.instances_?.length) {
+                    return window.yt.player.Application.instances_.slice(-1)[0];
+                }
+                return container.player_ || container;
+            };
+
+            const handleFoundPlayer = (container, player, videoEl) => {
+                log('handleFoundPlayer', 'Reproductor encontrado');
+
+                if (!regularPlayerInitialized) {
+                    log('init', 'Reproductor regular inicializado.');
+                    regularPlayerInitialized = true;
+                    shortsInitialized = false;
+                }
+
+                const adMonitor = createAdMonitor(container, {
+                    onAdStart: () => log('⏸ Anuncio detectado, pausando acciones hasta que finalize.'),
+                    onAdEnd: () => {
+                        log('▶️ Anuncio finalizado, reanudando.')
+                        processVideoAfterAd(player, videoEl, container);
+                    }
+                });
+
+                adMonitor.start();
+
+                // Si al iniciar el monitor ya no hay un anuncio, procesa el video.
+                if (!adMonitor.getStatus()) { // O directamente: !container.classList.contains('ad-showing')
+                    log('observePlayer', 'No hay anuncio al inicio, procesando video directamente.');
+                    adMonitor.stop();
+                    processVideoAfterAd(player, videoEl, container);
+                }
+            };
+
+            const tryFallback = () => {
+                const videos = document.querySelectorAll('video');
+                for (const videoEl of videos) {
+                    if (videoEl.offsetWidth < 400) continue;
+
+                    if (videoEl.src?.includes('youtube.com') || videoEl.src?.includes('googlevideo.com')) {
+                        log('tryFallback', 'Video encontrado mediante fallback.');
+                        let container = findClosestContainer(videoEl);
+                        if (container) {
+                            const player = container.player_ || container;
+
+                            const adMonitor = createAdMonitor(container, {
+                                onAdStart: () => log('⏸ Anuncio detectado, pausando acciones (desde fallback) hasta que finalize.'),
+                                onAdEnd: () => {
+                                    clog('▶️ Anuncio finalizado, reanudando (desde fallback).')
+                                    processVideoAfterAd(player, videoEl, container);
+                                }
+                            });
+
+                            adMonitor.start();
+
+                            // Si al iniciar el monitor ya no hay un anuncio, procesa el video.
+                            if (!adMonitor.getStatus()) { // O directamente: !container.classList.contains('ad-showing')
+                                log('observePlayer', 'No hay anuncio al inicio, procesando video directamente.');
+                                adMonitor.stop();
+                                processVideoAfterAd(player, videoEl, container);
+                            }
+                        }
+                    }
+                }
+            };
+
+            const findClosestContainer = (el) => {
+                let depth = 0;
+                while (el && el !== document.body && depth < 10) {
+                    if (el.classList.contains('ad-showing')) return null;
+                    if (
+                        el.id === 'movie_player' ||
+                        el.classList.contains('html5-video-player') ||
+                        el.classList.contains('ytd-player')
+                    ) return el;
+                    el = el.parentElement;
+                    depth++;
+                }
+                return null;
+            };
+
+            const tryAlternativePlayer = (container, videoEl) => {
+                log('observePlayer', 'Intentando obtener el reproductor alternativo de YouTube.');
+                const ytPlayer = window.yt?.player?.getPlayerByElement?.(videoEl);
+                if (ytPlayer?.getVideoData) {
+                    processVideo(container, ytPlayer, videoEl);
+                } else {
+                    const simplifiedPlayer = {
+                        getVideoData: () => ({
+                            video_id: new URL(videoEl.src || videoEl.currentSrc).searchParams.get('video_id') || 'unknown'
+                        }),
+                        getCurrentTime: () => videoEl.currentTime,
+                        getDuration: () => videoEl.duration,
+                        play: () => videoEl.play(),
+                        pause: () => videoEl.pause()
+                    };
+                    processVideo(container, simplifiedPlayer, videoEl);
+                }
+            };
+
+            function processVideoAfterAd(player, videoEl, container) {
+                setTimeout(() => {
+                    if (typeof player.getVideoData === 'function') {
+                        processVideo(container, player, videoEl);
+                    } else {
+                        log('observePlayer', 'Reproductor no estándar, intentando alternativa.');
+                        tryAlternativePlayer(container, videoEl);
+                    }
+                }, 300);
+                stopChecking();
+            }
+
+            const stopChecking = () => {
+                if (checkInterval) {
+                    clearInterval(checkInterval);
+                    checkInterval = null;
+                }
+            };
+
+            // Observador del DOM 
+            const observer = new MutationObserver(() => {
+                if (findPlayer()) observer.disconnect();
+            });
+
+            observer.observe(document.body, { childList: true, subtree: true });
+
+            // Fallback con polling por compatibilidad
+            checkInterval = setInterval(() => {
+                if (findPlayer()) observer.disconnect();
+                else if (attempts >= maxAttempts) {
+                    stopChecking();
+                    observer.disconnect();
+                    log('observePlayer', 'Tiempo agotado buscando el reproductor');
+                }
+            }, checkDelay);
+        }
+
+        // ────────────────
+        // 📱 Shorts Observer
+        // MARK: 📱 Shorts Observer
+        // ────────────────
+
+        // Función para observar cambios en los shorts (VERSIÓN CON SONDEO/POLLING)
+        const observeShorts = () => {
+            // Verificar si estamos en una página de shorts
+            if (!location.pathname.startsWith('/shorts/')) {
+                log('observeShorts', 'No estamos en una página de Shorts. Saliendo del observador.');
+                shortsInitialized = false;
+                return;
+            }
+
+            // Reutilizamos playerCheckInterval para el sondeo de shorts
+            if (playerCheckInterval) {
+                clearInterval(playerCheckInterval);
+                playerCheckInterval = null;
+            }
+
+            log('init', 'Detectada página de Shorts, iniciando sondeo de reproductor.');
+            shortsInitialized = true;
+            regularPlayerInitialized = false;
+
+            let lastSeenShortId = null;
+
+            const checkForNewShort = () => {
+                const activeShort = document.querySelector('ytd-reel-video-renderer[is-active]');
+                if (!activeShort) return;
+
+                const videoEl = activeShort.querySelector('video');
+                if (!videoEl) return;
+
+                // Intentar obtener el objeto del reproductor de forma robusta
+                let player = null;
+                if (window.yt && window.yt.player && window.yt.player.getPlayerByElement) {
+                    player = window.yt.player.getPlayerByElement(videoEl);
+                }
+
+                if (!player) {
+                    const shortPlayerEl = activeShort.querySelector('#shorts-player');
+                    if (shortPlayerEl && typeof shortPlayerEl.getVideoData === 'function') {
+                        player = shortPlayerEl;
+                    }
+                }
+
+                if (player && !isAdPlaying) {
+                    const videoData = player.getVideoData();
+                    if (videoData && videoData.video_id && videoData.video_id !== lastSeenShortId) {
+                        log('observeShorts', `Nuevo Short detectado por sondeo: ${videoData.video_id}`);
+                        lastSeenShortId = videoData.video_id;
+                        processVideo(activeShort, player, videoEl);
+                    }
+                }
+            };
+
+            // Verificar inmediatamente al cargar
+            checkForNewShort();
+
+            // Luego verificar periódicamente
+            playerCheckInterval = setInterval(checkForNewShort, 300); // Revisar cada 300ms
+        };
+
+        const handleNavigation = () => {
+            const currentUrl = location.href;
+            if (currentUrl === lastUrl || isNavigating) return;
+
+            isNavigating = true;
+            log('handleNavigation', `Navegando a: ${currentUrl}`);
+
+            if (navigationDebounceTimeout) clearTimeout(navigationDebounceTimeout);
+
+            navigationDebounceTimeout = setTimeout(() => {
+                cleanup();
+                lastUrl = currentUrl;
+
+                navigationTimeout = setTimeout(() => {
+                    // Determinar qué tipo de página es y llamar al observador correcto.
+                    // La lógica interna de cada observador se encargará de si debe actuar o no.
+                    if (location.pathname.startsWith('/shorts/')) {
+                        observeShorts();
+                    } else {
+                        observePlayer();
+                    }
+
+                    checkForPlaylist();
+                    isNavigating = false;
+                }, 300); // 300ms suele ser suficiente para que el DOM de YouTube se actualice
+            }, 100);
+        };
+
+        // Función para verificar si hay una lista de reproducción en la URL
         const checkForPlaylist = () => {
             const url = new URL(location.href);
             const playlistId = url.searchParams.get('list');
@@ -2312,16 +2882,35 @@
             }
         };
 
-        observePlayer();
-        createFloatingButtons();
-        initTimeDisplay();
+        // Inicializar observadores para shorts y videos normales
+        try {
+            await Promise.all([
+                Promise.resolve(observeShorts()),
+                Promise.resolve(observePlayer()),
+                Promise.resolve(createFloatingButtons()),
+                Promise.resolve(initTimeDisplay())
+            ]);
 
+            log('init', 'Todas las funciones de inicialización completadas');
+        } catch (error) {
+            conError('init', 'Error durante la inicialización:', error);
+        }
+
+        // Escuchar eventos de navegación de YouTube
         window.addEventListener('yt-navigate-finish', () => {
-            stopActivePlayback();
-            setTimeout(observePlayer, 150);
-            checkForPlaylist();
-            checkAndRestoreTimeDisplay();
+            clearTimeout(navigationDebounceTimeout);
+            navigationDebounceTimeout = setTimeout(handleNavigation, 50);
         });
+
+        // Fallback: Escuchar cambios en el historial
+        window.addEventListener('popstate', () => {
+            clearTimeout(navigationDebounceTimeout);
+            navigationDebounceTimeout = setTimeout(handleNavigation, 50);
+        });
+
+        // Limpiar todo cuando la página se descarga
+        window.addEventListener('beforeunload', cleanup);
     };
+
     init();
 })();

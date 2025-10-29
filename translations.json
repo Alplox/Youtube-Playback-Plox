@@ -1,56 +1,210 @@
 {
     "DESCRIPTION": "Traducciones para userscript YouTube Playback Plox. Hechas con LLM's y revisadas un poco manualmente.",
+    "AUTHOR": "Alplox",
+    "VERSION": "0.0.6",
+    "GITHUB": "https://github.com/Alplox/Youtube-Playback-Plox",
+    "GREASYFORK": "https://greasyfork.org/es/scripts/553387-youtube-playback-plox",
     "LANGUAGE_FLAGS": {
-        "es": "🇪🇸",
-        "en": "🇬🇧",
-        "fr": "🇫🇷",
-        "de": "🇩🇪",
-        "it": "🇮🇹",
-        "pt": "🇵🇹",
-        "ru": "🇷🇺",
-        "zh": "🇨🇳",
-        "ja": "🇯🇵",
-        "ko": "🇰🇷",
-        "ar": "🇸🇦",
-        "hi": "🇮🇳",
-        "bn": "🇧🇩",
-        "vi": "🇻🇳",
-        "id": "🇮🇩",
-        "tr": "🇹🇷",
-        "pl": "🇵🇱",
-        "nl": "🇳🇱",
-        "sv": "🇸🇪",
-        "da": "🇩🇰",
-        "no": "🇳🇴",
-        "fi": "🇫🇮",
-        "hu": "🇭🇺",
-        "cs": "🇨🇿",
-        "sk": "🇸🇰",
-        "ro": "🇷🇴",
-        "bg": "🇧🇬",
-        "hr": "🇭🇷",
-        "sl": "🇸🇮",
-        "sr": "🇷🇸",
-        "lt": "🇱🇹",
-        "lv": "🇱🇻",
-        "uk": "🇺🇦",
-        "el": "🇬🇷",
-        "th": "🇹🇭",
-        "ms": "🇲🇾",
-        "sw": "🇰🇪",
-        "fa": "🇮🇷",
-        "he": "🇮🇱",
-        "ta": "🇱🇰",
-        "am": "🇪🇹",
-        "ha": "🇳🇬",
-        "ur": "🇵🇰",
-        "te": "🇮🇳",
-        "mr": "🇮🇳",
-        "tl": "🇵🇭",
-        "my": "🇲🇲",
-        "yue": "🇭🇰",
-        "ca": "🇪🇸",
-        "zu": "🇿🇦"
+        "es": {
+            "emoji": "🇪🇸",
+            "code": "es"
+        },
+        "en": {
+            "emoji": "🇬🇧",
+            "code": "en"
+        },
+        "fr": {
+            "emoji": "🇫🇷",
+            "code": "fr"
+        },
+        "de": {
+            "emoji": "🇩🇪",
+            "code": "de"
+        },
+        "it": {
+            "emoji": "🇮🇹",
+            "code": "it"
+        },
+        "pt": {
+            "emoji": "🇵🇹",
+            "code": "pt"
+        },
+        "ru": {
+            "emoji": "🇷🇺",
+            "code": "ru"
+        },
+        "zh": {
+            "emoji": "🇨🇳",
+            "code": "zh"
+        },
+        "ja": {
+            "emoji": "🇯🇵",
+            "code": "ja"
+        },
+        "ko": {
+            "emoji": "🇰🇷",
+            "code": "ko"
+        },
+        "ar": {
+            "emoji": "🇸🇦",
+            "code": "ar"
+        },
+        "hi": {
+            "emoji": "🇮🇳",
+            "code": "hi"
+        },
+        "bn": {
+            "emoji": "🇧🇩",
+            "code": "bn"
+        },
+        "vi": {
+            "emoji": "🇻🇳",
+            "code": "vi"
+        },
+        "id": {
+            "emoji": "🇮🇩",
+            "code": "id"
+        },
+        "tr": {
+            "emoji": "🇹🇷",
+            "code": "tr"
+        },
+        "pl": {
+            "emoji": "🇵🇱",
+            "code": "pl"
+        },
+        "nl": {
+            "emoji": "🇳🇱",
+            "code": "nl"
+        },
+        "sv": {
+            "emoji": "🇸🇪",
+            "code": "sv"
+        },
+        "da": {
+            "emoji": "🇩🇰",
+            "code": "da"
+        },
+        "no": {
+            "emoji": "🇳🇴",
+            "code": "no"
+        },
+        "fi": {
+            "emoji": "🇫🇮",
+            "code": "fi"
+        },
+        "hu": {
+            "emoji": "🇭🇺",
+            "code": "hu"
+        },
+        "cs": {
+            "emoji": "🇨🇿",
+            "code": "cs"
+        },
+        "sk": {
+            "emoji": "🇸🇰",
+            "code": "sk"
+        },
+        "ro": {
+            "emoji": "🇷🇴",
+            "code": "ro"
+        },
+        "bg": {
+            "emoji": "🇧🇬",
+            "code": "bg"
+        },
+        "hr": {
+            "emoji": "🇭🇷",
+            "code": "hr"
+        },
+        "sl": {
+            "emoji": "🇸🇮",
+            "code": "sl"
+        },
+        "sr": {
+            "emoji": "🇷🇸",
+            "code": "sr"
+        },
+        "lt": {
+            "emoji": "🇱🇹",
+            "code": "lt"
+        },
+        "lv": {
+            "emoji": "🇱🇻",
+            "code": "lv"
+        },
+        "uk": {
+            "emoji": "🇺🇦",
+            "code": "uk"
+        },
+        "el": {
+            "emoji": "🇬🇷",
+            "code": "el"
+        },
+        "th": {
+            "emoji": "🇹🇭",
+            "code": "th"
+        },
+        "ms": {
+            "emoji": "🇲🇾",
+            "code": "ms"
+        },
+        "sw": {
+            "emoji": "🇰🇪",
+            "code": "sw"
+        },
+        "fa": {
+            "emoji": "🇮🇷",
+            "code": "fa"
+        },
+        "he": {
+            "emoji": "🇮🇱",
+            "code": "he"
+        },
+        "ta": {
+            "emoji": "🇱🇰",
+            "code": "ta"
+        },
+        "am": {
+            "emoji": "🇪🇹",
+            "code": "am"
+        },
+        "ha": {
+            "emoji": "🇳🇬",
+            "code": "ha"
+        },
+        "ur": {
+            "emoji": "🇵🇰",
+            "code": "ur"
+        },
+        "te": {
+            "emoji": "🇮🇳",
+            "code": "te"
+        },
+        "mr": {
+            "emoji": "🇮🇳",
+            "code": "mr"
+        },
+        "tl": {
+            "emoji": "🇵🇭",
+            "code": "tl"
+        },
+        "my": {
+            "emoji": "🇲🇲",
+            "code": "my"
+        },
+        "yue": {
+            "emoji": "🇭🇰",
+            "code": "yue"
+        },
+        "ca": {
+            "emoji": "🇪🇸",
+            "code": "ca"
+        },
+        "zu": {
+            "emoji": "🇿🇦",
+            "code": "zu"
+        }
     },
     "TRANSLATIONS": {
         "es": {
@@ -94,6 +248,10 @@
             "startTimeSet": "Tiempo de inicio establecido en",
             "fixedTimeRemoved": "Tiempo fijo eliminado.",
             "itemDeleted": "eliminado.",
+            "unknownError": "Error desconocido",
+            "modulesFailed": "{count} módulo(s) fallaron: {names}",
+            "retryNow": "Reintentar ahora",
+            "retryCompleted": "Reintentos completados",
             "progress": "Progreso",
             "alwaysStartFrom": "Siempre desde",
             "resumedAt": "Reanudado en",
@@ -108,9 +266,12 @@
             "youtubePlaybackPlox": "YouTube Playback Plox",
             "playlistPrefix": "Playlist",
             "unknown": "Desconocido",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Eliminar todo",
+            "clearAllConfirm": "¿Estás seguro de que quieres eliminar TODOS los videos guardados? Esta acción se puede deshacer.",
+            "allItemsCleared": "Todos los elementos eliminados",
+            "undoClearAll": "Deshacer"
         },
- 
         "en": {
             "settings": "Settings",
             "savedVideos": "View saved videos",
@@ -152,6 +313,10 @@
             "startTimeSet": "Start time set to",
             "fixedTimeRemoved": "Fixed time removed.",
             "itemDeleted": "deleted.",
+            "unknownError": "Unknown error",
+            "modulesFailed": "{count} module(s) failed: {names}",
+            "retryNow": "Retry now",
+            "retryCompleted": "Retry completed",
             "progress": "Progress",
             "alwaysStartFrom": "Always start from",
             "resumedAt": "Resumed at",
@@ -166,9 +331,12 @@
             "youtubePlaybackPlox": "YouTube Playback Plox",
             "playlistPrefix": "Playlist",
             "unknown": "Unknown",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Clear all",
+            "clearAllConfirm": "Are you sure you want to delete ALL saved videos? This action can be undone.",
+            "allItemsCleared": "All items cleared",
+            "undoClearAll": "Undo"
         },
-
         "fr": {
             "settings": "Paramètres",
             "savedVideos": "Voir les vidéos enregistrées",
@@ -210,6 +378,10 @@
             "startTimeSet": "Heure de début définie à",
             "fixedTimeRemoved": "Heure fixe supprimée.",
             "itemDeleted": "supprimé.",
+            "unknownError": "Erreur inconnue",
+            "modulesFailed": "{count} module(s) ont échoué : {names}",
+            "retryNow": "Réessayer maintenant",
+            "retryCompleted": "Réessais terminés",
             "progress": "Progrès",
             "alwaysStartFrom": "Toujours commencer à",
             "resumedAt": "Repris à",
@@ -224,9 +396,12 @@
             "youtubePlaybackPlox": "YouTube Playback Plox",
             "playlistPrefix": "Playlist",
             "unknown": "Inconnu",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Tout effacer",
+            "clearAllConfirm": "Êtes-vous sûr de vouloir supprimer TOUTES les vidéos enregistrées ? Cette action peut être annulée.",
+            "allItemsCleared": "Tous les éléments effacés",
+            "undoClearAll": "Annuler"
         },
-
         "de": {
             "settings": "Einstellungen",
             "savedVideos": "Gespeicherte Videos ansehen",
@@ -268,6 +443,10 @@
             "startTimeSet": "Startzeit gesetzt auf",
             "fixedTimeRemoved": "Feste Zeit entfernt.",
             "itemDeleted": "gelöscht.",
+            "unknownError": "Unbekannter Fehler",
+            "modulesFailed": "{count} Modul(e) fehlgeschlagen: {names}",
+            "retryNow": "Jetzt erneut versuchen",
+            "retryCompleted": "Wiederholungen abgeschlossen",
             "progress": "Fortschritt",
             "alwaysStartFrom": "Immer starten bei",
             "resumedAt": "Fortgesetzt bei",
@@ -282,9 +461,12 @@
             "youtubePlaybackPlox": "YouTube Wiedergabe Plox",
             "playlistPrefix": "Playlist",
             "unknown": "Unbekannt",
-            "notAvailable": "N/V"
+            "notAvailable": "N/V",
+            "clearAll": "Alle löschen",
+            "clearAllConfirm": "Sind Sie sicher, dass Sie ALLE gespeicherten Videos löschen möchten? Diese Aktion kann rückgängig gemacht werden.",
+            "allItemsCleared": "Alle Elemente gelöscht",
+            "undoClearAll": "Rückgängig machen"
         },
-
         "it": {
             "settings": "Impostazioni",
             "savedVideos": "Visualizza video salvati",
@@ -326,6 +508,10 @@
             "startTimeSet": "Ora di inizio impostata su",
             "fixedTimeRemoved": "Tempo fisso rimosso.",
             "itemDeleted": "eliminato.",
+            "unknownError": "Errore sconosciuto",
+            "modulesFailed": "{count} modulo(i) non riusciti: {names}",
+            "retryNow": "Riprova ora",
+            "retryCompleted": "Ritenti completati",
             "progress": "Progresso",
             "alwaysStartFrom": "Inizia sempre da",
             "resumedAt": "Ripreso a",
@@ -340,9 +526,12 @@
             "youtubePlaybackPlox": "YouTube Riproduzione Plox",
             "playlistPrefix": "Playlist",
             "unknown": "Sconosciuto",
-            "notAvailable": "N/D"
+            "notAvailable": "N/D",
+            "clearAll": "Cancella tutto",
+            "clearAllConfirm": "Sei sicuro di voler eliminare TUTTI i video salvati? Questa azione può essere annullata.",
+            "allItemsCleared": "Tutti gli elementi cancellati",
+            "undoClearAll": "Annulla"
         },
-
         "pt": {
             "settings": "Configurações",
             "savedVideos": "Ver vídeos salvos",
@@ -384,6 +573,10 @@
             "startTimeSet": "Hora de início definida para",
             "fixedTimeRemoved": "Tempo fixo removido.",
             "itemDeleted": "excluído.",
+            "unknownError": "Erro desconhecido",
+            "modulesFailed": "{count} módulo(s) falharam: {names}",
+            "retryNow": "Tentar novamente agora",
+            "retryCompleted": "Tentativas concluídas",
             "progress": "Progresso",
             "alwaysStartFrom": "Sempre começar em",
             "resumedAt": "Retomado em",
@@ -398,9 +591,12 @@
             "youtubePlaybackPlox": "YouTube Reprodução Plox",
             "playlistPrefix": "Playlist",
             "unknown": "Desconhecido",
-            "notAvailable": "N/D"
+            "notAvailable": "N/D",
+            "clearAll": "Limpar tudo",
+            "clearAllConfirm": "Tem certeza de que deseja eliminar TODOS os vídeos salvos? Esta ação pode ser desfeita.",
+            "allItemsCleared": "Todos os itens limpos",
+            "undoClearAll": "Desfazer"
         },
-
         "ru": {
             "settings": "Настройки",
             "savedVideos": "Просмотреть сохранённые видео",
@@ -442,6 +638,10 @@
             "startTimeSet": "Время начала установлено на",
             "fixedTimeRemoved": "Фиксированное время удалено.",
             "itemDeleted": "удалено.",
+            "unknownError": "Неизвестная ошибка",
+            "modulesFailed": "Не удалось загрузить {count} модуль(и): {names}",
+            "retryNow": "Попробовать снова",
+            "retryCompleted": "Повторные попытки завершены",
             "progress": "Прогресс",
             "alwaysStartFrom": "Всегда начинать с",
             "resumedAt": "Возобновлено в",
@@ -456,9 +656,12 @@
             "youtubePlaybackPlox": "YouTube Воспроизведение Plox",
             "playlistPrefix": "Плейлист",
             "unknown": "Неизвестно",
-            "notAvailable": "Н/Д"
+            "notAvailable": "Н/Д",
+            "clearAll": "Удалить все",
+            "clearAllConfirm": "Вы уверены, что хотите удалить ВСЕ сохраненные видео? Это действие можно отменить.",
+            "allItemsCleared": "Все элементы удалены",
+            "undoClearAll": "Отменить"
         },
-
         "zh": {
             "settings": "设置",
             "savedVideos": "查看已保存的视频",
@@ -500,6 +703,10 @@
             "startTimeSet": "开始时间设置为",
             "fixedTimeRemoved": "固定时间已移除。",
             "itemDeleted": "已删除。",
+            "unknownError": "未知错误",
+            "modulesFailed": "{count} 个模块失败：{names}",
+            "retryNow": "立即重试",
+            "retryCompleted": "重试完成",
             "progress": "进度",
             "alwaysStartFrom": "始终从",
             "resumedAt": "已恢复至",
@@ -514,9 +721,12 @@
             "youtubePlaybackPlox": "YouTube 播放进度 Plox",
             "playlistPrefix": "播放列表",
             "unknown": "未知",
-            "notAvailable": "不可用"
+            "notAvailable": "不可用",
+            "clearAll": "清除全部",
+            "clearAllConfirm": "您确定要删除所有保存的视频吗？此操作可以撤销。",
+            "allItemsCleared": "所有项目已清除",
+            "undoClearAll": "撤销"
         },
-
         "ja": {
             "settings": "設定",
             "savedVideos": "保存された動画を見る",
@@ -558,6 +768,10 @@
             "startTimeSet": "開始時間を設定しました",
             "fixedTimeRemoved": "固定時間を削除しました。",
             "itemDeleted": "削除されました。",
+            "unknownError": "不明なエラー",
+            "modulesFailed": "{count} 個のモジュールが失敗しました：{names}",
+            "retryNow": "今すぐ再試行",
+            "retryCompleted": "再試行完了",
             "progress": "進行状況",
             "alwaysStartFrom": "常に次から開始",
             "resumedAt": "次の位置から再開しました",
@@ -572,9 +786,12 @@
             "youtubePlaybackPlox": "YouTube 再生進捗 Plox",
             "playlistPrefix": "プレイリスト",
             "unknown": "不明",
-            "notAvailable": "該当なし"
+            "notAvailable": "該当なし",
+            "clearAll": "すべてクリア",
+            "clearAllConfirm": "保存されたすべての動画を削除してもよろしいですか？この操作は元に戻すことができます。",
+            "allItemsCleared": "すべてのアイテムがクリアされました",
+            "undoClearAll": "元に戻す"
         },
-
         "ko": {
             "settings": "설정",
             "savedVideos": "저장된 동영상 보기",
@@ -616,6 +833,10 @@
             "startTimeSet": "시작 시간이 설정됨",
             "fixedTimeRemoved": "고정 시간이 제거되었습니다.",
             "itemDeleted": "삭제됨.",
+            "unknownError": "알 수 없는 오류",
+            "modulesFailed": "{count}개의 모듈 실패: {names}",
+            "retryNow": "지금 다시 시도",
+            "retryCompleted": "재시도 완료",
             "progress": "진행",
             "alwaysStartFrom": "항상 다음부터 시작",
             "resumedAt": "다음 위치에서 재개됨",
@@ -630,9 +851,12 @@
             "youtubePlaybackPlox": "YouTube 재생 진행 Plox",
             "playlistPrefix": "재생목록",
             "unknown": "알 수 없음",
-            "notAvailable": "해당 없음"
+            "notAvailable": "해당 없음",
+            "clearAll": "모두 지우기",
+            "clearAllConfirm": "저장된 모든 비디오를 삭제하시겠습니까? 이 작업은 취소할 수 있습니다.",
+            "allItemsCleared": "모든 항목이 지워졌습니다",
+            "undoClearAll": "실행 취소"
         },
-
         "ar": {
             "settings": "الإعدادات",
             "savedVideos": "عرض مقاطع الفيديو المحفوظة",
@@ -674,6 +898,10 @@
             "startTimeSet": "تم تعيين وقت البدء إلى",
             "fixedTimeRemoved": "تمت إزالة الوقت الثابت.",
             "itemDeleted": "تم الحذف.",
+            "unknownError": "خطأ غير معروف",
+            "modulesFailed": "فشل {count} وحدة(وحدات): {names}",
+            "retryNow": "أعد المحاولة الآن",
+            "retryCompleted": "اكتملت المحاولات",
             "progress": "التقدم",
             "alwaysStartFrom": "ابدأ دائمًا من",
             "resumedAt": "تم الاستئناف عند",
@@ -688,9 +916,12 @@
             "youtubePlaybackPlox": "YouTube تقدم التشغيل Plox",
             "playlistPrefix": "قائمة التشغيل",
             "unknown": "غير معروف",
-            "notAvailable": "غير متاح"
+            "notAvailable": "غير متاح",
+            "clearAll": "مسح الكل",
+            "clearAllConfirm": "هل أنت متأكد من أنك تريد حذف جميع الفيديوهات المحفوظة؟ يمكن التراجع عن هذا الإجراء.",
+            "allItemsCleared": "تم مسح جميع العناصر",
+            "undoClearAll": "تراجع"
         },
-
         "hi": {
             "settings": "सेटिंग्स",
             "savedVideos": "सहेजे गए वीडियो देखें",
@@ -732,6 +963,10 @@
             "startTimeSet": "प्रारंभ समय सेट किया गया",
             "fixedTimeRemoved": "निश्चित समय हटाया गया।",
             "itemDeleted": "हटाया गया।",
+            "unknownError": "अज्ञात त्रुटि",
+            "modulesFailed": "{count} मॉड्यूल असफल: {names}",
+            "retryNow": "अब पुनः प्रयास करें",
+            "retryCompleted": "पुनः प्रयास पूरा हुआ",
             "progress": "प्रगति",
             "alwaysStartFrom": "हमेशा यहाँ से शुरू करें",
             "resumedAt": "यहाँ से पुनः आरंभ किया गया",
@@ -746,9 +981,12 @@
             "youtubePlaybackPlox": "YouTube प्लेबैक Plox",
             "playlistPrefix": "प्लेलिस्ट",
             "unknown": "अज्ञात",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "सभी हटाएं",
+            "clearAllConfirm": "क्या आप वाकई सभी सहेजे गए वीडियो हटाना चाहते हैं? इस कार्रवाई को पूर्ववत किया जा सकता है।",
+            "allItemsCleared": "सभी आइटम हटा दिए गए",
+            "undoClearAll": "पूर्ववत करें"
         },
-
         "bn": {
             "settings": "সেটিংস",
             "savedVideos": "সংরক্ষিত ভিডিও দেখুন",
@@ -790,6 +1028,10 @@
             "startTimeSet": "শুরুর সময় নির্ধারিত হয়েছে",
             "fixedTimeRemoved": "নির্দিষ্ট সময় সরানো হয়েছে।",
             "itemDeleted": "মুছে ফেলা হয়েছে।",
+            "unknownError": "অজানা ত্রুটি",
+            "modulesFailed": "{count} মডিউল ব্যর্থ: {names}",
+            "retryNow": "এখন পুনরায় চেষ্টা করুন",
+            "retryCompleted": "পুনঃচেষ্টা সম্পন্ন",
             "progress": "অগ্রগতি",
             "alwaysStartFrom": "সবসময় এখান থেকে শুরু করুন",
             "resumedAt": "এখান থেকে পুনরায় শুরু হয়েছে",
@@ -804,9 +1046,12 @@
             "youtubePlaybackPlox": "YouTube প্লেব্যাক Plox",
             "playlistPrefix": "প্লেলিস্ট",
             "unknown": "অজানা",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "সব মুছে ফেলুন",
+            "clearAllConfirm": "আপনি কি নিশ্চিত যে আপনি সমস্ত সংরক্ষিত ভিডিও মুছে ফেলতে চান? এই ক্রিয়াটি পূর্বাবস্থায় ফেরানো যেতে পারে।",
+            "allItemsCleared": "সমস্ত আইটেম মুছে ফেলা হয়েছে",
+            "undoClearAll": "পূর্বাবস্থায় ফেরান"
         },
-
         "vi": {
             "settings": "Cài đặt",
             "savedVideos": "Xem video đã lưu",
@@ -848,6 +1093,10 @@
             "startTimeSet": "Đặt thời gian bắt đầu là",
             "fixedTimeRemoved": "Đã xóa thời gian cố định.",
             "itemDeleted": "đã xóa.",
+            "unknownError": "Lỗi không xác định",
+            "modulesFailed": "{count} mô-đun thất bại: {names}",
+            "retryNow": "Thử lại ngay",
+            "retryCompleted": "Hoàn tất thử lại",
             "progress": "Tiến trình",
             "alwaysStartFrom": "Luôn bắt đầu từ",
             "resumedAt": "Tiếp tục từ",
@@ -862,9 +1111,12 @@
             "youtubePlaybackPlox": "YouTube Phát lại Plox",
             "playlistPrefix": "Danh sách phát",
             "unknown": "Không xác định",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Xóa tất cả",
+            "clearAllConfirm": "Bạn có chắc chắn muốn xóa TẤT CẢ các video đã lưu không? Hành động này có thể được hoàn tác.",
+            "allItemsCleared": "Tất cả các mục đã được xóa",
+            "undoClearAll": "Hoàn tác"
         },
-
         "id": {
             "settings": "Pengaturan",
             "savedVideos": "Lihat video tersimpan",
@@ -906,6 +1158,10 @@
             "startTimeSet": "Waktu mulai diatur ke",
             "fixedTimeRemoved": "Waktu tetap dihapus.",
             "itemDeleted": "dihapus.",
+            "unknownError": "Kesalahan tidak diketahui",
+            "modulesFailed": "{count} modul gagal: {names}",
+            "retryNow": "Coba lagi sekarang",
+            "retryCompleted": "Percobaan ulang selesai",
             "progress": "Progres",
             "alwaysStartFrom": "Selalu mulai dari",
             "resumedAt": "Dilanjutkan pada",
@@ -920,9 +1176,12 @@
             "youtubePlaybackPlox": "YouTube Pemutaran Plox",
             "playlistPrefix": "Daftar putar",
             "unknown": "Tidak diketahui",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Hapus semua",
+            "clearAllConfirm": "Apakah Anda yakin ingin menghapus SEMUA video yang tersimpan? Tindakan ini dapat dibatalkan.",
+            "allItemsCleared": "Semua item dihapus",
+            "undoClearAll": "Batalkan"
         },
-
         "tr": {
             "settings": "Ayarlar",
             "savedVideos": "Kaydedilen videoları görüntüle",
@@ -964,6 +1223,10 @@
             "startTimeSet": "Başlangıç zamanı ayarlandı",
             "fixedTimeRemoved": "Sabit süre kaldırıldı.",
             "itemDeleted": "silindi.",
+            "unknownError": "Bilinmeyen hata",
+            "modulesFailed": "{count} modül başarısız: {names}",
+            "retryNow": "Şimdi yeniden dene",
+            "retryCompleted": "Yeniden deneme tamamlandı",
             "progress": "İlerleme",
             "alwaysStartFrom": "Her zaman buradan başla",
             "resumedAt": "Şuradan devam edildi",
@@ -978,9 +1241,12 @@
             "youtubePlaybackPlox": "YouTube Oynatma Plox",
             "playlistPrefix": "Oynatma listesi",
             "unknown": "Bilinmiyor",
-            "notAvailable": "Yok"
+            "notAvailable": "Yok",
+            "clearAll": "Tümünü temizle",
+            "clearAllConfirm": "TÜM kayıtlı videoları silmek istediğinizden emin misiniz? Bu işlem geri alınabilir.",
+            "allItemsCleared": "Tüm öğeler temizlendi",
+            "undoClearAll": "Geri al"
         },
-
         "pl": {
             "settings": "Ustawienia",
             "savedVideos": "Zobacz zapisane filmy",
@@ -1022,6 +1288,10 @@
             "startTimeSet": "Czas rozpoczęcia ustawiony na",
             "fixedTimeRemoved": "Usunięto stały czas.",
             "itemDeleted": "usunięto.",
+            "unknownError": "Nieznany błąd",
+            "modulesFailed": "{count} moduł(y) nie powiodły się: {names}",
+            "retryNow": "Spróbuj ponownie teraz",
+            "retryCompleted": "Ponowne próby zakończone",
             "progress": "Postęp",
             "alwaysStartFrom": "Zawsze zaczynaj od",
             "resumedAt": "Wznowiono od",
@@ -1036,9 +1306,12 @@
             "youtubePlaybackPlox": "YouTube Odtwarzanie Plox",
             "playlistPrefix": "Lista odtwarzania",
             "unknown": "Nieznany",
-            "notAvailable": "Brak danych"
+            "notAvailable": "Brak danych",
+            "clearAll": "Wyczyść wszystko",
+            "clearAllConfirm": "Czy na pewno chcesz usunąć WSZYSTKIE zapisane wideo? Ta akcja może być cofnięta.",
+            "allItemsCleared": "Wszystkie elementy wyczyszczone",
+            "undoClearAll": "Cofnij"
         },
-
         "nl": {
             "settings": "Instellingen",
             "savedVideos": "Bekijk opgeslagen video's",
@@ -1080,6 +1353,10 @@
             "startTimeSet": "Starttijd ingesteld op",
             "fixedTimeRemoved": "Vaste tijd verwijderd.",
             "itemDeleted": "verwijderd.",
+            "unknownError": "Onbekende fout",
+            "modulesFailed": "{count} module(s) mislukt: {names}",
+            "retryNow": "Nu opnieuw proberen",
+            "retryCompleted": "Hertesten voltooid",
             "progress": "Voortgang",
             "alwaysStartFrom": "Altijd starten vanaf",
             "resumedAt": "Hervat bij",
@@ -1094,9 +1371,12 @@
             "youtubePlaybackPlox": "YouTube Afspelen Plox",
             "playlistPrefix": "Afspeellijst",
             "unknown": "Onbekend",
-            "notAvailable": "N/B"
+            "notAvailable": "N/B",
+            "clearAll": "Alles wissen",
+            "clearAllConfirm": "Weet je zeker dat je ALLE opgeslagen video's wilt verwijderen? Deze actie kan ongedaan worden gemaakt.",
+            "allItemsCleared": "Alle items gewist",
+            "undoClearAll": "Ongedaan maken"
         },
-
         "sv": {
             "settings": "Inställningar",
             "savedVideos": "Visa sparade videor",
@@ -1138,6 +1418,10 @@
             "startTimeSet": "Starttid inställd på",
             "fixedTimeRemoved": "Fast tid borttagen.",
             "itemDeleted": "raderad.",
+            "unknownError": "Okänt fel",
+            "modulesFailed": "{count} modul(er) misslyckades: {names}",
+            "retryNow": "Försök igen nu",
+            "retryCompleted": "Omförsök slutfört",
             "progress": "Framsteg",
             "alwaysStartFrom": "Börja alltid från",
             "resumedAt": "Återupptagen vid",
@@ -1152,9 +1436,12 @@
             "youtubePlaybackPlox": "YouTube Uppspelning Plox",
             "playlistPrefix": "Spellista",
             "unknown": "Okänd",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Rensa allt",
+            "clearAllConfirm": "Är du säker på att du vill ta bort ALLA sparade videor? Denna åtgärd kan ångras.",
+            "allItemsCleared": "Alla objekt rensade",
+            "undoClearAll": "Ångra"
         },
-
         "da": {
             "settings": "Indstillinger",
             "savedVideos": "Se gemte videoer",
@@ -1196,6 +1483,10 @@
             "startTimeSet": "Starttid sat til",
             "fixedTimeRemoved": "Fast tid fjernet.",
             "itemDeleted": "slettet.",
+            "unknownError": "Ukendt fejl",
+            "modulesFailed": "{count} modul(er) mislykkedes: {names}",
+            "retryNow": "Prøv igen nu",
+            "retryCompleted": "Genforsøg fuldført",
             "progress": "Fremskridt",
             "alwaysStartFrom": "Start altid fra",
             "resumedAt": "Genoptaget ved",
@@ -1210,9 +1501,12 @@
             "youtubePlaybackPlox": "YouTube Afspilning Plox",
             "playlistPrefix": "Afspilningsliste",
             "unknown": "Ukendt",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Ryd alt",
+            "clearAllConfirm": "Er du sikker på, at du vil slette ALLE gemte videoer? Denne handling kan fortrydes.",
+            "allItemsCleared": "Alle elementer ryddet",
+            "undoClearAll": "Fortryd"
         },
-
         "no": {
             "settings": "Innstillinger",
             "savedVideos": "Se lagrede videoer",
@@ -1254,6 +1548,10 @@
             "startTimeSet": "Starttid satt til",
             "fixedTimeRemoved": "Fast tid fjernet.",
             "itemDeleted": "slettet.",
+            "unknownError": "Ukjent feil",
+            "modulesFailed": "{count} modul(er) mislyktes: {names}",
+            "retryNow": "Prøv igjen nå",
+            "retryCompleted": "Omprøving fullført",
             "progress": "Fremdrift",
             "alwaysStartFrom": "Start alltid fra",
             "resumedAt": "Gjenopptatt ved",
@@ -1268,9 +1566,12 @@
             "youtubePlaybackPlox": "YouTube Avspilling Plox",
             "playlistPrefix": "Spilleliste",
             "unknown": "Ukjent",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Tøm alt",
+            "clearAllConfirm": "Er du sikker på at du vil slette ALLE lagrede videoer? Denne handlingen kan angres.",
+            "allItemsCleared": "Alle elementer tømt",
+            "undoClearAll": "Angre"
         },
-
         "fi": {
             "settings": "Asetukset",
             "savedVideos": "Näytä tallennetut videot",
@@ -1312,6 +1613,10 @@
             "startTimeSet": "Aloitusaika asetettu",
             "fixedTimeRemoved": "Kiinteä aika poistettu.",
             "itemDeleted": "poistettu.",
+            "unknownError": "Tuntematon virhe",
+            "modulesFailed": "{count} moduulia epäonnistui: {names}",
+            "retryNow": "Yritä uudelleen nyt",
+            "retryCompleted": "Uudelleenyritys valmis",
             "progress": "Edistyminen",
             "alwaysStartFrom": "Aloita aina kohdasta",
             "resumedAt": "Jatkettiin kohdasta",
@@ -1326,9 +1631,12 @@
             "youtubePlaybackPlox": "YouTube Toisto Plox",
             "playlistPrefix": "Soittolista",
             "unknown": "Tuntematon",
-            "notAvailable": "Ei saatavilla"
+            "notAvailable": "Ei saatavilla",
+            "clearAll": "Tyhjennä kaikki",
+            "clearAllConfirm": "Oletko varma, että haluat poistaa KAIKKI tallennetut videot? Tämä toiminto voidaan kumota.",
+            "allItemsCleared": "Kaikki kohteet tyhjennetty",
+            "undoClearAll": "Kumoa"
         },
-
         "hu": {
             "settings": "Beállítások",
             "savedVideos": "Mentett videók megtekintése",
@@ -1370,6 +1678,10 @@
             "startTimeSet": "Kezdési idő beállítva",
             "fixedTimeRemoved": "Rögzített idő eltávolítva.",
             "itemDeleted": "törölve.",
+            "unknownError": "Ismeretlen hiba",
+            "modulesFailed": "{count} modul sikertelen: {names}",
+            "retryNow": "Próbáld újra most",
+            "retryCompleted": "Újrapróbálkozás befejeződött",
             "progress": "Előrehaladás",
             "alwaysStartFrom": "Mindig innen induljon",
             "resumedAt": "Innen folytatva",
@@ -1384,9 +1696,12 @@
             "youtubePlaybackPlox": "YouTube Lejátszás Plox",
             "playlistPrefix": "Lejátszási lista",
             "unknown": "Ismeretlen",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Összes törlése",
+            "clearAllConfirm": "Biztosan törölni szeretnéd az ÖSSZES mentett videót? Ez a művelet visszavonható.",
+            "allItemsCleared": "Minden elem törölve",
+            "undoClearAll": "Visszavonás"
         },
-
         "cs": {
             "settings": "Nastavení",
             "savedVideos": "Zobrazit uložená videa",
@@ -1428,6 +1743,10 @@
             "startTimeSet": "Začátek nastaven na",
             "fixedTimeRemoved": "Pevný čas odstraněn.",
             "itemDeleted": "smazáno.",
+            "unknownError": "Neznámá chyba",
+            "modulesFailed": "{count} modul(y) selhalo(y): {names}",
+            "retryNow": "Zkusit znovu nyní",
+            "retryCompleted": "Opakování dokončeno",
             "progress": "Postup",
             "alwaysStartFrom": "Vždy začít od",
             "resumedAt": "Pokračováno od",
@@ -1442,9 +1761,12 @@
             "youtubePlaybackPlox": "YouTube Přehrávání Plox",
             "playlistPrefix": "Seznam stop",
             "unknown": "Neznámé",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Vymazat vše",
+            "clearAllConfirm": "Jste si jisti, že chcete smazat VŠECHNY uložená videa? Tuto akci lze vrátit zpět.",
+            "allItemsCleared": "Všechny položky vymazány",
+            "undoClearAll": "Vrátit zpět"
         },
-
         "sk": {
             "settings": "Nastavenia",
             "savedVideos": "Zobraziť uložené videá",
@@ -1486,6 +1808,10 @@
             "startTimeSet": "Čas začiatku nastavený na",
             "fixedTimeRemoved": "Pevný čas odstránený.",
             "itemDeleted": "odstránené.",
+            "unknownError": "Neznáma chyba",
+            "modulesFailed": "{count} modul(y) zlyhal(i): {names}",
+            "retryNow": "Skúsiť znova teraz",
+            "retryCompleted": "Opätovná skúška dokončená",
             "progress": "Postup",
             "alwaysStartFrom": "Vždy začať od",
             "resumedAt": "Pokračované od",
@@ -1500,9 +1826,12 @@
             "youtubePlaybackPlox": "YouTube Prehrávanie Plox",
             "playlistPrefix": "Zoznam videí",
             "unknown": "Neznáme",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Vymazať všetko",
+            "clearAllConfirm": "Ste si istí, že chcete vymazať VŠETKY uložené videá? Túto akciu možno vrátiť späť.",
+            "allItemsCleared": "Všetky položky vymazané",
+            "undoClearAll": "Vrátiť späť"
         },
-
         "ro": {
             "settings": "Setări",
             "savedVideos": "Vizualizează videoclipurile salvate",
@@ -1544,6 +1873,10 @@
             "startTimeSet": "Timpul de start setat la",
             "fixedTimeRemoved": "Timp fix eliminat.",
             "itemDeleted": "șters.",
+            "unknownError": "Eroare necunoscută",
+            "modulesFailed": "{count} modul(e) au eșuat: {names}",
+            "retryNow": "Încearcă din nou acum",
+            "retryCompleted": "Reîncercare finalizată",
             "progress": "Progres",
             "alwaysStartFrom": "Pornește întotdeauna de la",
             "resumedAt": "Reluat de la",
@@ -1558,9 +1891,12 @@
             "youtubePlaybackPlox": "YouTube Redare Plox",
             "playlistPrefix": "Listă de redare",
             "unknown": "Necunoscut",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Șterge tot",
+            "clearAllConfirm": "Sunteți sigur că doriți să ștergeți TOATE videoclipurile salvate? Această acțiune poate fi anulată.",
+            "allItemsCleared": "Toate elementele șterse",
+            "undoClearAll": "Anulează"
         },
-
         "bg": {
             "settings": "Настройки",
             "savedVideos": "Виж запазените видеа",
@@ -1602,6 +1938,10 @@
             "startTimeSet": "Времето за начало е зададено на",
             "fixedTimeRemoved": "Фиксираното време е премахнато.",
             "itemDeleted": "изтрит.",
+            "unknownError": "Неизвестна грешка",
+            "modulesFailed": "{count} модул(и) не успяха: {names}",
+            "retryNow": "Опитай отново сега",
+            "retryCompleted": "Повторният опит е завършен",
             "progress": "Напредък",
             "alwaysStartFrom": "Винаги започвай от",
             "resumedAt": "Възобновено от",
@@ -1616,9 +1956,12 @@
             "youtubePlaybackPlox": "YouTube Възпроизвеждане Plox",
             "playlistPrefix": "Плейлист",
             "unknown": "Неизвестно",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Изчисти всичко",
+            "clearAllConfirm": "Сигурни ли сте, че искате да изтриете ВСИЧКИ запазени видеоклипове? Това действие може да бъде отменено.",
+            "allItemsCleared": "Всички елементи изчистени",
+            "undoClearAll": "Отмени"
         },
-
         "hr": {
             "settings": "Postavke",
             "savedVideos": "Pogledaj spremljene videozapise",
@@ -1660,6 +2003,10 @@
             "startTimeSet": "Vrijeme početka postavljeno na",
             "fixedTimeRemoved": "Fiksno vrijeme uklonjeno.",
             "itemDeleted": "izbrisano.",
+            "unknownError": "Nepoznata pogreška",
+            "modulesFailed": "{count} modul(a) nije uspio: {names}",
+            "retryNow": "Pokušaj ponovno sada",
+            "retryCompleted": "Ponovni pokušaj završen",
             "progress": "Napredak",
             "alwaysStartFrom": "Uvijek započni od",
             "resumedAt": "Nastavljeno od",
@@ -1674,9 +2021,12 @@
             "youtubePlaybackPlox": "YouTube Reprodukcija Plox",
             "playlistPrefix": "Popis za reprodukciju",
             "unknown": "Nepoznato",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Obriši sve",
+            "clearAllConfirm": "Jeste li sigurni da želite izbrisati SVE spremljene videozapise? Ova se radnja može poništiti.",
+            "allItemsCleared": "Svi stavke obrisane",
+            "undoClearAll": "Poništi"
         },
-
         "sl": {
             "settings": "Nastavitve",
             "savedVideos": "Prikaži shranjene videoposnetke",
@@ -1718,6 +2068,10 @@
             "startTimeSet": "Začetni čas nastavljen na",
             "fixedTimeRemoved": "Fiksni čas odstranjen.",
             "itemDeleted": "izbrisano.",
+            "unknownError": "Neznana napaka",
+            "modulesFailed": "{count} modul(i) ni uspelo: {names}",
+            "retryNow": "Poskusi znova zdaj",
+            "retryCompleted": "Ponovni poskus zaključen",
             "progress": "Napredek",
             "alwaysStartFrom": "Vedno začni od",
             "resumedAt": "Nadaljevanje pri",
@@ -1732,9 +2086,12 @@
             "youtubePlaybackPlox": "YouTube Predvajanje Plox",
             "playlistPrefix": "Seznam predvajanja",
             "unknown": "Neznano",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Počisti vse",
+            "clearAllConfirm": "Ali ste prepričani, da želite izbrisati VSE shranjene videoposnetke? Tega dejanja lahko razveljavite.",
+            "allItemsCleared": "Vsi elementi počiščeni",
+            "undoClearAll": "Razveljavi"
         },
-
         "sr": {
             "settings": "Подешавања",
             "savedVideos": "Прикажи сачуване видео снимке",
@@ -1776,6 +2133,10 @@
             "startTimeSet": "Време почетка постављено на",
             "fixedTimeRemoved": "Фиксно време уклоњено.",
             "itemDeleted": "обрисано.",
+            "unknownError": "Nepoznata greška",
+            "modulesFailed": "{count} modul(a) nije uspelo: {names}",
+            "retryNow": "Pokušaj ponovo sada",
+            "retryCompleted": "Ponovni pokušaj završen",
             "progress": "Напредак",
             "alwaysStartFrom": "Увек почињи од",
             "resumedAt": "Настављено од",
@@ -1790,9 +2151,12 @@
             "youtubePlaybackPlox": "YouTube Репродукција Plox",
             "playlistPrefix": "Плејлиста",
             "unknown": "Непознато",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Обриши све",
+            "clearAllConfirm": "Да ли сте сигурни да желите да обришете СВЕ сачуване видео снимке? Ова акција се може поништити.",
+            "allItemsCleared": "Све ставке обрисане",
+            "undoClearAll": "Поништи"
         },
-
         "lt": {
             "settings": "Nustatymai",
             "savedVideos": "Peržiūrėti išsaugotus vaizdo įrašus",
@@ -1834,6 +2198,10 @@
             "startTimeSet": "Pradžios laikas nustatytas į",
             "fixedTimeRemoved": "Fiksuotas laikas pašalintas.",
             "itemDeleted": "ištrintas.",
+            "unknownError": "Nežinoma klaida",
+            "modulesFailed": "{count} modulis(-iai) nepavyko: {names}",
+            "retryNow": "Bandykite dar kartą dabar",
+            "retryCompleted": "Pakartotinis bandymas baigtas",
             "progress": "Progresas",
             "alwaysStartFrom": "Visada pradėti nuo",
             "resumedAt": "Tęsiama nuo",
@@ -1848,9 +2216,12 @@
             "youtubePlaybackPlox": "YouTube Atkūrimas Plox",
             "playlistPrefix": "Grojaraštis",
             "unknown": "Nežinomas",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Išvalyti viską",
+            "clearAllConfirm": "Ar tikrai norite ištrinti VISUS išsaugotus vaizdo įrašus? Šį veiksmą galima atšaukti.",
+            "allItemsCleared": "Visi elementai išvalyti",
+            "undoClearAll": "Atšaukti"
         },
-
         "lv": {
             "settings": "Iestatījumi",
             "savedVideos": "Skatīt saglabātos videoklipus",
@@ -1892,6 +2263,10 @@
             "startTimeSet": "Sākuma laiks iestatīts uz",
             "fixedTimeRemoved": "Fiksētais laiks noņemts.",
             "itemDeleted": "dzēsts.",
+            "unknownError": "Nezināma kļūda",
+            "modulesFailed": "{count} modulis(-i) neizdevās: {names}",
+            "retryNow": "Mēģināt vēlreiz tagad",
+            "retryCompleted": "Atkārtota mēģinājuma pabeigts",
             "progress": "Progress",
             "alwaysStartFrom": "Vienmēr sākt no",
             "resumedAt": "Turpināts no",
@@ -1906,9 +2281,12 @@
             "youtubePlaybackPlox": "YouTube Atskaņošana Plox",
             "playlistPrefix": "Atskaņošanas saraksts",
             "unknown": "Nezināms",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Notīrīt visu",
+            "clearAllConfirm": "Vai esat pārliecināts, ka vēlaties dzēst VISUS saglabātos video? Šo darbību var atsaukt.",
+            "allItemsCleared": "Visi elementi notīrīti",
+            "undoClearAll": "Atsaukt"
         },
-
         "uk": {
             "settings": "Налаштування",
             "savedVideos": "Переглянути збережені відео",
@@ -1950,6 +2328,10 @@
             "startTimeSet": "Час початку встановлено на",
             "fixedTimeRemoved": "Фіксований час видалено.",
             "itemDeleted": "видалено.",
+            "unknownError": "Невідома помилка",
+            "modulesFailed": "{count} модуль(и) не вдалося: {names}",
+            "retryNow": "Спробувати зараз",
+            "retryCompleted": "Повторна спроба завершена",
             "progress": "Прогрес",
             "alwaysStartFrom": "Завжди починати з",
             "resumedAt": "Відновлено з",
@@ -1964,9 +2346,12 @@
             "youtubePlaybackPlox": "YouTube Відтворення Plox",
             "playlistPrefix": "Плейлист",
             "unknown": "Невідомо",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Видалити все",
+            "clearAllConfirm": "Ви впевнені, що хочете видалити ВСІ збережені відео? Цю дію можна скасувати.",
+            "allItemsCleared": "Усі елементи видалено",
+            "undoClearAll": "Скасувати"
         },
-
         "el": {
             "settings": "Ρυθμίσεις",
             "savedVideos": "Προβολή αποθηκευμένων βίντεο",
@@ -2008,6 +2393,10 @@
             "startTimeSet": "Η ώρα έναρξης ορίστηκε σε",
             "fixedTimeRemoved": "Η σταθερή ώρα αφαιρέθηκε.",
             "itemDeleted": "διαγράφηκε.",
+            "unknownError": "Άγνωστο σφάλμα",
+            "modulesFailed": "{count} μονάδα(ες) απέτυχαν: {names}",
+            "retryNow": "Δοκιμάστε ξανά τώρα",
+            "retryCompleted": "Η επανάληψη ολοκληρώθηκε",
             "progress": "Πρόοδος",
             "alwaysStartFrom": "Να ξεκινά πάντα από",
             "resumedAt": "Συνέχεια από",
@@ -2022,9 +2411,12 @@
             "youtubePlaybackPlox": "YouTube Αναπαραγωγή Plox",
             "playlistPrefix": "Λίστα αναπαραγωγής",
             "unknown": "Άγνωστο",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Διαγραφή όλων",
+            "clearAllConfirm": "Είστε σίγουροι ότι θέλετε να διαγράψετε ΟΛΑ τα αποθηκευμένα βίντεο; Αυτή η ενέργεια μπορεί να αναιρεθεί.",
+            "allItemsCleared": "Όλα τα στοιχεία διαγράφηκαν",
+            "undoClearAll": "Αναίρεση"
         },
-
         "th": {
             "settings": "การตั้งค่า",
             "savedVideos": "ดูวิดีโอที่บันทึกไว้",
@@ -2066,6 +2458,10 @@
             "startTimeSet": "ตั้งเวลาเริ่มต้นเป็น",
             "fixedTimeRemoved": "ลบเวลาเริ่มต้นคงที่แล้ว",
             "itemDeleted": "ถูกลบแล้ว",
+            "unknownError": "ข้อผิดพลาดไม่ทราบสาเหตุ",
+            "modulesFailed": "{count} โมดูลล้มเหลว: {names}",
+            "retryNow": "ลองอีกครั้งตอนนี้",
+            "retryCompleted": "ลองใหม่เสร็จสิ้น",
             "progress": "ความคืบหน้า",
             "alwaysStartFrom": "เริ่มจาก",
             "resumedAt": "ดำเนินการต่อจาก",
@@ -2080,9 +2476,12 @@
             "youtubePlaybackPlox": "YouTube เล่นซ้ำ Plox",
             "playlistPrefix": "เพลย์ลิสต์",
             "unknown": "ไม่ทราบ",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "ล้างทั้งหมด",
+            "clearAllConfirm": "คุณแน่ใจหรือไม่ว่าต้องการลบวิดีโอที่บันทึกไว้ทั้งหมด? สามารถยกเลิกการดำเนินการนี้ได้",
+            "allItemsCleared": "ล้างรายการทั้งหมดแล้ว",
+            "undoClearAll": "ยกเลิก"
         },
-
         "ms": {
             "settings": "Tetapan",
             "savedVideos": "Lihat video yang disimpan",
@@ -2124,6 +2523,10 @@
             "startTimeSet": "Masa mula ditetapkan kepada",
             "fixedTimeRemoved": "Masa tetap dibuang.",
             "itemDeleted": "dipadam.",
+            "unknownError": "Ralat tidak diketahui",
+            "modulesFailed": "{count} modul gagal: {names}",
+            "retryNow": "Cuba semula sekarang",
+            "retryCompleted": "Percubaan semula selesai",
             "progress": "Kemajuan",
             "alwaysStartFrom": "Sentiasa mula dari",
             "resumedAt": "Disambung dari",
@@ -2138,9 +2541,12 @@
             "youtubePlaybackPlox": "YouTube Pemutaran Plox",
             "playlistPrefix": "Senarai main",
             "unknown": "Tidak diketahui",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Kosongkan semua",
+            "clearAllConfirm": "Adakah anda pasti anda ingin memadam SEMUA video yang disimpan? Tindakan ini boleh dibatalkan.",
+            "allItemsCleared": "Semua item dikosongkan",
+            "undoClearAll": "Batal"
         },
-
         "sw": {
             "settings": "Mipangilio",
             "savedVideos": "Tazama video zilizohifadhiwa",
@@ -2182,6 +2588,10 @@
             "startTimeSet": "Muda wa kuanza umewekwa kuwa",
             "fixedTimeRemoved": "Muda uliowekwa umeondolewa.",
             "itemDeleted": "imefutwa.",
+            "unknownError": "Hitilafu isiyojulikana",
+            "modulesFailed": "{count} moduli imeshindwa: {names}",
+            "retryNow": "Jaribu tena sasa",
+            "retryCompleted": "Jaribio la kurudia limekamilika",
             "progress": "Maendeleo",
             "alwaysStartFrom": "Kila mara anza kutoka",
             "resumedAt": "Iliendelea kutoka",
@@ -2196,9 +2606,12 @@
             "youtubePlaybackPlox": "YouTube Uchezaji Plox",
             "playlistPrefix": "Orodha ya kucheza",
             "unknown": "Haijulikani",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Futa zote",
+            "clearAllConfirm": "Una uhakika unataka kufuta VIDEOS zote zilizohifadhiwa? Hatua hii inaweza kurejeshwa.",
+            "allItemsCleared": "Vitu vyote vimefutwa",
+            "undoClearAll": "Rudisha"
         },
-
         "fa": {
             "settings": "تنظیمات",
             "savedVideos": "نمایش ویدیوهای ذخیره‌شده",
@@ -2240,6 +2653,10 @@
             "startTimeSet": "زمان شروع تنظیم شد به",
             "fixedTimeRemoved": "زمان ثابت حذف شد.",
             "itemDeleted": "حذف شد.",
+            "unknownError": "خطای ناشناخته",
+            "modulesFailed": "{count} ماژول ناموفق بود: {names}",
+            "retryNow": "همین حالا دوباره تلاش کن",
+            "retryCompleted": "تلاش مجدد انجام شد",
             "progress": "پیشرفت",
             "alwaysStartFrom": "همیشه شروع از",
             "resumedAt": "ادامه از",
@@ -2254,9 +2671,12 @@
             "youtubePlaybackPlox": "YouTube پخش Plox",
             "playlistPrefix": "فهرست پخش",
             "unknown": "ناشناخته",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "پاک کردن همه",
+            "clearAllConfirm": "آیا مطمئن هستید که می خواهید تمام ویدیوهای ذخیره شده را حذف کنید؟ این عمل قابل برگشت است.",
+            "allItemsCleared": "تمام موارد پاک شدند",
+            "undoClearAll": "بازگشت"
         },
-
         "he": {
             "settings": "הגדרות",
             "savedVideos": "צפה בסרטונים שנשמרו",
@@ -2298,6 +2718,10 @@
             "startTimeSet": "זמן ההתחלה הוגדר ל־",
             "fixedTimeRemoved": "זמן קבוע הוסר.",
             "itemDeleted": "נמחק.",
+            "unknownError": "שגיאה לא ידועה",
+            "modulesFailed": "{count} מודול(ים) נכשלו: {names}",
+            "retryNow": "נסה שוב עכשיו",
+            "retryCompleted": "הניסיון החוזר הושלם",
             "progress": "התקדמות",
             "alwaysStartFrom": "תמיד התחל מ־",
             "resumedAt": "המשך מ־",
@@ -2312,9 +2736,12 @@
             "youtubePlaybackPlox": "YouTube הפעלה Plox",
             "playlistPrefix": "רשימת השמעה",
             "unknown": "לא ידוע",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "נקה הכל",
+            "clearAllConfirm": "האם אתה בטוח שברצונך למחוק את כל הסרטונים השמורים? ניתן לבטל פעולה זו.",
+            "allItemsCleared": "כל הפריטים נוקו",
+            "undoClearAll": "בטל"
         },
-
         "ta": {
             "settings": "அமைப்புகள்",
             "savedVideos": "சேமிக்கப்பட்ட வீடியோக்களைப் பார்க்கவும்",
@@ -2356,6 +2783,10 @@
             "startTimeSet": "தொடக்க நேரம் அமைக்கப்பட்டது",
             "fixedTimeRemoved": "நிலையான நேரம் நீக்கப்பட்டது.",
             "itemDeleted": "அழிக்கப்பட்டது.",
+            "unknownError": "அறியப்படாத பிழை",
+            "modulesFailed": "{count} மாட்யூல்(கள்) தோல்வியடைந்தன: {names}",
+            "retryNow": "இப்போது மீண்டும் முயற்சி செய்க",
+            "retryCompleted": "மீண்டும் முயற்சி முடிந்தது",
             "progress": "முன்னேற்றம்",
             "alwaysStartFrom": "எப்போதும் இதிலிருந்து தொடங்கு",
             "resumedAt": "இருந்த இடத்தில் தொடரப்பட்டது",
@@ -2370,9 +2801,12 @@
             "youtubePlaybackPlox": "YouTube பிளேபேக் Plox",
             "playlistPrefix": "பட்டியல்",
             "unknown": "தெரியாது",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "அனைத்தையும் அழி",
+            "clearAllConfirm": "சேமிக்கப்பட்ட அனைத்து வீடியோக்களையும் நீக்க விரும்புகிறீர்களா? இந்த செயலை செயல்தவிர்க்க முடியும்.",
+            "allItemsCleared": "அனைத்து உருப்படிகளும் அழிக்கப்பட்டன",
+            "undoClearAll": "செயல்தவிர்"
         },
-
         "am": {
             "settings": "ማስተካከያ",
             "savedVideos": "የተቀረጹ ቪዲዮዎችን እይ",
@@ -2414,6 +2848,10 @@
             "startTimeSet": "የመጀመሪያ ሰዓት ተቀመጠ በ",
             "fixedTimeRemoved": "ቋሚ ሰዓት አስወግዷል።",
             "itemDeleted": "ተሰወረ።",
+            "unknownError": "ያልታወቀ እንቅስቃሴ",
+            "modulesFailed": "{count} ሞጁል(ዎች) አልተሳካም: {names}",
+            "retryNow": "አሁን ደግመህ ሞክር",
+            "retryCompleted": "ድጋሚ ሞክር ተጠናቀቀ",
             "progress": "እድገት",
             "alwaysStartFrom": "ሁልጊዜ ይጀምሩ ከ",
             "resumedAt": "ከዚህ ቦታ ተቀጥሏል",
@@ -2428,9 +2866,12 @@
             "youtubePlaybackPlox": "YouTube የእንቅስቃሴ ቅድመ ሁኔታ Plox",
             "playlistPrefix": "ዝርዝር የቪዲዮዎች",
             "unknown": "ያልታወቀ",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "ሁሉንም አጥፋ",
+            "clearAllConfirm": "የተቀመጉትን ሁሉንም ቪዲዮዎች መሰረዝ ትፈልጋለህ? ይህ ተግባር መተው ይቻላል።",
+            "allItemsCleared": "ሁሉም እቃዎች ተሰርዘዋል",
+            "undoClearAll": "ተመለስ"
         },
-
         "ha": {
             "settings": "Saituna",
             "savedVideos": "Duba bidiyoyin da aka adana",
@@ -2472,6 +2913,10 @@
             "startTimeSet": "An saita lokacin farawa zuwa",
             "fixedTimeRemoved": "Lokacin dindindin an cire.",
             "itemDeleted": "an goge.",
+            "unknownError": "Kuskure da ba a sani ba",
+            "modulesFailed": "{count} naúrar sun kasa: {names}",
+            "retryNow": "Gwada yanzu",
+            "retryCompleted": "An kammala sake gwadawa",
             "progress": "Ci gaba",
             "alwaysStartFrom": "Kullum fara daga",
             "resumedAt": "An ci gaba daga",
@@ -2486,9 +2931,12 @@
             "youtubePlaybackPlox": "YouTube Wasa Plox",
             "playlistPrefix": "Jerin bidiyo",
             "unknown": "Bai sani ba",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Goge duka",
+            "clearAllConfirm": "Kuna tabbas kana sona goge DUKKAN bidiyoyin da aka ajiye? Ana iya janye wannan aiki.",
+            "allItemsCleared": "Dukkan abubuwan an goge su",
+            "undoClearAll": "Janye"
         },
-
         "ur": {
             "settings": "ترتیبات",
             "savedVideos": "محفوظ شدہ ویڈیوز دیکھیں",
@@ -2530,6 +2978,10 @@
             "startTimeSet": "شروع ہونے کا وقت مقرر کیا گیا",
             "fixedTimeRemoved": "مقررہ وقت ہٹا دیا گیا۔",
             "itemDeleted": "حذف ہو گیا۔",
+            "unknownError": "نامعلوم خرابی",
+            "modulesFailed": "{count} ماڈیول ناکام ہوئے: {names}",
+            "retryNow": "اب دوبارہ کوشش کریں",
+            "retryCompleted": "دوبارہ کوشش مکمل ہوگئی",
             "progress": "پیش رفت",
             "alwaysStartFrom": "ہمیشہ شروع کریں",
             "resumedAt": "سے دوبارہ شروع کیا گیا",
@@ -2544,9 +2996,12 @@
             "youtubePlaybackPlox": "YouTube پلے بیک Plox",
             "playlistPrefix": "پلے لسٹ",
             "unknown": "نامعلوم",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "سبھی صاف کریں",
+            "clearAllConfirm": "کیا آپ واقعی تمام محفوظ شدہ ویڈیوز کو حذف کرنا چاہتے ہیں؟ اس عمل کو کالعدم کیا جا سکتا ہے۔",
+            "allItemsCleared": "تمام آئٹمز صاف کر دیے گئے",
+            "undoClearAll": "کالعدم کریں"
         },
-
         "te": {
             "settings": "సెట్టింగులు",
             "savedVideos": "సేవ్ చేసిన వీడియోలను వీక్షించండి",
@@ -2588,6 +3043,10 @@
             "startTimeSet": "ప్రారంభ సమయం సెట్ చేయబడింది",
             "fixedTimeRemoved": "నిర్థిష్ట సమయం తీసేయబడింది.",
             "itemDeleted": "తొలగించబడింది.",
+            "unknownError": "తెలియని లోపం",
+            "modulesFailed": "{count} మాడ్యూల్(లు) విఫలమయ్యాయి: {names}",
+            "retryNow": "ఇప్పుడే మళ్లీ ప్రయత్నించండి",
+            "retryCompleted": "మళ్లీ ప్రయత్నం పూర్తయింది",
             "progress": "ప్రగతి",
             "alwaysStartFrom": "ఎల్లప్పుడూ ప్రారంభించు",
             "resumedAt": "నుండి పునఃప్రారంభించబడింది",
@@ -2602,9 +3061,12 @@
             "youtubePlaybackPlox": "YouTube ప్లేబ్యాక్ Plox",
             "playlistPrefix": "ప్లేలిస్ట్",
             "unknown": "తెలియదు",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "అన్నింటినీ తొలగించు",
+            "clearAllConfirm": "మీరు ఖచ్చితంగా సేవ్ చేసిన అన్ని వీడియోలను తొలగించాలనుకుంటున్నారా? ఈ చర్యను రద్దు చేయవచ్చు.",
+            "allItemsCleared": "అన్ని అంశాలు తొలగించబడ్డాయి",
+            "undoClearAll": "రద్దు చేయి"
         },
-
         "mr": {
             "settings": "सेटिंग्ज",
             "savedVideos": "जतन केलेले व्हिडिओ पाहा",
@@ -2646,6 +3108,10 @@
             "startTimeSet": "सुरुवातीचा वेळ सेट केला",
             "fixedTimeRemoved": "निश्चित वेळ काढण्यात आली.",
             "itemDeleted": "काढले.",
+            "unknownError": "अज्ञात त्रुटी",
+            "modulesFailed": "{count} मॉड्यूल अयशस्वी: {names}",
+            "retryNow": "आता पुन्हा प्रयत्न करा",
+            "retryCompleted": "पुन्हा प्रयत्न पूर्ण झाले",
             "progress": "प्रगती",
             "alwaysStartFrom": "नेहमीपासून सुरू करा",
             "resumedAt": "पासून पुन्हा सुरू केले",
@@ -2660,9 +3126,12 @@
             "youtubePlaybackPlox": "YouTube प्लेबॅक Plox",
             "playlistPrefix": "प्लेलिस्ट",
             "unknown": "अज्ञात",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "सर्व हटवा",
+            "clearAllConfirm": "तुम्हाला खात्री आहे की तुम्ही सर्व जतन केलेले व्हिडिओ हटवू इच्छिता? ही क्रिया पूर्ववत केली जाऊ शकते.",
+            "allItemsCleared": "सर्व घटक हटविले",
+            "undoClearAll": "पूर्ववत करा"
         },
-
         "tl": {
             "settings": "Mga Setting",
             "savedVideos": "Tingnan ang Na-save na Mga Video",
@@ -2704,6 +3173,10 @@
             "startTimeSet": "Na-set ang Panahon ng Pagsisimula",
             "fixedTimeRemoved": "Tinanggal ang Nakapirming Oras.",
             "itemDeleted": "Natanggal.",
+            "unknownError": "Hindi kilalang error",
+            "modulesFailed": "{count} module nabigo: {names}",
+            "retryNow": "Subukan muli ngayon",
+            "retryCompleted": "Natapos ang muling pagtatangka",
             "progress": "Progreso",
             "alwaysStartFrom": "Laging Magsimula Mula sa",
             "resumedAt": "Nagpatuloy Mula sa",
@@ -2718,9 +3191,12 @@
             "youtubePlaybackPlox": "YouTube Playback Plox",
             "playlistPrefix": "Playlist",
             "unknown": "Hindi Kilala",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Burahin lahat",
+            "clearAllConfirm": "Sigurado ka ba na gusto mong burahin ang LAHAT ng nai-save na video? Maaaring balewalain ang aksyong ito.",
+            "allItemsCleared": "Lahat ng item ay nabura",
+            "undoClearAll": "Balewalain"
         },
-
         "my": {
             "settings": "ဆက်တင်များ",
             "savedVideos": "သိမ်းဆည်းထားသော ဗီဒီယိုများကို ကြည့်ပါ",
@@ -2762,6 +3238,10 @@
             "startTimeSet": "စတင်ချိန် သတ်မှတ်ပြီး",
             "fixedTimeRemoved": "သတ်မှတ်ထားသော အချိန် ဖျက်ပြီး။",
             "itemDeleted": "ဖျက်ပြီး။",
+            "unknownError": "မသိရသေးသောအမှား",
+            "modulesFailed": "{count} မော်ဂျူးများ မအောင်မြင်ပါ: {names}",
+            "retryNow": "ယခု ထပ်မံကြိုးစားပါ",
+            "retryCompleted": "ထပ်မံကြိုးစားမှု ပြီးဆုံးပါပြီ",
             "progress": "တိုးတက်မှု",
             "alwaysStartFrom": "အမြဲ စတင်ပါ",
             "resumedAt": "မှ ပြန်လည်စတင်ခဲ့သည်",
@@ -2776,9 +3256,12 @@
             "youtubePlaybackPlox": "YouTube Playback Plox",
             "playlistPrefix": "Playlist",
             "unknown": "မသိရသေးသော",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "အားလုံးရှင်းလင်းပါ",
+            "clearAllConfirm": "သင်သည် သိမ်းဆည်းထားသော ဗီဒီယိုအားလုံးကို ဖျက်လိုသည်မှာ သေချာပါသလား? ဤလုပ်ငန်းကို ပြန်ဖျက်နိုင်သည်။",
+            "allItemsCleared": "အရာအားလုံးကို ရှင်းလင်းပြီးပါပြီ",
+            "undoClearAll": "ပြန်ဖျက်ပါ"
         },
-
         "yue": {
             "settings": "設定",
             "savedVideos": "檢視已儲存影片",
@@ -2820,6 +3303,10 @@
             "startTimeSet": "已設定開始時間",
             "fixedTimeRemoved": "已移除固定時間。",
             "itemDeleted": "已刪除。",
+            "unknownError": "未知錯誤",
+            "modulesFailed": "{count} 模組失敗: {names}",
+            "retryNow": "立即重試",
+            "retryCompleted": "重試完成",
             "progress": "進度",
             "alwaysStartFrom": "總是從以下開始",
             "resumedAt": "從以下位置繼續播放",
@@ -2834,9 +3321,12 @@
             "youtubePlaybackPlox": "YouTube 播放 Plox",
             "playlistPrefix": "播放清單",
             "unknown": "未知",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "清除全部",
+            "clearAllConfirm": "你確定要刪除所有已保存嘅影片嗎？呢個動作可以撤銷。",
+            "allItemsCleared": "所有項目已清除",
+            "undoClearAll": "撤銷"
         },
-
         "ca": {
             "settings": "Configuració",
             "savedVideos": "Veure vídeos desats",
@@ -2878,6 +3368,10 @@
             "startTimeSet": "Hora d'inici establerta",
             "fixedTimeRemoved": "Hora fixa eliminada.",
             "itemDeleted": "Eliminat.",
+            "unknownError": "Error desconegut",
+            "modulesFailed": "{count} mòdul(s) fallits: {names}",
+            "retryNow": "Torna a intentar ara",
+            "retryCompleted": "Reintent completat",
             "progress": "Progrés",
             "alwaysStartFrom": "Sempre començar des de",
             "resumedAt": "Reprèn des de",
@@ -2892,9 +3386,12 @@
             "youtubePlaybackPlox": "Reproducció de YouTube Plox",
             "playlistPrefix": "Llista de reproducció",
             "unknown": "Desconegut",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Esborrar tot",
+            "clearAllConfirm": "Esteu segur que voleu eliminar TOTS els vídeos guardats? Aquesta acció es pot desfer.",
+            "allItemsCleared": "Tots els elements esborrats",
+            "undoClearAll": "Desfer"
         },
-
         "zu": {
             "settings": "Izilungiselelo",
             "savedVideos": "Buka Amavidiyo Agciniwe",
@@ -2936,6 +3433,10 @@
             "startTimeSet": "Isikhathi sokuqala sisethwe",
             "fixedTimeRemoved": "Isikhathi esibekiwe sisusiwe.",
             "itemDeleted": "Susiwe.",
+            "unknownError": "Iphutha elingaziwa",
+            "modulesFailed": "{count} imodyuli yehlulekile: {names}",
+            "retryNow": "Phinda uzame manje",
+            "retryCompleted": "Ukuzama kabusha kuqediwe",
             "progress": "Inqubekela phambili",
             "alwaysStartFrom": "Qala njalo ukusuka ku",
             "resumedAt": "Qhubeka kusuka ku",
@@ -2950,7 +3451,11 @@
             "youtubePlaybackPlox": "YouTube Playback Plox",
             "playlistPrefix": "Uhlu lokudlalwa",
             "unknown": "Okungaziwa",
-            "notAvailable": "N/A"
+            "notAvailable": "N/A",
+            "clearAll": "Susa konke",
+            "clearAllConfirm": "Uqinisekile ukuthi ufuna ukususa zonke izividiyo ezilondolozwe? Le ndlela ingasuswa.",
+            "allItemsCleared": "Zonke izinto zisiwe",
+            "undoClearAll": "Susa"
         }
     }
 }

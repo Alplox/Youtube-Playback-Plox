@@ -270,7 +270,11 @@
             "clearAll": "Eliminar todo",
             "clearAllConfirm": "¿Estás seguro de que quieres eliminar TODOS los videos guardados? Esta acción se puede deshacer.",
             "allItemsCleared": "Todos los elementos eliminados",
-            "undoClearAll": "Deshacer"
+            "undoClearAll": "Deshacer",
+            "viewAllHistory": "Ver todo el historial",
+            "viewCompletedVideos": "Ver videos completados",
+            "completed": "Completado",
+            "completedVideos": "Videos completados"
         },
         "en": {
             "settings": "Settings",
@@ -335,7 +339,11 @@
             "clearAll": "Clear all",
             "clearAllConfirm": "Are you sure you want to delete ALL saved videos? This action can be undone.",
             "allItemsCleared": "All items cleared",
-            "undoClearAll": "Undo"
+            "undoClearAll": "Undo",
+            "viewAllHistory": "View all history",
+            "viewCompletedVideos": "View completed videos",
+            "completed": "Completed",
+            "completedVideos": "Completed videos"
         },
         "fr": {
             "settings": "Paramètres",
@@ -400,7 +408,11 @@
             "clearAll": "Tout effacer",
             "clearAllConfirm": "Êtes-vous sûr de vouloir supprimer TOUTES les vidéos enregistrées ? Cette action peut être annulée.",
             "allItemsCleared": "Tous les éléments effacés",
-            "undoClearAll": "Annuler"
+            "undoClearAll": "Annuler",
+            "viewAllHistory": "Voir tout l'historique",
+            "viewCompletedVideos": "Voir les vidéos terminées",
+            "completed": "Terminé",
+            "completedVideos": "Vidéos terminées"
         },
         "de": {
             "settings": "Einstellungen",
@@ -465,7 +477,11 @@
             "clearAll": "Alle löschen",
             "clearAllConfirm": "Sind Sie sicher, dass Sie ALLE gespeicherten Videos löschen möchten? Diese Aktion kann rückgängig gemacht werden.",
             "allItemsCleared": "Alle Elemente gelöscht",
-            "undoClearAll": "Rückgängig machen"
+            "undoClearAll": "Rückgängig machen",
+            "viewAllHistory": "Gesamten Verlauf anzeigen",
+            "viewCompletedVideos": "Abgeschlossene Videos anzeigen",
+            "completed": "Abgeschlossen",
+            "completedVideos": "Abgeschlossene Videos"
         },
         "it": {
             "settings": "Impostazioni",
@@ -530,7 +546,11 @@
             "clearAll": "Cancella tutto",
             "clearAllConfirm": "Sei sicuro di voler eliminare TUTTI i video salvati? Questa azione può essere annullata.",
             "allItemsCleared": "Tutti gli elementi cancellati",
-            "undoClearAll": "Annulla"
+            "undoClearAll": "Annulla",
+            "viewAllHistory": "Visualizza tutta la cronologia",
+            "viewCompletedVideos": "Visualizza video completati",
+            "completed": "Completato",
+            "completedVideos": "Video completati"
         },
         "pt": {
             "settings": "Configurações",
@@ -595,7 +615,11 @@
             "clearAll": "Limpar tudo",
             "clearAllConfirm": "Tem certeza de que deseja eliminar TODOS os vídeos salvos? Esta ação pode ser desfeita.",
             "allItemsCleared": "Todos os itens limpos",
-            "undoClearAll": "Desfazer"
+            "undoClearAll": "Desfazer",
+            "viewAllHistory": "Ver todo o histórico",
+            "viewCompletedVideos": "Ver vídeos concluídos",
+            "completed": "Concluído",
+            "completedVideos": "Vídeos concluídos"
         },
         "ru": {
             "settings": "Настройки",
@@ -660,7 +684,11 @@
             "clearAll": "Удалить все",
             "clearAllConfirm": "Вы уверены, что хотите удалить ВСЕ сохраненные видео? Это действие можно отменить.",
             "allItemsCleared": "Все элементы удалены",
-            "undoClearAll": "Отменить"
+            "undoClearAll": "Отменить",
+            "viewAllHistory": "Посмотреть всю историю",
+            "viewCompletedVideos": "Посмотреть завершенные видео",
+            "completed": "Завершено",
+            "completedVideos": "Завершенные видео"
         },
         "zh": {
             "settings": "设置",
@@ -725,7 +753,11 @@
             "clearAll": "清除全部",
             "clearAllConfirm": "您确定要删除所有保存的视频吗？此操作可以撤销。",
             "allItemsCleared": "所有项目已清除",
-            "undoClearAll": "撤销"
+            "undoClearAll": "撤销",
+            "viewAllHistory": "查看所有历史记录",
+            "viewCompletedVideos": "查看已完成的视频",
+            "completed": "已完成",
+            "completedVideos": "已完成的视频"
         },
         "ja": {
             "settings": "設定",
@@ -790,7 +822,11 @@
             "clearAll": "すべてクリア",
             "clearAllConfirm": "保存されたすべての動画を削除してもよろしいですか？この操作は元に戻すことができます。",
             "allItemsCleared": "すべてのアイテムがクリアされました",
-            "undoClearAll": "元に戻す"
+            "undoClearAll": "元に戻す",
+            "viewAllHistory": "すべての履歴を表示",
+            "viewCompletedVideos": "完了した動画を表示",
+            "completed": "完了",
+            "completedVideos": "完了した動画"
         },
         "ko": {
             "settings": "설정",
@@ -855,7 +891,11 @@
             "clearAll": "모두 지우기",
             "clearAllConfirm": "저장된 모든 비디오를 삭제하시겠습니까? 이 작업은 취소할 수 있습니다.",
             "allItemsCleared": "모든 항목이 지워졌습니다",
-            "undoClearAll": "실행 취소"
+            "undoClearAll": "실행 취소",
+            "viewAllHistory": "모든 기록 보기",
+            "viewCompletedVideos": "완료된 동영상 보기",
+            "completed": "완료됨",
+            "completedVideos": "완료된 동영상"
         },
         "ar": {
             "settings": "الإعدادات",
@@ -920,7 +960,11 @@
             "clearAll": "مسح الكل",
             "clearAllConfirm": "هل أنت متأكد من أنك تريد حذف جميع الفيديوهات المحفوظة؟ يمكن التراجع عن هذا الإجراء.",
             "allItemsCleared": "تم مسح جميع العناصر",
-            "undoClearAll": "تراجع"
+            "undoClearAll": "تراجع",
+            "viewAllHistory": "عرض كل السجل",
+            "viewCompletedVideos": "عرض الفيديوهات المكتملة",
+            "completed": "مكتمل",
+            "completedVideos": "الفيديوهات المكتملة"
         },
         "hi": {
             "settings": "सेटिंग्स",
@@ -985,7 +1029,11 @@
             "clearAll": "सभी हटाएं",
             "clearAllConfirm": "क्या आप वाकई सभी सहेजे गए वीडियो हटाना चाहते हैं? इस कार्रवाई को पूर्ववत किया जा सकता है।",
             "allItemsCleared": "सभी आइटम हटा दिए गए",
-            "undoClearAll": "पूर्ववत करें"
+            "undoClearAll": "पूर्ववत करें",
+            "viewAllHistory": "सभी इतिहास देखें",
+            "viewCompletedVideos": "पूर्ण वीडियो देखें",
+            "completed": "पूर्ण",
+            "completedVideos": "पूर्ण वीडियो"
         },
         "bn": {
             "settings": "সেটিংস",
@@ -1050,7 +1098,11 @@
             "clearAll": "সব মুছে ফেলুন",
             "clearAllConfirm": "আপনি কি নিশ্চিত যে আপনি সমস্ত সংরক্ষিত ভিডিও মুছে ফেলতে চান? এই ক্রিয়াটি পূর্বাবস্থায় ফেরানো যেতে পারে।",
             "allItemsCleared": "সমস্ত আইটেম মুছে ফেলা হয়েছে",
-            "undoClearAll": "পূর্বাবস্থায় ফেরান"
+            "undoClearAll": "পূর্বাবস্থায় ফেরান",
+            "viewAllHistory": "সমস্ত ইতিহাস দেখুন",
+            "viewCompletedVideos": "সম্পন্ন ভিডিও দেখুন",
+            "completed": "সম্পন্ন",
+            "completedVideos": "সম্পন্ন ভিডিও"
         },
         "vi": {
             "settings": "Cài đặt",
@@ -1115,7 +1167,11 @@
             "clearAll": "Xóa tất cả",
             "clearAllConfirm": "Bạn có chắc chắn muốn xóa TẤT CẢ các video đã lưu không? Hành động này có thể được hoàn tác.",
             "allItemsCleared": "Tất cả các mục đã được xóa",
-            "undoClearAll": "Hoàn tác"
+            "undoClearAll": "Hoàn tác",
+            "viewAllHistory": "Xem tất cả lịch sử",
+            "viewCompletedVideos": "Xem video đã hoàn thành",
+            "completed": "Đã hoàn thành",
+            "completedVideos": "Video đã hoàn thành"
         },
         "id": {
             "settings": "Pengaturan",
@@ -1180,7 +1236,11 @@
             "clearAll": "Hapus semua",
             "clearAllConfirm": "Apakah Anda yakin ingin menghapus SEMUA video yang tersimpan? Tindakan ini dapat dibatalkan.",
             "allItemsCleared": "Semua item dihapus",
-            "undoClearAll": "Batalkan"
+            "undoClearAll": "Batalkan",
+            "viewAllHistory": "Lihat semua riwayat",
+            "viewCompletedVideos": "Lihat video yang selesai",
+            "completed": "Selesai",
+            "completedVideos": "Video yang selesai"
         },
         "tr": {
             "settings": "Ayarlar",
@@ -1245,7 +1305,11 @@
             "clearAll": "Tümünü temizle",
             "clearAllConfirm": "TÜM kayıtlı videoları silmek istediğinizden emin misiniz? Bu işlem geri alınabilir.",
             "allItemsCleared": "Tüm öğeler temizlendi",
-            "undoClearAll": "Geri al"
+            "undoClearAll": "Geri al",
+            "viewAllHistory": "Tüm geçmişi görüntüle",
+            "viewCompletedVideos": "Tamamlanmış videoları görüntüle",
+            "completed": "Tamamlandı",
+            "completedVideos": "Tamamlanmış videolar"
         },
         "pl": {
             "settings": "Ustawienia",
@@ -1310,7 +1374,11 @@
             "clearAll": "Wyczyść wszystko",
             "clearAllConfirm": "Czy na pewno chcesz usunąć WSZYSTKIE zapisane wideo? Ta akcja może być cofnięta.",
             "allItemsCleared": "Wszystkie elementy wyczyszczone",
-            "undoClearAll": "Cofnij"
+            "undoClearAll": "Cofnij",
+            "viewAllHistory": "Zobacz całą historię",
+            "viewCompletedVideos": "Zobacz ukończone wideo",
+            "completed": "Ukończone",
+            "completedVideos": "Ukończone wideo"
         },
         "nl": {
             "settings": "Instellingen",
@@ -1375,7 +1443,11 @@
             "clearAll": "Alles wissen",
             "clearAllConfirm": "Weet je zeker dat je ALLE opgeslagen video's wilt verwijderen? Deze actie kan ongedaan worden gemaakt.",
             "allItemsCleared": "Alle items gewist",
-            "undoClearAll": "Ongedaan maken"
+            "undoClearAll": "Ongedaan maken",
+            "viewAllHistory": "Bekijk alle geschiedenis",
+            "viewCompletedVideos": "Bekijk voltooide video's",
+            "completed": "Voltooid",
+            "completedVideos": "Voltooide video's"
         },
         "sv": {
             "settings": "Inställningar",
@@ -1440,7 +1512,11 @@
             "clearAll": "Rensa allt",
             "clearAllConfirm": "Är du säker på att du vill ta bort ALLA sparade videor? Denna åtgärd kan ångras.",
             "allItemsCleared": "Alla objekt rensade",
-            "undoClearAll": "Ångra"
+            "undoClearAll": "Ångra",
+            "viewAllHistory": "Visa all historik",
+            "viewCompletedVideos": "Visa slutförda videor",
+            "completed": "Slutförd",
+            "completedVideos": "Slutförda videor"
         },
         "da": {
             "settings": "Indstillinger",
@@ -1505,7 +1581,11 @@
             "clearAll": "Ryd alt",
             "clearAllConfirm": "Er du sikker på, at du vil slette ALLE gemte videoer? Denne handling kan fortrydes.",
             "allItemsCleared": "Alle elementer ryddet",
-            "undoClearAll": "Fortryd"
+            "undoClearAll": "Fortryd",
+            "viewAllHistory": "Se al historik",
+            "viewCompletedVideos": "Se afsluttede videoer",
+            "completed": "Afsluttet",
+            "completedVideos": "Afsluttede videoer"
         },
         "no": {
             "settings": "Innstillinger",
@@ -1570,7 +1650,11 @@
             "clearAll": "Tøm alt",
             "clearAllConfirm": "Er du sikker på at du vil slette ALLE lagrede videoer? Denne handlingen kan angres.",
             "allItemsCleared": "Alle elementer tømt",
-            "undoClearAll": "Angre"
+            "undoClearAll": "Angre",
+            "viewAllHistory": "Se all historikk",
+            "viewCompletedVideos": "Se fullførte videoer",
+            "completed": "Fullført",
+            "completedVideos": "Fullførte videoer"
         },
         "fi": {
             "settings": "Asetukset",
@@ -1635,7 +1719,11 @@
             "clearAll": "Tyhjennä kaikki",
             "clearAllConfirm": "Oletko varma, että haluat poistaa KAIKKI tallennetut videot? Tämä toiminto voidaan kumota.",
             "allItemsCleared": "Kaikki kohteet tyhjennetty",
-            "undoClearAll": "Kumoa"
+            "undoClearAll": "Kumoa",
+            "viewAllHistory": "Näytä koko historia",
+            "viewCompletedVideos": "Näytä valmiit videot",
+            "completed": "Valmis",
+            "completedVideos": "Valmiit videot"
         },
         "hu": {
             "settings": "Beállítások",
@@ -1700,7 +1788,11 @@
             "clearAll": "Összes törlése",
             "clearAllConfirm": "Biztosan törölni szeretnéd az ÖSSZES mentett videót? Ez a művelet visszavonható.",
             "allItemsCleared": "Minden elem törölve",
-            "undoClearAll": "Visszavonás"
+            "undoClearAll": "Visszavonás",
+            "viewAllHistory": "Összes előzmény megtekintése",
+            "viewCompletedVideos": "Befejezett videók megtekintése",
+            "completed": "Befejezett",
+            "completedVideos": "Befejezett videók"
         },
         "cs": {
             "settings": "Nastavení",
@@ -1765,7 +1857,11 @@
             "clearAll": "Vymazat vše",
             "clearAllConfirm": "Jste si jisti, že chcete smazat VŠECHNY uložená videa? Tuto akci lze vrátit zpět.",
             "allItemsCleared": "Všechny položky vymazány",
-            "undoClearAll": "Vrátit zpět"
+            "undoClearAll": "Vrátit zpět",
+            "viewAllHistory": "Zobrazit celou historii",
+            "viewCompletedVideos": "Zobrazit dokončená videa",
+            "completed": "Dokončeno",
+            "completedVideos": "Dokončená videa"
         },
         "sk": {
             "settings": "Nastavenia",
@@ -1830,7 +1926,11 @@
             "clearAll": "Vymazať všetko",
             "clearAllConfirm": "Ste si istí, že chcete vymazať VŠETKY uložené videá? Túto akciu možno vrátiť späť.",
             "allItemsCleared": "Všetky položky vymazané",
-            "undoClearAll": "Vrátiť späť"
+            "undoClearAll": "Vrátiť späť",
+            "viewAllHistory": "Zobraziť celú históriu",
+            "viewCompletedVideos": "Zobraziť dokončené videá",
+            "completed": "Dokončené",
+            "completedVideos": "Dokončené videá"
         },
         "ro": {
             "settings": "Setări",
@@ -1895,7 +1995,11 @@
             "clearAll": "Șterge tot",
             "clearAllConfirm": "Sunteți sigur că doriți să ștergeți TOATE videoclipurile salvate? Această acțiune poate fi anulată.",
             "allItemsCleared": "Toate elementele șterse",
-            "undoClearAll": "Anulează"
+            "undoClearAll": "Anulează",
+            "viewAllHistory": "Vizualizați tot istoricul",
+            "viewCompletedVideos": "Vizualizați videoclipuri finalizate",
+            "completed": "Finalizat",
+            "completedVideos": "Videoclipuri finalizate"
         },
         "bg": {
             "settings": "Настройки",
@@ -1960,7 +2064,11 @@
             "clearAll": "Изчисти всичко",
             "clearAllConfirm": "Сигурни ли сте, че искате да изтриете ВСИЧКИ запазени видеоклипове? Това действие може да бъде отменено.",
             "allItemsCleared": "Всички елементи изчистени",
-            "undoClearAll": "Отмени"
+            "undoClearAll": "Отмени",
+            "viewAllHistory": "Преглед на цялата история",
+            "viewCompletedVideos": "Преглед на завършени видеа",
+            "completed": "Завършен",
+            "completedVideos": "Завършени видеа"
         },
         "hr": {
             "settings": "Postavke",
@@ -2025,7 +2133,11 @@
             "clearAll": "Obriši sve",
             "clearAllConfirm": "Jeste li sigurni da želite izbrisati SVE spremljene videozapise? Ova se radnja može poništiti.",
             "allItemsCleared": "Svi stavke obrisane",
-            "undoClearAll": "Poništi"
+            "undoClearAll": "Poništi",
+            "viewAllHistory": "Prikaži svu povijest",
+            "viewCompletedVideos": "Prikaži dovršene videozapise",
+            "completed": "Dovršeno",
+            "completedVideos": "Dovršeni videozapisi"
         },
         "sl": {
             "settings": "Nastavitve",
@@ -2090,7 +2202,11 @@
             "clearAll": "Počisti vse",
             "clearAllConfirm": "Ali ste prepričani, da želite izbrisati VSE shranjene videoposnetke? Tega dejanja lahko razveljavite.",
             "allItemsCleared": "Vsi elementi počiščeni",
-            "undoClearAll": "Razveljavi"
+            "undoClearAll": "Razveljavi",
+            "viewAllHistory": "Prikaži vso zgodovino",
+            "viewCompletedVideos": "Prikaži končane videoposnetke",
+            "completed": "Končano",
+            "completedVideos": "Končani videoposnetki"
         },
         "sr": {
             "settings": "Подешавања",
@@ -2155,7 +2271,11 @@
             "clearAll": "Обриши све",
             "clearAllConfirm": "Да ли сте сигурни да желите да обришете СВЕ сачуване видео снимке? Ова акција се може поништити.",
             "allItemsCleared": "Све ставке обрисане",
-            "undoClearAll": "Поништи"
+            "undoClearAll": "Поништи",
+            "viewAllHistory": "Прикажи целу историју",
+            "viewCompletedVideos": "Прикажи завршене видео снимке",
+            "completed": "Завршено",
+            "completedVideos": "Завршени видео снимци"
         },
         "lt": {
             "settings": "Nustatymai",
@@ -2220,7 +2340,11 @@
             "clearAll": "Išvalyti viską",
             "clearAllConfirm": "Ar tikrai norite ištrinti VISUS išsaugotus vaizdo įrašus? Šį veiksmą galima atšaukti.",
             "allItemsCleared": "Visi elementai išvalyti",
-            "undoClearAll": "Atšaukti"
+            "undoClearAll": "Atšaukti",
+            "viewAllHistory": "Peržiūrėti visą istoriją",
+            "viewCompletedVideos": "Peržiūrėti baigtus vaizdo įrašus",
+            "completed": "Baigta",
+            "completedVideos": "Baigti vaizdo įrašai"
         },
         "lv": {
             "settings": "Iestatījumi",
@@ -2285,7 +2409,11 @@
             "clearAll": "Notīrīt visu",
             "clearAllConfirm": "Vai esat pārliecināts, ka vēlaties dzēst VISUS saglabātos video? Šo darbību var atsaukt.",
             "allItemsCleared": "Visi elementi notīrīti",
-            "undoClearAll": "Atsaukt"
+            "undoClearAll": "Atsaukt",
+            "viewAllHistory": "Skatīt visu vēsturi",
+            "viewCompletedVideos": "Skatīt pabeigtos video",
+            "completed": "Pabeigts",
+            "completedVideos": "Pabeigti video"
         },
         "uk": {
             "settings": "Налаштування",
@@ -2350,7 +2478,11 @@
             "clearAll": "Видалити все",
             "clearAllConfirm": "Ви впевнені, що хочете видалити ВСІ збережені відео? Цю дію можна скасувати.",
             "allItemsCleared": "Усі елементи видалено",
-            "undoClearAll": "Скасувати"
+            "undoClearAll": "Скасувати",
+            "viewAllHistory": "Переглянути всю історію",
+            "viewCompletedVideos": "Переглянути завершені відео",
+            "completed": "Завершено",
+            "completedVideos": "Завершені відео"
         },
         "el": {
             "settings": "Ρυθμίσεις",
@@ -2415,7 +2547,11 @@
             "clearAll": "Διαγραφή όλων",
             "clearAllConfirm": "Είστε σίγουροι ότι θέλετε να διαγράψετε ΟΛΑ τα αποθηκευμένα βίντεο; Αυτή η ενέργεια μπορεί να αναιρεθεί.",
             "allItemsCleared": "Όλα τα στοιχεία διαγράφηκαν",
-            "undoClearAll": "Αναίρεση"
+            "undoClearAll": "Αναίρεση",
+            "viewAllHistory": "Προβολή όλης της ιστορίας",
+            "viewCompletedVideos": "Προβολή ολοκληρωμένων βίντεο",
+            "completed": "Ολοκληρώθηκε",
+            "completedVideos": "Ολοκληρωμένα βίντεο"
         },
         "th": {
             "settings": "การตั้งค่า",
@@ -2480,7 +2616,11 @@
             "clearAll": "ล้างทั้งหมด",
             "clearAllConfirm": "คุณแน่ใจหรือไม่ว่าต้องการลบวิดีโอที่บันทึกไว้ทั้งหมด? สามารถยกเลิกการดำเนินการนี้ได้",
             "allItemsCleared": "ล้างรายการทั้งหมดแล้ว",
-            "undoClearAll": "ยกเลิก"
+            "undoClearAll": "ยกเลิก",
+            "viewAllHistory": "ดูประวัติทั้งหมด",
+            "viewCompletedVideos": "ดูวิดีโอที่เสร็จสิ้น",
+            "completed": "เสร็จสิ้น",
+            "completedVideos": "วิดีโอที่เสร็จสิ้น"
         },
         "ms": {
             "settings": "Tetapan",
@@ -2545,7 +2685,11 @@
             "clearAll": "Kosongkan semua",
             "clearAllConfirm": "Adakah anda pasti anda ingin memadam SEMUA video yang disimpan? Tindakan ini boleh dibatalkan.",
             "allItemsCleared": "Semua item dikosongkan",
-            "undoClearAll": "Batal"
+            "undoClearAll": "Batal",
+            "viewAllHistory": "Lihat semua sejarah",
+            "viewCompletedVideos": "Lihat video yang selesai",
+            "completed": "Selesai",
+            "completedVideos": "Video yang selesai"
         },
         "sw": {
             "settings": "Mipangilio",
@@ -2610,7 +2754,11 @@
             "clearAll": "Futa zote",
             "clearAllConfirm": "Una uhakika unataka kufuta VIDEOS zote zilizohifadhiwa? Hatua hii inaweza kurejeshwa.",
             "allItemsCleared": "Vitu vyote vimefutwa",
-            "undoClearAll": "Rudisha"
+            "undoClearAll": "Rudisha",
+            "viewAllHistory": "Ona historia yote",
+            "viewCompletedVideos": "Ona video zilizokamilishwa",
+            "completed": "Imekamilishwa",
+            "completedVideos": "Video zilizokamilishwa"
         },
         "fa": {
             "settings": "تنظیمات",
@@ -2675,7 +2823,11 @@
             "clearAll": "پاک کردن همه",
             "clearAllConfirm": "آیا مطمئن هستید که می خواهید تمام ویدیوهای ذخیره شده را حذف کنید؟ این عمل قابل برگشت است.",
             "allItemsCleared": "تمام موارد پاک شدند",
-            "undoClearAll": "بازگشت"
+            "undoClearAll": "بازگشت",
+            "viewAllHistory": "مشاهده تمام تاریخچه",
+            "viewCompletedVideos": "مشاهده ویدیوهای تکمیل شده",
+            "completed": "تکمیل شده",
+            "completedVideos": "ویدیوهای تکمیل شده"
         },
         "he": {
             "settings": "הגדרות",
@@ -2740,7 +2892,11 @@
             "clearAll": "נקה הכל",
             "clearAllConfirm": "האם אתה בטוח שברצונך למחוק את כל הסרטונים השמורים? ניתן לבטל פעולה זו.",
             "allItemsCleared": "כל הפריטים נוקו",
-            "undoClearAll": "בטל"
+            "undoClearAll": "בטל",
+            "viewAllHistory": "צפה בכל ההיסטוריה",
+            "viewCompletedVideos": "צפה בסרטונים שהושלמו",
+            "completed": "הושלם",
+            "completedVideos": "סרטונים שהושלמו"
         },
         "ta": {
             "settings": "அமைப்புகள்",
@@ -2805,7 +2961,11 @@
             "clearAll": "அனைத்தையும் அழி",
             "clearAllConfirm": "சேமிக்கப்பட்ட அனைத்து வீடியோக்களையும் நீக்க விரும்புகிறீர்களா? இந்த செயலை செயல்தவிர்க்க முடியும்.",
             "allItemsCleared": "அனைத்து உருப்படிகளும் அழிக்கப்பட்டன",
-            "undoClearAll": "செயல்தவிர்"
+            "undoClearAll": "செயல்தவிர்",
+            "viewAllHistory": "அனைத்து வரலாற்றையும் காட்டு",
+            "viewCompletedVideos": "முடிந்த வீடியோக்களைக் காட்டு",
+            "completed": "முடிந்தது",
+            "completedVideos": "முடிந்த வீடியோக்கள்"
         },
         "am": {
             "settings": "ማስተካከያ",
@@ -2870,7 +3030,11 @@
             "clearAll": "ሁሉንም አጥፋ",
             "clearAllConfirm": "የተቀመጉትን ሁሉንም ቪዲዮዎች መሰረዝ ትፈልጋለህ? ይህ ተግባር መተው ይቻላል።",
             "allItemsCleared": "ሁሉም እቃዎች ተሰርዘዋል",
-            "undoClearAll": "ተመለስ"
+            "undoClearAll": "ተመለስ",
+            "viewAllHistory": "ሁሉንም ታሪክ አሳይ",
+            "viewCompletedVideos": "የተከፈቱ ቪዲዮዎችን አሳይ",
+            "completed": "ተከፈለ",
+            "completedVideos": "የተከፈቱ ቪዲዮዎች"
         },
         "ha": {
             "settings": "Saituna",
@@ -2935,7 +3099,11 @@
             "clearAll": "Goge duka",
             "clearAllConfirm": "Kuna tabbas kana sona goge DUKKAN bidiyoyin da aka ajiye? Ana iya janye wannan aiki.",
             "allItemsCleared": "Dukkan abubuwan an goge su",
-            "undoClearAll": "Janye"
+            "undoClearAll": "Janye",
+            "viewAllHistory": "Duba dukkan tarihi",
+            "viewCompletedVideos": "Daga bidiyo da aka kammala",
+            "completed": "An gama",
+            "completedVideos": "Bidiyo da aka kammala"
         },
         "ur": {
             "settings": "ترتیبات",
@@ -3000,7 +3168,11 @@
             "clearAll": "سبھی صاف کریں",
             "clearAllConfirm": "کیا آپ واقعی تمام محفوظ شدہ ویڈیوز کو حذف کرنا چاہتے ہیں؟ اس عمل کو کالعدم کیا جا سکتا ہے۔",
             "allItemsCleared": "تمام آئٹمز صاف کر دیے گئے",
-            "undoClearAll": "کالعدم کریں"
+            "undoClearAll": "کالعدم کریں",
+            "viewAllHistory": "تمام تاریخ دیکھیں",
+            "viewCompletedVideos": "مکمل ہونے والی ویڈیوز دیکھیں",
+            "completed": "مکمل ہوگیا",
+            "completedVideos": "مکمل ہونے والی ویڈیوز"
         },
         "te": {
             "settings": "సెట్టింగులు",
@@ -3065,7 +3237,11 @@
             "clearAll": "అన్నింటినీ తొలగించు",
             "clearAllConfirm": "మీరు ఖచ్చితంగా సేవ్ చేసిన అన్ని వీడియోలను తొలగించాలనుకుంటున్నారా? ఈ చర్యను రద్దు చేయవచ్చు.",
             "allItemsCleared": "అన్ని అంశాలు తొలగించబడ్డాయి",
-            "undoClearAll": "రద్దు చేయి"
+            "undoClearAll": "రద్దు చేయి",
+            "viewAllHistory": "అన్ని చరిత్రలను చూడండి",
+            "viewCompletedVideos": "పూర్తయిన వీడియోలను చూడండి",
+            "completed": "పూర్తయింది",
+            "completedVideos": "పూర్తయిన వీడియోలు"
         },
         "mr": {
             "settings": "सेटिंग्ज",
@@ -3130,7 +3306,11 @@
             "clearAll": "सर्व हटवा",
             "clearAllConfirm": "तुम्हाला खात्री आहे की तुम्ही सर्व जतन केलेले व्हिडिओ हटवू इच्छिता? ही क्रिया पूर्ववत केली जाऊ शकते.",
             "allItemsCleared": "सर्व घटक हटविले",
-            "undoClearAll": "पूर्ववत करा"
+            "undoClearAll": "पूर्ववत करा",
+            "viewAllHistory": "सर्व इतिहास पहा",
+            "viewCompletedVideos": "पूर्ण झालेले व्हिडिओ पहा",
+            "completed": "पूर्ण झाले",
+            "completedVideos": "पूर्ण झालेले व्हिडिओ"
         },
         "tl": {
             "settings": "Mga Setting",
@@ -3195,7 +3375,11 @@
             "clearAll": "Burahin lahat",
             "clearAllConfirm": "Sigurado ka ba na gusto mong burahin ang LAHAT ng nai-save na video? Maaaring balewalain ang aksyong ito.",
             "allItemsCleared": "Lahat ng item ay nabura",
-            "undoClearAll": "Balewalain"
+            "undoClearAll": "Balewalain",
+            "viewAllHistory": "Tingnan ang lahat ng kasaysayan",
+            "viewCompletedVideos": "Tingnan ang mga kumpletong video",
+            "completed": "Kumpleto",
+            "completedVideos": "Mga kumpletong video"
         },
         "my": {
             "settings": "ဆက်တင်များ",
@@ -3260,7 +3444,11 @@
             "clearAll": "အားလုံးရှင်းလင်းပါ",
             "clearAllConfirm": "သင်သည် သိမ်းဆည်းထားသော ဗီဒီယိုအားလုံးကို ဖျက်လိုသည်မှာ သေချာပါသလား? ဤလုပ်ငန်းကို ပြန်ဖျက်နိုင်သည်။",
             "allItemsCleared": "အရာအားလုံးကို ရှင်းလင်းပြီးပါပြီ",
-            "undoClearAll": "ပြန်ဖျက်ပါ"
+            "undoClearAll": "ပြန်ဖျက်ပါ",
+            "viewAllHistory": "အားလုံးသော သမိုင်းကို ကြည့်ပါ",
+            "viewCompletedVideos": "ပြီးစီးသော ဗီဒီယိုများကို ကြည့်ပါ",
+            "completed": "ပြီးစီးပါပြီ",
+            "completedVideos": "ပြီးစီးသော ဗီဒီယိုများ"
         },
         "yue": {
             "settings": "設定",
@@ -3325,7 +3513,11 @@
             "clearAll": "清除全部",
             "clearAllConfirm": "你確定要刪除所有已保存嘅影片嗎？呢個動作可以撤銷。",
             "allItemsCleared": "所有項目已清除",
-            "undoClearAll": "撤銷"
+            "undoClearAll": "撤銷",
+            "viewAllHistory": "睇晒所有歷史記錄",
+            "viewCompletedVideos": "睇晒完成嘅影片",
+            "completed": "完成",
+            "completedVideos": "完成嘅影片"
         },
         "ca": {
             "settings": "Configuració",
@@ -3390,7 +3582,11 @@
             "clearAll": "Esborrar tot",
             "clearAllConfirm": "Esteu segur que voleu eliminar TOTS els vídeos guardats? Aquesta acció es pot desfer.",
             "allItemsCleared": "Tots els elements esborrats",
-            "undoClearAll": "Desfer"
+            "undoClearAll": "Desfer",
+            "viewAllHistory": "Veure tot l'historial",
+            "viewCompletedVideos": "Veure vídeos completats",
+            "completed": "Completat",
+            "completedVideos": "Vídeos completats"
         },
         "zu": {
             "settings": "Izilungiselelo",
@@ -3455,7 +3651,11 @@
             "clearAll": "Susa konke",
             "clearAllConfirm": "Uqinisekile ukuthi ufuna ukususa zonke izividiyo ezilondolozwe? Le ndlela ingasuswa.",
             "allItemsCleared": "Zonke izinto zisiwe",
-            "undoClearAll": "Susa"
+            "undoClearAll": "Susa",
+            "viewAllHistory": "Buka konke izibalo zomlando",
+            "viewCompletedVideos": "Buka amavidiyo aqediwe",
+            "completed": "Akuqedile",
+            "completedVideos": "Amavidiyo aqediwe"
         }
     }
 }

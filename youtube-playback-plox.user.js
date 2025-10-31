@@ -1,10 +1,4 @@
 // ==UserScript==
-// @namespace    youtube-playback-plox
-// @homepage     https://github.com/Alplox/Youtube-Playback-Plox
-// @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.6-4
-// @author       Alplox
-// @match        https://www.youtube.com/*
 // @name         YouTube Playback Plox
 // @name:en-GB      YouTube Playback Plox
 // @name:en-US      YouTube Playback Plox
@@ -115,12 +109,18 @@
 // @description:zu-ZA  Igcina futhi uqhubeke ngokuzenzakalelayo nokuqhubeka kwevidiyo ku-YouTube ngaphandle kokungena.
 // @description:yue-HK  自動儲存及繼續 YouTube 影片播放進度，無需登入。
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
+// @homepage     https://github.com/Alplox/Youtube-Playback-Plox
+// @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
+// @version      0.0.6-5
+// @author       Alplox
+// @match        https://www.youtube.com/*
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
 // @run-at       document-end
+// @namespace    youtube-playback-plox
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js

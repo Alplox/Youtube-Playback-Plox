@@ -2,17 +2,20 @@
 // @namespace    youtube-playback-plox
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.6-1
+// @version      0.0.6-2
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @name         YouTube Playback Plox
-// @description  Guarda y retoma automáticamente el progreso de videos en YouTube sin necesidad de iniciar sesión.
+// @description  Guarda y retoma automáticamente el progreso de vídeos en YouTube sin necesidad de iniciar sesión.
 
 // @name:en-GB      YouTube Playback Plox
 // @description:en-GB  Automatically saves and resumes video playback progress on YouTube without needing to log in.
 
+// @name:en-US      YouTube Playback Plox
+// @description:en-US  Automatically saves and resumes video playback progress on YouTube without needing to log in.
+
 // @name:es-ES      YouTube Reproducción Plox
-// @description:es-ES  Guarda y retoma automáticamente el progreso de videos en YouTube sin necesidad de iniciar sesión.
+// @description:es-ES  Guarda y retoma automáticamente el progreso de vídeos en YouTube sin necesidad de iniciar sesión.
 
 // @name:fr-FR      YouTube Lecture Plox
 // @description:fr-FR  Enregistre et reprend automatiquement la progression de la lecture des vidéos sur YouTube sans avoir besoin de se connecter.
@@ -26,41 +29,11 @@
 // @name:pt-PT      YouTube Reprodução Plox
 // @description:pt-PT  Salva e retoma automaticamente o progresso da reprodução de vídeos no YouTube sem precisar fazer login.
 
-// @name:ru-RU      YouTube Воспроизведение Plox
-// @description:ru-RU  Автоматически сохраняет и возобновляет прогресс воспроизведения видео на YouTube без входа в аккаунт.
-
-// @name:zh-CN      YouTube 播放 Plox
-// @description:zh-CN  自动保存并恢复 YouTube 视频的播放进度，无需登录。
-
-// @name:ja-JP      YouTube 再生 Plox
-// @description:ja-JP  YouTube の動画再生の進行状況を自動で保存・再開します。ログインは不要です。
-
-// @name:ko-KR      YouTube 재생 Plox
-// @description:ko-KR  YouTube 동영상 재생 진행 상황을 자동으로 저장하고 이어서 재생합니다. 로그인 불필요.
-
-// @name:ar-EG      يوتيوب بلايباك Plox
-// @description:ar-EG  يقوم بحفظ واستئناف تقدم تشغيل الفيديوهات على يوتيوب تلقائيًا دون الحاجة لتسجيل الدخول.
-
-// @name:hi-IN      YouTube प्लेबैक Plox
-// @description:hi-IN  YouTube पर वीडियो प्लेबैक की प्रगति को स्वचालित रूप से सहेजें और पुनः प्रारंभ करें, लॉगिन की आवश्यकता नहीं। 
-
-// @name:bn-BD      YouTube প্লেব্যাক Plox
-// @description:bn-BD  YouTube ভিডিও প্লেব্যাকের অগ্রগতি স্বয়ংক্রিয়ভাবে সংরক্ষণ এবং পুনরায় শুরু করুন, লগইনের প্রয়োজন নেই। 
-
-// @name:vi-VN      YouTube Phát lại Plox
-// @description:vi-VN  Tự động lưu và tiếp tục tiến trình phát video trên YouTube mà không cần đăng nhập.
-
-// @name:id-ID      YouTube Pemutaran Plox
-// @description:id-ID  Menyimpan dan melanjutkan kemajuan pemutaran video di YouTube secara otomatis tanpa perlu login.
-
-// @name:tr-TR      YouTube Oynatma Plox
-// @description:tr-TR  YouTube'daki video oynatma ilerlemesini otomatik olarak kaydeder ve devam ettirir, giriş yapmaya gerek yok.
+// @name:nl-NL      YouTube Afspelen Plox
+// @description:nl-NL  Slaat automatisch de voortgang van video's op YouTube op en hervat deze zonder in te loggen.
 
 // @name:pl-PL      YouTube Odtwarzanie Plox
 // @description:pl-PL  Automatycznie zapisuje i wznawia postęp odtwarzania wideo na YouTube bez logowania.
-
-// @name:nl-NL      YouTube Afspelen Plox
-// @description:nl-NL  Slaat automatisch de voortgang van video's op YouTube op en hervat deze zonder in te loggen.
 
 // @name:sv-SE      YouTube Uppspelning Plox
 // @description:sv-SE  Sparar och återupptar automatiskt videoframsteg på YouTube utan att behöva logga in.
@@ -74,14 +47,14 @@
 // @name:fi-FI      YouTube Toisto Plox
 // @description:fi-FI  Tallentaa ja jatkaa automaattisesti YouTube-videoiden toistopistettä ilman kirjautumista.
 
-// @name:hu-HU      YouTube Lejátszás Plox
-// @description:hu-HU  Automatikusan menti és folytatja a YouTube-videók lejátszási előrehaladását bejelentkezés nélkül.
-
 // @name:cs-CZ      YouTube Přehrávání Plox
 // @description:cs-CZ  Automaticky ukládá a obnovuje postup přehrávání videí na YouTube bez nutnosti přihlášení.
 
 // @name:sk-SK      YouTube Prehrávanie Plox
 // @description:sk-SK  Automaticky ukladá a obnovuje priebeh prehrávania videí na YouTube bez potreby prihlásenia.
+
+// @name:hu-HU      YouTube Lejátszás Plox
+// @description:hu-HU  Automatikusan menti és folytatja a YouTube-videók lejátszási előrehaladását bejelentkezés nélkül.
 
 // @name:ro-RO      YouTube Redare Plox
 // @description:ro-RO  Salvează și reia automat progresul redării videoclipurilor pe YouTube fără a fi nevoie să te conectezi.
@@ -89,14 +62,17 @@
 // @name:bg-BG      YouTube Възпроизвеждане Plox
 // @description:bg-BG  Автоматично записва и възобновява прогреса на видеото в YouTube без нужда от вход.
 
+// @name:el-GR      YouTube Αναπαραγωγή Plox
+// @description:el-GR  Αποθηκεύει και συνεχίζει αυτόματα την πρόοδο αναπαραγωγής βίντεο στο YouTube χωρίς να χρειάζεται σύνδεση.
+
+// @name:sr-SP      YouTube Репродукција Plox
+// @description:sr-SP  Аутоматски чува и наставља напредак репродукције видео записа на YouTube-у без пријављивања.
+
 // @name:hr-HR      YouTube Reprodukcija Plox
 // @description:hr-HR  Automatski sprema i nastavlja napredak reprodukcije videozapisa na YouTubeu bez prijave.
 
 // @name:sl-SI      YouTube Predvajanje Plox
 // @description:sl-SI  Samodejno shrani in nadaljuje napredek predvajanja videoposnetkov na YouTubu brez prijave.
-
-// @name:sr-SP      YouTube Репродукција Plox
-// @description:sr-SP  Аутоматски чува и наставља напредак репродукције видео записа на YouTube-у без пријављивања.
 
 // @name:lt-LT      YouTube Grotuvas Plox
 // @description:lt-LT  Automatiškai išsaugo ir atnaujina YouTube vaizdo įrašų atkūrimo pažangą be prisijungimo.
@@ -107,17 +83,14 @@
 // @name:uk-UA      YouTube Відтворення Plox
 // @description:uk-UA  Автоматично зберігає та відновлює прогрес відтворення відео на YouTube без входу в акаунт.
 
-// @name:el-GR      YouTube Αναπαραγωγή Plox
-// @description:el-GR  Αποθηκεύει και συνεχίζει αυτόματα την πρόοδο αναπαραγωγής βίντεο στο YouTube χωρίς να χρειάζεται σύνδεση.
+// @name:ru-RU      YouTube Воспроизведение Plox
+// @description:ru-RU  Автоматически сохраняет и возобновляет прогресс воспроизведения видео на YouTube без входа в аккаунт.
 
-// @name:th-TH      YouTube เล่นต่อ Plox
-// @description:th-TH  บันทึกและเล่นต่อความคืบหน้าของวิดีโอบน YouTube โดยอัตโนมัติ โดยไม่ต้องเข้าสู่ระบบ.
+// @name:tr-TR      YouTube Oynatma Plox
+// @description:tr-TR  YouTube'daki video oynatma ilerlemesini otomatik olarak kaydeder ve devam ettirir, giriş yapmaya gerek yok.
 
-// @name:ms-MY      YouTube Main Semula Plox
-// @description:ms-MY  Menyimpan dan menyambung semula kemajuan main balik video di YouTube secara automatik tanpa perlu log masuk.
-
-// @name:sw-KE      YouTube Uchezesha Plox
-// @description:sw-KE  Hifadhi na endelea kwa kiotomatiki maendeleo ya uchezaji wa video kwenye YouTube bila kuingia.
+// @name:ar-EG      يوتيوب بلايباك Plox
+// @description:ar-EG  يقوم بحفظ واستئناف تقدم تشغيل الفيديوهات على يوتيوب تلقائيًا دون الحاجة لتسجيل الدخول.
 
 // @name:fa-IR      پخش یوتیوب Plox
 // @description:fa-IR  پیشرفت پخش ویدیوها در یوتیوب را به صورت خودکار ذخیره و ادامه می‌دهد بدون نیاز به ورود.
@@ -125,8 +98,56 @@
 // @name:he-IL      YouTube השמעה Plox
 // @description:he-IL  שומר ומחדש אוטומטית את התקדמות הניגון של סרטונים ביוטיוב ללא צורך בהתחברות.
 
+// @name:hi-IN      YouTube प्लेबैक Plox
+// @description:hi-IN  YouTube पर वीडियो प्लेबैक की प्रगति को स्वचालित रूप से सहेजें और पुनः प्रारंभ करें, लॉगिन की आवश्यकता नहीं। 
+
+// @name:bn-BD      YouTube প্লেব্যাক Plox
+// @description:bn-BD  YouTube ভিডিও প্লেব্যাকের অগ্রগতি স্বয়ংক্রিয়ভাবে সংরক্ষণ এবং পুনরায় শুরু করুন, লগইনের প্রয়োজন নেই। 
+
+// @name:te-IN      YouTube ప్లేబ్యాక్ Plox
+// @description:te-IN  YouTube వీడియో ప్లేబ్యాక్ పురోగతిని ఆటోమేటిక్‌గా సేవ్ చేసి, తిరిగి ప్రారంభిస్తుంది, లాగిన్ అవసరం లేదు.
+
 // @name:ta-IN      YouTube பிளேபாக் Plox
 // @description:ta-IN  YouTube வீடியோக்களின் பிளேபாக் முன்னேற்றத்தை தானாகச் சேமித்து மீண்டும் தொடங்கும், உள்நுழைவு தேவையில்லை.
+
+// @name:mr-IN      YouTube प्लेबॅक Plox
+// @description:mr-IN  YouTube व्हिडिओ प्लेबॅक प्रगती आपोआप जतन करते आणि पुन्हा सुरू करते, लॉगिन आवश्यक नाही.
+
+// @name:zh-CN      YouTube 播放 Plox
+// @description:zh-CN  自动保存并恢复 YouTube 视频的播放进度，无需登录。
+
+// @name:zh-TW      YouTube 播放 Plox
+// @description:zh-TW  自動儲存及繼續 YouTube 影片播放進度，無需登入。
+
+// @name:zh-HK      YouTube 播放 Plox
+// @description:zh-HK  自動儲存及繼續 YouTube 影片播放進度，無需登入。
+
+// @name:ja-JP      YouTube 再生 Plox
+// @description:ja-JP  YouTube の動画再生の進行状況を自動で保存・再開します。ログインは不要です。
+
+// @name:ko-KR      YouTube 재생 Plox
+// @description:ko-KR  YouTube 동영상 재생 진행 상황을 자동으로 저장하고 이어서 재생합니다. 로그인 불필요.
+
+// @name:th-TH      YouTube เล่นต่อ Plox
+// @description:th-TH  บันทึกและเล่นต่อความคืบหน้าของวิดีโอบน YouTube โดยอัตโนมัติ โดยไม่ต้องเข้าสู่ระบบ.
+
+// @name:vi-VN      YouTube Phát lại Plox
+// @description:vi-VN  Tự động lưu và tiếp tục tiến trình phát video trên YouTube mà không cần đăng nhập.
+
+// @name:id-ID      YouTube Pemutaran Plox
+// @description:id-ID  Menyimpan dan melanjutkan kemajuan pemutaran video di YouTube secara otomatis tanpa perlu login.
+
+// @name:ms-MY      YouTube Main Semula Plox
+// @description:ms-MY  Menyimpan dan menyambung semula kemajuan main balik video di YouTube secara automatik tanpa perlu log masuk.
+
+// @name:tl-PH      YouTube Playback Plox
+// @description:tl-PH  Awtomatikong ini-save at ipinagpapatuloy ang progreso ng video playback sa YouTube nang hindi nagla-log in.
+
+// @name:my-MM      YouTube ဖလေ့ဘက် Plox
+// @description:my-MM  YouTube ဗီဒီယိုဖလေ့ဘက် တိုးတက်မှုကို အလိုအလျောက် သိမ်းဆည်းပြီး ထပ်မံစတင်နိုင်သည်။ ဝင်ရောက်ရန် မလိုအပ်ပါ။
+
+// @name:sw-KE      YouTube Uchezesha Plox
+// @description:sw-KE  Hifadhi na endelea kwa kiotomatiki maendeleo ya uchezaji wa video kwenye YouTube bila kuingia.
 
 // @name:am-ET      የYouTube ተጫዋች Plox
 // @description:am-ET  በYouTube ላይ የቪዲዮ መጫወቻ እድገትን በራሱ ያስቀምጣል እና ያቀጥላል በመግባት ያስፈልጋል።
@@ -137,26 +158,16 @@
 // @name:ur-PK      YouTube پلے بیک Plox
 // @description:ur-PK  YouTube پر ویڈیوز کی پلے بیک کی پیش رفت کو خودکار طریقے سے محفوظ اور دوبارہ شروع کریں، لاگ ان کی ضرورت نہیں۔ 
 
-// @name:te-IN      YouTube ప్లేబ్యాక్ Plox
-// @description:te-IN  YouTube వీడియో ప్లేబ్యాక్ పురోగతిని ఆటోమేటిక్‌గా సేవ్ చేసి, తిరిగి ప్రారంభిస్తుంది, లాగిన్ అవసరం లేదు.
-
-// @name:mr-IN      YouTube प्लेबॅक Plox
-// @description:mr-IN  YouTube व्हिडिओ प्लेबॅक प्रगती आपोआप जतन करते आणि पुन्हा सुरू करते, लॉगिन आवश्यक नाही.
-
-// @name:tl-PH      YouTube Playback Plox
-// @description:tl-PH  Awtomatikong ini-save at ipinagpapatuloy ang progreso ng video playback sa YouTube nang hindi nagla-log in.
-
-// @name:my-MM      YouTube ဖလေ့ဘက် Plox
-// @description:my-MM  YouTube ဗီဒီယိုဖလေ့ဘက် တိုးတက်မှုကို အလိုအလျောက် သိမ်းဆည်းပြီး ထပ်မံစတင်နိုင်သည်။ ဝင်ရောက်ရန် မလိုအပ်ပါ။
-
-// @name:yue-HK      YouTube 播放 Plox
-// @description:yue-HK  自動儲存及繼續 YouTube 影片播放進度，無需登入。
-
 // @name:ca-ES      YouTube Reproducció Plox
 // @description:ca-ES  Desa i reprèn automàticament el progrés de reproducció de vídeos a YouTube sense necessitat d'iniciar sessió.
 
 // @name:zu-ZA      YouTube Playback Plox
 // @description:zu-ZA  Igcina futhi uqhubeke ngokuzenzakalelayo nokuqhubeka kwevidiyo ku-YouTube ngaphandle kokungena.
+
+// @name:yue-HK      YouTube 播放 Plox
+// @description:yue-HK  自動儲存及繼續 YouTube 影片播放進度，無需登入。
+// @name:es-419      YouTube Reproducción Plox
+// @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
 // @grant        GM_getValue
@@ -168,6 +179,11 @@
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
 // ==/UserScript==
+
+/* No ISO 639-1 + ISO 3166 
+// @name:yue-HK + name:es-419
+// @description:yue-HK + description:es-419
+*/
 
 // ────────────────
 // 🔍 SISTEMA DE LOGGING
@@ -222,269 +238,231 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     let LANGUAGE_FLAGS = {};
 
     // Traducciones básicas de fallback en caso de error
-    const FALLBACK_TRANSLATIONS = {
-        es: {
-            // UI General
-            settings: "Configuración",
-            savedVideos: "Ver videos guardados",
-            close: "Cerrar",
-            save: "Guardar",
-            cancel: "Cancelar",
-            delete: "Eliminar",
-            undo: "Deshacer",
-
-            // Configuración
-            enableSavingFor: "Activar guardado para",
-            regularVideos: "Videos regulares",
-            shorts: "Shorts",
-            liveStreams: "Directos (Livestreams)",
-            showNotifications: "Mostrar notificaciones de guardado",
-            minSecondsBetweenSaves: "Intervalo segundos mínimos entre guardados",
-            showFloatingButton: "Mostrar botón flotante",
-            language: "Idioma",
-            alertStyle: "Estilo de alertas en la barra de reproducción",
-            alertIconText: "Icono + Texto",
-            alertIconOnly: "Solo Icono",
-            alertTextOnly: "Solo Texto",
-            alertHidden: "Oculto",
-
-            // Lista de videos
-            noSavedVideos: "No hay videos guardados.",
-            sortBy: "Ordenar por",
-            mostRecent: "Más recientes",
-            oldest: "Más antiguos",
-            titleAZ: "Título (A-Z)",
-            filterByType: "Filtrar por tipo",
-            all: "Todos",
-            videos: "Videos",
-            playlist: "Playlist",
-            searchByTitleOrAuthor: "Buscar por título o autor...",
-            export: "Exportar",
-            import: "Importar",
-
-            // Notificaciones
-            progressSaved: "Progreso guardado",
-            dataExported: "Datos exportados",
-            itemsImported: "Importados {count} elementos",
-            importError: "Error al importar. Asegúrate de que el archivo sea válido.",
-            configurationSaved: "Configuración guardada",
-            startTimeSet: "Tiempo de inicio establecido en",
-            fixedTimeRemoved: "Tiempo fijo eliminado.",
-            itemDeleted: "eliminado.",
-            unknownError: "Error desconocido",
-            modulesFailed: "{count} módulo(s) fallaron: {names}",
-            retryNow: "Reintentar ahora",
-            retryCompleted: "Reintentos completados",
-
-            // Video Entry
-            progress: "Progreso",
-            alwaysStartFrom: "Siempre desde",
-            resumedAt: "Reanudado en",
-            locked: "🔒",
-            percentWatched: "% visto",
-            remaining: "restantes",
-            setStartTime: "Establecer tiempo de inicio",
-            changeOrRemoveStartTime: "Siempre empezar en {time} (Click para cambiar o eliminar)",
-            enterStartTime: "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23)",
-            enterStartTimeOrEmpty: "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23) o deja vacío para eliminar",
-            deleteEntry: "Eliminar entrada",
-
-            // Otros
-            youtubePlaybackPlox: "YouTube Playback Plox",
-            playlistPrefix: "Playlist",
-            unknown: "Desconocido",
-            notAvailable: "N/A",
-            clearAll: "Eliminar todo",
-            clearAllConfirm: "¿Estás seguro de que quieres eliminar TODOS los videos guardados? Esta acción se puede deshacer.",
-            allItemsCleared: "Todos los elementos eliminados",
-            undoClearAll: "Deshacer",
-
-            // Nuevas traducciones
-            viewAllHistory: "Ver todo el historial",
-            viewCompletedVideos: "Ver videos completados",
-            completed: "Completado",
-            completedVideos: "Videos completados"
-        },
-
-        en: {
-            // UI General
-            settings: "Settings",
-            savedVideos: "View saved videos",
-            close: "Close",
-            save: "Save",
-            cancel: "Cancel",
-            delete: "Delete",
-            undo: "Undo",
-
-            // Config
-            enableSavingFor: "Enable saving for",
-            regularVideos: "Regular videos",
-            shorts: "Shorts",
-            liveStreams: "Live streams",
-            showNotifications: "Show save notifications",
-            minSecondsBetweenSaves: "Minimum seconds between saves",
-            showFloatingButton: "Show floating button",
-            language: "Language",
-            alertStyle: "Alert style in playback bar",
-            alertIconText: "Icon + Text",
-            alertIconOnly: "Icon Only",
-            alertTextOnly: "Text Only",
-            alertHidden: "Hidden",
-
-            // Video list
-            noSavedVideos: "No saved videos.",
-            sortBy: "Sort by",
-            mostRecent: "Most recent",
-            oldest: "Oldest",
-            titleAZ: "Title (A-Z)",
-            filterByType: "Filter by type",
-            all: "All",
-            videos: "Videos",
-            playlist: "Playlist",
-            searchByTitleOrAuthor: "Search by title or author...",
-            export: "Export",
-            import: "Import",
-
-            // Notifications
-            progressSaved: "Progress saved",
-            dataExported: "Data exported",
-            itemsImported: "Imported {count} items",
-            importError: "Error importing. Make sure the file is valid.",
-            configurationSaved: "Configuration saved",
-            startTimeSet: "Start time set to",
-            fixedTimeRemoved: "Fixed time removed.",
-            itemDeleted: "deleted.",
-            unknownError: "Unknown error",
-            modulesFailed: "{count} module(s) failed: {names}",
-            retryNow: "Retry now",
-            retryCompleted: "Retry completed",
-
-            // Video Entry
-            progress: "Progress",
-            alwaysStartFrom: "Always start from",
-            resumedAt: "Resumed at",
-            locked: "🔒",
-            percentWatched: "% watched",
-            remaining: "remaining",
-            setStartTime: "Set start time",
-            changeOrRemoveStartTime: "Always start from {time} (Click to change or remove)",
-            enterStartTime: "Enter the start time you always want to use (example: 1:23)",
-            enterStartTimeOrEmpty: "Enter the start time you always want to use (example: 1:23) or leave empty to remove",
-            deleteEntry: "Delete entry",
-
-            // Other
-            youtubePlaybackPlox: "YouTube Playback Plox",
-            playlistPrefix: "Playlist",
-            unknown: "Unknown",
-            notAvailable: "N/A",
-            clearAll: "Clear all",
-            clearAllConfirm: "Are you sure you want to delete ALL saved videos? This action can be undone.",
-            allItemsCleared: "All items cleared",
-            undoClearAll: "Undo",
-
-            // Nuevas traducciones
-            viewAllHistory: "View all history",
-            viewCompletedVideos: "View completed videos",
-            completed: "Completed",
-            completedVideos: "Completed videos"
-        },
-
-        fr: {
-            // UI General
-            settings: "Paramètres",
-            savedVideos: "Voir les vidéos enregistrées",
-            close: "Fermer",
-            save: "Enregistrer",
-            cancel: "Annuler",
-            delete: "Supprimer",
-            undo: "Annuler",
-
-            // Config
-            enableSavingFor: "Activer la sauvegarde pour",
-            regularVideos: "Vidéos régulières",
-            shorts: "Shorts",
-            liveStreams: "Diffusions en direct",
-            showNotifications: "Afficher les notifications de sauvegarde",
-            minSecondsBetweenSaves: "Secondes minimales entre les sauvegardes",
-            showFloatingButton: "Afficher le bouton flottant",
-            language: "Langue",
-            alertStyle: "Style d'alerte dans la barre de lecture",
-            alertIconText: "Icône + Texte",
-            alertIconOnly: "Icône uniquement",
-            alertTextOnly: "Texte uniquement",
-            alertHidden: "Masqué",
-
-            // Video list
-            noSavedVideos: "Aucune vidéo enregistrée.",
-            sortBy: "Trier par",
-            mostRecent: "Plus récent",
-            oldest: "Plus ancien",
-            titleAZ: "Titre (A-Z)",
-            filterByType: "Filtrer par type",
-            all: "Tous",
-            videos: "Vidéos",
-            playlist: "Playlist",
-            searchByTitleOrAuthor: "Rechercher par titre ou auteur...",
-            export: "Exporter",
-            import: "Importer",
-
-            // Notifications
-            progressSaved: "Progrès enregistré",
-            dataExported: "Données exportées",
-            itemsImported: "{count} éléments importés",
-            importError: "Erreur lors de l'importation. Assurez-vous que le fichier est valide.",
-            configurationSaved: "Configuration enregistrée",
-            startTimeSet: "Heure de début définie à",
-            fixedTimeRemoved: "Heure fixe supprimée.",
-            itemDeleted: "supprimé.",
-            unknownError: "Erreur inconnue",
-            modulesFailed: "{count} module(s) ont échoué : {names}",
-            retryNow: "Réessayer maintenant",
-            retryCompleted: "Réessais terminés",
-
-            // Video Entry
-            progress: "Progrès",
-            alwaysStartFrom: "Toujours commencer à",
-            resumedAt: "Repris à",
-            locked: "🔒",
-            percentWatched: "% regardé",
-            remaining: "restant",
-            setStartTime: "Définir l'heure de début",
-            changeOrRemoveStartTime: "Toujours commencer à {time} (Cliquez pour changer ou supprimer)",
-            enterStartTime: "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23)",
-            enterStartTimeOrEmpty: "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23) ou laissez vide pour supprimer",
-            deleteEntry: "Supprimer l'entrée",
-
-            // Other
-            youtubePlaybackPlox: "YouTube Playback Plox",
-            playlistPrefix: "Playlist",
-            unknown: "Inconnu",
-            notAvailable: "N/A",
-            clearAll: "Tout effacer",
-            clearAllConfirm: "Êtes-vous sûr de vouloir supprimer TOUTES les vidéos enregistrées ? Cette action peut être annulée.",
-            allItemsCleared: "Tous les éléments effacés",
-            undoClearAll: "Annuler",
-
-            // Nuevas traducciones
-            viewAllHistory: "Voir tout l'historique",
-            viewCompletedVideos: "Voir les vidéos terminées",
-            completed: "Terminé",
-            completedVideos: "Vidéos terminées"
-        }
-    };
-
     const FALLBACK_FLAGS = {
-        "es": {
-            "emoji": "🇪🇸",
-            "code": "es"
+        "en-US": {
+            "emoji": "🇺🇸",
+            "code": "en-US",
+            "name": "English (US)"
         },
-        "en": {
-            "emoji": "🇬🇧",
-            "code": "en"
+        "es-ES": {
+            "emoji": "🇪🇸",
+            "code": "es-ES",
+            "name": "Español"
         },
         "fr": {
             "emoji": "🇫🇷",
-            "code": "fr"
+            "code": "fr",
+            "name": "Français"
+        }
+    };
+
+    const FALLBACK_TRANSLATIONS = {
+        "en-US": {
+            "settings": "Settings",
+            "savedVideos": "View saved videos",
+            "close": "Close",
+            "save": "Save",
+            "cancel": "Cancel",
+            "delete": "Delete",
+            "undo": "Undo",
+            "enableSavingFor": "Enable saving for",
+            "regularVideos": "Regular videos",
+            "shorts": "Shorts",
+            "liveStreams": "Live streams",
+            "showNotifications": "Show save notifications",
+            "minSecondsBetweenSaves": "Minimum seconds between saves",
+            "showFloatingButton": "Show floating button",
+            "language": "Language",
+            "alertStyle": "Alert style in playback bar",
+            "alertIconText": "Icon + Text",
+            "alertIconOnly": "Icon Only",
+            "alertTextOnly": "Text Only",
+            "alertHidden": "Hidden",
+            "noSavedVideos": "No saved videos.",
+            "sortBy": "Sort by",
+            "mostRecent": "Most recent",
+            "oldest": "Oldest",
+            "titleAZ": "Title (A-Z)",
+            "filterByType": "Filter by type",
+            "all": "All",
+            "videos": "Videos",
+            "playlist": "Playlist",
+            "searchByTitleOrAuthor": "Search by title or author...",
+            "export": "Export",
+            "import": "Import",
+            "progressSaved": "Progress saved",
+            "dataExported": "Data exported",
+            "itemsImported": "Imported {count} items",
+            "importError": "Error importing. Make sure the file is valid.",
+            "configurationSaved": "Configuration saved",
+            "startTimeSet": "Start time set to",
+            "fixedTimeRemoved": "Fixed time removed.",
+            "itemDeleted": "deleted.",
+            "unknownError": "Unknown error",
+            "modulesFailed": "{count} module(s) failed: {names}",
+            "retryNow": "Retry now",
+            "retryCompleted": "Retry completed",
+            "progress": "Progress",
+            "alwaysStartFrom": "Always start from",
+            "resumedAt": "Resumed at",
+            "locked": "🔒",
+            "percentWatched": "% watched",
+            "remaining": "remaining",
+            "setStartTime": "Set start time",
+            "changeOrRemoveStartTime": "Always start from {time} (Click to change or remove)",
+            "enterStartTime": "Enter the start time you always want to use (example: 1:23)",
+            "enterStartTimeOrEmpty": "Enter the start time you always want to use (example: 1:23) or leave empty to remove",
+            "deleteEntry": "Delete entry",
+            "youtubePlaybackPlox": "YouTube Playback Plox",
+            "playlistPrefix": "Playlist",
+            "unknown": "Unknown",
+            "notAvailable": "N/A",
+            "clearAll": "Clear all",
+            "clearAllConfirm": "Are you sure you want to delete ALL saved videos? This action can be undone.",
+            "allItemsCleared": "All items cleared",
+            "undoClearAll": "Undo",
+            "viewAllHistory": "View all history",
+            "viewCompletedVideos": "View completed videos",
+            "completed": "Completed",
+            "completedVideos": "Completed videos"
+        },
+        "es-ES": {
+            "settings": "Configuración",
+            "savedVideos": "Ver videos guardados",
+            "close": "Cerrar",
+            "save": "Guardar",
+            "cancel": "Cancelar",
+            "delete": "Eliminar",
+            "undo": "Deshacer",
+            "enableSavingFor": "Activar guardado para",
+            "regularVideos": "Videos regulares",
+            "shorts": "Shorts",
+            "liveStreams": "Directos (Livestreams)",
+            "showNotifications": "Mostrar notificaciones de guardado",
+            "minSecondsBetweenSaves": "Intervalo segundos mínimos entre guardados",
+            "showFloatingButton": "Mostrar botón flotante",
+            "language": "Idioma",
+            "alertStyle": "Estilo de alertas en la barra de reproducción",
+            "alertIconText": "Icono + Texto",
+            "alertIconOnly": "Solo Icono",
+            "alertTextOnly": "Solo Texto",
+            "alertHidden": "Oculto",
+            "noSavedVideos": "No hay videos guardados.",
+            "sortBy": "Ordenar por",
+            "mostRecent": "Más recientes",
+            "oldest": "Más antiguos",
+            "titleAZ": "Título (A-Z)",
+            "filterByType": "Filtrar por tipo",
+            "all": "Todos",
+            "videos": "Videos",
+            "playlist": "Playlist",
+            "searchByTitleOrAuthor": "Buscar por título o autor...",
+            "export": "Exportar",
+            "import": "Importar",
+            "progressSaved": "Progreso guardado",
+            "dataExported": "Datos exportados",
+            "itemsImported": "Importados {count} elementos",
+            "importError": "Error al importar. Asegúrate de que el archivo sea válido.",
+            "configurationSaved": "Configuración guardada",
+            "startTimeSet": "Tiempo de inicio establecido en",
+            "fixedTimeRemoved": "Tiempo fijo eliminado.",
+            "itemDeleted": "eliminado.",
+            "unknownError": "Error desconocido",
+            "modulesFailed": "{count} módulo(s) fallaron: {names}",
+            "retryNow": "Reintentar ahora",
+            "retryCompleted": "Reintentos completados",
+            "progress": "Progreso",
+            "alwaysStartFrom": "Siempre desde",
+            "resumedAt": "Reanudado en",
+            "locked": "🔒",
+            "percentWatched": "% visto",
+            "remaining": "restantes",
+            "setStartTime": "Establecer tiempo de inicio",
+            "changeOrRemoveStartTime": "Siempre empezar en {time} (Click para cambiar o eliminar)",
+            "enterStartTime": "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23)",
+            "enterStartTimeOrEmpty": "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23) o deja vacío para eliminar",
+            "deleteEntry": "Eliminar entrada",
+            "youtubePlaybackPlox": "YouTube Playback Plox",
+            "playlistPrefix": "Playlist",
+            "unknown": "Desconocido",
+            "notAvailable": "N/A",
+            "clearAll": "Eliminar todo",
+            "clearAllConfirm": "¿Estás seguro de que quieres eliminar TODOS los videos guardados? Esta acción se puede deshacer.",
+            "allItemsCleared": "Todos los elementos eliminados",
+            "undoClearAll": "Deshacer",
+            "viewAllHistory": "Ver todo el historial",
+            "viewCompletedVideos": "Ver videos completados",
+            "completed": "Completado",
+            "completedVideos": "Videos completados"
+        },
+        "fr": {
+            "settings": "Paramètres",
+            "savedVideos": "Voir les vidéos enregistrées",
+            "close": "Fermer",
+            "save": "Enregistrer",
+            "cancel": "Annuler",
+            "delete": "Supprimer",
+            "undo": "Annuler",
+            "enableSavingFor": "Activer la sauvegarde pour",
+            "regularVideos": "Vidéos régulières",
+            "shorts": "Shorts",
+            "liveStreams": "Diffusions en direct",
+            "showNotifications": "Afficher les notifications de sauvegarde",
+            "minSecondsBetweenSaves": "Secondes minimales entre les sauvegardes",
+            "showFloatingButton": "Afficher le bouton flottant",
+            "language": "Langue",
+            "alertStyle": "Style d'alerte dans la barre de lecture",
+            "alertIconText": "Icône + Texte",
+            "alertIconOnly": "Icône uniquement",
+            "alertTextOnly": "Texte uniquement",
+            "alertHidden": "Masqué",
+            "noSavedVideos": "Aucune vidéo enregistrée.",
+            "sortBy": "Trier par",
+            "mostRecent": "Plus récent",
+            "oldest": "Plus ancien",
+            "titleAZ": "Titre (A-Z)",
+            "filterByType": "Filtrer par type",
+            "all": "Tous",
+            "videos": "Vidéos",
+            "playlist": "Playlist",
+            "searchByTitleOrAuthor": "Rechercher par titre ou auteur...",
+            "export": "Exporter",
+            "import": "Importer",
+            "progressSaved": "Progrès enregistré",
+            "dataExported": "Données exportées",
+            "itemsImported": "{count} éléments importés",
+            "importError": "Erreur lors de l'importation. Assurez-vous que le fichier est valide.",
+            "configurationSaved": "Configuration enregistrée",
+            "startTimeSet": "Heure de début définie à",
+            "fixedTimeRemoved": "Heure fixe supprimée.",
+            "itemDeleted": "supprimé.",
+            "unknownError": "Erreur inconnue",
+            "modulesFailed": "{count} module(s) ont échoué : {names}",
+            "retryNow": "Réessayer maintenant",
+            "retryCompleted": "Réessais terminés",
+            "progress": "Progrès",
+            "alwaysStartFrom": "Toujours commencer à",
+            "resumedAt": "Repris à",
+            "locked": "🔒",
+            "percentWatched": "% regardé",
+            "remaining": "restant",
+            "setStartTime": "Définir l'heure de début",
+            "changeOrRemoveStartTime": "Toujours commencer à {time} (Cliquez pour changer ou supprimer)",
+            "enterStartTime": "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23)",
+            "enterStartTimeOrEmpty": "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23) ou laissez vide pour supprimer",
+            "deleteEntry": "Supprimer l'entrée",
+            "youtubePlaybackPlox": "YouTube Playback Plox",
+            "playlistPrefix": "Playlist",
+            "unknown": "Inconnu",
+            "notAvailable": "N/A",
+            "clearAll": "Tout effacer",
+            "clearAllConfirm": "Êtes-vous sûr de vouloir supprimer TOUTES les vidéos enregistrées ? Cette action peut être annulée.",
+            "allItemsCleared": "Tous les éléments effacés",
+            "undoClearAll": "Annuler",
+            "viewAllHistory": "Voir tout l'historique",
+            "viewCompletedVideos": "Voir les vidéos terminées",
+            "completed": "Terminé",
+            "completedVideos": "Vidéos terminées"
         }
     };
 
@@ -596,7 +574,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             saveRegularVideos: true, // Por defecto, guardar videos regulares
             saveShorts: false, // Por defecto, no guardar Shorts
             saveLiveStreams: false, // Por defecto, no guardar directos
-            language: 'es', // Idioma predeterminado
+            language: 'en-US', // Idioma predeterminado
             alertStyle: 'iconText', // Estilo de alerta predeterminado
         },
 
@@ -616,7 +594,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     // MARK: 🌐 Funciones de traducción
     // ────────────────
 
-    let currentLanguage = 'es'; // Idioma predeterminado
+    let currentLanguage = CONFIG.defaultSettings.language; // Idioma predeterminado
 
     // Función para obtener el texto traducido
     function t(key, params = {}) {
@@ -641,30 +619,42 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 
     // Función para cambiar el idioma
     async function setLanguage(lang) {
-        if (!TRANSLATIONS[lang]) {
-            warn('setLanguage', `Language '${lang}' not supported`);
-            return false;
+        log('setLanguage', 'lang que llega:', lang);
+        let validLang = lang;
+
+        if (!TRANSLATIONS[validLang]) {
+            const primary = lang.split('-')[0];
+            validLang = Object.keys(TRANSLATIONS).find(k => k === primary || k.startsWith(primary + '-'));
         }
 
-        currentLanguage = lang;
+        if (!validLang) validLang = CONFIG.defaultSettings.language;
 
-        // Guardar preferencia de idioma
+        currentLanguage = validLang;
+
         const settings = await Settings.get();
-        settings.language = lang;
+        settings.language = validLang;
         await Settings.set(settings);
 
+        log('setLanguage', 'lang que sale:', validLang);
         return true;
     }
 
     // Función para detectar el idioma del navegador
     function detectBrowserLanguage() {
-        const browserLang = navigator.language || navigator.userLanguage;
-        const langCode = browserLang.split('-')[0]; // Obtener solo el código de idioma principal
+        const browserLang = navigator.language || navigator.userLanguage; // "es-ES" o "en"
+        log('detectBrowserLanguage', 'browserLang:', browserLang);
 
-        // Verificar si el idioma está soportado
-        if (TRANSLATIONS[langCode]) return langCode;
+        // Coincidencia exacta
+        log('detectBrowserLanguage', 'TRANSLATIONS[browserLang]:', TRANSLATIONS[browserLang])
+        if (TRANSLATIONS[browserLang]) return browserLang;
 
-        // Si no, devolver el idioma predeterminado
+        // Coincidencia por prefijo (ejemplo: "es" -> "es-ES" o "es-419")
+        const primary = browserLang.split('-')[0];
+        const matched = Object.keys(TRANSLATIONS).find(k => k === primary || k.startsWith(primary + '-'));
+        log('detectBrowserLanguage', 'matched:', matched);
+        if (matched) return matched;
+
+        warn(`Idioma del navegador '${browserLang}' no soportado, usando default.`);
         return CONFIG.defaultSettings.language;
     }
 
@@ -1324,8 +1314,8 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     };
 
     // ────────────────
-    // 🔧 Helper Functions
-    // MARK: 🔧 Helper Functions
+    // 🔧 Helpers
+    // MARK: 🔧 Helpers
     // ────────────────
 
     /**
@@ -1340,22 +1330,6 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             return playlist?.videos?.[videoId] || null;
         }
         return Storage.get(videoId);
-    }
-
-    /**
-    * Actualiza datos de un video en playlist
-    * @param {string} playlistId - ID de la playlist
-    * @param {string} videoId - ID del video
-    * @param {Object} updates - Objeto con las actualizaciones
-    * @returns {boolean} - true si se actualizó correctamente
-    */
-    function updatePlaylistVideo(playlistId, videoId, updates) {
-        const playlist = Storage.get(playlistId);
-        if (!playlist?.videos?.[videoId]) return false;
-        
-        playlist.videos[videoId] = { ...playlist.videos[videoId], ...updates };
-        Storage.set(playlistId, playlist);
-        return true;
     }
 
     /**
@@ -1783,9 +1757,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                 if (plId) {
                     const playlist = Storage.get(plId);
                     if (playlist?.videos?.[vid]) {
-                        playlist.videos[vid] = { 
-                            ...playlist.videos[vid], 
-                            isCompleted: true, 
+                        playlist.videos[vid] = {
+                            ...playlist.videos[vid],
+                            isCompleted: true,
                             lastUpdated: now,
                             timestamp: 0 // Limpiar timestamp pero mantener forceResumeTime
                         };
@@ -1794,9 +1768,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                 } else {
                     const existing = Storage.get(vid);
                     if (existing) {
-                        Storage.set(vid, { 
-                            ...existing, 
-                            isCompleted: true, 
+                        Storage.set(vid, {
+                            ...existing,
+                            isCompleted: true,
                             lastUpdated: now,
                             timestamp: 0 // Limpiar timestamp pero mantener forceResumeTime
                         });
@@ -2343,7 +2317,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                     const playlistUrl = item.lastWatchedVideoId
                         ? `https://www.youtube.com/watch?v=${item.lastWatchedVideoId}&list=${item.playlistKey}`
                         : `https://www.youtube.com/playlist?list=${item.playlistKey}`;
-                    
+
                     const h3 = createElement('a', {
                         className: 'ypp-playlistTitle',
                         text: `📁 ${t('playlistPrefix')}: ${item.playlistTitle}`,
@@ -2533,10 +2507,10 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 
             // Eliminar todos los datos
             keys.forEach(k => Storage.del(k));
-            
+
             // Actualizar la UI
             updateVideoList();
-            
+
             // Mostrar toast con opción de deshacer
             const undoAction = () => {
                 // Restaurar todos los datos
@@ -2610,12 +2584,12 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         // Determinar texto del timestamp (puede mostrar ambos estados)
         let timestampText = '';
         let timestampClass = '';
-        
+
         if (info.forceResumeTime > 0) {
             // Video con tiempo fijo
             const fixedTimeStr = `⏱️ ${t('alwaysStartFrom')}: ${formatTime(normalizeSeconds((info.forceResumeTime)))} ${t('locked')}`;
             timestampClass = 'forced';
-            
+
             if (isCompleted) {
                 // Tiempo fijo + completado
                 timestampText = `${fixedTimeStr} ✅`;
@@ -2633,7 +2607,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                 timestampText = `${t('progress')} ${videoTime}`;
             }
         }
-        
+
         const timestamp = createElement('div', { className: `ypp-timestamp ${timestampClass}`, text: timestampText });
 
         infoDiv.appendChild(titleLink);
@@ -2766,12 +2740,22 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         const languageSelect = createElement('select', {
             className: 'ypp-input ypp-language-selector',
             id: 'language-selector',
-            html: Object.keys(LANGUAGE_FLAGS).map(lang => {
-                const { emoji } = LANGUAGE_FLAGS[lang] || { emoji: '🌐' };
-                const langName = lang.toUpperCase();
-                return `<option value="${lang}" ${settings.language === lang ? 'selected' : ''}>${emoji} ${langName}</option>`;
-            }).join('')
+            html: (() => {
+                const langs = Object.keys(LANGUAGE_FLAGS);
+
+                // Mover el idioma actual al principio
+                const currentLang = settings.language || defaultSettings.language;
+                langs.sort((a, b) => (a === currentLang ? -1 : b === currentLang ? 1 : 0));
+
+                return langs.map(lang => {
+                    const { emoji, name } = LANGUAGE_FLAGS[lang];
+                    const selected = settings.language === lang ? 'selected' : '';
+                    return `<option value="${lang}" ${selected}>${emoji || '🌐'} ${name || lang.toUpperCase()}</option>`;
+                }).join('');
+            })()
         });
+
+
 
         languageLabel.appendChild(languageSelect);
         languageGroup.appendChild(languageLabel);
@@ -3200,8 +3184,8 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                             container.classList?.contains('ytd-player')
                         ) {
                             const player = getPlayerInstance(container);
-                        handleFoundPlayer(container, player, videoEl);
-                        return true;
+                            handleFoundPlayer(container, player, videoEl);
+                            return true;
                         }
                         container = container.parentElement;
                         depth++;
@@ -3616,8 +3600,30 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         // --- 2️⃣ Cargar configuración y establecer idioma ---
         try {
             cachedSettings = await Settings.get();
-            await setLanguage(cachedSettings.language || detectBrowserLanguage());
-            log('init', `🌐 Idioma configurado: ${cachedSettings.language || detectBrowserLanguage()}`);
+            log('init', 'Settings cargados:', cachedSettings);
+
+            let langToUse;
+
+            if (cachedSettings.language && TRANSLATIONS[cachedSettings.language] && cachedSettings.language !== CONFIG.defaultSettings.language) {
+                // Idioma guardado por el usuario y válido
+                langToUse = cachedSettings.language;
+                log('init', `Idioma guardado válido: ${langToUse}`);
+            } else {
+                // Primera carga o idioma no configurado, usar navegador si existe
+                const browserLang = detectBrowserLanguage();
+                langToUse = TRANSLATIONS[browserLang] ? browserLang : CONFIG.defaultSettings.language;
+                log('init', `Idioma detectado o fallback: ${langToUse}`);
+            }
+
+            await setLanguage(langToUse);
+            log('init', `🌐 Idioma configurado: ${langToUse}`);
+
+            // Guardar preferencia si era primera carga
+            if (!cachedSettings.language || cachedSettings.language === CONFIG.defaultSettings.language) {
+                cachedSettings.language = langToUse;
+                await Settings.set(cachedSettings);
+                log('init', `Idioma guardado en settings: ${langToUse}`);
+            }
         } catch (error) {
             conError('init', '❌ Error al cargar settings o establecer idioma:', error);
         }

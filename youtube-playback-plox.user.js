@@ -35,7 +35,7 @@
 // @name:te      YouTube ప్లేబ్యాక్ Plox
 // @name:ta      YouTube பிளேபாக் Plox
 // @name:mr      YouTube प्लेबॅक Plox
-// @name:zh      YouTube 播放 Plox
+// @name:zh-CN   YouTube 播放 Plox
 // @name:zh-TW   YouTube 播放 Plox
 // @name:zh-HK   YouTube 播放 Plox
 // @name:ja      YouTube 再生 Plox
@@ -90,7 +90,7 @@
 // @description:te  YouTube వీడియో ప్లేబ్యాక్ పురోగతిని ఆటోమేటిక్‌గా సేవ్ చేసి, తిరిగి ప్రారంభిస్తుంది, లాగిన్ అవసరం లేదు.
 // @description:ta  YouTube வீடியோக்களின் பிளேபாக் முன்னேற்றத்தை தானாகச் சேமித்து மீண்டும் தொடங்கும், உள்நுழைவு தேவையில்லை.
 // @description:mr  YouTube व्हिडिओ प्लेबॅक प्रगती आपोआप जतन करते आणि पुन्हा सुरू करते, लॉगिन आवश्यक नाही.
-// @description:zh 自动保存并恢复 YouTube 视频的播放进度，无需登录。
+// @description:zh-CN 自动保存并恢复 YouTube 视频的播放进度，无需登录。
 // @description:zh-TW  自動儲存及繼續 YouTube 影片播放進度，無需登入。
 // @description:zh-HK  自動儲存及繼續 YouTube 影片播放進度，無需登入。
 // @description:ja  YouTube の動画再生の進行状況を自動で保存・再開します。ログインは不要です。
@@ -126,16 +126,15 @@
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
 // ==/UserScript==
 
-// ────────────────
-// 🔍 SISTEMA DE LOGGING
+// ------------------------------------------
 // MARK: 🔍 SISTEMA DE LOGGING
-// ────────────────
+// ------------------------------------------
 
 (function () {
     'use strict';
 
     // 1. Determinar si el modo debug está activo
-    const DEBUG = false; // Cambiar a 'false' para desactivar los logs de depuración en producción
+    const DEBUG = true; // Cambiar a 'false' para desactivar los logs de depuración en producción
 
     // 2. Crear el objeto del logger en el ámbito global (window)
     window.MyScriptLogger = {
@@ -165,10 +164,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 (() => {
     'use strict';
 
-    // ────────────────
-    // 🌐 Carga de Traducciones
+    // ------------------------------------------
     // MARK: 🌐 Carga de Traducciones
-    // ────────────────
+    // ------------------------------------------
 
     // URL del archivo de traducciones
     const TRANSLATIONS_URL = 'https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/translations.json';
@@ -481,10 +479,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         });
     }
 
-    // ────────────────
-    // 📦 Config
+    // ------------------------------------------
     // MARK: 📦 Config
-    // ────────────────
+    // ------------------------------------------
 
     const CONFIG = {
         /** Diferencia mínima (en segundos) para considerar un cambio de posición como válido */
@@ -530,10 +527,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         }
     };
 
-    // ────────────────
-    // 🌐 Funciones de traducción
+    // ------------------------------------------
     // MARK: 🌐 Funciones de traducción
-    // ────────────────
+    // ------------------------------------------
 
     let currentLanguage = CONFIG.defaultSettings.language; // Idioma predeterminado
 
@@ -599,10 +595,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         return CONFIG.defaultSettings.language;
     }
 
-    // ────────────────
-    // 🎨 Styles
+    // ------------------------------------------
     // MARK: 🎨 Styles
-    // ────────────────
+    // ------------------------------------------
 
     function injectStyles() {
         if (document.getElementById('youtube-playback-plox-styles')) return; // evitar duplicados
@@ -1040,10 +1035,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         document.head.appendChild(style);
     }
 
-    // ────────────────
-    // 💾 Storage + Settings
+    // ------------------------------------------
     // MARK: 💾 Storage + Settings
-    // ────────────────
+    // ------------------------------------------
 
     const Storage = {
         get(key) {
@@ -1098,10 +1092,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         }
     };
 
-    // ────────────────
-    // 📊 Variables
+    // ------------------------------------------
     // MARK: 📊 Variables
-    // ────────────────
+    // ------------------------------------------
 
     // Variables para controlar el estado de inicialización
     let regularPlayerInitialized = false;
@@ -1109,11 +1102,11 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     let isNavigating = false;
     let navigationDebounceTimeout = null;
     let playerCheckInterval = null;
+    let isResuming = false;
 
-    // ────────────────
-    // 🔧 Utils
+    // ------------------------------------------
     // MARK: 🔧 Utils
-    // ────────────────
+    // ------------------------------------------
 
     const formatTime = (seconds) => {
         if (typeof seconds !== 'number' || isNaN(seconds)) {
@@ -1254,23 +1247,69 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         }
     };
 
-    // ────────────────
-    // 🔧 Helpers
+    // ------------------------------------------
     // MARK: 🔧 Helpers
-    // ────────────────
+    // ------------------------------------------
 
     /**
-    * Obtiene datos guardados de un video (ya sea de playlist o individual)
+    * Obtiene datos guardados de un video, intentando todas las combinaciones posibles.
+    * Soporta tanto videos individuales como en playlist.
+    *
     * @param {string} videoId - ID del video
-    * @param {string} playlistId - ID de la playlist (opcional)
-    * @returns {Object|null} - Datos guardados o null
+    * @param {string|null} playlistId - ID de la playlist (opcional)
+    * @returns {Object|null} - Datos guardados o null si no se encuentra
     */
     function getSavedVideoData(videoId, playlistId = null) {
+        if (!videoId) return null;
+
+        // Si hay playlistId, intenta primero dentro de la playlist
         if (playlistId) {
             const playlist = Storage.get(playlistId);
-            return playlist?.videos?.[videoId] || null;
+            const inPlaylist = playlist?.videos?.[videoId];
+            if (inPlaylist) return inPlaylist;
         }
-        return Storage.get(videoId);
+
+        // Luego busca como video independiente
+        const standalone = Storage.get(videoId);
+        if (standalone) return standalone;
+
+        // Búsqueda flexible: por si alguna vez se guardó con prefijos raros o en shorts
+        // (ej. "shorts-VIDEO_ID" o "watch-VIDEO_ID")
+        const keys = Storage.keys?.() || [];
+        const altKey = keys.find(k => k.endsWith(videoId) || k.includes(videoId));
+        if (altKey) return Storage.get(altKey);
+
+        // Nada encontrado
+        return null;
+    }
+
+    function normalizeYouTubeStorageKeys() {
+        if (typeof Storage?.keys !== 'function') {
+            conError('normalizeYouTubeStorageKeys', 'Storage.keys() no disponible.');
+            return;
+        }
+
+        const allKeys = Storage.keys();
+        let changes = 0;
+
+        for (const key of allKeys) {
+            const newKey = extractOrNormalizeVideoId(key)?.id;
+            log('normalizeYouTubeStorageKeys', `Clave original: ${key} | Clave nueva: ${newKey}`);
+
+            if (newKey && newKey !== key) {
+                const data = Storage.get(key);
+                if (!Storage.get(newKey)) {
+                    Storage.set(newKey, data);
+                    Storage.remove(key);
+                    log('normalizeYouTubeStorageKeys', `✅ Migrado: "${key}" -> "${newKey}"`);
+                    changes++;
+                } else {
+                    log('normalizeYouTubeStorageKeys', `⚠️ Duplicado detectado: "${key}" ya existe como "${newKey}"`);
+                }
+            }
+        }
+
+        log('normalizeYouTubeStorageKeys', `🔁 Normalización completa. ${changes} claves migradas.`);
     }
 
     /**
@@ -1287,10 +1326,423 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         }
     }
 
-    // ───────────────
-    // 📢 Time Display
+
+    // ------------------------------------------
+    // MARK: 📺 Get Title
+    // ------------------------------------------
+
+    function getVideoTittle(player) {
+        // Buscar título en meta tags
+        const metaSelectors = [
+            'meta[name="title"]',
+            'meta[itemprop="name"]',
+            'meta[property="og:title"]',
+            'meta[name="twitter:title"]',
+            'link[rel="alternate"][type="application/json+oembed"]'
+        ];
+        for (const sel of metaSelectors) {
+            const el = document.querySelector(sel);
+            const t = el?.content || el?.title;
+            if (t) return t;
+        }
+
+        // Fallback a JSON incrustado
+        const title = window.ytInitialPlayerResponse?.videoDetails?.title;
+        if (title != null) return title;
+
+        /* 
+        player.getVideoData() = {
+                "video_id": "iy4mXZN1Zzk",
+                "author": "robbiewilliamsvevo",
+                "title": "Robbie Williams - Feel",
+                "isPlayable": true,
+                "errorCode": null,
+                "video_quality": "medium",
+                "video_quality_features": [],
+                "list": "RDiy4mXZN1Zzk", // ID Playlist 
+                "backgroundable": false,
+                "eventId": "Q-AHae30KbiZ4dUPnbDByQk",
+                "cpn": "m6WhMHqg6WQd25ET",
+                "isLive": false,
+                "isWindowedLive": false,
+                "isManifestless": false,
+                "allowLiveDvr": false,
+                "isListed": true,
+                "isMultiChannelAudio": false,
+                "hasProgressBarBoundaries": false,
+                "isPremiere": false,
+                "itct": "CAAQu2kiEwitooPuxtSQAxW4TLgEHR1YMJk=",
+                "playerResponseCpn": "",
+                "progressBarStartPositionUtcTimeMillis": null,
+                "progressBarEndPositionUtcTimeMillis": null,
+                "paidContentOverlayDurationMs": 0
+            }
+        */
+
+        const videoData = player.getVideoData();
+        if (videoData != null) return videoData.title;
+
+        // Fallback al DOM
+        const titleFromDOM = getVideoTitleFromDOM();
+        if (titleFromDOM != null) return titleFromDOM;
+
+        // Fallback al <title> del documento, limpiando "- YouTube"
+        const docTitle = document.title.replace(/ - YouTube$/, '');
+        return docTitle || t('unknown');
+    }
+
+    function getVideoTitleFromDOM() {
+        const selectors = [
+            'ytd-watch-metadata h1 yt-formatted-string',
+            'h1.ytd-watch-metadata yt-formatted-string',
+            '#title h1 yt-formatted-string',
+            'h1 yt-formatted-string',
+            '#title h1',
+            'h1.title',
+            'h2 span.yt-core-attributed-string' // entrega el nombre pero si existe traducción activa devuelve esa version, No original.
+        ];
+
+        for (const sel of selectors) {
+            const el = document.querySelector(sel);
+            if (el?.textContent) return el.textContent.trim();
+        }
+
+        return null; // No encontró título en el DOM
+    }
+
+    // ------------------------------------------
+    // MARK: 📺 Get Thumbnail
+    // ------------------------------------------
+
+    function getVideoThumbnail(vid) {
+        // Desde DOM
+        /* 
+        <link rel="image_src" href="https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=&amp;rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA">
+        <meta property="og:image" content="https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=&amp;rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA">
+        <meta name="twitter:image" content="https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=&amp;rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA">
+        <link itemprop="thumbnailUrl" href="https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=&amp;rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA">
+        <link itemprop="url" href="https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=&amp;rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA">
+        */
+        const selectors = [
+            'link[rel="image_src"]',
+            'meta[property="og:image"]',
+            'meta[name="twitter:image"]',
+            'link[itemprop="thumbnailUrl"]',
+            'link[itemprop="url"]'
+        ];
+
+        for (const sel of selectors) {
+            const el = document.querySelector(sel);
+            const url = el?.content || el?.href;
+            if (url) return cleanThumbnailUrl(url);
+        }
+
+        // Desde el div de YouTube player
+        /*
+        <div class="ytp-cued-thumbnail-overlay-image" style="background-image: url(&quot;https://i.ytimg.com/vi_webp/${vid}/maxresdefault.webp&quot;);"></div>
+        */
+        const thumbDiv = document.querySelector('.ytp-cued-thumbnail-overlay-image');
+        if (thumbDiv) {
+            const style = thumbDiv.style.backgroundImage;
+            const match = style.match(/url\((['"]?)(.*?)\1\)/);
+            if (match) return match[2];
+        }
+
+        // Desde JSON incrustado
+        /* 
+        "microformat":{"playerMicroformatRenderer":{"thumbnail":{"thumbnails":[{"url":"https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=\u0026rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA","width":405,"height":720}],
+        */
+        try {
+
+            const url = window.ytInitialPlayerResponse?.microformat?.playerMicroformatRenderer?.thumbnail?.thumbnails?.[0]?.url;
+
+            if (url != null && vid && url?.includes(vid)) {
+                return cleanThumbnailUrl(url);
+            }
+        } catch (err) {
+            warn('Error al obtener thumbnail desde JSON:', err);
+        }
+
+        // Fallback final
+        return `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`;
+    }
+
+    // Limpia parámetros innecesarios de la URL
+    function cleanThumbnailUrl(url) {
+        const match = url.match(/^(https:\/\/i\.ytimg\.com\/vi\/[A-Za-z0-9_-]+\/[^?]+)/);
+        return match ? match[1] : url;
+    }
+
+    // ------------------------------------------
+    // MARK: 📺 Get Video Info
+    // ------------------------------------------
+
+    // Cache por video
+    const viewCountCache = new Map();
+
+    function getVideoInfo(player, videoId) {
+        const now = Date.now();
+
+        // Título y autor por defecto
+        let title = getVideoTittle(player);
+        let author =
+            // Short y videos regulares
+            player.getVideoData?.()?.author ||
+            document.querySelector('link[itemprop="name"]')?.getAttribute('content') ||
+            // Solo videos regulares
+            document.querySelector('yt-button-shape#subscribe-button-shape button.yt-spec-button-shape-next')?.getAttribute('aria-label')?.replace(/^Subscribe to /, '').replace(/\.$/, '').trim() ||
+            document.querySelector('ytd-subscription-notification-toggle-button-renderer-next button.yt-spec-button-shape-next')?.getAttribute('aria-label')?.match(/for (.+)$/)?.[1]?.trim() ||
+            t('unknown');
+
+        // Thumbnail por defecto
+        let thumb = getVideoThumbnail(videoId);
+
+        // Views
+        let viewsNumber;
+        const videoDetailsViews = window.ytInitialPlayerResponse?.videoDetails?.viewCount;
+        if (videoDetailsViews != null) {
+            viewsNumber = Number(videoDetailsViews).toLocaleString();
+        } else {
+            viewsNumber =
+                document.querySelector('.view-count')?.textContent?.match(/[\d.,\s]+/)?.[0].trim() ||
+                document.querySelector('view-count-factoid-renderer .ytwFactoidRendererFactoid[role="text"]')?.getAttribute('aria-label')?.match(/[\d.,\s]+/)?.[0].trim() ||
+                document.querySelector('ytd-watch-info-text div#tooltip.tp-yt-paper-tooltip')?.textContent?.match(/[\d.,\s]+/)?.[0].trim() ||
+                document.querySelector('yt-formatted-string.view-count')?.textContent?.match(/[\d.,\s]+/)?.[0].trim() ||
+                t('notAvailable');
+        }
+        let viewsMsg = `${viewsNumber} ${t('views')}`;
+
+        const duration = player.getDuration?.() || 0;
+
+        let channelID;
+        const videoDetailsChannelID = window.ytInitialPlayerResponse?.videoDetails?.channelId;
+        if (videoDetailsChannelID != null) {
+            channelID = videoDetailsChannelID;
+        } else {
+            channelID =
+                // Videos regulares
+                document.querySelector('a.ytp-ce-channel-title.ytp-ce-link')?.href?.split('/channel/')[1] ||
+                document.querySelector('#items yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
+                document.querySelector('#infocard-channel-button yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
+                // Shorts
+                document.querySelector('link[rel="canonical"]')?.href?.split('/channel/')[1] || // <link rel="canonical" href="https://www.youtube.com/channel/UCxxxx">
+                document.querySelector('meta[property="og:url"]')?.content?.split('/channel/')[1] || // <meta property="og:url" content="https://www.youtube.com/channel/UCxxxx">
+                document.querySelector('link[itemprop="url"]')?.href?.split('/channel/')[1] || // <link itemprop="url" href="https://www.youtube.com/channel/UCxxxx">
+                t('unknown');
+        }
+
+        const cached = viewCountCache.get(videoId);
+        if (!cached || (now - cached.time) > 5000) {
+            viewCountCache.set(videoId, { views: viewsNumber, time: now });
+        } else {
+            viewsNumber = cached.views;
+            viewsMsg = `${viewsNumber} ${t('views')}`;
+        }
+
+        log('getVideoInfo', 'Info Obtenida:', { title, author, thumb, viewsNumber, viewsMsg, savedAt: now, duration, channelID })
+        return { title, author, thumb, viewsNumber, viewsMsg, savedAt: now, duration, channelID };
+    }
+
+    // ------------------------------------------
+    // MARK: Extraer Video ID
+    // ------------------------------------------
+
+    /**
+  * Extrae o normaliza un video ID de YouTube desde URL, embed o ID directo.
+  * Soporta:
+  *  - URLs normales: watch?v=ID
+  *  - Shorts: /shorts/ID
+  *  - Short URLs: youtu.be/ID
+  *  - Embeds: /embed/ID
+  *  - IDs directos
+  * @param {string} input - URL completa o ID de video.
+  * @returns {string|null} - Video ID o null si no se pudo determinar.
+  */
+    function extractOrNormalizeVideoId(input) {
+        if (!input || typeof input !== 'string') return null;
+        const trimmed = input.trim();
+
+        // Si es solo un ID directo (no URL)
+        if (/^[A-Za-z0-9_-]{6,}$/.test(trimmed)) {
+            return { type: "video", id: trimmed };
+        }
+
+        try {
+            const url = new URL(trimmed);
+
+            // --- LISTAS ---
+            const listParam = url.searchParams.get("list");
+            if (url.pathname.includes("/playlist") && listParam) {
+                return { type: "playlist", id: listParam };
+            }
+
+            // --- VIDEOS ---
+            // 1️⃣ watch?v=ID
+            const vParam = url.searchParams.get("v");
+            if (vParam) {
+                const result = { type: "video", id: vParam };
+                if (listParam) result.list = listParam; // video dentro de lista
+                return result;
+            }
+
+            // 2️⃣ shorts/ID
+            const shortsMatch = url.pathname.match(/\/shorts\/([A-Za-z0-9_-]{6,})/);
+            if (shortsMatch) return { type: "video", id: shortsMatch[1] };
+
+            // 3️⃣ embed/ID
+            const embedMatch = url.pathname.match(/\/embed\/([A-Za-z0-9_-]{6,})/);
+            if (embedMatch) return { type: "video", id: embedMatch[1] };
+
+            // 4️⃣ short URL (youtu.be/ID)
+            if (url.hostname.includes("youtu.be")) {
+                const shortId = url.pathname.slice(1);
+                if (/^[A-Za-z0-9_-]{6,}$/.test(shortId)) {
+                    const result = { type: "video", id: shortId };
+                    if (listParam) result.list = listParam;
+                    return result;
+                }
+            }
+        } catch {
+            // Si no es URL válida, continuar
+        }
+
+        // Si todo falla
+        warn("extractOrNormalizeVideoId: no se pudo determinar video_id para", input);
+        return null;
+    }
+
+    // ------------------------------------------
+    // MARK: Actualizar Estado
+    // ------------------------------------------
+
+    const updateStatus = (player, videoEl, type, plId) => {
+        // 🔹 Obtener el ID desde URL
+        const url = location.href;
+        let video_id = extractOrNormalizeVideoId(url)?.id;
+        log('updateStatus', `URL del reproductor: ${url} | Video ID Extraido: ${video_id}`)
+
+        if (!video_id) {
+            conError('updateStatus', 'No se pudo determinar video_id. Abortando guardado.');
+            return;
+        }
+
+        const currentTime = videoEl.currentTime;
+        const duration = videoEl.duration;
+        if (!duration || isNaN(currentTime) || currentTime < 1 || !isFinite(duration)) return;
+
+        // Evitar guardar progreso durante anuncios
+        if (!videoEl._cachedPlayerEl) {
+            videoEl._cachedPlayerEl = videoEl.closest('#movie_player, .html5-video-player');
+        }
+        const playerEl = videoEl._cachedPlayerEl;
+        const adNow =
+            isAdPlaying ||
+            (playerEl &&
+                !!playerEl.querySelector(
+                    '.ytp-ad-player-overlay, .ytp-ad-text, .ytp-ad-image-overlay, .ytp-ad-skip-button-container, .ytp-ad-overlay-container'
+                ));
+        if (adNow) return;
+        if (isResuming) return;
+
+        const now = Date.now();
+        const finishThreshold = Math.min(duration * 0.01, CONFIG.staticFinishSec);
+        const isFinished = duration - currentTime < finishThreshold;
+
+        // 🔹 Buscar progreso previo
+        const sourceData = getSavedVideoData(video_id, plId);
+
+        if (sourceData && sourceData.forceResumeTime > 0) {
+            if (isFinished) {
+                log('updateStatus', `Video con tiempo fijo ${video_id} completado. Manteniendo tiempo fijo.`);
+                const base = {
+                    ...sourceData,
+                    isCompleted: true,
+                    lastUpdated: now,
+                    timestamp: 0,
+                };
+                if (plId) {
+                    const playlist = Storage.get(plId);
+                    if (playlist?.videos?.[video_id]) {
+                        playlist.videos[video_id] = base;
+                        Storage.set(plId, playlist);
+                    }
+                } else {
+                    Storage.set(video_id, base);
+                }
+            }
+            // No sobreescribir progreso en videos con tiempo fijo
+            return;
+        }
+
+        // 🔹 Guardar progreso normal
+        const info = getVideoInfo(player, video_id);
+        const singleData = {
+            timestamp: currentTime,
+            lastUpdated: now,
+            videoType: type,
+            isCompleted: isFinished,
+            ...info,
+        };
+
+        if (plId) {
+            const playlist = Storage.get(plId) || { lastWatchedVideoId: '', videos: {}, title: '' };
+            playlist.videos[video_id] = singleData;
+            playlist.lastWatchedVideoId = video_id;
+            Storage.set(plId, playlist);
+
+            if (!playlist.title) {
+                getPlaylistName(plId).then(name => {
+                    const updated = Storage.get(plId);
+                    if (updated && !updated.title) {
+                        updated.title = name;
+                        Storage.set(plId, updated);
+                    }
+                });
+            }
+        } else {
+            Storage.set(video_id, singleData);
+        }
+
+        notifySeekOrProgress(player, currentTime, 'progress', { videoType: type });
+    };
+
+    const resumePlayback = async (player, vid, videoEl, savedData, inPlaylist, plId, fromPlId, type) => {
+        vid = extractOrNormalizeVideoId(vid)?.id;
+        if (!savedData || !vid) {
+            log('resumePlayback', '⚠️ No se encontró información para reanudar o video_id inválido.');
+            return;
+        }
+
+        const lastTime = savedData.timestamp;
+        const forceTime = savedData.forceResumeTime;
+        const timeToSeek = forceTime > 0 ? forceTime : lastTime;
+
+        log('resumePlayback', `🎬 Reanudando video ${vid} en ${timeToSeek}s = ${(timeToSeek / 60).toFixed(2)} minutos`);
+
+        if (!timeToSeek || timeToSeek <= 1) {
+            log('resumePlayback', '⏩ No hay tiempo válido para reanudar');
+            return;
+        }
+
+        const waitForPlayer = () => {
+            if (player.getDuration() > 0) {
+                applySeek(player, videoEl, timeToSeek, {
+                    bypassMinDiff: true,
+                    isForced: forceTime > 0,
+                    type,
+                });
+            } else {
+                setTimeout(waitForPlayer, 150);
+            }
+        };
+        waitForPlayer();
+    };
+
+
+
+    // ------------------------------------------
     // MARK: 📢 Time Display
-    // ────────────────
+    // ------------------------------------------
 
     let timeDisplay;
 
@@ -1331,10 +1783,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         }
     }
 
-    // ───────────────
-    // 🍞 Toasts 
+    // ------------------------------------------
     // MARK: 🍞 Toasts
-    // ───────────────
+    // ------------------------------------------
 
     const toastTimeouts = new WeakMap();
 
@@ -1443,10 +1894,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         log('showFloatingToast', 'Toast mostrado', { message, options });
     }
 
-    // ────────────────
-    // 🛠 Create Modal
+    // ------------------------------------------
     // MARK: 🛠 Create Modal
-    // ────────────────
+    // ------------------------------------------
 
     function createModal(title = '', content = '') {
         const closeModal = () => {
@@ -1485,10 +1935,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         return { host: overlay, content: modal, close: closeModal };
     }
 
-    // ────────────────
-    // 📢 Notify Seek or Progress
+    // ------------------------------------------
     // MARK: 📢 Notify Seek or Progress
-    // ────────────────
+    // ------------------------------------------
 
     let cachedSettings = null;
 
@@ -1570,10 +2019,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         }
     }
 
-    // ────────────────
-    // 🔧 Playlist Name Cache
+    // ------------------------------------------
     // MARK: 🔧 Playlist Name Cache
-    // ────────────────
+    // ------------------------------------------
 
     const playlistNameCache = new Map();
 
@@ -1625,179 +2073,13 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         });
     }
 
-    // ───────────────
-    // 🔧 Helpers
-    // MARK: 🔧 Helpers
-    // ────────────────
 
-    // Cache para evitar consultas repetidas al DOM
-    let cachedViewCount = null;
-    let viewCountCacheTime = 0;
-    const VIEW_CACHE_DURATION = 5000; // 5 segundos
-    let isResuming = false; // Evitar guardados durante la reanudación inicial
 
-    function getVideoInfo(player, vid) {
-        const vd = player.getVideoData() || {};
-        const title = vd.title || vid;
-        const author = vd.author || t('unknown');
-        const duration = player.getDuration?.() || 0;
-        let thumb = `https://i.ytimg.com/vi/${vid}/hqdefault.jpg`;
 
-        if (vd.thumbnail_url && typeof vd.thumbnail_url === 'object' && vd.thumbnail_url.url) {
-            thumb = vd.thumbnail_url.url;
-        }
 
-        // Recuperar el contador de vistas del video
-        let views = t('notAvailable');
-        const now = Date.now();
-        if (!cachedViewCount || (now - viewCountCacheTime) > VIEW_CACHE_DURATION) {
-            const viewCount = document.querySelector('.view-count');
-            if (viewCount) {
-                cachedViewCount = viewCount.textContent.trim();
-                viewCountCacheTime = now;
-            }
-        }
-        if (cachedViewCount) views = cachedViewCount;
-
-        const savedAt = now;
-        return { title, author, thumb, views, savedAt, duration };
-    }
-
-    const updateStatus = (player, videoEl, type, plId) => {
-        const vid = player.getVideoData()?.video_id;
-        if (!vid) return;
-
-        const currentTime = videoEl.currentTime;
-        const duration = videoEl.duration;
-        if (!duration || isNaN(currentTime) || currentTime < 1 || !isFinite(duration)) return;
-
-        // Evitar guardar progreso durante anuncios - cache playerEl
-        if (!videoEl._cachedPlayerEl) {
-            videoEl._cachedPlayerEl = videoEl.closest('#movie_player, .html5-video-player');
-        }
-        const playerEl = videoEl._cachedPlayerEl;
-
-        const adNow = isAdPlaying || (playerEl && !!playerEl.querySelector('.ytp-ad-player-overlay, .ytp-ad-text, .ytp-ad-image-overlay, .ytp-ad-skip-button-container, .ytp-ad-overlay-container'));
-
-        if (adNow) return; // Evitar guardar progreso durante anuncios
-        if (isResuming) return;  // Evitar guardar progreso durante la fase de reanudación inicial
-
-        const now = Date.now();
-
-        const finishThreshold = Math.min(duration * 0.01, CONFIG.staticFinishSec);
-        const isFinished = duration - currentTime < finishThreshold;
-
-        // Obtener datos guardados usando helper
-        const sourceData = getSavedVideoData(vid, plId);
-
-        if (sourceData && sourceData.forceResumeTime > 0) {
-            if (isFinished) {
-                log('updateStatus', `Video con tiempo fijo ${vid} completado. Marcando como completado MANTENIENDO tiempo fijo.`);
-
-                // Actualizar en el lugar correcto, MANTENIENDO forceResumeTime
-                if (plId) {
-                    const playlist = Storage.get(plId);
-                    if (playlist?.videos?.[vid]) {
-                        playlist.videos[vid] = {
-                            ...playlist.videos[vid],
-                            isCompleted: true,
-                            lastUpdated: now,
-                            timestamp: 0 // Limpiar timestamp pero mantener forceResumeTime
-                        };
-                        Storage.set(plId, playlist);
-                    }
-                } else {
-                    const existing = Storage.get(vid);
-                    if (existing) {
-                        Storage.set(vid, {
-                            ...existing,
-                            isCompleted: true,
-                            lastUpdated: now,
-                            timestamp: 0 // Limpiar timestamp pero mantener forceResumeTime
-                        });
-                    }
-                }
-            }
-            // No guardar progreso para videos con tiempo fijo (evita sobreescribir)
-            return;
-        }
-
-        // Guardar progreso normal
-        const info = getVideoInfo(player, vid);
-
-        if (plId) {
-            // Si está en una playlist, guardar SOLO dentro de la playlist.
-            const playlist = Storage.get(plId) || { lastWatchedVideoId: '', videos: {}, title: '' };
-            playlist.videos[vid] = {
-                timestamp: currentTime,
-                lastUpdated: now,
-                videoType: 'playlist',
-                isCompleted: isFinished,
-                ...info
-            };
-            playlist.lastWatchedVideoId = vid;
-            Storage.set(plId, playlist);
-
-            if (!playlist.title) {
-                getPlaylistName(plId).then(name => {
-                    const updatedPlaylist = Storage.get(plId);
-                    if (updatedPlaylist && !updatedPlaylist.title) {
-                        updatedPlaylist.title = name;
-                        Storage.set(plId, updatedPlaylist);
-                    }
-                });
-            }
-        } else {
-            // Si NO está en una playlist, guardar SOLO como video individual.
-            const singleData = {
-                timestamp: currentTime,
-                lastUpdated: now,
-                videoType: type,
-                isCompleted: isFinished,
-                ...info
-            };
-            Storage.set(vid, singleData);
-        }
-
-        notifySeekOrProgress(player, currentTime, 'progress', { videoType: type });
-    };
-
-    const resumePlayback = async (player, vid, videoEl, savedData, inPlaylist, plId, fromPlId, type) => {
-        if (!savedData) {
-            log('resumePlayback', '⚠️ No se encontró información para reanudar');
-            return;
-        }
-
-        let lastTime = savedData.timestamp;
-        let forceTime = savedData.forceResumeTime;
-        const resumeId = vid;
-        const timeToSeek = forceTime > 0 ? forceTime : lastTime;
-
-        log('resumePlayback', `🎬 Reanudando video ${resumeId} en ${timeToSeek}s (forceTime: ${forceTime}, inPlaylist: ${inPlaylist})`);
-
-        if (!timeToSeek || timeToSeek <= 1) {
-            log('resumePlayback', '⏩ No hay tiempo válido para reanudar');
-            return;
-        }
-
-        const waitForPlayer = () => {
-            if (player.getDuration() > 0) {
-                applySeek(player, videoEl, timeToSeek, {
-                    bypassMinDiff: true,
-                    isForced: forceTime > 0,
-                    type
-                });
-            } else {
-                setTimeout(waitForPlayer, 150);
-            }
-        };
-        waitForPlayer();
-    };
-
-    // ────────────────
-    // ▶ Process Video
+    // ------------------------------------------
     // MARK: ▶ Process Video
-    // ────────────────
+    // ------------------------------------------
 
     let isPlayerSeeking = false; // Para mensaje persistente
     let currentVideoEl = null;
@@ -1809,7 +2091,6 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     let currentTimeUpdateHandler = null; // Referencia al manejador actual para limpieza correcta
 
     const processVideo = async (container, player, videoEl) => {
-        // Si estamos navegando, omitimos el procesamiento de video antiguo
         if (isNavigating) {
             log('processVideo', 'Navegación en curso, omitiendo procesamiento de video antiguo.');
             return;
@@ -1820,33 +2101,33 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             return;
         }
 
-        const playerVid = player.getVideoData()?.video_id || container.getVideoData?.()?.video_id;
-        if (!playerVid) {
-            conError('processVideo', 'No se pudo obtener video_id del reproductor. Abortando.');
+        const url = new URL(location.href);
+        const plId = extractOrNormalizeVideoId(window.location.href)?.list;
+
+        // Normalización del video_id
+        let videoIdDetected = extractOrNormalizeVideoId(window.location.href)?.id;
+        log('processVideo', `URL del reproductor: ${url} | Video ID del reproductor: ${videoIdDetected}`)
+
+
+        if (!videoIdDetected) {
+            conError('processVideo', 'No se pudo determinar el video_id del reproductor ni de la URL.');
             return;
         }
 
-        // Si ya estamos procesando este video, salimos para evitar duplicados.
-        if (currentlyProcessingVideoId === playerVid) {
-            log('processVideo', `El video ${playerVid} ya está siendo procesado. Ignorando.`);
+        // Evitar reprocesar el mismo video
+        if (currentlyProcessingVideoId === videoIdDetected) {
+            log('processVideo', `El video ${videoIdDetected} ya está siendo procesado. Ignorando.`);
             return;
         }
-
-        // Marcamos este video como "en proceso"
-        currentlyProcessingVideoId = playerVid;
+        currentlyProcessingVideoId = videoIdDetected;
 
         try {
-            const currentUrl = location.href;
-            const url = new URL(currentUrl);
-            const urlVid = url.searchParams.get('v');
-            const plId = url.searchParams.get('list');
-
-            if (urlVid && urlVid !== playerVid) return;
-
-            // Detectar tipo
+            // Detección de tipo de video
             const isShort = url.pathname.startsWith('/shorts/') ||
                 (container.id === 'shorts-player' && container.closest('ytd-reel-video-renderer')) ||
                 (videoEl.classList.contains('reel-video-player-element') && container.closest('ytd-reel-video-renderer'));
+
+            log('processVideo', `Tipo de video: ${isShort ? 'short' : 'regular'}`);
 
             let type = 'regular';
             if (isShort) type = 'short';
@@ -1856,16 +2137,43 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             if ((type === 'regular' && !cachedSettings.saveRegularVideos) ||
                 (type === 'short' && !cachedSettings.saveShorts) ||
                 (type === 'live' && !cachedSettings.saveLiveStreams)) {
+                log('processVideo', `Tipo ${type} no está habilitado para guardado.`);
                 return;
             }
 
-            // Handler para guardar progreso
+            // Buscar datos guardados
+            let savedData = getSavedVideoData(videoIdDetected, plId);
+            log('processVideo', `Datos guardados: ${savedData}`);
+
+            if (!savedData && plId) {
+                // fallback por si se guardó sin lista
+                savedData = getSavedVideoData(videoIdDetected, null);
+            }
+
+            if (savedData && videoIdDetected !== lastResumeId) {
+                const shouldResume =
+                    savedData.forceResumeTime > 0 ||
+                    (savedData.timestamp > 10 && !savedData.isCompleted);
+
+                if (shouldResume) {
+                    isResuming = true;
+                    log('processVideo', `Reanudando ${videoIdDetected} (${type})...`);
+                    callResumeWithDelay(type, () => {
+                        resumePlayback(player, videoIdDetected, videoEl, savedData, Boolean(plId), plId, lastPlaylistId, type);
+                    });
+                    lastResumeId = videoIdDetected;
+                } else {
+                    isResuming = false;
+                }
+            }
+
+            // Configurar handler de guardado
             const handler = () => {
                 // Si estamos navegando, omitimos el guardado
                 if (isNavigating) return;
 
-                const currentVid = player.getVideoData()?.video_id;
-                if (currentVid !== playerVid) return; // Si el video ha cambiado, omitimos el guardado
+                const currentVid = player.getVideoData()?.video_id || videoIdDetected;
+                if (currentVid !== videoIdDetected) return; // Si el video ha cambiado, omitimos el guardado
 
                 if (isPlayerSeeking) {
                     isPlayerSeeking = false;
@@ -1888,11 +2196,11 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             }
 
             // Evitar reanudar mismo short varias veces
-            if (playerVid !== lastResumeId) {
-                log('processVideo', 'Procesando video:', { playerVid, type, plId });
+            if (videoIdDetected !== lastResumeId) {
+                log('processVideo', 'Procesando video:', { videoIdDetected, type, plId });
 
                 // Encontrar datos guardados usando helper
-                const savedData = getSavedVideoData(playerVid, plId);
+                const savedData = getSavedVideoData(videoIdDetected, plId);
 
                 if (savedData) {
                     // Establecer isResuming inmediatamente para bloquear cualquier guardado de progreso durante la reanudación.
@@ -1906,9 +2214,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                     if (savedData.forceResumeTime > 0) {
                         log('processVideo', 'Reanudando video con tiempo fijo.');
                         callResumeWithDelay(type, () => {
-                            resumePlayback(player, playerVid, videoEl, savedData, Boolean(plId), plId, lastPlaylistId, type);
+                            resumePlayback(player, videoIdDetected, videoEl, savedData, Boolean(plId), plId, lastPlaylistId, type);
                         });
-                        lastResumeId = playerVid;
+                        lastResumeId = videoIdDetected;
                     }
                     // Si no hay tiempo fijo, pero hay progreso y no está completado, reanudar desde el progreso.
                     else if (savedData.timestamp > 0 && !savedData.isCompleted) {
@@ -1916,9 +2224,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                         if (savedData.timestamp > 10) {
                             log('processVideo', 'Reanudando video con progreso normal.');
                             callResumeWithDelay(type, () => {
-                                resumePlayback(player, playerVid, videoEl, savedData, Boolean(plId), plId, lastPlaylistId, type);
+                                resumePlayback(player, videoIdDetected, videoEl, savedData, Boolean(plId), plId, lastPlaylistId, type);
                             });
-                            lastResumeId = playerVid;
+                            lastResumeId = videoIdDetected;
                         } else {
                             log('processVideo', `Progreso guardado (${savedData.timestamp}s) es muy corto; omitiendo reanudación.`);
                             isResuming = false; // No hay reanudación, permitir guardados
@@ -1931,181 +2239,155 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             currentTimeUpdateHandler = handler;
             videoEl.addEventListener('timeupdate', handler);
 
-            // Actualizar estados
+            // Actualizar estados globales
             currentVideoEl = videoEl;
-            lastUrl = currentUrl;
+            lastUrl = location.href;
             lastPlaylistId = plId;
 
         } catch (error) {
-            conError('processVideo', `Ocurrió un error inesperado al procesar el video ${playerVid}:`, error);
+            conError('processVideo', `Error al procesar el video ${videoIdDetected}:`, error);
         } finally {
-            // Usamos un timeout para limpiar el estado, asegurándonos de que el ID coincida
-            // para no limpiar el estado de un video que empezó a procesarse más tarde.
             setTimeout(() => {
                 currentlyProcessingVideoId = null;
-            }, 100); // Pequeño retraso para asegurar que el procesamiento se complete
+            }, 100);
         }
     };
 
-    // ────────────────
-    // ⏯ Seek
+
+    // ------------------------------------------
     // MARK: ⏯ Seek
-    // ────────────────
+    // ------------------------------------------
 
     const SEEK_TIMEOUT = 3000;
 
     const applySeek = async (player, videoEl, time, options = {}) => {
         const { bypassMinDiff = false, isForced = false, type = 'normal' } = options;
+        const TIMEOUT_MS = 5000; // Timeout máximo para el seek
+        const NEAR_THRESHOLD = 0.5; // Consideramos seek completado si estamos a menos de 0.5s
 
-        // Normalizar 'time'
-        if (typeof time !== 'number') {
-            if (typeof time === 'string') {
-                time = parseTimeToSeconds(time.trim());
-            } else {
-                warn('applySeek', 'Tipo de tiempo seek inválido:', time, '. Abortando.');
-                return;
-            }
-        }
-
-        log('applySeek', `Iniciando. Hacia: ${time}s, Forzado: ${isForced}, BypassMinDiff: ${bypassMinDiff}`);
-
-        if (!player || !videoEl) {
-            warn('applySeek', 'Player o videoEl no proporcionados. Abortando.');
+        if (!player && !videoEl) {
+            warn('applySeek', 'No se proporcionó player ni videoEl. Abortando.');
             return;
         }
 
-        // Evitar seeks innecesarios, PERO SOLO SI NO SE INDICA LO CONTRARIO
-        if (!bypassMinDiff) {
-            try {
-                const current = player.getCurrentTime();
-                const diff = Math.abs(current - time);
-                if (diff <= CONFIG.minSeekDiff) {
-                    log('applySeek', `Diferencia de tiempo (${diff}s) es mínima. Omitiendo seek.`);
-                    return;
-                }
-                log('applySeek', `Diferencia de tiempo (${diff}s) es significativa. Procederá con el seek.`);
-            } catch (e) {
-                conError('applySeek', 'Error al obtener el tiempo actual:', e);
+        // Normalizar tiempo
+        if (typeof time !== 'number') {
+            if (typeof time === 'string') time = parseTimeToSeconds(time.trim());
+            else {
+                warn('applySeek', 'Tiempo inválido:', time);
                 return;
             }
-        } else {
-            log('applySeek', 'Seek con bypass activado. Omitiendo comprobación de diferencia mínima.');
         }
 
-        // Seek asíncrono con múltiples métodos de detección
-        log('applySeek', 'Iniciando operación de seek asíncrona...');
-        await new Promise((resolve) => {
-            let timeoutId;
-            let checkInterval;
-            let seekCompleted = false;
+        log('applySeek', `Seek hacia ${time}s | Forzado: ${isForced} | BypassMinDiff: ${bypassMinDiff} | Tipo: ${type}`);
 
-            const cleanupSeek = () => {
-                clearTimeout(timeoutId);
-                clearInterval(checkInterval);
-                videoEl.removeEventListener('seeked', onSeeked);
-                videoEl.removeEventListener('timeupdate', onTimeUpdate);
-            };
+        // Verificar si el seek es necesario
+        try {
+            const current = videoEl?.currentTime ?? player?.getCurrentTime?.() ?? 0;
+            const diff = Math.abs(current - time);
+
+            if (!bypassMinDiff && diff <= CONFIG.minSeekDiff) {
+                log('applySeek', `Diferencia mínima (${diff}s). Omitiendo seek.`);
+                return;
+            }
+        } catch (e) {
+            warn('applySeek', 'Error al obtener tiempo actual:', e);
+        }
+
+        // Ejecutar el seek
+        try {
+            if (player?.seekTo) {
+                log('applySeek', `Usando player.seekTo(${time}, true)`);
+                player.seekTo(time, true);
+            } else if (videoEl) {
+                log('applySeek', `Asignando videoEl.currentTime = ${time}`);
+                videoEl.currentTime = time;
+            }
+        } catch (e) {
+            conError('applySeek', 'Error al ejecutar seek:', e);
+            return;
+        }
+
+        // Esperar confirmación del seek con respaldo múltiple y timeout
+        await new Promise(resolve => {
+            let seekCompleted = false;
 
             const completeSeek = () => {
                 if (!seekCompleted) {
                     seekCompleted = true;
-                    log('applySeek', 'Seek completado con éxito.');
-                    cleanupSeek();
-                    isResuming = false; // Finalizar la fase de reanudación
+                    log('applySeek', 'Seek completado.');
+                    cleanup();
                     resolve();
                 }
             };
 
+            const cleanup = () => {
+                clearInterval(checkInterval);
+                clearTimeout(timeoutId);
+                videoEl?.removeEventListener('seeked', onSeeked);
+                videoEl?.removeEventListener('timeupdate', onTimeUpdate);
+            };
+
             const onSeeked = () => {
-                log('applySeek', 'Evento "seeked" recibido.');
+                log('applySeek', 'Evento "seeked" detectado.');
                 completeSeek();
             };
 
-            // Método alternativo: verificar si el tiempo actual se acerca al tiempo objetivo
             const onTimeUpdate = () => {
                 try {
-                    const currentTime = player.getCurrentTime();
-                    const diff = Math.abs(currentTime - time);
-
-                    // Si la diferencia es muy pequeña, consideramos que el seek se completó
-                    if (diff < 0.5) {
-                        log('applySeek', `Seek detectado por timeupdate. Diferencia: ${diff}s`);
+                    const currentTime = videoEl?.currentTime ?? player?.getCurrentTime?.();
+                    if (Math.abs(currentTime - time) <= NEAR_THRESHOLD) {
+                        log('applySeek', `Seek detectado por timeupdate. Diferencia: ${Math.abs(currentTime - time)}s`);
                         completeSeek();
                     }
                 } catch (e) {
-                    // Ignorar errores en timeupdate
+                    // ignorar errores de lectura
                 }
             };
 
-            // Configurar el timeout principal
-            timeoutId = setTimeout(() => {
-                if (!seekCompleted) {
-                    warn('applySeek', `Timeout de ${SEEK_TIMEOUT}ms alcanzado. Verificando estado final...`);
-
-                    // Verificación final: comprobar si estamos cerca del tiempo objetivo
-                    try {
-                        const currentTime = player.getCurrentTime();
-                        const diff = Math.abs(currentTime - time);
-
-                        if (diff < 1.0) {
-                            log('applySeek', `El seek parece haberse completado. Diferencia final: ${diff}s`);
-                            completeSeek();
-                        } else {
-                            warn('applySeek', `El seek no parece haberse completado. Diferencia final: ${diff}s`);
-                            cleanupSeek();
-                            resolve();
-                        }
-                    } catch (e) {
-                        warn('applySeek', 'Error al verificar el estado final del seek:', e);
-                        cleanupSeek();
-                        resolve();
+            // Intervalo de verificación como respaldo
+            const checkInterval = setInterval(() => {
+                try {
+                    const currentTime = videoEl?.currentTime ?? player?.getCurrentTime?.();
+                    if (Math.abs(currentTime - time) <= NEAR_THRESHOLD) {
+                        log('applySeek', `Seek detectado por intervalo. Diferencia: ${Math.abs(currentTime - time)}s`);
+                        completeSeek();
                     }
+                } catch (e) {
+                    // ignorar
                 }
-            }, SEEK_TIMEOUT);
+            }, 200);
 
-            // Configurar un intervalo de verificación como respaldo
-            checkInterval = setInterval(() => {
-                if (!seekCompleted) {
-                    try {
-                        const currentTime = player.getCurrentTime();
-                        const diff = Math.abs(currentTime - time);
-
-                        // Si la diferencia es muy pequeña, consideramos que el seek se completó
-                        if (diff < 0.5) {
-                            log('applySeek', `Seek detectado por intervalo de verificación. Diferencia: ${diff}s`);
-                            completeSeek();
-                        }
-                    } catch (e) {
-                        // Ignorar errores en la verificación
-                    }
+            // Timeout final
+            const timeoutId = setTimeout(() => {
+                warn('applySeek', `Timeout de ${TIMEOUT_MS}ms alcanzado. Verificando estado final...`);
+                const currentTime = videoEl?.currentTime ?? player?.getCurrentTime?.();
+                const diff = Math.abs(currentTime - time);
+                if (diff <= 1.0) {
+                    log('applySeek', `Seek probablemente completado. Diferencia final: ${diff}s`);
+                } else {
+                    warn('applySeek', `Seek incompleto. Diferencia final: ${diff}s`);
                 }
-            }, 500);
+                completeSeek();
+            }, TIMEOUT_MS);
 
-            // Añadir los listeners de eventos
-            videoEl.addEventListener('seeked', onSeeked, { once: true });
-            videoEl.addEventListener('timeupdate', onTimeUpdate);
-
-            try {
-                log('applySeek', `Llamando a player.seekTo(${time}, true).`);
-                player.seekTo(time, true);
-            } catch (seekError) {
-                conError('applySeek', 'Falló la ejecución de player.seekTo:', seekError);
-                cleanupSeek();
-                resolve();
-            }
+            // Listeners de eventos
+            videoEl?.addEventListener('seeked', onSeeked, { once: true });
+            videoEl?.addEventListener('timeupdate', onTimeUpdate);
         });
 
-        // Mostrar mensaje en UI
+        // Notificación final
         const videoType = type === 'short' ? 'short' : 'normal';
         notifySeekOrProgress(player, time, 'seek', { isForced, videoType });
 
-        log('applySeek', 'applySeek completado.');
+        log('applySeek', 'applySeek finalizado.');
     };
 
-    // ────────────────
-    // 📂 Sort UI
+
+
+    // ------------------------------------------
     // MARK: 📂 Sort UI
-    // ────────────────
+    // ------------------------------------------
 
     function createSortSelector(currentValue, onChange) {
         const wrapper = document.createElement('div');
@@ -2122,10 +2404,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         return wrapper;
     }
 
-    // ────────────────
-    // 📂 Filters UI
+    // ------------------------------------------
     // MARK: 📂 Filters UI
-    // ────────────────
+    // ------------------------------------------
 
     function createFilterSelector(currentValue, onChange) {
         const wrapper = document.createElement('div');
@@ -2182,10 +2463,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         }
     }
 
-    // ───────────────
-    // 📂 Video List UI
+    // ------------------------------------------
     // MARK: 📂 Video List UI
-    // ────────────────
+    // ------------------------------------------
 
     let videosOverlay = null;
     let videosContainer = null;
@@ -2299,12 +2579,11 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         document.body.style.overflow = '';
     }
 
-    // ────────────────
-    // 🔘 Floating Button
+    // ------------------------------------------
     // MARK: 🔘 Floating Button
-    // ────────────────
+    // ------------------------------------------
 
-    const createFloatingButtons = async () => {
+    const createFloatingButton = async () => {
         const settings = await Settings.get();
 
         if (!settings.showFloatingButtons) return;
@@ -2323,10 +2602,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         updateVisibility();
     };
 
-    // ────────────────
-    // 📂 Show Saved Videos List
+    // ------------------------------------------
     // MARK: 📂 Show Saved Videos List
-    // ────────────────
+    // ------------------------------------------
 
     async function showSavedVideosList() {
         // Siempre cerrar el modal existente para asegurar un estado limpio
@@ -2486,10 +2764,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         updateVideoList();
     }
 
-    // ────────────────
-    // 📂 Video Entry
+    // ------------------------------------------
     // MARK: 📂 Video Entry
-    // ────────────────
+    // ------------------------------------------
 
     function createVideoEntry(videoId, info, playlistKey = null) {
         const isCompleted = info.isCompleted || false;
@@ -2505,7 +2782,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                 title: info.title || videoId,
                 loading: 'lazy',
                 alt: info.title || 'Miniatura',
-                src: info.thumb || `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+                src: info.thumb || getVideoThumbnail(videoId)
             },
             props: { draggable: false }
         });
@@ -2658,10 +2935,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         return wrapper;
     }
 
-    // ────────────────
-    // ⚙️ Settings UI
+    // ------------------------------------------
     // MARK: ⚙️ Settings UI
-    // ────────────────
+    // ------------------------------------------
 
     async function showSettingsUI() {
         if (document.querySelector('.settings-modal')) return;
@@ -2830,10 +3106,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         host.classList.add('settings-modal');
     }
 
-    // ───────────────
-    // ⚙️ Menu Commands
+    // ------------------------------------------
     // MARK: ⚙️ Menu Commands
-    // ────────────────
+    // ------------------------------------------
 
     // Función para registrar los comandos del menú con traducciones
     function registerMenuCommands() {
@@ -2856,118 +3131,100 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         });
     }
 
-    // ───────────────
-    // 📢 Ad Monitor
+    // ------------------------------------------
     // MARK: 📢 Ad Monitor
-    // ────────────────
+    // ------------------------------------------
 
     let isAdPlaying = false;
 
     function createAdMonitor(container, { onAdStart, onAdEnd } = {}) {
         const target = container.closest('#movie_player, .html5-video-player') || container;
 
-        // Cache selectors for better performance
-        const adSelectors = '.ytp-ad-player-overlay, .ytp-ad-text, .ytp-ad-image-overlay, .ytp-ad-skip-button-container, .ytp-ad-overlay-container';
+        // Selectores de anuncios
+        const adSelectors = [
+            '.ytp-ad-player-overlay',
+            '.ytp-ad-text',
+            '.ytp-ad-image-overlay',
+            '.ytp-ad-skip-button-container',
+            '.ytp-ad-overlay-container'
+        ].join(',');
+
+        let observer = null;
+        let debounceTimer = null;
+        let currentVideoEl = target.querySelector('video');
+
+        const getVideoEl = () => {
+            const video = target.querySelector('video');
+            if (video && video !== currentVideoEl) currentVideoEl = video;
+            return currentVideoEl;
+        };
 
         const isAd = () => !!target.querySelector(adSelectors);
         const isNormalControlsPresent = () => (
             !!target.querySelector('.ytp-chrome-bottom') &&
-            !target.querySelector('.ytp-ad-player-overlay, .ytp-ad-skip-button-container, .ytp-ad-overlay-container')
+            !target.querySelector(adSelectors)
         );
 
-        let observer = null;
-        let debounceTimer = null;
+        const checkState = () => {
+            const videoEl = getVideoEl();
+            if (!videoEl) return;
+
+            const adNow = isAd();
+            const normalNow = isNormalControlsPresent();
+
+            // Cambio de estado de anuncio
+            if (adNow !== isAdPlaying) {
+                isAdPlaying = adNow;
+                if (isAdPlaying) {
+                    log('adMonitor', '⏹ Anuncio iniciado.');
+                    onAdStart?.();
+                } else {
+                    log('adMonitor', '✅ Anuncio finalizado.');
+                    onAdEnd?.();
+                }
+            }
+
+            // Video listo sin anuncios
+            if (!adNow && normalNow && !isAdPlaying && videoEl.readyState > 2) {
+                if (!observer._hasCalledOnEnd) {
+                    observer._hasCalledOnEnd = true;
+                    log('adMonitor', '🟢 Video listo sin anuncios; reanudando.');
+                    onAdEnd?.();
+                }
+            }
+        };
+
+        const debouncedCheck = () => {
+            if (debounceTimer) return;
+            debounceTimer = setTimeout(() => {
+                debounceTimer = null;
+                checkState();
+            }, 50);
+        };
 
         const start = () => {
             stop();
             log('adMonitor', 'Iniciando monitoreo de anuncios.');
 
-            // Evaluar el estado del anuncio ahora que el reproductor está renderizado
+            // Estado inicial
             isAdPlaying = isAd();
-            const normalNow = isNormalControlsPresent();
-            if (isAdPlaying && normalNow) {
-                log('adMonitor', '⚠️ Corrección: se detectó anuncio pero ya hay controles normales; tratando como sin anuncios.');
-                isAdPlaying = false;
-            }
-
-            // Verificación inmediata: si no hay anuncios y los controles están presentes, verificar duración del video
-            if (!isAdPlaying && normalNow) {
-                const videoEl = target.querySelector('video');
-                const duration = videoEl?.duration || 0;
-
-                // Solo procesar inmediatamente si el video ya tiene duración válida (indica que no hay anuncio cargándose)
-                if (duration > 60) {
-                    log('adMonitor', '🟢 Sin anuncios detectados inicialmente; reanudando inmediatamente.');
-                    setTimeout(() => {
-                        onAdEnd?.();
-                    }, 50);
-                } else {
-                    // Duración no disponible aún, esperar a que se cargue (posible anuncio cargándose)
-                    log('adMonitor', '⏳ Duración no disponible aún, esperando carga completa...');
-                    // Limpiar mensaje de la barra durante el anuncio
-                    clearPlaybackBarMessage();
-                    // El observer detectará cuando esté listo
+            if (isAdPlaying) {
+                onAdStart?.();
+            } else {
+                // Si no hay anuncios pero video listo
+                const videoEl = getVideoEl();
+                if (videoEl?.readyState > 2) {
+                    setTimeout(() => onAdEnd?.(), 50);
                 }
             }
 
-            // Manejador con retardo para reducir las verificaciones excesivas     
-            const debouncedCheck = () => {
-                if (debounceTimer) return;
-
-                debounceTimer = setTimeout(() => {
-                    debounceTimer = null;
-
-                    const adNow = isAd();
-                    const normalNow = isNormalControlsPresent();
-
-                    if (adNow !== isAdPlaying) {
-                        isAdPlaying = adNow;
-                        if (isAdPlaying) {
-                            log('adMonitor', '⏹ Anuncio iniciado.');
-                            onAdStart?.();
-                        } else {
-                            log('adMonitor', '✅ Anuncio finalizado.');
-                            onAdEnd?.();
-                        }
-                    }
-
-                    // Si no hay anuncio y reaparecen los controles normales, asegurar el fin inmediato
-                    if (!adNow && normalNow && isAdPlaying) {
-                        log('adMonitor', '🟢 Controles normales detectados; fin de anuncio confirmado.');
-                        isAdPlaying = false;
-                        onAdEnd?.();
-                    }
-
-                    // Si no hay anuncio, controles presentes, y video tiene duración válida, procesar
-                    if (!adNow && normalNow && !isAdPlaying) {
-                        if (!observer._hasCalledOnEnd) {
-                            const videoEl = target.querySelector('video');
-                            const duration = videoEl?.duration || 0;
-
-                            if (duration > 60) {
-                                log('adMonitor', '🟢 Video listo sin anuncios; reanudando.');
-                                observer._hasCalledOnEnd = true;
-                                onAdEnd?.();
-                            }
-                        }
-                    }
-                }, 30);
-            };
-
             observer = new MutationObserver(debouncedCheck);
-
-            // Observación más objetivo - solo vigilar cambios de clase en el target, no todo el subtree
             observer.observe(target, {
                 attributes: true,
                 attributeFilter: ['class'],
                 childList: true,
-                subtree: false
+                subtree: true // ahora observa cambios profundos para detectar reemplazo de video
             });
-
-            // Estado inicial: solo iniciar si ya hay un anuncio presente
-            if (isAdPlaying) {
-                onAdStart?.();
-            }
         };
 
         const stop = () => {
@@ -2983,22 +3240,23 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         };
 
         const getStatus = () => isAdPlaying;
+
         return { start, stop, getStatus };
     }
 
-    // ────────────────
-    // 🎥 Observer Regular Player
+
+    // ------------------------------------------
     // MARK: 🎥 Observer Regular Player
-    // ────────────────
+    // ------------------------------------------
 
     function observePlayer() {
-        // Si ya estamos en shorts, no continuar
+        // Si ya estamos en Shorts, no continuar (será manejado por observeShorts)
         if (location.pathname.startsWith('/shorts/')) {
             log('observePlayer', 'Página de Shorts detectada, deteniendo observación del reproductor regular.');
             return;
         }
 
-        // Función mejorada para verificar si estamos en una página de video
+        // Verificar si estamos en una página de video
         const isVideoPage = () => {
             // Verificar si la URL contiene un parámetro 'v' (ID de video)
             const urlParams = new URLSearchParams(location.search);
@@ -3016,17 +3274,15 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             return (hasVideoId && (isWatchPage || isEmbedPage)) || (hasPlayer && hasVideoId);
         };
 
-        // Si no estamos en una página de video, salir
         if (!isVideoPage()) {
             log('observePlayer', 'No estamos en una página de video válida. Saliendo del observador.');
             return;
         }
 
         stopChecking(); // Limpiar cualquier intervalo existente
-
         let adMonitor = null;
         let attempts = 0;
-        const maxAttempts = 20;
+        const maxAttempts = 30;
         const checkDelay = 500;
         const selectors = ['#movie_player', '.html5-video-player', '.html5-video-container'];
 
@@ -3034,66 +3290,59 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             attempts++;
             log('observePlayer', `Intento ${attempts} de encontrar el reproductor de video.`);
 
-            // Verificar si aún estamos en una página de video válida
             if (!isVideoPage()) {
                 log('observePlayer', 'Ya no estamos en una página de video válida, deteniendo observación.');
                 stopChecking();
                 return false;
             }
 
-            // Intentar encontrar el reproductor con diferentes selectores
             for (const selector of selectors) {
                 const container = document.querySelector(selector);
                 if (!container) continue;
-
                 const videoEl = container.querySelector('video');
-                if (!videoEl || videoEl.offsetWidth < 400) continue;
+                if (!videoEl || videoEl.offsetWidth < 200) continue;
 
                 const player = getPlayerInstance(container);
-                if (player && videoEl.src) {
+                if (player && typeof player.getVideoData === 'function' && player.getVideoData()?.video_id) {
                     handleFoundPlayer(container, player, videoEl);
+                    observer.disconnect();
+                    stopChecking();
                     return true;
                 }
             }
 
-            // Si después de varios intentos no encontramos el reproductor, intentar con fallback
-            if (attempts >= 10) tryFallback();
+            if (attempts >= 12) tryFallback();
 
-            // Si alcanzamos el máximo de intentos, detener la búsqueda
             if (attempts >= maxAttempts) {
                 log('observePlayer', 'Máximo de intentos alcanzado sin encontrar el reproductor.');
                 stopChecking();
-                return false;
+                observer.disconnect();
             }
-
             return false;
         };
 
         const getPlayerInstance = (container) => {
-            // Intentar obtener la instancia del reproductor de diferentes maneras
             if (window.yt?.player?.Application?.instances_?.length) {
                 return window.yt.player.Application.instances_.slice(-1)[0];
             }
             return container.player_ || container;
         };
 
+        log('observePlayer', 'Intentando encontrar el reproductor de video... player:', player)
+
         const handleFoundPlayer = (container, player, videoEl) => {
-            log('handleFoundPlayer', 'Reproductor encontrado');
+            log('handleFoundPlayer', '✅ Reproductor encontrado');
 
             if (!regularPlayerInitialized) {
                 log('init', 'Reproductor regular inicializado.');
                 regularPlayerInitialized = true;
             }
 
-            // Detener cualquier monitoreo de anuncios existente
-            if (adMonitor) {
-                adMonitor.stop();
-            }
+            if (adMonitor) adMonitor.stop();
 
-            // Ahora crear el nuevo adMonitor
             adMonitor = createAdMonitor(container, {
                 onAdStart: () => {
-                    log('⏸ Anuncio detectado, pausando acciones hasta que finalize.');
+                    log('⏸ Anuncio detectado, pausando acciones hasta que finalice.');
                     isAdPlaying = true;
                 },
                 onAdEnd: () => {
@@ -3104,32 +3353,19 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             });
 
             adMonitor.start();
-            // Dejamos que el adMonitor controle el flujo; detenemos la búsqueda para evitar reinicios mientras dure el anuncio
-            stopChecking();
         };
 
         const tryFallback = () => {
             const videos = document.querySelectorAll('video');
             for (const videoEl of videos) {
-                if (videoEl.offsetWidth < 400) continue;
-
+                if (videoEl.offsetWidth < 200) continue;
                 if (videoEl.src?.includes('youtube.com') || videoEl.src?.includes('googlevideo.com')) {
                     log('tryFallback', 'Video encontrado mediante fallback.');
-                    let container = videoEl;
-                    let depth = 0;
-                    while (container && container !== document.body && depth < 10) {
-                        if (container.classList?.contains('ad-showing')) break;
-                        if (
-                            container.id === 'movie_player' ||
-                            container.classList?.contains('html5-video-player') ||
-                            container.classList?.contains('ytd-player')
-                        ) {
-                            const player = getPlayerInstance(container);
-                            handleFoundPlayer(container, player, videoEl);
-                            return true;
-                        }
-                        container = container.parentElement;
-                        depth++;
+                    let container = videoEl.closest('#movie_player, .html5-video-player, .ytd-player') || videoEl.parentElement;
+                    if (container) {
+                        const player = getPlayerInstance(container);
+                        handleFoundPlayer(container, player, videoEl);
+                        return true;
                     }
                 }
             }
@@ -3141,11 +3377,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                 if (typeof player.getVideoData === 'function') {
                     processVideo(container, player, videoEl);
                 } else {
-                    log('observePlayer', 'Reproductor no estándar, intentando alternativa.');
                     tryAlternativePlayer(container, videoEl);
                 }
-            }, 100); // 100ms delay para que el anuncio termine 
-            stopChecking();
+            }, 150);
         };
 
         const tryAlternativePlayer = (container, videoEl) => {
@@ -3167,180 +3401,132 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             }
         };
 
-        // Observador del DOM para detectar cambios
-        const observer = new MutationObserver(() => {
-            if (findPlayer()) {
-                observer.disconnect();
-            }
-        });
-
-        observer.observe(document.body, { childList: true, subtree: true });
-
-        // Fallback con polling por compatibilidad
-        playerCheckInterval = setInterval(() => {
-            if (findPlayer()) {
-                observer.disconnect();
-            }
-        }, checkDelay);
+        // Esperar un poco antes de empezar la búsqueda (clave para Shorts -> Watch)
+        const observer = new MutationObserver(() => findPlayer());
+        setTimeout(() => {
+            observer.observe(document.body, { childList: true, subtree: true });
+            playerCheckInterval = setInterval(findPlayer, checkDelay);
+            log('observePlayer', '⏳ Observando el DOM para detectar el reproductor...');
+        }, 400);
     }
 
-    // ────────────────
-    // 📱 Shorts Observer
+
+    // ------------------------------------------
     // MARK: 📱 Shorts Observer
-    // ────────────────
+    // ------------------------------------------
 
     // Función para observar cambios en los shorts (VERSIÓN OPTIMIZADA)
-    const observeShorts = () => {
-        // Verificar si estamos en una página de shorts
+    function observeShorts() {
+        // Solo ejecutar en Shorts
         if (!location.pathname.startsWith('/shorts/')) {
             log('observeShorts', 'No estamos en una página de Shorts. Saliendo del observador.');
             return;
         }
 
-        // Verificar si el guardado de Shorts está desactivado en la configuración
-        if (!cachedSettings.saveShorts) {
-            log('observeShorts', 'El guardado de Shorts está desactivado en la configuración. Saliendo del observador.');
-            return;
-        }
+        stopChecking(); // Limpiar cualquier intervalo existente
 
-        stopChecking(); // Limpiar intervalo anterior si existe
+        let adMonitor = null;
+        let attempts = 0;
+        const maxAttempts = 30;
+        const checkDelay = 500;
 
-        log('init', 'Detectada página de Shorts, iniciando observación optimizada.');
-        regularPlayerInitialized = false;
+        const findShortsPlayer = () => {
+            attempts++;
+            log('observeShorts', `Intento ${attempts} de encontrar el reproductor de Shorts.`);
 
-        let lastSeenShortId = null;
-        let isProcessing = false;
-        let mutationObserver = null;
-        let intersectionObserver = null;
-
-        const processShort = (activeShort) => {
-            if (isProcessing || !activeShort) return;
-
-            const videoEl = activeShort.querySelector('video');
-            if (!videoEl) return;
-
-            // Intentar obtener el objeto del reproductor de forma robusta
-            let player = null;
-            if (window.yt?.player?.getPlayerByElement) {
-                player = window.yt.player.getPlayerByElement(videoEl);
+            // Salir si dejamos de estar en Shorts
+            if (!location.pathname.startsWith('/shorts/')) {
+                log('observeShorts', 'Ya no estamos en Shorts, deteniendo observación.');
+                stopChecking();
+                return false;
             }
 
-            if (!player) {
-                const shortPlayerEl = activeShort.querySelector('#shorts-player');
-                if (shortPlayerEl?.getVideoData) {
-                    player = shortPlayerEl;
+            const container = document.querySelector('ytd-shorts-player, .html5-video-player, video');
+            if (container) {
+                const videoEl = container.tagName === 'VIDEO' ? container : container.querySelector('video');
+                if (videoEl && videoEl.offsetWidth >= 200) {
+                    handleFoundShorts(container, videoEl);
+                    observer.disconnect();
+                    stopChecking();
+                    return true;
                 }
             }
 
-            if (player && !isAdPlaying) {
-                const videoData = player.getVideoData();
-                if (videoData?.video_id && videoData.video_id !== lastSeenShortId) {
-                    log('observeShorts', `Nuevo Short detectado: ${videoData.video_id}`);
+            // Fallback después de varios intentos
+            if (attempts >= 12) tryFallback();
 
-                    const isFirstShort = !lastSeenShortId;
-                    lastSeenShortId = videoData.video_id;
-                    isProcessing = true;
-
-                    // Process immediately for first detection, then use idle callback for subsequent
-                    const processCallback = () => {
-                        try {
-                            processVideo(activeShort, player, videoEl);
-                        } catch (error) {
-                            conError('observeShorts', 'Error al procesar short:', error);
-                        } finally {
-                            isProcessing = false;
-                        }
-                    };
-
-                    // First short: process immediately. Others: defer to idle time
-                    if (isFirstShort) {
-                        setTimeout(processCallback, 50); // Fast initial response
-                    } else if (window.requestIdleCallback) {
-                        requestIdleCallback(processCallback, { timeout: 100 });
-                    } else {
-                        setTimeout(processCallback, 80);
-                    }
-                }
+            // Máximo de intentos
+            if (attempts >= maxAttempts) {
+                log('observeShorts', 'Máximo de intentos alcanzado sin encontrar Shorts.');
+                stopChecking();
+                observer.disconnect();
             }
+
+            return false;
         };
 
-        // Use IntersectionObserver to detect active shorts (more efficient than polling)
-        intersectionObserver = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
-                    const activeShort = entry.target;
-                    if (activeShort.hasAttribute('is-active')) {
-                        processShort(activeShort);
-                    }
+        const handleFoundShorts = (container, videoEl) => {
+            log('handleFoundShorts', '✅ Reproductor de Shorts encontrado');
+
+            if (adMonitor) adMonitor.stop();
+
+            adMonitor = createAdMonitor(container, {
+                onAdStart: () => {
+                    log('⏸ Anuncio detectado en Shorts, pausando acciones.');
+                    isAdPlaying = true;
+                },
+                onAdEnd: () => {
+                    log('▶️ Monitor de anuncios en Shorts finalizado, reanudando.');
+                    isAdPlaying = false;
+                    processShortsVideo(videoEl, container);
                 }
             });
-        }, {
-            threshold: [0.5, 1.0],
-            rootMargin: '0px'
-        });
 
-        // Use MutationObserver to watch for new shorts being added
-        mutationObserver = new MutationObserver((mutations) => {
-            mutations.forEach(mutation => {
-                mutation.addedNodes.forEach(node => {
-                    if (node.nodeType === 1 && node.matches?.('ytd-reel-video-renderer')) {
-                        intersectionObserver.observe(node);
-                    }
-                });
-            });
-
-            // Also check for is-active attribute changes
-            const activeShort = document.querySelector('ytd-reel-video-renderer[is-active]');
-            if (activeShort) {
-                processShort(activeShort);
-            }
-        });
-
-        // Start observing
-        const shortsContainer = document.querySelector('ytd-shorts');
-        if (shortsContainer) {
-            mutationObserver.observe(shortsContainer, {
-                childList: true,
-                subtree: true,
-                attributes: true,
-                attributeFilter: ['is-active']
-            });
-
-            // Observe existing shorts
-            shortsContainer.querySelectorAll('ytd-reel-video-renderer').forEach(short => {
-                intersectionObserver.observe(short);
-            });
-        }
-
-        // Initial check with responsive polling as fallback
-        const initialCheck = () => {
-            const activeShort = document.querySelector('ytd-reel-video-renderer[is-active]');
-            processShort(activeShort);
+            adMonitor.start();
         };
 
-        initialCheck();
-
-        // Aggressive initial polling that slows down: 200ms, 400ms, 800ms, then stops
-        let pollCount = 0;
-        const pollIntervals = [200, 400, 800]; // Progressive backoff
-
-        const schedulePoll = () => {
-            if (pollCount < pollIntervals.length) {
-                playerCheckInterval = setTimeout(() => {
-                    initialCheck();
-                    pollCount++;
-                    schedulePoll();
-                }, pollIntervals[pollCount]);
+        const tryFallback = () => {
+            const videos = document.querySelectorAll('video');
+            for (const videoEl of videos) {
+                if (videoEl.offsetWidth < 200) continue;
+                log('tryFallback', 'Video encontrado mediante fallback en Shorts.');
+                let container = videoEl.closest('ytd-shorts-player, .html5-video-player') || videoEl.parentElement;
+                if (container) {
+                    handleFoundShorts(container, videoEl);
+                    return true;
+                }
             }
+            return false;
         };
 
-        schedulePoll();
-    };
+        const processShortsVideo = (videoEl, container) => {
+            setTimeout(() => {
+                const simplifiedPlayer = {
+                    getVideoData: () => ({
+                        video_id: new URL(videoEl.src || videoEl.currentSrc, location.origin).searchParams.get('v') || 'unknown'
+                    }),
+                    getCurrentTime: () => videoEl.currentTime,
+                    getDuration: () => videoEl.duration,
+                    play: () => videoEl.play(),
+                    pause: () => videoEl.pause()
+                };
+                processVideo(container, simplifiedPlayer, videoEl);
+            }, 150);
+        };
 
-    // ────────────────
-    // 🖐 handleNavigation
+        // Observador del DOM + polling
+        const observer = new MutationObserver(() => findShortsPlayer());
+        setTimeout(() => {
+            observer.observe(document.body, { childList: true, subtree: true });
+            playerCheckInterval = setInterval(findShortsPlayer, checkDelay);
+            log('observeShorts', '⏳ Observando el DOM de Shorts...');
+        }, 400);
+    }
+
+
+    // ------------------------------------------
     // MARK: 🖐 handleNavigation
-    // ────────────────
+    // ------------------------------------------
 
     const handleNavigation = () => {
         const currentUrl = location.href;
@@ -3379,10 +3565,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         }, 100);
     };
 
-    // ────────────────
-    // 🧹 cleanupAll
+    // ------------------------------------------
     // MARK: 🧹 cleanupAll
-    // ────────────────
+    // ------------------------------------------
 
     // Función para limpiar todos los observadores y estados
     const cleanupAll = () => {
@@ -3413,8 +3598,8 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         lastPlaylistId = null;
         isResuming = false;
         lastResumeId = null;
-        cachedViewCount = null;
-        viewCountCacheTime = 0;
+
+
 
         log('cleanupAll', 'Estados internos reseteados');
 
@@ -3448,10 +3633,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         log('cleanupAll', 'Limpieza completa realizada');
     };
 
-    // ────────────────
-    // 🚀 Init
+    // ------------------------------------------
     // MARK: 🚀 Init
-    // ────────────────
+    // ------------------------------------------
 
     // ------------------ showInitRetryToast ------------------
     function showInitRetryToast(failedModules, observerTasks) {
@@ -3569,7 +3753,19 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             conError('init', '❌ Error al cargar settings o establecer idioma:', error);
         }
 
-        // --- 3️⃣ Registrar comandos e inyectar estilos ---
+        // --- 3️⃣ Normalizar almacenamiento ---
+        try {
+            if (typeof normalizeYouTubeStorageKeys === 'function') {
+                normalizeYouTubeStorageKeys();
+                log('init', '🧹 Storage normalizado correctamente.');
+            } else {
+                warn('init', '⚠️ normalizeYouTubeStorageKeys no definida aún.');
+            }
+        } catch (err) {
+            conError('init', '❌ Error al normalizar Storage:', err);
+        }
+
+        // --- 4️⃣ Registrar comandos e inyectar estilos ---
         try {
             registerMenuCommands();
             injectStyles();
@@ -3577,24 +3773,19 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             conError('init', '❌ Error al registrar menú o inyectar estilos:', error);
         }
 
-        // --- 4️⃣ Inicializar observadores con reintento ---
+        // --- 5️⃣ Inicializar observadores con reintento ---
         const observerTasks = [
             { name: 'observeShorts', fn: observeShorts },
             { name: 'observePlayer', fn: observePlayer },
-            { name: 'createFloatingButtons', fn: createFloatingButtons }
+            { name: 'createFloatingButton', fn: createFloatingButton }
         ];
 
         const results = await Promise.allSettled(
             observerTasks.map(o => retry(o.fn, 3, 1500, o.name))
         );
 
-        const failed = results
-            .map((r, i) => ({ ...r, name: observerTasks[i].name }))
-            .filter(r => r.status === 'rejected');
-
-        const succeeded = results
-            .map((r, i) => ({ ...r, name: observerTasks[i].name }))
-            .filter(r => r.status === 'fulfilled');
+        const failed = results.filter(r => r.status === 'rejected');
+        const succeeded = results.filter(r => r.status === 'fulfilled');
 
         if (failed.length > 0) {
             conError('init', `Fallaron ${failed.length} de ${results.length} inicializaciones`, failed);
@@ -3608,13 +3799,12 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             failed: failed.map(f => ({ name: f.name, reason: f.reason?.message || f.reason }))
         });
 
-        // --- 5️⃣ Eventos de navegación con debounce ---
+        // --- 6️⃣ Eventos de navegación con debounce ---
         const debouncedNavigation = debounce(handleNavigation, 50);
-
         window.addEventListener('yt-navigate-finish', debouncedNavigation);
         window.addEventListener('popstate', debouncedNavigation);
 
-        // --- 6️⃣ Cleanup antes de descargar la página ---
+        // --- 7️⃣ Limpieza antes de descargar la página ---
         window.addEventListener('beforeunload', cleanupAll);
 
         log('init', '✨ Script completamente inicializado');

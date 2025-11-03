@@ -344,7 +344,8 @@
             "viewAllHistory": "View all history",
             "viewCompletedVideos": "View completed videos",
             "completed": "Completed",
-            "completedVideos": "Completed videos"
+            "completedVideos": "Completed videos",
+            "views": "Views"
         },
         "en-US": {
             "settings": "Settings",
@@ -413,7 +414,8 @@
             "viewAllHistory": "View all history",
             "viewCompletedVideos": "View completed videos",
             "completed": "Completed",
-            "completedVideos": "Completed videos"
+            "completedVideos": "Completed videos",
+            "views": "Views"
         },
         "es-ES": {
             "settings": "Configuración",
@@ -482,7 +484,8 @@
             "viewAllHistory": "Ver todo el historial",
             "viewCompletedVideos": "Ver videos completados",
             "completed": "Completado",
-            "completedVideos": "Videos completados"
+            "completedVideos": "Videos completados",
+            "views": "Vistas"
         },
         "es-419": {
             "settings": "Configuración",
@@ -551,7 +554,8 @@
             "viewAllHistory": "Ver todo el historial",
             "viewCompletedVideos": "Ver videos completados",
             "completed": "Completado",
-            "completedVideos": "Videos completados"
+            "completedVideos": "Videos completados",
+            "views": "Vistas"
         },
         "ca": {
             "settings": "Configuració",
@@ -620,7 +624,8 @@
             "viewAllHistory": "Veure tot l'historial",
             "viewCompletedVideos": "Veure vídeos completats",
             "completed": "Completat",
-            "completedVideos": "Vídeos completats"
+            "completedVideos": "Vídeos completats",
+            "views": "Vistes"
         },
         "fr": {
             "settings": "Paramètres",
@@ -689,7 +694,8 @@
             "viewAllHistory": "Voir tout l'historique",
             "viewCompletedVideos": "Voir les vidéos terminées",
             "completed": "Terminé",
-            "completedVideos": "Vidéos terminées"
+            "completedVideos": "Vidéos terminées",
+            "views": "Vues"
         },
         "de": {
             "settings": "Einstellungen",
@@ -758,7 +764,8 @@
             "viewAllHistory": "Gesamten Verlauf anzeigen",
             "viewCompletedVideos": "Abgeschlossene Videos anzeigen",
             "completed": "Abgeschlossen",
-            "completedVideos": "Abgeschlossene Videos"
+            "completedVideos": "Abgeschlossene Videos",
+            "views": "Aufrufe"
         },
         "it": {
             "settings": "Impostazioni",
@@ -827,7 +834,8 @@
             "viewAllHistory": "Visualizza tutta la cronologia",
             "viewCompletedVideos": "Visualizza video completati",
             "completed": "Completato",
-            "completedVideos": "Video completati"
+            "completedVideos": "Video completati",
+            "views": "Viste"
         },
         "pt": {
             "settings": "Configurações",
@@ -896,7 +904,8 @@
             "viewAllHistory": "Ver todo o histórico",
             "viewCompletedVideos": "Ver vídeos concluídos",
             "completed": "Concluído",
-            "completedVideos": "Vídeos concluídos"
+            "completedVideos": "Vídeos concluídos",
+            "views": "Visualizações"
         },
         "nl": {
             "settings": "Instellingen",
@@ -965,7 +974,8 @@
             "viewAllHistory": "Bekijk alle geschiedenis",
             "viewCompletedVideos": "Bekijk voltooide video's",
             "completed": "Voltooid",
-            "completedVideos": "Voltooide video's"
+            "completedVideos": "Voltooide video's",
+            "views": "Keer"
         },
         "pl": {
             "settings": "Ustawienia",
@@ -1034,7 +1044,8 @@
             "viewAllHistory": "Zobacz całą historię",
             "viewCompletedVideos": "Zobacz ukończone wideo",
             "completed": "Ukończone",
-            "completedVideos": "Ukończone wideo"
+            "completedVideos": "Ukończone wideo",
+            "views": "Widoki"
         },
         "sv": {
             "settings": "Inställningar",
@@ -1103,7 +1114,8 @@
             "viewAllHistory": "Visa all historik",
             "viewCompletedVideos": "Visa slutförda videor",
             "completed": "Slutförd",
-            "completedVideos": "Slutförda videor"
+            "completedVideos": "Slutförda videor",
+            "views": "Visningar"
         },
         "da": {
             "settings": "Indstillinger",
@@ -1172,7 +1184,8 @@
             "viewAllHistory": "Se al historik",
             "viewCompletedVideos": "Se afsluttede videoer",
             "completed": "Afsluttet",
-            "completedVideos": "Afsluttede videoer"
+            "completedVideos": "Afsluttede videoer",
+            "views": "Visninger"
         },
         "no": {
             "settings": "Innstillinger",
@@ -1241,7 +1254,8 @@
             "viewAllHistory": "Se all historikk",
             "viewCompletedVideos": "Se fullførte videoer",
             "completed": "Fullført",
-            "completedVideos": "Fullførte videoer"
+            "completedVideos": "Fullførte videoer",
+            "views": "Visninger"
         },
         "fi": {
             "settings": "Asetukset",
@@ -1310,7 +1324,8 @@
             "viewAllHistory": "Näytä koko historia",
             "viewCompletedVideos": "Näytä valmiit videot",
             "completed": "Valmis",
-            "completedVideos": "Valmiit videot"
+            "completedVideos": "Valmiit videot",
+            "views": "Näyttökerrat"
         },
         "cs": {
             "settings": "Nastavení",
@@ -1379,7 +1394,8 @@
             "viewAllHistory": "Zobrazit celou historii",
             "viewCompletedVideos": "Zobrazit dokončená videa",
             "completed": "Dokončeno",
-            "completedVideos": "Dokončená videa"
+            "completedVideos": "Dokončená videa",
+            "views": "Zobrazení"
         },
         "sk": {
             "settings": "Nastavenia",
@@ -1448,7 +1464,8 @@
             "viewAllHistory": "Zobraziť celú históriu",
             "viewCompletedVideos": "Zobraziť dokončené videá",
             "completed": "Dokončené",
-            "completedVideos": "Dokončené videá"
+            "completedVideos": "Dokončené videá",
+            "views": "Zobrazenia"
         },
         "hu": {
             "settings": "Beállítások",
@@ -1517,7 +1534,8 @@
             "viewAllHistory": "Összes előzmény megtekintése",
             "viewCompletedVideos": "Befejezett videók megtekintése",
             "completed": "Befejezett",
-            "completedVideos": "Befejezett videók"
+            "completedVideos": "Befejezett videók",
+            "views": "Megtekintések"
         },
         "ro": {
             "settings": "Setări",
@@ -1586,7 +1604,8 @@
             "viewAllHistory": "Vizualizați tot istoricul",
             "viewCompletedVideos": "Vizualizați videoclipuri finalizate",
             "completed": "Finalizat",
-            "completedVideos": "Videoclipuri finalizate"
+            "completedVideos": "Videoclipuri finalizate",
+            "views": "Vizualizări"
         },
         "bg": {
             "settings": "Настройки",
@@ -1655,7 +1674,8 @@
             "viewAllHistory": "Преглед на цялата история",
             "viewCompletedVideos": "Преглед на завършени видеа",
             "completed": "Завършен",
-            "completedVideos": "Завършени видеа"
+            "completedVideos": "Завършени видеа",
+            "views": "Преглеждания"
         },
         "el": {
             "settings": "Ρυθμίσεις",
@@ -1724,7 +1744,8 @@
             "viewAllHistory": "Προβολή όλης της ιστορίας",
             "viewCompletedVideos": "Προβολή ολοκληρωμένων βίντεο",
             "completed": "Ολοκληρώθηκε",
-            "completedVideos": "Ολοκληρωμένα βίντεο"
+            "completedVideos": "Ολοκληρωμένα βίντεο",
+            "views": "Προβολές"
         },
         "sr": {
             "settings": "Подешавања",
@@ -1793,7 +1814,8 @@
             "viewAllHistory": "Прикажи целу историју",
             "viewCompletedVideos": "Прикажи завршене видео снимке",
             "completed": "Завршено",
-            "completedVideos": "Завршени видео снимци"
+            "completedVideos": "Завршени видео снимци",
+            "views": "Прегледи"
         },
         "hr": {
             "settings": "Postavke",
@@ -1862,7 +1884,8 @@
             "viewAllHistory": "Prikaži svu povijest",
             "viewCompletedVideos": "Prikaži dovršene videozapise",
             "completed": "Dovršeno",
-            "completedVideos": "Dovršeni videozapisi"
+            "completedVideos": "Dovršeni videozapisi",
+            "views": "Pregledi"
         },
         "sl": {
             "settings": "Nastavitve",
@@ -1931,7 +1954,8 @@
             "viewAllHistory": "Prikaži vso zgodovino",
             "viewCompletedVideos": "Prikaži končane videoposnetke",
             "completed": "Končano",
-            "completedVideos": "Končani videoposnetki"
+            "completedVideos": "Končani videoposnetki",
+            "views": "Ogledi"
         },
         "lt": {
             "settings": "Nustatymai",
@@ -2000,7 +2024,8 @@
             "viewAllHistory": "Peržiūrėti visą istoriją",
             "viewCompletedVideos": "Peržiūrėti baigtus vaizdo įrašus",
             "completed": "Baigta",
-            "completedVideos": "Baigti vaizdo įrašai"
+            "completedVideos": "Baigti vaizdo įrašai",
+            "views": "Peržiūros"
         },
         "lv": {
             "settings": "Iestatījumi",
@@ -2069,7 +2094,8 @@
             "viewAllHistory": "Skatīt visu vēsturi",
             "viewCompletedVideos": "Skatīt pabeigtos video",
             "completed": "Pabeigts",
-            "completedVideos": "Pabeigti video"
+            "completedVideos": "Pabeigti video",
+            "views": "Skatījumi"
         },
         "uk": {
             "settings": "Налаштування",
@@ -2138,7 +2164,8 @@
             "viewAllHistory": "Переглянути всю історію",
             "viewCompletedVideos": "Переглянути завершені відео",
             "completed": "Завершено",
-            "completedVideos": "Завершені відео"
+            "completedVideos": "Завершені відео",
+            "views": "Перегляди"
         },
         "ru": {
             "settings": "Настройки",
@@ -2207,7 +2234,8 @@
             "viewAllHistory": "Посмотреть всю историю",
             "viewCompletedVideos": "Посмотреть завершенные видео",
             "completed": "Завершено",
-            "completedVideos": "Завершенные видео"
+            "completedVideos": "Завершенные видео",
+            "views": "Просмотры"
         },
         "tr": {
             "settings": "Ayarlar",
@@ -2276,7 +2304,8 @@
             "viewAllHistory": "Tüm geçmişi görüntüle",
             "viewCompletedVideos": "Tamamlanmış videoları görüntüle",
             "completed": "Tamamlandı",
-            "completedVideos": "Tamamlanmış videolar"
+            "completedVideos": "Tamamlanmış videolar",
+            "views": "Görüntülemeler"
         },
         "ar": {
             "settings": "الإعدادات",
@@ -2345,7 +2374,8 @@
             "viewAllHistory": "عرض كل السجل",
             "viewCompletedVideos": "عرض الفيديوهات المكتملة",
             "completed": "مكتمل",
-            "completedVideos": "الفيديوهات المكتملة"
+            "completedVideos": "الفيديوهات المكتملة",
+            "views": "المشاهدات"
         },
         "fa": {
             "settings": "تنظیمات",
@@ -2414,7 +2444,8 @@
             "viewAllHistory": "مشاهده تمام تاریخچه",
             "viewCompletedVideos": "مشاهده ویدیوهای تکمیل شده",
             "completed": "تکمیل شده",
-            "completedVideos": "ویدیوهای تکمیل شده"
+            "completedVideos": "ویدیوهای تکمیل شده",
+            "views": "بازدیدها"
         },
         "he": {
             "settings": "הגדרות",
@@ -2483,7 +2514,8 @@
             "viewAllHistory": "צפה בכל ההיסטוריה",
             "viewCompletedVideos": "צפה בסרטונים שהושלמו",
             "completed": "הושלם",
-            "completedVideos": "סרטונים שהושלמו"
+            "completedVideos": "סרטונים שהושלמו",
+            "views": "צפיות"
         },
         "hi": {
             "settings": "सेटिंग्स",
@@ -2552,7 +2584,8 @@
             "viewAllHistory": "सभी इतिहास देखें",
             "viewCompletedVideos": "पूर्ण वीडियो देखें",
             "completed": "पूर्ण",
-            "completedVideos": "पूर्ण वीडियो"
+            "completedVideos": "पूर्ण वीडियो",
+            "views": "दृश्य"
         },
         "bn": {
             "settings": "সেটিংস",
@@ -2621,7 +2654,8 @@
             "viewAllHistory": "সমস্ত ইতিহাস দেখুন",
             "viewCompletedVideos": "সম্পন্ন ভিডিও দেখুন",
             "completed": "সম্পন্ন",
-            "completedVideos": "সম্পন্ন ভিডিও"
+            "completedVideos": "সম্পন্ন ভিডিও",
+            "views": "দর্শন"
         },
         "te": {
             "settings": "సెట్టింగులు",
@@ -2690,7 +2724,8 @@
             "viewAllHistory": "అన్ని చరిత్రలను చూడండి",
             "viewCompletedVideos": "పూర్తయిన వీడియోలను చూడండి",
             "completed": "పూర్తయింది",
-            "completedVideos": "పూర్తయిన వీడియోలు"
+            "completedVideos": "పూర్తయిన వీడియోలు",
+            "views": "వ్యూస్"
         },
         "ta": {
             "settings": "அமைப்புகள்",
@@ -2759,7 +2794,8 @@
             "viewAllHistory": "அனைத்து வரலாற்றையும் காட்டு",
             "viewCompletedVideos": "முடிந்த வீடியோக்களைக் காட்டு",
             "completed": "முடிந்தது",
-            "completedVideos": "முடிந்த வீடியோக்கள்"
+            "completedVideos": "முடிந்த வீடியோக்கள்",
+            "views": "காண்வுகள்"
         },
         "mr": {
             "settings": "सेटिंग्ज",
@@ -2828,7 +2864,8 @@
             "viewAllHistory": "सर्व इतिहास पहा",
             "viewCompletedVideos": "पूर्ण झालेले व्हिडिओ पहा",
             "completed": "पूर्ण झाले",
-            "completedVideos": "पूर्ण झालेले व्हिडिओ"
+            "completedVideos": "पूर्ण झालेले व्हिडिओ",
+            "views": "दृश्य"
         },
         "zh": {
             "settings": "设置",
@@ -2897,7 +2934,8 @@
             "viewAllHistory": "查看所有历史记录",
             "viewCompletedVideos": "查看已完成的视频",
             "completed": "已完成",
-            "completedVideos": "已完成的视频"
+            "completedVideos": "已完成的视频",
+            "views": "观看次数"
         },
         "zh-TW": {
             "settings": "設定",
@@ -2966,7 +3004,8 @@
             "viewAllHistory": "查看全部歷史紀錄",
             "viewCompletedVideos": "查看已完成影片",
             "completed": "已完成",
-            "completedVideos": "已完成的影片"
+            "completedVideos": "已完成的影片",
+            "views": "觀看次數"
         },
         "yue": {
             "settings": "設定",
@@ -3035,7 +3074,8 @@
             "viewAllHistory": "睇晒所有歷史記錄",
             "viewCompletedVideos": "睇晒完成嘅影片",
             "completed": "完成",
-            "completedVideos": "完成嘅影片"
+            "completedVideos": "完成嘅影片",
+            "views": "觀看次數"
         },
         "zh-HK": {
             "settings": "設定",
@@ -3104,7 +3144,8 @@
             "viewAllHistory": "檢視所有紀錄",
             "viewCompletedVideos": "檢視已完成影片",
             "completed": "已完成",
-            "completedVideos": "已完成影片"
+            "completedVideos": "已完成影片",
+            "views": "觀看次數"
         },
         "ja": {
             "settings": "設定",
@@ -3173,7 +3214,8 @@
             "viewAllHistory": "すべての履歴を表示",
             "viewCompletedVideos": "完了した動画を表示",
             "completed": "完了",
-            "completedVideos": "完了した動画"
+            "completedVideos": "完了した動画",
+            "views": "再生回数"
         },
         "ko": {
             "settings": "설정",
@@ -3242,7 +3284,8 @@
             "viewAllHistory": "모든 기록 보기",
             "viewCompletedVideos": "완료된 동영상 보기",
             "completed": "완료됨",
-            "completedVideos": "완료된 동영상"
+            "completedVideos": "완료된 동영상",
+            "views": "조회수"
         },
         "th": {
             "settings": "การตั้งค่า",
@@ -3311,7 +3354,8 @@
             "viewAllHistory": "ดูประวัติทั้งหมด",
             "viewCompletedVideos": "ดูวิดีโอที่เสร็จสิ้น",
             "completed": "เสร็จสิ้น",
-            "completedVideos": "วิดีโอที่เสร็จสิ้น"
+            "completedVideos": "วิดีโอที่เสร็จสิ้น",
+            "views": "ยอดวิว"
         },
         "vi": {
             "settings": "Cài đặt",
@@ -3380,7 +3424,8 @@
             "viewAllHistory": "Xem tất cả lịch sử",
             "viewCompletedVideos": "Xem video đã hoàn thành",
             "completed": "Đã hoàn thành",
-            "completedVideos": "Video đã hoàn thành"
+            "completedVideos": "Video đã hoàn thành",
+            "views": "Lượt xem"
         },
         "id": {
             "settings": "Pengaturan",
@@ -3449,7 +3494,8 @@
             "viewAllHistory": "Lihat semua riwayat",
             "viewCompletedVideos": "Lihat video yang selesai",
             "completed": "Selesai",
-            "completedVideos": "Video yang selesai"
+            "completedVideos": "Video yang selesai",
+            "views": "Tayangan"
         },
         "ms": {
             "settings": "Tetapan",
@@ -3518,7 +3564,8 @@
             "viewAllHistory": "Lihat semua sejarah",
             "viewCompletedVideos": "Lihat video yang selesai",
             "completed": "Selesai",
-            "completedVideos": "Video yang selesai"
+            "completedVideos": "Video yang selesai",
+            "views": "Tontonan"
         },
         "tl": {
             "settings": "Mga Setting",
@@ -3587,7 +3634,8 @@
             "viewAllHistory": "Tingnan ang lahat ng kasaysayan",
             "viewCompletedVideos": "Tingnan ang mga kumpletong video",
             "completed": "Kumpleto",
-            "completedVideos": "Mga kumpletong video"
+            "completedVideos": "Mga kumpletong video",
+            "views": "Mga view"
         },
         "my": {
             "settings": "ဆက်တင်များ",
@@ -3656,7 +3704,8 @@
             "viewAllHistory": "အားလုံးသော သမိုင်းကို ကြည့်ပါ",
             "viewCompletedVideos": "ပြီးစီးသော ဗီဒီယိုများကို ကြည့်ပါ",
             "completed": "ပြီးစီးပါပြီ",
-            "completedVideos": "ပြီးစီးသော ဗီဒီယိုများ"
+            "completedVideos": "ပြီးစီးသော ဗီဒီယိုများ",
+            "views": "ကြည့်ရှုမှု"
         },
         "sw": {
             "settings": "Mipangilio",
@@ -3725,7 +3774,8 @@
             "viewAllHistory": "Ona historia yote",
             "viewCompletedVideos": "Ona video zilizokamilishwa",
             "completed": "Imekamilishwa",
-            "completedVideos": "Video zilizokamilishwa"
+            "completedVideos": "Video zilizokamilishwa",
+            "views": "Maoni"
         },
         "am": {
             "settings": "ማስተካከያ",
@@ -3794,7 +3844,8 @@
             "viewAllHistory": "ሁሉንም ታሪክ አሳይ",
             "viewCompletedVideos": "የተከፈቱ ቪዲዮዎችን አሳይ",
             "completed": "ተከፈለ",
-            "completedVideos": "የተከፈቱ ቪዲዮዎች"
+            "completedVideos": "የተከፈቱ ቪዲዮዎች",
+            "views": "እይታዎች"
         },
         "ha": {
             "settings": "Saituna",
@@ -3863,7 +3914,8 @@
             "viewAllHistory": "Duba dukkan tarihi",
             "viewCompletedVideos": "Daga bidiyo da aka kammala",
             "completed": "An gama",
-            "completedVideos": "Bidiyo da aka kammala"
+            "completedVideos": "Bidiyo da aka kammala",
+            "views": "Kallunan kallo"
         },
         "ur": {
             "settings": "ترتیبات",
@@ -3932,7 +3984,8 @@
             "viewAllHistory": "تمام تاریخ دیکھیں",
             "viewCompletedVideos": "مکمل ہونے والی ویڈیوز دیکھیں",
             "completed": "مکمل ہوگیا",
-            "completedVideos": "مکمل ہونے والی ویڈیوز"
+            "completedVideos": "مکمل ہونے والی ویڈیوز",
+            "views": "مناظر"
         },
         "zu": {
             "settings": "Izilungiselelo",
@@ -4001,7 +4054,8 @@
             "viewAllHistory": "Buka konke izibalo zomlando",
             "viewCompletedVideos": "Buka amavidiyo aqediwe",
             "completed": "Akuqedile",
-            "completedVideos": "Amavidiyo aqediwe"
+            "completedVideos": "Amavidiyo aqediwe",
+            "views": "Ukubukwa"
         }
     }
 }

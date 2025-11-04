@@ -1108,25 +1108,92 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     // MARK: 🔧 Utils
     // ------------------------------------------
 
-    const formatTime = (seconds) => {
-        if (typeof seconds !== 'number' || isNaN(seconds)) {
-            conError('Valor de segundos no válido:', seconds);
+    // MARK: 🔧 Formateo de Tiempo
+    /**
+    * Formatea un valor de tiempo (en segundos o string) a un string en formato "MM:SS" o "HH:MM:SS".
+    *
+    * @param {number|string} input - Valor de tiempo a formatear.
+    * @returns {string} - String con el tiempo formateado.
+    * Ejemplos:
+    * formatTime(65)         // "01:05"
+    * formatTime("5:30")     // "05:30"
+    * formatTime("1:05:30")  // "01:05:30"
+    * formatTime("invalid")  // "00:00"
+    */
+    const formatTime = (input) => {
+        let seconds;
+
+        // Si es un número, lo usa directamente
+        if (typeof input === 'number' && !isNaN(input)) {
+            seconds = input;
+        }
+        // Si es un string, intenta convertirlo
+        else if (typeof input === 'string') {
+            // Maneja formatos como "5:30" o "05:30"
+            if (input.includes(':')) {
+                const parts = input.split(':').map(part => parseInt(part, 10));
+
+                // Si es MM:SS
+                if (parts.length === 2) {
+                    seconds = parts[0] * 60 + parts[1];
+                }
+                // Si es HH:MM:SS
+                else if (parts.length === 3) {
+                    seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
+                } else {
+                    conError('Formato de tiempo no válido:', input);
+                    return '00:00';
+                }
+            }
+            // Intenta convertir directamente a número
+            else {
+                seconds = parseFloat(input);
+            }
+        }
+        // Caso por defecto
+        else {
+            conError('Valor de entrada no válido:', input);
             return '00:00';
         }
 
-        const date = new Date(seconds * 1000);
-
-        // Comprueba si es una fecha válida
-        if (isNaN(date.getTime())) {
-            warn('Objeto de fecha no válido para:', seconds);
+        // Validación final
+        if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) {
+            conError('Valor de segundos no válido:', input);
             return '00:00';
         }
 
-        const iso = date.toISOString();
-        const time = iso.slice(11, 19);
-        return time.startsWith('00:') ? time.slice(3) : time;
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        const secs = Math.floor(seconds % 60);
+
+        return hours > 0
+            ? `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+            : `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
     };
 
+    /**
+    * Parsea un string de tiempo en formato "MM:SS" o "HH:MM:SS" a segundos.
+    *
+    * @param {string} timeStr - String con el tiempo en formato "MM:SS" o "HH:MM:SS".
+    * @returns {number} Número de segundos correspondiente al string. Retorna 0 si el formato es inválido.
+    *
+    * @example
+    * // Formato MM:SS → minutos y segundos
+    * parseTimeToSeconds("5:30");      // → 330
+    *
+    * @example
+    * // Formato HH:MM:SS → horas, minutos y segundos
+    * parseTimeToSeconds("1:05:30");   // → 3930
+    *
+    * @example
+    * // Formato inválido → 0
+    * parseTimeToSeconds("invalid");   // → 0
+    *
+    * @example
+    * // Cadena vacía o no string → 0
+    * parseTimeToSeconds("");          // → 0
+    * parseTimeToSeconds(null);        // → 0
+    */
     const parseTimeToSeconds = (timeStr) => {
         if (typeof timeStr !== 'string' || !timeStr.includes(':')) return 0;
 
@@ -1141,6 +1208,35 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         return 0;
     };
 
+    /**
+    * Normaliza un valor de tiempo a segundos.
+    *
+    * @param {number|string} value - Valor de tiempo a normalizar.
+    *                              Puede ser un número (ya en segundos)
+    *                              o una cadena en formato "SS", "MM:SS" o "HH:MM:SS".
+    * @returns {number} Número de segundos (0 si el valor es inválido o no existe).
+    *
+    * @example
+    * // Número directo → devuelve el mismo número
+    * normalizeSeconds(65);        // → 65
+    *
+    * @example
+    * // "MM:SS" → minutos y segundos
+    * normalizeSeconds("5:30");    // → 330
+    *
+    * @example
+    * // "HH:MM:SS" → horas, minutos y segundos
+    * normalizeSeconds("1:05:30"); // → 3930
+    *
+    * @example
+    * // Sin argumento o null → 0
+    * normalizeSeconds();          // → 0
+    * normalizeSeconds(null);      // → 0
+    *
+    * @example
+    * // Valor inválido → 0
+    * normalizeSeconds("invalid"); // → 0
+    */
     const normalizeSeconds = (value) => {
         if (!value) return 0;
         if (typeof value === 'number') return value;
@@ -1148,7 +1244,13 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         return 0;
     };
 
-    // Función para asignar HTML de forma segura para compatibilidad con Trusted Types (Chrome)
+    // MARK: 🔧 SetInnerHTML
+    /**
+    * Asigna HTML de forma segura para compatibilidad con Trusted Types (Chrome)
+    *
+    * @param {HTMLElement} element - Elemento HTML al que se le asignará el HTML.
+    * @param {string} html - HTML a asignar en su innerHTML.
+    */
     function setInnerHTML(element, html) {
         if (window.trustedTypes && window.trustedTypes.createPolicy) {
             try {
@@ -1166,6 +1268,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         }
     }
 
+    // MARK: 🔧 Crear Elemento
     /**
     * Crea un elemento HTML con varias opciones de configuración.
     * 
@@ -1240,17 +1343,26 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         return el;
     }
 
+    // MARK: 🔧 Detener Verificación
+    /**
+    * Detiene el intervalo de verificación del reproductor.
+    */
     const stopChecking = () => {
+        log('stopChecking', 'Deteniendo intervalo de verificación del reproductor');
+        log('stopChecking', `Intervalo actual: ${playerCheckInterval}`);
         if (playerCheckInterval) {
             clearInterval(playerCheckInterval);
             playerCheckInterval = null;
+            log('stopChecking', 'Intervalo detenido correctamente');
+            log('stopChecking', `Intervalo final: ${playerCheckInterval}`)
         }
     };
 
     // ------------------------------------------
-    // MARK: 🔧 Helpers
+    // MARK: 📺 Helpers
     // ------------------------------------------
 
+    // MARK: 📺 Obtiene datos guardados de un video
     /**
     * Obtiene datos guardados de un video, intentando todas las combinaciones posibles.
     * Soporta tanto videos individuales como en playlist.
@@ -1260,6 +1372,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     * @returns {Object|null} - Datos guardados o null si no se encuentra
     */
     function getSavedVideoData(videoId, playlistId = null) {
+        log('getSavedVideoData', `Buscando datos guardados para ID: ${videoId} | Playlist ID: ${playlistId}`);
         if (!videoId) return null;
 
         // Si hay playlistId, intenta primero dentro de la playlist
@@ -1283,6 +1396,10 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         return null;
     }
 
+    // MARK: 📺 Normaliza las claves de almacenamiento de YouTube
+    /**
+    * Normaliza las claves de almacenamiento de YouTube.
+    */
     function normalizeYouTubeStorageKeys() {
         if (typeof Storage?.keys !== 'function') {
             conError('normalizeYouTubeStorageKeys', 'Storage.keys() no disponible.');
@@ -1312,6 +1429,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         log('normalizeYouTubeStorageKeys', `🔁 Normalización completa. ${changes} claves migradas.`);
     }
 
+    // MARK: 📺 Llama a resumePlayback con delay 
     /**
     * Llama a resumePlayback con el delay apropiado según el tipo
     * @param {string} type - Tipo de video ('short', 'regular', 'live')
@@ -1324,6 +1442,46 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         } else {
             resumeFn();
         }
+    }
+
+    // ------------------------------------------
+    // MARK: 📺 Get Video Element
+    // ------------------------------------------
+
+    // Helper para encontrar el <video> actual
+    function getActiveVideoElement() {
+        let video =
+            // Shorts principales
+            document.querySelector('ytd-reel-video-renderer #short-video-container ytd-player div.html5-video-container video') ||
+            // Shorts alternativos (feed o layouts distintos)
+            document.querySelector('ytd-reel-video-renderer video.reel-video-player-element, ytd-shorts video.html5-main-video') ||
+            // Videos regulares y shorts
+            document.querySelector('#movie_player video.html5-main-video, .html5-video-player video.html5-main-video') ||
+            // Videos regulares y shorts, sin falsos positivos ya que existen dos <video> en el DOM
+            document.querySelector('video:not(video-preview-container[data-no-fullscreen])') ||
+            // Fallback genérico, puede dar falsos positivos regresando uno inactivo
+            document.querySelector('video');
+        return video;
+    }
+
+    // ------------------------------------------
+    // MARK: 📺 Get Container
+    // ------------------------------------------
+
+    // Helper para encontrar el <container> actual
+    function getActiveContainer() {
+        return (
+            // Shorts
+            document.querySelector('ytd-reel-video-renderer') || // Único en DOM
+            document.querySelector('#reel-video-renderer') || // Único en DOM (es id de item ytd-reel-video-renderer)
+            document.querySelector('ytd-shorts') || // Único en DOM
+            document.querySelector('#shorts-container') || // Único en DOM
+            // Video normal
+            document.querySelector('#player-container-inner #player-container #movie_player') || // Único en DOM
+            document.querySelector('#movie_player') || // Único en DOM
+            document.querySelector('.html5-video-player:not(#inline-preview-player)') || // Más de uno en DOM, excluye variante
+            document.querySelector('video:not([data-no-fullscreen])') // Más de uno en DOM, excluye variante
+        );
     }
 
 
@@ -1343,11 +1501,13 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         for (const sel of metaSelectors) {
             const el = document.querySelector(sel);
             const t = el?.content || el?.title;
+            log('getVideoTittle', `Título encontrado en meta tag: ${t}`);
             if (t) return t;
         }
 
         // Fallback a JSON incrustado
         const title = window.ytInitialPlayerResponse?.videoDetails?.title;
+        log('getVideoTittle', `Título encontrado en JSON incrustado: ${title}`);
         if (title != null) return title;
 
         /* 
@@ -1380,35 +1540,33 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         */
 
         const videoData = player.getVideoData();
+        log('getVideoTittle', `Título encontrado en player.getVideoData(): ${videoData?.title}`);
         if (videoData != null) return videoData.title;
 
         // Fallback al DOM
-        const titleFromDOM = getVideoTitleFromDOM();
-        if (titleFromDOM != null) return titleFromDOM;
-
-        // Fallback al <title> del documento, limpiando "- YouTube"
-        const docTitle = document.title.replace(/ - YouTube$/, '');
-        return docTitle || t('unknown');
-    }
-
-    function getVideoTitleFromDOM() {
-        const selectors = [
+        const DOMSelectors = [
             'ytd-watch-metadata h1 yt-formatted-string',
             'h1.ytd-watch-metadata yt-formatted-string',
             '#title h1 yt-formatted-string',
             'h1 yt-formatted-string',
             '#title h1',
-            'h1.title',
-            'h2 span.yt-core-attributed-string' // entrega el nombre pero si existe traducción activa devuelve esa version, No original.
+            'h1.title'
+            //'h2 span.yt-core-attributed-string' // entrega el nombre pero si existe traducción activa devuelve esa version, No original.
         ];
 
-        for (const sel of selectors) {
+        for (const sel of DOMSelectors) {
             const el = document.querySelector(sel);
-            if (el?.textContent) return el.textContent.trim();
+            const t = el?.textContent.trim();
+            log('getVideoTittle', `Título encontrado en DOM: ${t}`);
+            if (t) return t;
         }
 
-        return null; // No encontró título en el DOM
+        // Fallback al <title> del documento, limpiando "- YouTube"
+        const docTitle = document.title.replace(/ - YouTube$/, '');
+        log('getVideoTittle', `Título encontrado en <title>: ${docTitle}`);
+        return docTitle || t('unknown');
     }
+
 
     // ------------------------------------------
     // MARK: 📺 Get Thumbnail
@@ -1480,7 +1638,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     // Cache por video
     const viewCountCache = new Map();
 
-    function getVideoInfo(player, videoId) {
+    async function getVideoInfo(player, videoId) {
         const now = Date.now();
 
         // Título y autor por defecto
@@ -1512,15 +1670,28 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         }
         let viewsMsg = `${viewsNumber} ${t('views')}`;
 
-        const duration = player.getDuration?.() || 0;
+        // Duración
+        let duration =
+            player.getDuration?.() != null ? player.getDuration?.() : // 275.421
+                document.querySelector('#movie_player')?.getDuration?.() || // 275.421
+                /* document.querySelector('.ytp-time-duration').textContent || */ // "4:35" -> parseTimeToSeconds -> 275.421 PERO puede perder decimales "3:55" -> parseTimeToSeconds -> 235 cuando debiesen haber sido (en este ejemplo) 235.741
+                /* document.querySelector('meta[itemprop="duration"]')?.content || */ // "PT4M35S"
+                0;
 
-        let channelID;
+        log('🕕 duration player.getDuration', player.getDuration?.())
+        log('🕕 duration movie_player', document.querySelector('#movie_player')?.getDuration?.())
+        duration = normalizeSeconds(duration);
+        log('🕕 duration tras normalizeSeconds =', duration)
+
+        // Autor ID (Channel ID)
+        let authorId;
         const videoDetailsChannelID = window.ytInitialPlayerResponse?.videoDetails?.channelId;
         if (videoDetailsChannelID != null) {
-            channelID = videoDetailsChannelID;
+            authorId = videoDetailsChannelID;
         } else {
-            channelID =
+            authorId =
                 // Videos regulares
+                document.querySelector('#upload-info a.yt-simple-endpoint')?.href?.split('/channel/')[1] ||
                 document.querySelector('a.ytp-ce-channel-title.ytp-ce-link')?.href?.split('/channel/')[1] ||
                 document.querySelector('#items yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
                 document.querySelector('#infocard-channel-button yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
@@ -1531,6 +1702,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                 t('unknown');
         }
 
+        // Caché de views
         const cached = viewCountCache.get(videoId);
         if (!cached || (now - cached.time) > 5000) {
             viewCountCache.set(videoId, { views: viewsNumber, time: now });
@@ -1539,25 +1711,25 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             viewsMsg = `${viewsNumber} ${t('views')}`;
         }
 
-        log('getVideoInfo', 'Info Obtenida:', { title, author, thumb, viewsNumber, viewsMsg, savedAt: now, duration, channelID })
-        return { title, author, thumb, viewsNumber, viewsMsg, savedAt: now, duration, channelID };
+        log('getVideoInfo', 'Info Obtenida:', { title, author, thumb, viewsNumber, savedAt: now, duration, authorId, videoId })
+        return { title, author, thumb, viewsNumber, savedAt: now, duration, authorId, videoId };
     }
 
     // ------------------------------------------
-    // MARK: Extraer Video ID
+    // MARK: 📺 Extraer Video ID
     // ------------------------------------------
 
     /**
-  * Extrae o normaliza un video ID de YouTube desde URL, embed o ID directo.
-  * Soporta:
-  *  - URLs normales: watch?v=ID
-  *  - Shorts: /shorts/ID
-  *  - Short URLs: youtu.be/ID
-  *  - Embeds: /embed/ID
-  *  - IDs directos
-  * @param {string} input - URL completa o ID de video.
-  * @returns {string|null} - Video ID o null si no se pudo determinar.
-  */
+    * Extrae o normaliza un video ID de YouTube desde URL, embed o ID directo.
+    * Soporta:
+    *  - URLs normales: watch?v=ID
+    *  - Shorts: /shorts/ID
+    *  - Short URLs: youtu.be/ID
+    *  - Embeds: /embed/ID
+    *  - IDs directos
+    * @param {string} input - URL completa o ID de video.
+    * @returns {string|null} - Video ID o null si no se pudo determinar.
+    */
     function extractOrNormalizeVideoId(input) {
         if (!input || typeof input !== 'string') return null;
         const trimmed = input.trim();
@@ -1616,7 +1788,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     // ------------------------------------------
 
     const updateStatus = (player, videoEl, type, plId) => {
-        // 🔹 Obtener el ID desde URL
+        // Obtener el ID desde URL
         const url = location.href;
         let video_id = extractOrNormalizeVideoId(url)?.id;
         log('updateStatus', `URL del reproductor: ${url} | Video ID Extraido: ${video_id}`)
@@ -1648,8 +1820,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         const finishThreshold = Math.min(duration * 0.01, CONFIG.staticFinishSec);
         const isFinished = duration - currentTime < finishThreshold;
 
-        // 🔹 Buscar progreso previo
+        // Buscar progreso previo
         const sourceData = getSavedVideoData(video_id, plId);
+        log('updateStatus', `Datos guardados encontrados para ${video_id}:`, sourceData);
 
         if (sourceData && sourceData.forceResumeTime > 0) {
             if (isFinished) {
@@ -1674,7 +1847,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             return;
         }
 
-        // 🔹 Guardar progreso normal
+        // Guardar progreso normal
         const info = getVideoInfo(player, video_id);
         const singleData = {
             timestamp: currentTime,
@@ -1701,11 +1874,13 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             }
         } else {
             Storage.set(video_id, singleData);
+            log('updateStatus', `Datos guardados para ${video_id}:`, singleData);
         }
 
         notifySeekOrProgress(player, currentTime, 'progress', { videoType: type });
     };
 
+    // MARK: 📺 Reanudar reproducción
     const resumePlayback = async (player, vid, videoEl, savedData, inPlaylist, plId, fromPlId, type) => {
         vid = extractOrNormalizeVideoId(vid)?.id;
         if (!savedData || !vid) {
@@ -1737,6 +1912,8 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         };
         waitForPlayer();
     };
+
+
 
 
 
@@ -1971,7 +2148,8 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 
         // Bloquear notificación de progreso si hay tiempo fijo
         if (context === 'progress') {
-            const videoId = player.getVideoData()?.video_id;
+            const videoId = /* player.getVideoData()?.video_id ||*/ extractOrNormalizeVideoId(location.href)?.id;
+            log('notifySeekOrProgress', 'Video ID:', videoId)
             if (videoId) {
                 const videoData = getSavedVideoData(videoId);
                 if (videoData?.forceResumeTime > 0) {
@@ -2090,7 +2268,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     let currentlyProcessingVideoId = null;
     let currentTimeUpdateHandler = null; // Referencia al manejador actual para limpieza correcta
 
-    const processVideo = async (container, player, videoEl) => {
+    /* const processVideo = async (container, player, videoEl) => {
         if (isNavigating) {
             log('processVideo', 'Navegación en curso, omitiendo procesamiento de video antiguo.');
             return;
@@ -2251,14 +2429,170 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                 currentlyProcessingVideoId = null;
             }, 100);
         }
+    }; */
+
+
+
+    const processVideo = async (player, videoEl) => {
+
+        log('processVideo', `Llegando a processVideo con player: ${player.getDuration?.()} | videoEl: ${videoEl}`);
+        /*  log('processVideo', `Llegando a processVideo con player: ${Object.keys(player)}`); */
+        log('processVideo', `Llegando a processVideo con videoEl: ${videoEl.tagName}`);
+
+        console.log('processVideo', {
+            player: player ? {
+                keys: Object.keys(player),
+                type: typeof player
+            } : null,
+            videoElement: {
+                tagName: videoEl.tagName,
+                src: videoEl.src,
+                attributes: Array.from(videoEl.attributes).map(attr => attr.name)
+            }
+        });
+
+        log('processVideo', `isNavigating: ${isNavigating}`);
+        log('processVideo', `isResuming: ${isResuming}`);
+
+
+
+        if (isNavigating) {
+            log('processVideo', 'Navegación en curso, omitiendo procesamiento de video antiguo.');
+            return;
+        }
+
+        // Asegurar que los elementos existen
+        if (!player || !videoEl) {
+            // Intentar obtenerlos automáticamente
+            videoEl = getActiveVideoElement();
+            player = player || window.ytplayer || window.yt || {};
+            log('processVideo', `player: ${player} | videoEl: ${videoEl}`);
+            log('processVideo', `window.ytplayer: ${window.ytplayer}`);
+            log('processVideo', `window.yt: ${window.yt}`);
+
+            if (!videoEl) {
+                warn('processVideo', 'No se encontró videoEl. Abortando.');
+                return;
+            }
+        }
+
+        const url = new URL(location.href);
+        const videoData = extractOrNormalizeVideoId(window.location.href);
+        const videoIdDetected = videoData?.id;
+        const plId = videoData?.list;
+
+        log('processVideo', `URL del reproductor: ${url} | Video ID del reproductor: ${videoIdDetected}`);
+
+        if (!videoIdDetected) {
+            conError('processVideo', 'No se pudo determinar el video_id del reproductor ni de la URL.');
+            return;
+        }
+
+        // Evitar reprocesar el mismo video
+        if (currentlyProcessingVideoId === videoIdDetected) {
+            log('processVideo', `El video ${videoIdDetected} ya está siendo procesado. Ignorando.`);
+            return;
+        }
+        currentlyProcessingVideoId = videoIdDetected;
+
+        try {
+            // 🔍 Detección del tipo de video
+            const isShort =
+                url.pathname.startsWith('/shorts/') ||
+                videoEl.closest('ytd-reel-video-renderer');
+
+            const type = isShort ? 'short' : (player.getDuration?.() || 0) === 0 ? 'live' : 'regular';
+            log('processVideo', `Tipo de video detectado: ${type}`);
+
+            // Configuración de guardado
+            if (
+                (type === 'regular' && !cachedSettings.saveRegularVideos) ||
+                (type === 'short' && !cachedSettings.saveShorts) ||
+                (type === 'live' && !cachedSettings.saveLiveStreams)
+            ) {
+                log('processVideo', `Tipo ${type} no está habilitado para guardado.`);
+                return;
+            }
+
+            // Buscar progreso previo
+            let savedData = getSavedVideoData(videoIdDetected, plId);
+            if (!savedData && plId) savedData = getSavedVideoData(videoIdDetected, null);
+            log('processVideo', `Datos guardados:`, savedData);
+
+            // Lógica de reanudación (igual que tu versión)
+            if (savedData && videoIdDetected !== lastResumeId) {
+                const shouldResume =
+                    savedData.forceResumeTime > 0 ||
+                    (savedData.timestamp > 10 && !savedData.isCompleted);
+
+                if (shouldResume) {
+                    isResuming = true;
+                    log('processVideo', `Reanudando ${videoIdDetected} (${type})...`);
+                    callResumeWithDelay(type, () => {
+                        resumePlayback(player, videoIdDetected, videoEl, savedData, Boolean(plId), plId, lastPlaylistId, type);
+                    });
+                    lastResumeId = videoIdDetected;
+                } else {
+                    isResuming = false;
+                }
+            }
+
+            // 🔁 Handler para guardar progreso
+            const handler = () => {
+                if (isNavigating) return;
+
+                const currentVid = videoIdDetected;
+                log('handler de processVideo', ` player.getDuration: ${player.getDuration?.()} = ${formatTime(player.getDuration?.())} | videoIdDetected: ${videoIdDetected}`);
+                if (currentVid !== videoIdDetected) return;
+
+                if (isPlayerSeeking) {
+                    isPlayerSeeking = false;
+                    clearPlaybackBarMessage();
+                }
+
+                const now = Date.now();
+                const minInterval = (cachedSettings.minSecondsBetweenSaves || 1) * 1000;
+
+                if (now - lastSaveTime >= minInterval) {
+                    log('processVideo', `Guardando progreso con updateStatus para ${videoIdDetected} (${type})...`);
+                    updateStatus(player, videoEl, type, plId);
+                    lastSaveTime = now;
+                }
+            };
+
+            // Eliminar handler previo
+            /*   if (currentTimeUpdateHandler && currentVideoEl) {
+                  currentVideoEl.removeEventListener('timeupdate', currentTimeUpdateHandler);
+                  log('processVideo', 'Handler anterior removido.');
+              } */
+
+            // Adjuntar el nuevo handler
+            currentTimeUpdateHandler = handler;
+            videoEl.addEventListener('timeupdate', handler);
+            currentVideoEl = videoEl;
+            lastUrl = location.href;
+            lastPlaylistId = plId;
+
+        } catch (error) {
+            conError('processVideo', `Error al procesar el video ${videoIdDetected}:`, error);
+        } finally {
+            setTimeout(() => (currentlyProcessingVideoId = null), 100);
+        }
     };
 
+    // Reprocesar Shorts al cambiar de video
+    document.addEventListener('yt-navigate-finish', () => {
+        const player = window.ytplayer || window.yt || {};
+        const videoEl = getActiveVideoElement();
+        if (videoEl) {
+            log('processVideo', 'Evento yt-navigate-finish → procesando nuevo video.');
+            processVideo(player, videoEl);
+        }
+    });
 
     // ------------------------------------------
     // MARK: ⏯ Seek
     // ------------------------------------------
-
-    const SEEK_TIMEOUT = 3000;
 
     const applySeek = async (player, videoEl, time, options = {}) => {
         const { bypassMinDiff = false, isForced = false, type = 'normal' } = options;
@@ -2479,6 +2813,23 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         let allItems = [];
         keys.forEach(key => {
             const data = Storage.get(key);
+            log('updateVideoList', `Data: ${JSON.stringify(data)}`)
+            /* 
+                {
+                "timestamp": 42.0,
+                "lastUpdated": 1761712984212,
+                "videoType": "music",
+                "isCompleted": false,
+                "title": "Rick Astley - Never Gonna Give You Up (Official Music Video)",
+                "author": "Rick Astley",
+                "thumb": "https://i.ytimg.com/vi/dQw4w9WgXcQ/hqdefault.jpg",
+                "views": "1,543,210,987 views",
+                "savedAt": 1761712984212,
+                "duration": 213.0
+                }
+            */
+
+
             if (!data) return;
 
             if (data.videos) { // Es una playlist
@@ -3375,8 +3726,12 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         const processVideoAfterAd = (player, videoEl, container) => {
             setTimeout(() => {
                 if (typeof player.getVideoData === 'function') {
-                    processVideo(container, player, videoEl);
+                    log('processVideoAfterAd', '✅ Reproductor encontrado');
+                    log('processVideoAfterAd', 'Enviando a processVideo player:', player);
+                    log('processVideoAfterAd', 'Enviando a processVideo videoEl:', videoEl);
+                    processVideo(player, videoEl);
                 } else {
+                    log('processVideoAfterAd', '❌ Reproductor no encontrado, intentando obtener el reproductor alternativo de YouTube.');
                     tryAlternativePlayer(container, videoEl);
                 }
             }, 150);
@@ -3385,8 +3740,12 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         const tryAlternativePlayer = (container, videoEl) => {
             log('observePlayer', 'Intentando obtener el reproductor alternativo de YouTube.');
             const ytPlayer = window.yt?.player?.getPlayerByElement?.(videoEl);
+            log('observePlayer', 'Obteniendo el reproductor alternativo de YouTube con ytPlayer:', ytPlayer)
             if (ytPlayer?.getVideoData) {
-                processVideo(container, ytPlayer, videoEl);
+                log('observePlayer', '✅ Reproductor encontrado');
+                log('observePlayer', 'Enviando a processVideo player:', ytPlayer);
+                log('observePlayer', 'Enviando a processVideo videoEl:', videoEl);
+                processVideo(ytPlayer, videoEl);
             } else {
                 const simplifiedPlayer = {
                     getVideoData: () => ({
@@ -3397,7 +3756,9 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                     play: () => videoEl.play(),
                     pause: () => videoEl.pause()
                 };
-                processVideo(container, simplifiedPlayer, videoEl);
+                log('observePlayer', 'Enviando a processVideo simplifiedPlayer:', simplifiedPlayer);
+                log('observePlayer', 'Enviando a processVideo videoEl:', videoEl);
+                processVideo(simplifiedPlayer, videoEl);
             }
         };
 
@@ -3510,7 +3871,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
                     play: () => videoEl.play(),
                     pause: () => videoEl.pause()
                 };
-                processVideo(container, simplifiedPlayer, videoEl);
+                processVideo(simplifiedPlayer, videoEl);
             }, 150);
         };
 

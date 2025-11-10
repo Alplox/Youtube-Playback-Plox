@@ -35,7 +35,7 @@
 // @name:te      YouTube ప్లేబ్యాక్ Plox
 // @name:ta      YouTube பிளேபாக் Plox
 // @name:mr      YouTube प्लेबॅक Plox
-// @name:zh      YouTube 播放 Plox
+// @name:zh-CN   YouTube 播放 Plox
 // @name:zh-TW   YouTube 播放 Plox
 // @name:zh-HK   YouTube 播放 Plox
 // @name:ja      YouTube 再生 Plox
@@ -90,7 +90,7 @@
 // @description:te  YouTube వీడియో ప్లేబ్యాక్ పురోగతిని ఆటోమేటిక్‌గా సేవ్ చేసి, తిరిగి ప్రారంభిస్తుంది, లాగిన్ అవసరం లేదు.
 // @description:ta  YouTube வீடியோக்களின் பிளேபாக் முன்னேற்றத்தை தானாகச் சேமித்து மீண்டும் தொடங்கும், உள்நுழைவு தேவையில்லை.
 // @description:mr  YouTube व्हिडिओ प्लेबॅक प्रगती आपोआप जतन करते आणि पुन्हा सुरू करते, लॉगिन आवश्यक नाही.
-// @description:zh 自动保存并恢复 YouTube 视频的播放进度，无需登录。
+// @description:zh-CN 自动保存并恢复 YouTube 视频的播放进度，无需登录。
 // @description:zh-TW  自動儲存及繼續 YouTube 影片播放進度，無需登入。
 // @description:zh-HK  自動儲存及繼續 YouTube 影片播放進度，無需登入。
 // @description:ja  YouTube の動画再生の進行状況を自動で保存・再開します。ログインは不要です。
@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.6-6
+// @version      0.0.7
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
@@ -124,4 +124,5 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
+// @require      https://update.greasyfork.org/scripts/549881/1684270/YouTube%20Helper%20API.js
 // ==/UserScript==

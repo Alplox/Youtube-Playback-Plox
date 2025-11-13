@@ -134,36 +134,80 @@
 (function () {
     'use strict';
 
-    // 1. Determinar si el modo debug está activo
-    const DEBUG = true; // Cambiar a 'false' para desactivar los logs de depuración en producción
+    // Sistema de niveles: silent(0), error(1), warn(2), info(3), debug(4)
+    const LEVELS = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
+    let currentLevel = LEVELS.debug; // Cambia a 'debug' para ver todo, o 'warn'/'error' para menos
 
-    // 2. Crear el objeto del logger en el ámbito global (window)
+    const styleFor = (kind) => {
+        switch (kind) {
+            case 'info': return 'color: #4FC1FF;';
+            case 'debug': return 'color: #6a9955;';
+            case 'warn': return 'color: #ce9178; font-weight: bold;';
+            case 'error': return 'color: #f44747; font-weight: bold;';
+            default: return '';
+        }
+    };
+
+    // Crear el objeto del logger en el ámbito global (window)
     window.MyScriptLogger = {
+        // Debug detallado
         log: (context, ...args) => {
-            if (DEBUG) {
-                console.log(`%c[${context}]`, 'color: #6a9955;', ...args);
+            if (currentLevel >= LEVELS.debug) {
+                console.log(`%c[${context}]`, styleFor('debug'), ...args);
+            }
+        },
+        debug: (context, ...args) => {
+            if (currentLevel >= LEVELS.debug) {
+                console.log(`%c[${context}]`, styleFor('debug'), ...args);
+            }
+        },
+        // Informativo de etapas/éxitos
+        info: (context, ...args) => {
+            if (currentLevel >= LEVELS.info) {
+                console.info(`%c[${context}]`, styleFor('info'), ...args);
             }
         },
         warn: (context, ...args) => {
-            if (DEBUG) {
-                console.warn(`%c[${context}]`, 'color: #ce9178; font-weight: bold;', ...args);
+            if (currentLevel >= LEVELS.warn) {
+                console.warn(`%c[${context}]`, styleFor('warn'), ...args);
             }
         },
         error: (context, ...args) => {
             // Los errores siempre se muestran
-            console.error(`%c[${context}]`, 'color: #f44747; font-weight: bold;', ...args);
+            console.error(`%c[${context}]`, styleFor('error'), ...args);
         }
     };
 
 })();
 
 // Atajo para no tener que escribir window.MyScriptLogger cada vez
-const { log, warn, error: conError } = window.MyScriptLogger;
+const { log, info, warn, error: conError } = window.MyScriptLogger;
 
 // --- INICIO CARGA LÓGICA PRINCIPAL DEL USERSCRIPT ---
 
 (() => {
     'use strict';
+
+    /**
+     * Polyfill ligero para CustomEvent en navegadores antiguos.
+     * Crea window.CustomEvent si no existe o no es una función nativa.
+     * @returns {void}
+     */
+    (function polyfillCustomEvent() {
+        try {
+            if (typeof window.CustomEvent === 'function') return;
+        } catch (_) { /* noop */ }
+        try {
+            function CustomEventPolyfill(event, params) {
+                params = params || { bubbles: false, cancelable: false, detail: null };
+                const evt = document.createEvent('CustomEvent');
+                evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
+                return evt;
+            }
+            CustomEventPolyfill.prototype = (window.Event || function () { }).prototype;
+            window.CustomEvent = CustomEventPolyfill;
+        } catch (_) { /* noop */ }
+    })();
 
     // ------------------------------------------
     // MARK: 🌐 Carga de Traducciones
@@ -278,7 +322,8 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             "copyLink": "Copy link",
             "linkCopied": "Link copied to clipboard",
             "selectAtLeastOne": "Select at least one video",
-            "tooManyVideos": "Too many videos selected (max 200)"
+            "tooManyVideos": "Too many videos selected (max 200)",
+            "inlinePreviews": "Inline previews (Home)"
         },
         "es-ES": {
             "settings": "Configuración",
@@ -361,7 +406,8 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             "copyLink": "Copiar enlace",
             "linkCopied": "Enlace copiado al portapapeles",
             "selectAtLeastOne": "Selecciona al menos un video",
-            "tooManyVideos": "Demasiados videos seleccionados (máx 200)"
+            "tooManyVideos": "Demasiados videos seleccionados (máx 200)",
+            "inlinePreviews": "Previsualizaciones en inicio (Home)"
         },
         "fr": {
             "settings": "Paramètres",
@@ -444,82 +490,99 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             "copyLink": "Copier le lien",
             "linkCopied": "Lien copié dans le presse-papiers",
             "selectAtLeastOne": "Sélectionnez au moins une vidéo",
-            "tooManyVideos": "Trop de vidéos sélectionnées (max 200)"
+            "tooManyVideos": "Trop de vidéos sélectionnées (max 200)",
+            "inlinePreviews": "Aperçus intégrés (Accueil)"
         }
     };
 
     // Función para cargar las traducciones desde el archivo JSON externo
     async function loadTranslations() {
-        return new Promise((resolve) => {
-            // Función para intentar cargar desde una URL específica
-            function tryLoadFromUrl(url, isSecondAttempt = false) {
-                GM_xmlhttpRequest({
-                    method: 'GET',
-                    url: url,
-                    timeout: 5000,
-                    onload: function (response) {
-                        try {
-                            const data = JSON.parse(response.responseText);
+        const CACHE_KEY = `${CONFIG.storagePrefix}translations_cache_v1`;
+        const TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
-                            if (data.LANGUAGE_FLAGS && Object.keys(data.LANGUAGE_FLAGS).length > 0 &&
-                                data.TRANSLATIONS && Object.keys(data.TRANSLATIONS).length > 0) {
-                                log('loadTranslations', 'Traducciones externas cargadas correctamente desde: ' + url);
-                                resolve(data);
-                            } else {
-                                if (!isSecondAttempt) {
-                                    conError('loadTranslations', 'No se pudieron cargar las traducciones desde el primer enlace, intentando con el segundo...');
-                                    tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
-                                } else {
-                                    conError('loadTranslations', 'No se pudieron cargar las traducciones desde ningún enlace, usando fallback');
-                                    resolve({
-                                        LANGUAGE_FLAGS: FALLBACK_FLAGS,
-                                        TRANSLATIONS: FALLBACK_TRANSLATIONS
-                                    });
-                                }
-                            }
-                        } catch (error) {
-                            conError('loadTranslations', 'Error al procesar el archivo de traducciones desde ' + url + ':', error);
-                            if (!isSecondAttempt) {
-                                warn('loadTranslations', 'Intentando con el segundo enlace de traducciones...');
-                                tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
-                            } else {
-                                resolve({
-                                    LANGUAGE_FLAGS: FALLBACK_FLAGS,
-                                    TRANSLATIONS: FALLBACK_TRANSLATIONS
-                                });
-                            }
-                        }
-                    },
-                    onerror: function (error) {
-                        conError('loadTranslations', 'Error al cargar el archivo de traducciones desde ' + url + ':', error);
-                        if (!isSecondAttempt) {
-                            warn('loadTranslations', 'Intentando con el segundo enlace de traducciones...');
-                            tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
-                        } else {
-                            resolve({
-                                LANGUAGE_FLAGS: FALLBACK_FLAGS,
-                                TRANSLATIONS: FALLBACK_TRANSLATIONS
-                            });
-                        }
-                    },
-                    ontimeout: function () {
-                        conError('loadTranslations', 'Timeout al cargar el archivo de traducciones desde ' + url);
-                        if (!isSecondAttempt) {
-                            warn('loadTranslations', 'Intentando con el segundo enlace de traducciones...');
-                            tryLoadFromUrl(TRANSLATIONS_URL_BACKUP, true);
-                        } else {
-                            resolve({
-                                LANGUAGE_FLAGS: FALLBACK_FLAGS,
-                                TRANSLATIONS: FALLBACK_TRANSLATIONS
-                            });
-                        }
+        // 1) Intentar usar caché (GM_* preferido; luego localStorage)
+        try {
+            if (typeof GM_getValue === 'function') {
+                const raw = await GM_getValue(CACHE_KEY, null);
+                if (raw) {
+                    const cached = JSON.parse(raw);
+                    if (cached?.ts && (Date.now() - cached.ts) < TTL_MS && cached?.data) {
+                        info('loadTranslations', 'Usando traducciones desde caché GM_*');
+                        return cached.data;
                     }
+                }
+            }
+        } catch (_) { }
+        try {
+            const raw = localStorage.getItem(CACHE_KEY);
+            if (raw) {
+                const cached = JSON.parse(raw);
+                if (cached?.ts && (Date.now() - cached.ts) < TTL_MS && cached?.data) {
+                    info('loadTranslations', 'Usando traducciones desde caché localStorage');
+                    return cached.data;
+                }
+            }
+        } catch (_) { }
+
+        // 2) Helper para cargar desde URL con GM_xmlhttpRequest o fetch
+        const fetchUrl = async (url) => {
+            if (typeof GM_xmlhttpRequest === 'function') {
+                return await new Promise((resolve, reject) => {
+                    try {
+                        GM_xmlhttpRequest({
+                            method: 'GET',
+                            url,
+                            timeout: 5000,
+                            onload: (response) => {
+                                try {
+                                    resolve(JSON.parse(response.responseText));
+                                } catch (e) { reject(e); }
+                            },
+                            onerror: (e) => reject(e),
+                            ontimeout: () => reject(new Error('timeout'))
+                        });
+                    } catch (err) { reject(err); }
                 });
             }
+            // Fallback a fetch nativo
+            if (typeof fetch === 'function') {
+                const resp = await fetch(url, { cache: 'no-store' });
+                const text = await resp.text();
+                return JSON.parse(text);
+            }
+            throw new Error('No hay método de red disponible');
+        };
 
-            // Iniciar el proceso con el primer enlace
-            tryLoadFromUrl(TRANSLATIONS_URL);
-        });
+        // 3) Intentar URLs primarias/secundarias
+        const urls = [TRANSLATIONS_URL, TRANSLATIONS_URL_BACKUP];
+        let data = null;
+        for (const url of urls) {
+            try {
+                const candidate = await fetchUrl(url);
+                if (candidate?.LANGUAGE_FLAGS && Object.keys(candidate.LANGUAGE_FLAGS).length > 0 &&
+                    candidate?.TRANSLATIONS && Object.keys(candidate.TRANSLATIONS).length > 0) {
+                    info('loadTranslations', 'Traducciones externas cargadas correctamente desde: ' + url);
+                    data = candidate;
+                    break;
+                } else {
+                    warn('loadTranslations', 'Traducciones inválidas desde: ' + url);
+                }
+            } catch (e) {
+                warn('loadTranslations', 'Fallo al cargar traducciones desde ' + url, e);
+            }
+        }
+
+        if (!data) {
+            conError('loadTranslations', 'No se pudieron cargar traducciones externas, usando fallback');
+            data = { LANGUAGE_FLAGS: FALLBACK_FLAGS, TRANSLATIONS: FALLBACK_TRANSLATIONS };
+        }
+
+        // 4) Guardar en caché (best-effort)
+        const cachePayload = JSON.stringify({ ts: Date.now(), data });
+        try { if (typeof GM_setValue === 'function') await GM_setValue(CACHE_KEY, cachePayload); } catch (_) { }
+        try { localStorage.setItem(CACHE_KEY, cachePayload); } catch (_) { }
+
+        return data;
     }
 
     // ------------------------------------------
@@ -551,11 +614,12 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             showFloatingButtons: false,
             saveRegularVideos: true, // Por defecto, guardar videos regulares
             saveShorts: false, // Por defecto, no guardar Shorts
-            saveLiveStreams: false, // Por defecto, no guardar directos de URL tipo /live, si es /watch lo toma como regular
+            saveLiveStreams: false, // Por defecto, no guardar directos de URL tipo "/live" o "/watch" con player en directo, si ya es VOD lo toma como regular
             language: 'en-US', // Idioma predeterminado
             alertStyle: 'iconText', // Estilo de alerta predeterminado
             enableProgressBarGradient: true, // Por defecto, habilitar degradado de colores en barra de progreso
             staticFinishPercent: 95, // Porcentaje desde el final para considerar video como completado (95% = 5% antes del final)
+            saveInlinePreviews: false, // Guardar previsualizaciones inline (Homepage) desactivado por defecto
         },
 
         /** Clave para guardar filtros del usuario en GM_* */
@@ -578,11 +642,12 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     // Función para obtener el texto traducido
     function t(key, params = {}) {
         if (!TRANSLATIONS[currentLanguage] || !TRANSLATIONS[currentLanguage][key]) {
-            // Si no hay traducción, intentar con inglés
-            if (TRANSLATIONS.en && TRANSLATIONS.en[key]) {
-                return replaceParams(TRANSLATIONS.en[key], params);
+            // Si no hay traducción, intentar con el idioma por defecto (ej: en-US)
+            const fallbackLang = CONFIG.defaultSettings.language;
+            if (TRANSLATIONS[fallbackLang] && TRANSLATIONS[fallbackLang][key]) {
+                return replaceParams(TRANSLATIONS[fallbackLang][key], params);
             }
-            // Si no hay ni en inglés, devolver la clave
+            // Si no hay ni en el idioma por defecto, devolver la clave
             return key;
         }
         return replaceParams(TRANSLATIONS[currentLanguage][key], params);
@@ -595,9 +660,30 @@ const { log, warn, error: conError } = window.MyScriptLogger;
             return params[param] !== undefined ? params[param] : match;
         });
     }
+    
+    /**
+     * Fusiona profundamente mapas de traducciones por idioma, priorizando las externas.
+     * @param {Object} base - Traducciones base/fallback (por idioma)
+     * @param {Object} override - Traducciones externas (por idioma)
+     * @returns {Object} Mapa de traducciones resultante por idioma
+     */
+    function deepMergeTranslations(base, override) {
+        try {
+            const result = { ...(base || {}) };
+            const over = override && typeof override === 'object' ? override : {};
+            for (const lang of Object.keys(over)) {
+                const baseLang = result[lang] || {};
+                const overLang = over[lang] || {};
+                result[lang] = { ...baseLang, ...overLang };
+            }
+            return result;
+        } catch (_) {
+            return { ...(base || {}) };
+        }
+    }
 
     // Función para cambiar el idioma
-    async function setLanguage(lang) {
+    async function setLanguage(lang, options = { persist: true }) {
         log('setLanguage', 'lang que llega:', lang);
         let validLang = lang;
 
@@ -609,10 +695,17 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         if (!validLang) validLang = CONFIG.defaultSettings.language;
 
         currentLanguage = validLang;
-
-        const settings = await Settings.get();
-        settings.language = validLang;
-        await Settings.set(settings);
+        
+        // Persistir solo si se solicita (evitar escrituras redundantes durante init)
+        if (options?.persist) {
+            try {
+                const settings = await Settings.get();
+                settings.language = validLang;
+                await Settings.set(settings);
+            } catch (e) {
+                conError('setLanguage', 'Error persistiendo idioma', e);
+            }
+        }
 
         log('setLanguage', 'lang que sale:', validLang);
         return true;
@@ -620,20 +713,29 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 
     // Función para detectar el idioma del navegador
     function detectBrowserLanguage() {
-        const browserLang = navigator.language || navigator.userLanguage; // "es-ES" o "en"
-        log('detectBrowserLanguage', 'browserLang:', browserLang);
+        const primaryLang = navigator.language || navigator.userLanguage; // "es-ES" o "en"
+        const candidates = (Array.isArray(navigator.languages) && navigator.languages.length)
+            ? navigator.languages
+            : (primaryLang ? [primaryLang] : []);
 
-        // Coincidencia exacta
-        log('detectBrowserLanguage', 'TRANSLATIONS[browserLang]:', TRANSLATIONS[browserLang])
-        if (TRANSLATIONS[browserLang]) return browserLang;
+        log('detectBrowserLanguage', 'candidates:', candidates);
+
+        // Coincidencia exacta priorizando navigator.languages[0]
+        for (const lang of candidates) {
+            if (TRANSLATIONS[lang]) return lang;
+        }
 
         // Coincidencia por prefijo (ejemplo: "es" -> "es-ES" o "es-419")
-        const primary = browserLang.split('-')[0];
-        const matched = Object.keys(TRANSLATIONS).find(k => k === primary || k.startsWith(primary + '-'));
-        log('detectBrowserLanguage', 'matched:', matched);
-        if (matched) return matched;
+        for (const lang of candidates) {
+            const prefix = (lang || '').split('-')[0];
+            const matched = Object.keys(TRANSLATIONS).find(k => k === prefix || k.startsWith(prefix + '-'));
+            if (matched) {
+                log('detectBrowserLanguage', 'matched by prefix:', matched);
+                return matched;
+            }
+        }
 
-        warn(`Idioma del navegador '${browserLang}' no soportado, usando default.`);
+        warn(`Idioma del navegador '${primaryLang}' no soportado, usando default.`);
         return CONFIG.defaultSettings.language;
     }
 
@@ -648,41 +750,65 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         style.id = 'youtube-playback-plox-styles';
         style.textContent = `
 :root {
-  /* Paleta base */
-  --color-bg: #fff;
-  --color-text: #222;
-  --color-muted: #555;
-  --color-light: #888;
-  --color-link: #065fd4;
-  --color-danger: #dc2626;
-  --color-success: #16a34a;
-  --color-success-dark: #15803d;
-  --color-overlay: rgba(0, 0, 0, 0.4);
-  --color-toast: #333;
-  --color-primary: #2563eb;
-  --color-primary-dark: #1e40af;
-  --color-border: #ccc;
-  --color-playlist-bg: #f0f8ff; /* Fondo sutil para items de playlist */
+  /* Base (Light) - Solo variables --ypp- */
+  --ypp-bg: #ffffff;
+  --ypp-text: #222222;
+  --ypp-muted: #555555;
+  --ypp-light: #888888;
+  --ypp-link: #065fd4;
+  --ypp-danger: #dc2626;
+  --ypp-success: #16a34a;
+  --ypp-success-dark: #15803d;
+  --ypp-overlay: rgba(0, 0, 0, 0.4);
+  --ypp-toast: #333333;
+  --ypp-primary: #2563eb;
+  --ypp-primary-dark: #1e40af;
+  --ypp-border: #cccccc;
+  --ypp-playlist-bg: #f0f8ff; /* Fondo sutil para items de playlist */
+  --ypp-bg-secondary: #f5f5f5;
 
   /* Tipografía */
-  --font-base: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+  --ypp-white: #ffffff;
+  --ypp-font-base: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 
   /* Espaciado */
-  --spacing-sm: 0.5rem;
-  --spacing-md: 1rem;
-  --spacing-lg: 1.5rem;
+  --ypp-spacing-sm: 0.5rem;
+  --ypp-spacing-md: 1rem;
+  --ypp-spacing-lg: 1.5rem;
 
   /* Sombra */
-  --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.2);
-  --shadow-modal: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --ypp-shadow-md: 0 4px 20px rgba(0, 0, 0, 0.2);
+  --ypp-shadow-modal: 0 4px 16px rgba(0, 0, 0, 0.25);
+  --ypp-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
 
   /* Z-index */
-  --z-overlay: 9999;
-  --z-modal: 10000;
-  --z-toast: 10001;
+  --ypp-z-overlay: 9999;
+  --ypp-z-modal: 10000;
+  --ypp-z-toast: 10001;
+
+  /* Inputs */
+  --ypp-input: #f5f5f5;
+  --ypp-input-border: #cccccc;
+  --ypp-input-focus: #1a73e8; /* Light */
 }
 
-.sombra {
+html[dark], body.dark-theme {
+  --ypp-bg: #0f0f0f;
+  --ypp-text: #f1f1f1;
+  --ypp-muted: #aaaaaa;
+  --ypp-light: #aaaaaa;
+  --ypp-link: #3ea6ff;
+  --ypp-border: #303030;
+  --ypp-bg-secondary: #1a1a1a;
+  --ypp-overlay: rgba(0, 0, 0, 0.8);
+  --ypp-input: #1a1a1a;
+  --ypp-input-border: #303030;
+  /* Overrides específicas para UI en oscuro */
+  --ypp-input-focus: #065fd4;
+  --ypp-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
+}
+
+.ypp-sombra {
     box-shadow:
         0.8px 0.8px 2.7px rgba(0, 0, 0, 0.062),
         2.1px 2.1px 6.9px rgba(0, 0, 0, 0.089),
@@ -698,11 +824,11 @@ const { log, warn, error: conError } = window.MyScriptLogger;
         24px 24px 80px rgba(0, 0, 0, 0.2);
 }
 
-.svgFolderIcon,
-.svgSaveIcon,
-.svgPinIcon,
-.svgTimerIcon,
-.svgPlayOrPauseIcon {
+.ypp-svgFolderIcon,
+.ypp-svgSaveIcon,
+.ypp-svgPinIcon,
+.ypp-svgTimerIcon,
+.ypp-svgPlayOrPauseIcon {
   vertical-align: middle;
   height: 100%;
   margin: 0 0px 2px 0px;
@@ -730,8 +856,8 @@ const { log, warn, error: conError } = window.MyScriptLogger;
   align-items: center;
   width: 100vw;
   height: 100vh;
-  background: var(--color-overlay);
-  z-index: var(--z-overlay);
+  background: var(--ypp-overlay);
+  z-index: var(--ypp-z-overlay);
 }
 
 .ypp-videosContainer {
@@ -747,7 +873,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
   max-height: 85vh;
   color: var(--ypp-text, #f1f1f1);
   box-shadow: var(--ypp-shadow, 0 12px 24px rgba(0, 0, 0, 0.5));
-  z-index: var(--z-modal);
+  z-index: var(--ypp-z-modal);
   display: flex;
   flex-direction: column;
   opacity: 0;
@@ -767,32 +893,32 @@ const { log, warn, error: conError } = window.MyScriptLogger;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: var(--color-bg);
+  background: var(--ypp-bg);
   border-radius: 8px;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--ypp-shadow-md);
   padding: 0; /* Padding manejado por hijos */
-  z-index: var(--z-modal);
+  z-index: var(--ypp-z-modal);
   width: 550px; /* Un poco más ancho para los nuevos botones */
   max-height: 80vh;
   display: flex;
   flex-direction: column;
-  font-family: var(--font-base);
-  color: var(--color-text);
+  font-family: var(--ypp-font-base);
+  color: var(--ypp-text);
 }
 
 .ypp-time-display {
-  color: var(--color-bg);
+  color: var(--ypp-white);
   font-weight: bold;
   margin-left: 10px;
   font-size: 1.4rem;
   background: /* #4a4a4a91; */ hsla(0,0%,6.7%,0.4);
-  padding: var(--spacing-sm) var(--spacing-md);
+  padding: var(--ypp-spacing-sm) var(--ypp-spacing-md);
   border-radius: 14px;
   cursor: pointer;
   transition: all 0.2s ease;
 
   &:hover {
-    background: var(--color-success-dark);
+    background: var(--ypp-success-dark);
   }
 }
 
@@ -816,7 +942,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
   overflow: hidden;
 
   &:hover {
-    background: var(--color-success-dark, #15803d);
+    background: var(--ypp-success-dark, #15803d);
     transform: translateY(-1px);
   }
 }
@@ -832,26 +958,26 @@ const { log, warn, error: conError } = window.MyScriptLogger;
   justify-content: space-between;
   align-items: center;
   padding: 6px 12px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--ypp-border);
   flex-shrink: 0;
 }
 
 .ypp-filters {
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-bottom: 1px solid var(--color-border);
+  padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
+  border-bottom: 1px solid var(--ypp-border);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: var(--ypp-spacing-md);
   flex-shrink: 0;
   gap: 0;
 }
 
 .ypp-footer {
-  padding: var(--spacing-md) var(--spacing-lg);
-  border-top: 2px solid var(--color-border);
+  padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
+  border-top: 2px solid var(--ypp-border);
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-sm);
+  gap: var(--ypp-spacing-sm);
   z-index: 10;
   flex-shrink: 0;
 }
@@ -860,7 +986,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
   display: flex;
   justify-content: center;
   align-items: center;
-  gap: var(--spacing-sm);
+  gap: var(--ypp-spacing-sm);
   flex-wrap: wrap;
 }
 
@@ -871,13 +997,13 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 #video-list-container {
   flex-grow: 1; /* Ocupar el espacio restante */
   overflow-y: auto; /* Hacer scrollable solo esta parte */
-  padding: var(--spacing-md) var(--spacing-lg);
+  padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
 }
 
 .ypp-settingsContent {
   display: flex;
   flex-direction: column;
-  gap: var(--spacing-md);
+  gap: var(--ypp-spacing-md);
   max-height: 60vh;
   overflow-y: auto;
 }
@@ -903,7 +1029,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 }
 
 .ypp-container-saving-options {
-  background: var(--ypp-surface);
+  background: var(--ypp-bg-secondary);
   border-radius: 6px;
   padding: 6px;
   gap: 8px;
@@ -946,7 +1072,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 .ypp-titleLink {
   font-weight: 600;
   font-size: 1.4rem;
-  color: var(--color-link);
+  color: var(--ypp-link);
   text-decoration: none;
   display: block;
   margin-bottom: 2px;
@@ -959,17 +1085,17 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 .ypp-author,
 .ypp-views {
   font-size: 1.1rem;
-  color: var(--color-muted);
+  color: var(--ypp-muted);
 }
 
 .ypp-author-link {
-  color: var(--color-link);
+  color: var(--ypp-link);
   text-decoration: none;
   transition: color 0.2s;
 }
 
 .ypp-author-link:hover {
-  color: var(--color-primary-dark);
+  color: var(--ypp-primary-dark);
   text-decoration: underline;
 }
 
@@ -983,16 +1109,16 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 }
 
 .ypp-timestamp {
-  color: var(--color-muted);
+  color: var(--ypp-muted);
 }
 
 .ypp-timestamp.forced {
-    color: var(--color-primary-dark);
+    color: var(--ypp-primary-dark);
     font-weight: bold;
 }
 
 .ypp-timestamp.completed {
-    color: var(--color-success);
+    color: var(--ypp-success);
     font-weight: bold;
 }
 
@@ -1000,7 +1126,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
     /* Video con tiempo fijo Y completado: color mixto */
     color: #15803d;
     font-weight: bold;
-    background: linear-gradient(90deg, var(--color-primary-dark) 0%, var(--color-success) 100%);
+    background: linear-gradient(90deg, var(--ypp-primary-dark) 0%, var(--ypp-success) 100%);
     background-clip: text;
 }
 
@@ -1011,21 +1137,21 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 .ypp-videoWrapper {
   display: flex;
   align-items: center;
-  margin-bottom: var(--spacing-md);
-  border-bottom: 1px solid var(--color-border);
-  padding-bottom: var(--spacing-sm);
+  margin-bottom: var(--ypp-spacing-md);
+  border-bottom: 1px solid var(--ypp-border);
+  padding-bottom: var(--ypp-spacing-sm);
 }
 
 .ypp-videoWrapper.playlist-item {
   border-radius: 6px;
-  padding: var(--spacing-sm);
-  margin-bottom: var(--spacing-sm);
+  padding: var(--ypp-spacing-sm);
+  margin-bottom: var(--ypp-spacing-sm);
   transition: all 0.2s ease;
 }
 
 .ypp-videoWrapper.regular-item {
-  background-color: var(--color-bg-secondary);
-  border-left: 4px solid var(--color-border);
+  background-color: var(--ypp-bg-secondary);
+  border-left: 4px solid var(--ypp-border);
 }
 
 .ypp-playlist-indicator {
@@ -1064,8 +1190,8 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 }
 
 .ypp-videoWrapper.selection-mode:hover {
-  background-color: var(--color-bg-hover) !important;
-  transform: translateX(2px);
+  background-color: var(--ypp-bg) !important;
+  /* transform: translateX(-1px); */
 }
 
 .ypp-video-checkbox {
@@ -1079,8 +1205,8 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 .ypp-playlist-creation-area {
   margin-top: 12px;
   padding: 15px;
-  background-color: var(--color-bg-secondary);
-  border: 1px solid var(--color-border);
+  background-color: var(--ypp-bg-secondary);
+  border: 1px solid var(--ypp-border);
   border-radius: 6px;
   display: none;
 }
@@ -1093,13 +1219,13 @@ const { log, warn, error: conError } = window.MyScriptLogger;
   width: 100%;
   height: 50px;
   max-height: 40px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--ypp-border);
   border-radius: 4px;
   font-family: 'Courier New', monospace;
   font-size: 11px;
   line-height: 1.3;
-  background-color: var(--color-bg);
-  color: var(--color-text);
+  background-color: var(--ypp-bg);
+  color: var(--ypp-text);
   resize: none;
   overflow-y: auto;
   word-wrap: break-word;
@@ -1121,7 +1247,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
   max-height: 80px;
   object-fit: cover;
   border-radius: 4px;
-  margin-right: var(--spacing-sm);
+  margin-right: var(--ypp-spacing-sm);
   flex-shrink: 0;
 }
 
@@ -1227,13 +1353,13 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 }
 
 .ypp-btn {
-  background: var(--color-primary);
+  background: var(--ypp-primary);
   color: var(--ypp-text);
 }
 
 .ypp-btn:hover {
-  background: var(--paper-checkbox-checked-color);
-  color: var(--color-bg);
+  background: var(--ypp-primary-dark);
+  color: var(--ypp-bg);
 }
 
 .ypp-btn:active {
@@ -1254,7 +1380,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 
 .ypp-save-button {
   background: transparent;
-  border: 1px solid var(--color-success);
+  border: 1px solid var(--ypp-success);
     color: inherit;
 
   &:hover {
@@ -1267,16 +1393,14 @@ const { log, warn, error: conError } = window.MyScriptLogger;
   }
 }
 
-
-
 .ypp-btn-secondary {
   background: #f1f1f1;
   color: #0f0f0f;
 }
 
 .ypp-btn-secondary:hover {
-  background: var(--color-success-dark);
-  color: var(--color-bg);
+  background: var(--ypp-success-dark);
+  color: var(--ypp-bg);
 }
 
 .ypp-btn-secondary:active {
@@ -1285,12 +1409,12 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 
 .ypp-btn-delete {
   background: transparent;
-  border: 1px solid var(--color-danger);
-  color: var(--color-danger);;
+  border: 1px solid var(--ypp-danger);
+  color: var(--ypp-danger);;
 }
 
 .ypp-btn-delete:hover {
-  background: var(--color-danger);
+  background: var(--ypp-danger);
   color: inherit;
 }
 
@@ -1305,7 +1429,7 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 }
 
 .ypp-btn-danger:hover {
-  background: var(--error-color);
+  background: var(--ypp-danger);
 }
 
 .ypp-btn-danger:active {
@@ -1322,13 +1446,13 @@ const { log, warn, error: conError } = window.MyScriptLogger;
 }
 
 .ypp-btn-close{
-  background: var(--color-text);
+  background: var(--ypp-text);
   border: 1px solid #303030;
-  color: var(--dark-theme-text-color);
+  color: var(--ypp-bg);
 }
 
 .ypp-btn-close:hover {
-background: var(--color-danger);
+background: var(--ypp-danger);
 }
 
 
@@ -1357,12 +1481,13 @@ background: var(--color-danger);
 
 .ypp-toast-container {
   position: fixed;
-  top: var(--spacing-md);
-  right: var(--spacing-md);
+  top: var(--ypp-spacing-md);
+  right: var(--ypp-spacing-md);
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
-  z-index: var(--z-toast);
+  z-index: var(--ypp-z-toast);
+  pointer-events: none;
 }
 
 .ypp-toast {
@@ -1375,11 +1500,13 @@ background: var(--color-danger);
   font-size: 1.4rem;
   max-width: 300px;
   animation: slideInRight 0.3s ease-out;
+  transition: opacity 0.2s ease;
   backdrop-filter: blur(10px);
+  pointer-events: auto;
 }
 
 .ypp-toast.persistent {
-  background: var(--color-muted);
+  background: var(--ypp-muted);
   position: relative;
   padding-right: 40px;
 }
@@ -1388,9 +1515,9 @@ background: var(--color-danger);
   position: absolute;
   top: 8px;
   right: 8px;
-  background: var(--color-text);
+  background: var(--ypp-text);
   border: 1px solid #303030;
-  color: var(--dark-theme-text-color);
+  color: var(--ypp-bg);
   width: 24px;
   height: 24px;
   border-radius: 12px;
@@ -1404,11 +1531,11 @@ background: var(--color-danger);
 }
 
 .ypp-toast-close:hover {
-  background: var(--color-danger);
+  background: var(--ypp-danger);
 }
 
 .ypp-toast-action {
-    background: var(--color-primary);
+    background: var(--ypp-primary);
     border: none;
     color: white;
     padding: 4px 8px;
@@ -1430,7 +1557,7 @@ background: var(--color-danger);
   height: 100%;
   background: var(--ypp-overlay, rgba(0, 0, 0, 0.8));
   backdrop-filter: blur(4px);
-  z-index: var(--z-modal);
+  z-index: var(--ypp-z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1536,7 +1663,7 @@ background: var(--color-danger);
 .ypp-input:focus {
   outline: none;
   border-color: var(--ypp-input-focus, #065fd4);
-  background: var(--ypp-surface, #252525);
+  background: var(--ypp-bg-secondary, #252525);
 }
 
 .ypp-input::placeholder {
@@ -1562,7 +1689,7 @@ background: var(--color-danger);
 .ypp-select:focus {
   outline: none;
   border-color: var(--ypp-input-focus, #065fd4);
-  background: var(--ypp-surface, #252525);
+  background: var(--ypp-bg-secondary, #252525);
 }
 
 .ypp-select option {
@@ -1582,9 +1709,9 @@ background: var(--color-danger);
 
 .ypp-floatingBtnContainer {
   position: fixed;
-  bottom: var(--spacing-md);
-  right: var(--spacing-md);
-  z-index: var(--z-overlay);
+  bottom: var(--ypp-spacing-md);
+  right: var(--ypp-spacing-md);
+  z-index: var(--ypp-z-overlay);
   display: flex;
   gap: 10px;
 }
@@ -1627,46 +1754,16 @@ background: var(--color-danger);
         );
     }
 
-    function getThemeColors() {
-        const isDark = isYouTubeDarkTheme();
-        return {
-            background: isDark ? '#0f0f0f' : '#ffffff',
-            surface: isDark ? '#1a1a1a' : '#f9f9f9',
-            border: isDark ? '#303030' : '#e0e0e0',
-            text: isDark ? '#f1f1f1' : '#0f0f0f',
-            textSecondary: isDark ? '#aaa' : '#606060',
-            input: isDark ? '#1a1a1a' : '#ffffff',
-            inputBorder: isDark ? '#303030' : '#cccccc',
-            inputFocus: isDark ? '#065fd4' : '#1a73e8',
-            overlay: isDark ? 'rgba(0, 0, 0, 0.8)' : 'rgba(0, 0, 0, 0.5)',
-            shadow: isDark ? '0 12px 24px rgba(0, 0, 0, 0.5)' : '0 12px 24px rgba(0, 0, 0, 0.15)'
-        };
-    }
-
-    function applyThemeStyles(element) {
-        const colors = getThemeColors();
-        element.style.setProperty('--ypp-bg', colors.background);
-        element.style.setProperty('--ypp-surface', colors.surface);
-        element.style.setProperty('--ypp-border', colors.border);
-        element.style.setProperty('--ypp-text', colors.text);
-        element.style.setProperty('--ypp-text-secondary', colors.textSecondary);
-        element.style.setProperty('--ypp-input', colors.input);
-        element.style.setProperty('--ypp-input-border', colors.inputBorder);
-        element.style.setProperty('--ypp-input-focus', colors.inputFocus);
-        element.style.setProperty('--ypp-overlay', colors.overlay);
-        element.style.setProperty('--ypp-shadow', colors.shadow);
-    }
-
     // ------------------------------------------
     // MARK: 🎨 SVG Icons
     // ------------------------------------------
 
     // SVGs como strings para reemplazar emojis
     const SVG_ICONS = {
-        folder: '<svg class="svgFolderIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/></svg>',
-        timer: '<svg class="svgTimerIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9a9 9 0 0 0 7.03-14.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>',
-        check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="var(--color-success)"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
-        save: '<svg class="svgSaveIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>',
+        folder: '<svg class="ypp-svgFolderIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/></svg>',
+        timer: '<svg class="ypp-svgTimerIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9a9 9 0 0 0 7.03-14.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>',
+        check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="var(--ypp-success)"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
+        save: '<svg class="ypp-svgSaveIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>',
         chart: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>',
         settings: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>',
         close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: text-bottom;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
@@ -1680,8 +1777,8 @@ background: var(--color-danger);
         // calendar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>',
         // sort: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>',
         locked: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" xml:space="preserve" version="1.1" viewBox="0 0 30 30"><path d="M9 16V8c0-3.3 2.7-6 6-6h0c3.3 0 6 2.7 6 6v8" style="fill:none;stroke:#6a83ba;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10"/><path d="M22 29H8c-1.1 0-2-.9-2-2V16c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v11c0 1.1-.9 2-2 2z" style="fill:#f2bb41;stroke:#f2bb41;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10"/><path d="M15 24h0c-.6 0-1-.4-1-1v-3c0-.6.4-1 1-1h0c.6 0 1 .4 1 1v3c0 .6-.4 1-1 1z" style="fill:#354c75;stroke:#354c75;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10"/></svg>',
-        pin: '<svg class="svgPinIcon" width="16" height="16" viewBox="0 0 508.901 508.901" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve"><defs><path id="a" fill="#a31c09" d="m342.08 279.177 58.606-58.606c-24.594-6.727-48.746-21.389-69.853-42.496-21.116-21.116-35.257-45.789-41.366-70.991l-59.727 59.719-48.719 48.719c6.118 25.212 22.581 47.554 43.697 68.661 21.107 21.116 44.067 36.97 68.661 43.697l48.701-48.703z"/></defs><path fill="#a31c09" d="M505.605 190.556c-13.789 13.789-66.887-16.949-118.599-68.661s-82.45-104.81-68.661-118.599 66.887 16.949 118.599 68.661 82.45 104.811 68.661 118.599"/><path fill="#d9dbe8" d="m0 508.9 112.358-162.295 49.937 49.938z"/><path fill="#ce3929" d="M387.007 121.894c-51.712-51.712-82.45-104.81-68.661-118.599-49.991 49.991-39.23 123.065 12.482 174.777s121.671 65.589 171.652 15.607l-.786-.821c-18.069 6.577-66.93-23.207-114.687-70.964"/><use xlink:href="#a"/><path fill="#ce3929" d="M311.324 389.978c2.348-21.486-1.607-44.226-11.829-68.22l-6.118 6.126c-24.594-6.735-47.554-22.59-68.661-43.697-21.116-21.107-37.579-43.458-43.697-68.661l6.241-6.241-.274-.282c-24.143-10.346-47.016-14.345-68.626-11.979-40.157 4.378-64.071 45.877-47.634 82.785 12.509 28.072 35.566 60.734 66.322 91.489 30.746 30.747 63.417 53.813 91.489 66.313 36.901 16.437 78.4-7.477 82.787-47.633"/></svg>',
-        playOrPause: '<svg class="svgPlayOrPauseIcon" width="16"height="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 40 40"><path fill="#3B88C3" d="M36 32a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4h28a4 4 0 0 1 4 4v28z"></path><path fill="#FFF" d="m6 7 13 11L6 29zm20 0h4v22h-4zm-7 0h4v22h-4z"></path></svg>'
+        pin: '<svg class="ypp-svgPinIcon" width="16" height="16" viewBox="0 0 508.901 508.901" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve"><defs><path id="a" fill="#a31c09" d="m342.08 279.177 58.606-58.606c-24.594-6.727-48.746-21.389-69.853-42.496-21.116-21.116-35.257-45.789-41.366-70.991l-59.727 59.719-48.719 48.719c6.118 25.212 22.581 47.554 43.697 68.661 21.107 21.116 44.067 36.97 68.661 43.697l48.701-48.703z"/></defs><path fill="#a31c09" d="M505.605 190.556c-13.789 13.789-66.887-16.949-118.599-68.661s-82.45-104.81-68.661-118.599 66.887 16.949 118.599 68.661 82.45 104.811 68.661 118.599"/><path fill="#d9dbe8" d="m0 508.9 112.358-162.295 49.937 49.938z"/><path fill="#ce3929" d="M387.007 121.894c-51.712-51.712-82.45-104.81-68.661-118.599-49.991 49.991-39.23 123.065 12.482 174.777s121.671 65.589 171.652 15.607l-.786-.821c-18.069 6.577-66.93-23.207-114.687-70.964"/><use xlink:href="#a"/><path fill="#ce3929" d="M311.324 389.978c2.348-21.486-1.607-44.226-11.829-68.22l-6.118 6.126c-24.594-6.735-47.554-22.59-68.661-43.697-21.116-21.107-37.579-43.458-43.697-68.661l6.241-6.241-.274-.282c-24.143-10.346-47.016-14.345-68.626-11.979-40.157 4.378-64.071 45.877-47.634 82.785 12.509 28.072 35.566 60.734 66.322 91.489 30.746 30.747 63.417 53.813 91.489 66.313 36.901 16.437 78.4-7.477 82.787-47.633"/></svg>',
+        playOrPause: '<svg class="ypp-svgPlayOrPauseIcon" width="16"height="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 40 40"><path fill="#3B88C3" d="M36 32a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4h28a4 4 0 0 1 4 4v28z"></path><path fill="#FFF" d="m6 7 13 11L6 29zm20 0h4v22h-4zm-7 0h4v22h-4z"></path></svg>'
     };
 
     // ------------------------------------------
@@ -1977,31 +2074,95 @@ background: var(--color-danger);
     * Proporciona métodos para guardar, obtener y eliminar datos, 
     * así como para listar claves almacenadas con un prefijo específico.
     */
+    // Backend de almacenamiento con fallback: localStorage -> GM_* (sync) -> memoria
+    let storageBackend = 'local';
+    let storageWarned = false;
+    const STORAGE_INDEX_KEY = `${CONFIG.storagePrefix}INDEX_v1`;
+    const memoryStore = {};
+    const memoryIndex = new Set();
+
+    function supportsSyncGM() {
+        try {
+            if (typeof GM_getValue !== 'function' || typeof GM_setValue !== 'function') return false;
+            const probe = GM_getValue('__ypp_probe__', null);
+            // Si devuelve una promesa, no es síncrono (no compatible con API de Storage)
+            if (probe && typeof probe.then === 'function') return false;
+            return true;
+        } catch (_) { return false; }
+    }
+
+    function detectStorageBackend() {
+        try {
+            const testKey = `${CONFIG.storagePrefix}__test__`;
+            localStorage.setItem(testKey, '1');
+            localStorage.removeItem(testKey);
+            return 'local';
+        } catch (_) {
+            return supportsSyncGM() ? 'gm' : 'memory';
+        }
+    }
+
+    function warnOnceBackend() {
+        if (!storageWarned && storageBackend !== 'local') {
+            try { warn('Storage', `Usando backend alternativo: ${storageBackend}`); } catch (_) {}
+            storageWarned = true;
+        }
+    }
+
+    function gmIndexGet() {
+        try {
+            const raw = GM_getValue(STORAGE_INDEX_KEY, '[]');
+            const arr = JSON.parse(raw || '[]');
+            return Array.isArray(arr) ? arr : [];
+        } catch (_) { return []; }
+    }
+    function gmIndexSet(arr) {
+        try { GM_setValue(STORAGE_INDEX_KEY, JSON.stringify(arr || [])); } catch (_) {}
+    }
+
+    storageBackend = detectStorageBackend();
+
     const Storage = {
         /**
-         * Obtiene un valor del almacenamiento local.
-         * @param {string} key - La clave bajo la cual se almacena el valor.
-         * @returns {Object|null} El valor parseado de JSON o null si no existe.
+         * Obtiene un valor del almacenamiento con backend disponible.
          */
         get(key) {
             try {
-                const raw = localStorage.getItem(`${CONFIG.storagePrefix}${key}`);
-                return raw ? JSON.parse(raw) : null;
+                if (storageBackend === 'local') {
+                    const raw = localStorage.getItem(`${CONFIG.storagePrefix}${key}`);
+                    return raw ? JSON.parse(raw) : null;
+                }
+                warnOnceBackend();
+                if (storageBackend === 'gm') {
+                    const raw = GM_getValue(`${CONFIG.storagePrefix}${key}`, null);
+                    return raw ? JSON.parse(raw) : null;
+                }
+                return Object.prototype.hasOwnProperty.call(memoryStore, key) ? memoryStore[key] : null;
             } catch (error) {
-                conError('Storage', `Storage.get: Error al parsear la clave "${key}"`, error);
+                conError('Storage', `Storage.get: Error al obtener la clave "${key}"`, error);
                 return null;
             }
         },
 
         /**
-         * Almacena un valor en el almacenamiento local.
-         * @param {string} key - La clave bajo la cual se almacenará el valor.
-         * @param {Object} value - El valor a almacenar, que será serializado a JSON.
+         * Guarda un valor en el backend disponible.
          */
         set(key, value) {
             try {
-                const serialized = JSON.stringify(value);
-                localStorage.setItem(`${CONFIG.storagePrefix}${key}`, serialized);
+                if (storageBackend === 'local') {
+                    localStorage.setItem(`${CONFIG.storagePrefix}${key}`, JSON.stringify(value));
+                    return;
+                }
+                warnOnceBackend();
+                if (storageBackend === 'gm') {
+                    GM_setValue(`${CONFIG.storagePrefix}${key}`, JSON.stringify(value));
+                    const idx = new Set(gmIndexGet());
+                    idx.add(key);
+                    gmIndexSet(Array.from(idx));
+                    return;
+                }
+                memoryStore[key] = value;
+                memoryIndex.add(key);
             } catch (error) {
                 conError('Storage', `Storage.set: Error al guardar la clave "${key}"`, error);
             }
@@ -2013,20 +2174,45 @@ background: var(--color-danger);
          */
         del(key) {
             try {
-                localStorage.removeItem(`${CONFIG.storagePrefix}${key}`);
+                if (storageBackend === 'local') {
+                    localStorage.removeItem(`${CONFIG.storagePrefix}${key}`);
+                    return;
+                }
+                warnOnceBackend();
+                if (storageBackend === 'gm') {
+                    // No hay GM_deleteValue declarado; limpiar índice y sobrescribir con null
+                    GM_setValue(`${CONFIG.storagePrefix}${key}`, null);
+                    const idx = new Set(gmIndexGet());
+                    idx.delete(key);
+                    gmIndexSet(Array.from(idx));
+                    return;
+                }
+                delete memoryStore[key];
+                memoryIndex.delete(key);
             } catch (error) {
                 conError('Storage', `Storage.del: Error al eliminar la clave "${key}"`, error);
             }
         },
 
         /**
-         * Obtiene todas las claves almacenadas que comienzan con el prefijo definido.
-         * @returns {Array<string>} Un array de claves sin el prefijo.
+         * Lista claves según backend disponible.
          */
         keys() {
-            return Object.keys(localStorage)
-                .filter((fullKey) => fullKey.startsWith(CONFIG.storagePrefix))
-                .map((fullKey) => fullKey.slice(CONFIG.storagePrefix.length));
+            try {
+                if (storageBackend === 'local') {
+                    return Object.keys(localStorage)
+                        .filter((fullKey) => fullKey.startsWith(CONFIG.storagePrefix))
+                        .map((fullKey) => fullKey.slice(CONFIG.storagePrefix.length));
+                }
+                warnOnceBackend();
+                if (storageBackend === 'gm') {
+                    return gmIndexGet();
+                }
+                return Array.from(memoryIndex);
+            } catch (error) {
+                conError('Storage', 'Storage.keys: Error al listar claves', error);
+                return [];
+            }
         }
     };
 
@@ -2073,11 +2259,30 @@ background: var(--color-danger);
     // ------------------------------------------
 
     // Variables para controlar el estado de inicialización
-    let isNavigating = false;
-    let navigationDebounceTimeout = null;
-    let isResuming = false;
     let YTHelper = null; // YouTube Helper API, Redeclarada en waitForHelper
-    let currentPageType = null; // Tipo de página actual
+    let isNavigating = false; // Variable global para registrar navegación
+    let isResuming = false; // Variable global para registrar reanudación
+    let navigationDebounceTimeout = null; // Timeout para evitar múltiples navegaciones
+    let currentPageType = null; // Tipo de página actual (home, watch, playlist, etc.)
+    // Ad Monitor
+    let isAdPlaying = false;    // Estado global de anuncios (para compartir entre módulos)
+    let isScriptPaused = false; // Variable global para controlar pausa total del script
+    let lastAdEndTime = 0; // Timestamp de cuando terminó el último anuncio
+    // Estados de anuncios por tipo
+    let isAdShortsPlaying = false; // Anuncio activo en Shorts
+    let isAdWatchPlaying = false;  // Anuncio activo en reproductor principal (watch/embed/miniplayer)
+
+    // Helper para decidir bloqueo por anuncios según tipo
+    const isAdBlockedFor = (type) => {
+        try {
+            const t = (type || '').toLowerCase();
+            if (t === 'shorts') return !!isAdShortsPlaying || !!isScriptPaused;
+            // watch/embed/home/miniplayer/preview
+            return !!isAdWatchPlaying || !!isScriptPaused;
+        } catch (_) {
+            return !!isAdPlaying || !!isScriptPaused;
+        }
+    };
 
     // ------------------------------------------
     // MARK: 🔧 Utils
@@ -2767,8 +2972,6 @@ background: var(--color-danger);
         // Redondear lengthSeconds a entero (FreeTube espera segundos completos)
         const lengthSeconds = Math.round(duration);
 
-        // IMPORTANTE: FreeTube guarda TODOS los videos (incluyendo shorts) como type:'video'
-        // No distingue entre shorts y videos regulares en el campo type
         const result = {
             videoId: internalData.videoId,
             title: internalData.title || 'Unknown Title',
@@ -2777,7 +2980,7 @@ background: var(--color-danger);
             published: internalData.published || null,
             description: internalData.description || '',
             viewCount: typeof internalData.viewsNumber === 'string'
-                ? parseInt(internalData.viewsNumber.replace(/[,.\s]/g, '')) || 0
+                ? parseInt(internalData.viewsNumber.replace(/[,\.\s]/g, '')) || 0
                 : (internalData.viewsNumber || 0),
             lengthSeconds: lengthSeconds, // Redondeado a entero
             watchProgress: watchProgress, // Redondeado a 2 decimales
@@ -2940,6 +3143,7 @@ background: var(--color-danger);
         let videoCount = 0;
         let shortCount = 0;
 
+        let iter = 0;
         for (const key of videoKeys) {
             const data = Storage.get(key);
             if (!data) continue;
@@ -2966,6 +3170,8 @@ background: var(--color-danger);
                     videoCount++;
                 }
             }
+            // Rendición cooperativa para no bloquear el hilo principal
+            if ((++iter % 50) === 0) { await new Promise(r => setTimeout(r, 0)); }
         }
 
         log('exportToFreeTubeFormat', `Exportando ${freeTubeData.length} items: ${videoCount} videos, ${shortCount} shorts`);
@@ -3060,9 +3266,8 @@ background: var(--color-danger);
                 log('getSavedVideoData', `✅ Video encontrado (sin filtro de playlist)`);
                 return videoData;
             } else {
-                // Video encontrado pero fue visto en otra playlist o sin playlist
-                log('getSavedVideoData', `⚠ Video encontrado pero en contexto diferente (guardado: ${videoData.lastViewedPlaylistId}, buscado: ${playlistId})`);
-                return videoData; // Aún así retornar para backward compatibility
+                log('getSavedVideoData', `⚠ Video encontrado pero en contexto diferente (guardado: ${videoData.lastViewedPlaylistId}, buscado: ${playlistId}) - usando fallback base`);
+                return videoData;
             }
         }
 
@@ -3133,6 +3338,7 @@ background: var(--color-danger);
         let changes = 0;
 
         // Recorre todas las claves encontradas en el almacenamiento
+        let iter = 0;
         for (const key of allKeys) {
             // Intenta extraer o normalizar el ID del video desde la clave
             const newKey = extractOrNormalizeVideoId(key)?.id;
@@ -3249,8 +3455,38 @@ background: var(--color-danger);
     async function getActiveVideoElement() {
         // Prioridad: YouTube Helper API
         if (YTHelper?.player?.videoElement) {
-            log('getActiveVideoElement', '✅ Usando YTHelper.player.videoElement');
-            return YTHelper.player.videoElement;
+            try {
+                const el = YTHelper.player.videoElement;
+                const pt = getYouTubePageType();
+                const container = el.closest('#movie_player, #masthead-player, #shorts-player');
+                const isShortsContainer = container?.id === 'shorts-player';
+                // En home/watch/embed evita usar el shorts-player; en Shorts sí debe usarse
+                if ((pt === 'shorts' && isShortsContainer) || (pt !== 'shorts' && !isShortsContainer)) {
+                    // En Shorts con guardado de shorts desactivado, evitar retorno inmediato del helper de Shorts.
+                    // Además, si hay miniplayer visible/reproduciendo, preferir DOM para seleccionarlo.
+                    let blockShortsHelper = false;
+                    try {
+                        if (pt === 'shorts' && isShortsContainer) {
+                            const mpEl = document.querySelector('#movie_player video.html5-main-video, #masthead-player video.html5-main-video, .ytp-miniplayer-ui video.html5-main-video, #miniplayer video.html5-main-video, ytd-miniplayer video');
+                            const mpPlaying = (() => { try { return !!mpEl && !mpEl.paused; } catch (_) { return false; } })();
+                            const shortsDisabled = (() => { try { return cachedSettings?.saveShorts === false; } catch (_) { return false; } })();
+                            blockShortsHelper = (!!mpEl && (shortsDisabled || mpPlaying));
+                        }
+                    } catch (_) { }
+                    if (blockShortsHelper) {
+                        log('getActiveVideoElement', '⏭ Evitando helper de Shorts (saveShorts=false o miniplayer activo); buscando en DOM para priorizar miniplayer');
+                    } else {
+                        // En páginas home-like, no devolvemos aún: buscamos DOM primero para privilegiar previews reales
+                        if (pt !== 'home' && pt !== 'search' && pt !== 'channel' && pt !== 'unknown') {
+                            log('getActiveVideoElement', '✅ Usando YTHelper.player.videoElement');
+                            return el;
+                        } else {
+                            log('getActiveVideoElement', 'ℹ️ En home-like no se retorna helper de inmediato; se buscará en DOM');
+                        }
+                    }
+                }
+                log('getActiveVideoElement', '⚠️ Ignorando YTHelper.videoElement por desajuste de contexto');
+            } catch (_) { }
         }
 
         log('getActiveVideoElement', '⚠️ YouTube Helper API no disponible, usando búsqueda DOM');
@@ -3264,6 +3500,7 @@ background: var(--color-danger);
 
             // === VIDEOS REGULARES (en página de reproducción) ===
             '#movie_player video.html5-main-video',
+            '#masthead-player video.html5-main-video',
             '.html5-video-player video.html5-main-video',
 
             // === MINIPLAYER FLOTANTE (Picture-in-Picture / Miniplayer) ===
@@ -3281,63 +3518,155 @@ background: var(--color-danger);
 
         const candidates = selectors.flatMap(selector => {
             const elements = Array.from(document.querySelectorAll(selector));
-            log('getActiveVideoElement', `Selector "${selector}": ${elements.length} elementos`);
+            info('getActiveVideoElement', `Selector "${selector}": ${elements.length} elementos`);
             return elements;
         });
-
         log('getActiveVideoElement', `Total de candidatos: ${candidates.length}`);
+
+        // Excluir candidatos dentro de contextos de anuncios (in-feed o overlays del player)
+        const isAdContextNode = (node) => {
+            try {
+                if (!node || !node.closest) return false;
+                const adNode = node.closest('.ytp-ad-module, .ytp-ad-player-overlay, .video-ads, ytd-in-feed-ad-layout-renderer, ytd-ad-slot-renderer, ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer, #player-ads');
+                if (adNode) return true;
+                // Si el contenedor del movie_player marca ad-showing, considerarlo anuncio
+                try {
+                    const po = (node.closest('#movie_player, .html5-video-player'));
+                    if (po && (po.classList?.contains('ad-showing') || po.classList?.contains('ad-interrupting'))) return true;
+                } catch (_) { }
+                return false;
+            } catch (_) { return false; }
+        };
 
         const visibleVideos = candidates.filter(video => {
             if (!video) return false;
+            if (((video.tagName || '').toUpperCase()) !== 'VIDEO') return false;
+            if (isAdContextNode(video)) { info('getActiveVideoElement', 'Descartado por contexto de anuncio'); return false; }
 
             const rect = video.getBoundingClientRect();
-            const isVisible = rect.width > 50 && rect.height > 50; // más permisivo para miniplayer
-            const hasSource = video.src || video.currentSrc || video.querySelector('source');
-            const isPlaying = !video.paused;
-            const hasDuration = video.duration > 0;
+            // Considerar contenedor de inline preview para la visibilidad
+            let inlineContainerEl = null;
+            try { inlineContainerEl = video.closest('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer'); } catch (_) { inlineContainerEl = null; }
+            const contRect = (() => { try { return inlineContainerEl?.getBoundingClientRect?.(); } catch (_) { return null; } })();
+            const visByVideoRect = rect.width > 50 && rect.height > 50 && rect.bottom > 0 && rect.top < (window.innerHeight || 99999);
+            const visByContRect = !!(contRect && contRect.width > 50 && contRect.height > 50 && contRect.bottom > 0 && contRect.top < (window.innerHeight || 99999));
+            // Chequeo de estilo (display/visibility/opacity) del contenedor si existe, de lo contrario del video
+            let visByStyle = true;
+            try {
+                const styleNode = inlineContainerEl || video;
+                const cs = window.getComputedStyle(styleNode);
+                const op = parseFloat(cs.opacity || '1');
+                visByStyle = cs.display !== 'none' && cs.visibility !== 'hidden' && op > 0.05;
+            } catch (_) { visByStyle = true; }
+            const isVisible = (visByVideoRect || visByContRect) && visByStyle;
+            const hasSource = !!(video.currentSrc || video.src || video.querySelector('source'));
+            const isPlaying = (() => { try { return !video.paused; } catch (_) { return false; } })();
+            const hasDuration = Number.isFinite(video.duration) && video.duration > 0;
+            const ready = (video.readyState || 0) >= 2; // HAVE_CURRENT_DATA
+            const progressed = (Number.isFinite(video.currentTime) && video.currentTime > 0);
+            const playable = ready || progressed || hasDuration || isPlaying;
 
             log('getActiveVideoElement', `Video: ${video.currentSrc?.substring(0, 50)}... | Visible: ${isVisible} | Tamaño: ${rect.width}x${rect.height} | Reproduciendo: ${isPlaying}`);
 
-            return isVisible && hasSource && hasDuration;
+            let acceptByInline = false;
+            try {
+                const inlineEl = inlineContainerEl || video.closest('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer');
+                if (inlineEl) {
+                    const ptNow = getYouTubePageType();
+                    const isHomeLike = (ptNow === 'home' || ptNow === 'search' || ptNow === 'channel' || ptNow === 'unknown');
+                    const allowInline = !!(cachedSettings && cachedSettings.saveInlinePreviews === true);
+                    // Permitir selección si:
+                    // - El usuario habilitó guardar previews inline, o
+                    // - Ya está reproduciendo o avanzó (para detección no intrusiva incluso si guardar está deshabilitado)
+                    acceptByInline = isHomeLike && (allowInline || isPlaying || progressed);
+                    // Sticky: recordar último inline playing para tolerar reflows rápidos
+                    try {
+                        if (acceptByInline && (isPlaying || progressed) && isVisible) {
+                            window.__ypp_lastInlinePreview__ = { el: video, ts: Date.now() };
+                        }
+                    } catch (_) { }
+                }
+            } catch (_) { acceptByInline = false; }
+
+            return isVisible && ((hasSource && playable) || acceptByInline);
         });
 
         log('getActiveVideoElement', `Videos visibles y reproducibles: ${visibleVideos.length}`);
 
-        if (visibleVideos.length === 0) return null;
-
-        // === PRIORIZAR: Miniplayer > Reproductor principal > Shorts > Otros ===
-        const miniplayer = visibleVideos.find(v =>
-            v.closest('.ytp-miniplayer-ui') ||
-            v.closest('#miniplayer') ||
-            v.closest('ytd-miniplayer')
-        );
-        if (miniplayer) {
-            log('getActiveVideoElement', 'Miniplayer flotante detectado y seleccionado');
-            return miniplayer;
+        if (visibleVideos.length === 0) {
+            // Fallback: usar último inline preview detectado recientemente (< 1500ms)
+            try {
+                const last = window.__ypp_lastInlinePreview__;
+                if (last && last.el && (Date.now() - (last.ts || 0) <= 1500) && document.contains(last.el) && !isAdContextNode(last.el)) {
+                    log('getActiveVideoElement', '↩️ Usando inline preview reciente (sticky) tras reflow');
+                    return last.el;
+                }
+            } catch (_) { }
+            return null;
         }
 
-        const mainPlayer = visibleVideos.find(v =>
-            v.closest('#movie_player') ||
-            v.closest('.html5-video-player')
-        );
-        if (mainPlayer) {
-            log('getActiveVideoElement', 'Reproductor principal detectado');
-            return mainPlayer;
+        // Preferir el video que esté reproduciéndose actualmente
+        const playingVideos = visibleVideos.filter(v => {
+            try { return !v.paused; } catch (_) { return false; }
+        });
+
+        const pickByPriority = (list) => {
+            const mp = list.find(v => v.closest('.ytp-miniplayer-ui') || v.closest('#miniplayer') || v.closest('ytd-miniplayer') || v.closest('#masthead-player'));
+            if (mp) return mp;
+            const main = list.find(v => v.closest('#movie_player') || v.closest('.html5-video-player') || v.closest('#masthead-player'));
+            if (main) return main;
+            const shorts = list.find(v => v.closest('ytd-reel-video-renderer') || v.closest('ytd-shorts') || v.closest('#shorts-player'));
+            if (shorts) return shorts;
+            return list[0];
+        };
+
+        // Si estamos en Shorts y el guardado de Shorts está deshabilitado,
+        // priorizar el miniplayer incluso cuando ambos están reproduciéndose.
+        let preferMiniplayer = false;
+        try { preferMiniplayer = (getYouTubePageType() === 'shorts') && (cachedSettings?.saveShorts === false); } catch (_) { }
+        // Si estamos en Shorts y el guardado de Shorts está habilitado, preferir Shorts sobre miniplayer
+        let preferShorts = false;
+        try { preferShorts = (getYouTubePageType() === 'shorts') && (cachedSettings?.saveShorts !== false); } catch (_) { }
+
+        if (playingVideos.length > 0) {
+            if (preferMiniplayer) {
+                const mpPlaying = playingVideos.find(v => v.closest('.ytp-miniplayer-ui') || v.closest('#miniplayer') || v.closest('ytd-miniplayer'));
+                if (mpPlaying) {
+                    log('getActiveVideoElement', 'Seleccionado miniplayer (preferido) por reproducción activa en Shorts con guardado desactivado');
+                    return mpPlaying;
+                }
+            }
+            if (preferShorts) {
+                const spPlaying = playingVideos.find(v => v.closest('ytd-reel-video-renderer') || v.closest('ytd-shorts') || v.closest('#shorts-player'));
+                if (spPlaying) {
+                    log('getActiveVideoElement', 'Seleccionado Shorts (preferido) por reproducción activa en Shorts con guardado habilitado');
+                    return spPlaying;
+                }
+            }
+            const chosen = pickByPriority(playingVideos);
+            log('getActiveVideoElement', 'Seleccionado por reproducción activa');
+            return chosen;
         }
 
-        const shortsPlayer = visibleVideos.find(v =>
-            v.closest('ytd-reel-video-renderer') ||
-            v.closest('ytd-shorts') ||
-            v.closest('#shorts-player')
-        );
-        if (shortsPlayer) {
-            log('getActiveVideoElement', 'Shorts detectado');
-            return shortsPlayer;
+        // Si no hay videos reproduciéndose, pero preferimos miniplayer, escogerlo si es visible
+        if (preferMiniplayer) {
+            const mpVisible = visibleVideos.find(v => v.closest('.ytp-miniplayer-ui') || v.closest('#miniplayer') || v.closest('ytd-miniplayer'));
+            if (mpVisible) {
+                log('getActiveVideoElement', 'Seleccionado miniplayer (preferido) por visibilidad en Shorts con guardado desactivado');
+                return mpVisible;
+            }
         }
-
-        // Último recurso
-        log('getActiveVideoElement', 'Usando primer <video> visible como fallback');
-        return visibleVideos[0];
+        // Si no hay videos reproduciéndose, pero preferimos Shorts, escogerlo si es visible
+        if (preferShorts) {
+            const spVisible = visibleVideos.find(v => v.closest('ytd-reel-video-renderer') || v.closest('ytd-shorts') || v.closest('#shorts-player'));
+            if (spVisible) {
+                log('getActiveVideoElement', 'Seleccionado Shorts (preferido) por visibilidad en Shorts con guardado habilitado');
+                return spVisible;
+            }
+        }
+        const chosen = pickByPriority(visibleVideos);
+        log('getActiveVideoElement', 'Seleccionado por prioridad de visibilidad');
+        return chosen;
     }
 
     // ------------------------------------------
@@ -3348,37 +3677,147 @@ background: var(--color-danger);
     function getActiveContainer() {
         // Prioridad: YouTube Helper API
         if (YTHelper?.player?.playerObject) {
-            log('getActiveContainer', '✅ Usando YTHelper.player.playerObject');
-            return YTHelper.player.playerObject;
+            try {
+                const co = YTHelper.player.playerObject;
+                const pt = currentPageType || getYouTubePageType();
+                const id = co?.id || co?.getAttribute?.('id');
+                const isShorts = id === 'shorts-player';
+                if (isShorts && pt !== 'shorts') {
+                    log('getActiveContainer', '⚠️ Ignorando playerObject de Shorts fuera de Shorts');
+                } else {
+                    log('getActiveContainer', '✅ Usando YTHelper.player.playerObject');
+                    return co;
+                }
+            } catch (_) { }
         }
 
+        // Helpers locales para validación estricta
+        const isElementReasonablyVisible = (el) => {
+            try {
+                if (!el || !el.getBoundingClientRect) return false;
+                const r = el.getBoundingClientRect();
+                const cs = getComputedStyle(el);
+                return r.width > 100 && r.height > 50 && r.bottom > 0 && r.top < (window.innerHeight || 0) + 1 && cs.display !== 'none' && cs.visibility !== 'hidden';
+            } catch (_) { return false; }
+        };
+
+        const isAdContext = (node) => {
+            try {
+                if (!node || !node.closest) return false;
+                const adNode = node.closest('.ytp-ad-module, .ytp-ad-player-overlay, .video-ads, ytd-in-feed-ad-layout-renderer, ytd-ad-slot-renderer, ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer, #player-ads');
+                if (adNode) return true;
+                try {
+                    const po = YTHelper?.player?.playerObject;
+                    if (po && (po.classList?.contains('ad-showing') || po.classList?.contains('ad-interrupting'))) return true;
+                } catch (_) { }
+                return false;
+            } catch (_) { return false; }
+        };
+
+        const isInlinePreviewContext = (node) => {
+            try {
+                const el = node && node.closest && node.closest('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer');
+                return !!(el && !isAdContext(node));
+            } catch (_) { return false; }
+        };
+
+        const isLikelyShortsContainer = (el) => {
+            try {
+                if (!el) return false;
+                const id = el.id || el.getAttribute?.('id') || '';
+                if (id === 'shorts-player') return true;
+                if (el.matches?.('ytd-reel-video-renderer, ytd-shorts, #shorts-container')) return true;
+                const cl = (el.className || '').toString();
+                return /reel|shorts/i.test(cl);
+            } catch (_) { return false; }
+        };
+
+        const isValidContainerForPage = (candidate, pageType) => {
+            if (!candidate || typeof candidate.querySelector !== 'function') return false;
+            if (isAdContext(candidate)) return false;
+            const allowInline = cachedSettings?.saveInlinePreviews === true;
+            if (isInlinePreviewContext(candidate) && !allowInline) return false;
+            const isShorts = pageType === 'shorts';
+            const looksLikeShorts = isLikelyShortsContainer(candidate);
+            // Permitir Shorts fuera de /shorts solo si es inline preview y el usuario lo habilitó
+            if (!isShorts && looksLikeShorts) {
+                if (!allowInline) return false;
+                const inlineOk = isInlinePreviewContext(candidate) || isInlinePreviewContext(candidate.querySelector?.('video'));
+                if (!inlineOk) return false;
+            }
+            const videoDesc = candidate.querySelector('video.html5-main-video') || candidate.querySelector('video');
+            const hasKnownPlayerMark = candidate.id === 'movie_player' || candidate.id === 'masthead-player' || candidate.classList?.contains('html5-video-player') || candidate.matches?.('#miniplayer, ytd-miniplayer, .ytp-miniplayer-ui');
+            if (videoDesc) {
+                if (isAdContext(videoDesc)) return false;
+                if (isInlinePreviewContext(videoDesc) && !allowInline) return false;
+                if (!isElementReasonablyVisible(videoDesc)) return false;
+                return true;
+            }
+            return !!hasKnownPlayerMark;
+        };
+
+        const pickFirstValidContainerLocal = (candidates, pageType) => {
+            for (const c of candidates) {
+                if (c && isValidContainerForPage(c, pageType)) return c;
+            }
+            return null;
+        };
+
         // Fallback a selectores DOM
-        const container = (
-            // Shorts
-            document.querySelector('ytd-reel-video-renderer') || // Único en DOM
-            document.querySelector('#reel-video-renderer') || // Único en DOM (es id de item ytd-reel-video-renderer)
-            document.querySelector('ytd-shorts') || // Único en DOM
-            document.querySelector('#shorts-container') || // Único en DOM
-            // Video normal
-            document.querySelector('#player-container-inner #player-container #movie_player') || // Único en DOM
-            document.querySelector('#movie_player') || // Único en DOM
-            document.querySelector('.html5-video-player:not(#inline-preview-player)') || // Más de uno en DOM, excluye variante
-            document.querySelector('video:not([data-no-fullscreen])') // Más de uno en DOM, excluye variante
-        );
-        
-        if (container) {
-            log('getActiveContainer', `✅ Container encontrado via DOM: ${container.tagName}${container.id ? '#' + container.id : ''}`);
+        const pt2 = currentPageType || getYouTubePageType();
+        let candidates = [];
+        if (pt2 === 'shorts') {
+            candidates = [
+                document.querySelector('#shorts-player'),
+                document.querySelector('ytd-reel-video-renderer'),
+                document.querySelector('#reel-video-renderer'),
+                document.querySelector('ytd-shorts'),
+                document.querySelector('#shorts-container'),
+                document.querySelector('#movie_player'),
+                document.querySelector('.html5-video-player:not(#inline-preview-player)')
+            ];
         } else {
-            warn('getActiveContainer', '⚠️ No se encontró container activo');
+            candidates = [
+                document.querySelector('#player-container-inner #player-container #movie_player'),
+                document.querySelector('#movie_player'),
+                document.querySelector('#masthead-player'),
+                document.querySelector('.html5-video-player:not(#inline-preview-player)'),
+                document.querySelector('#miniplayer'),
+                document.querySelector('ytd-miniplayer'),
+                document.querySelector('.ytp-miniplayer-ui')
+            ];
+            // Si el usuario habilitó guardar previews inline, considerar su contenedor explícito
+            try { if (cachedSettings?.saveInlinePreviews === true) { candidates.unshift(document.querySelector('#inline-preview-player')); } } catch (_) { }
+            const shortsEls = [
+                document.querySelector('ytd-reel-video-renderer'),
+                document.querySelector('#reel-video-renderer'),
+                document.querySelector('ytd-shorts'),
+                document.querySelector('#shorts-container')
+            ];
+            candidates = candidates.concat(shortsEls);
         }
-        
-        return container;
+
+        // Intentar también con el <video> como último recurso, mapeando a su contenedor
+        const looseVideo = document.querySelector('video:not([data-no-fullscreen])');
+        if (looseVideo) {
+            const mapped = looseVideo.closest('#movie_player, .html5-video-player, .ytp-miniplayer-ui, #miniplayer, ytd-miniplayer, #inline-preview-player, .ytp-inline-preview-ui') || looseVideo.parentElement;
+            if (mapped) candidates.push(mapped);
+        }
+
+        const picked = pickFirstValidContainerLocal(candidates.filter(Boolean), pt2);
+        if (picked) {
+            log('getActiveContainer', `✅ Container encontrado via DOM: ${picked.tagName}${picked.id ? '#' + picked.id : ''}`);
+            return picked;
+        }
+
+        warn('getActiveContainer', '⚠️ No se encontró container activo');
+        return null;
     }
 
     // ------------------------------------------
     // MARK: 🎬 Get Video Tittle
     // ------------------------------------------
-
+    
     /**
      * Valida que un título sea el actual comparando con document.title
      * @param {string} candidateTitle - Título candidato a validar
@@ -3415,6 +3854,24 @@ background: var(--color-danger);
             return isReasonableLength && hasValidChars && isNotGeneric;
         }
 
+        try {
+            const pt = getYouTubePageType();
+            const isNonWatch = pt !== 'watch';
+            const docIsGeneric = ['YouTube', 'Loading...', 'Untitled'].includes(docTitle);
+            if (isNonWatch || docIsGeneric) {
+                const isReasonableLength = candidateTitle.length > 3 && candidateTitle.length < 500;
+                const hasValidChars = /[a-zA-Z0-9]/.test(candidateTitle);
+                const isNotGeneric = !['YouTube', 'Loading...', 'Untitled', ''].includes(candidateTitle.trim());
+                const isValidBasic = isReasonableLength && hasValidChars && isNotGeneric;
+                if (isValidBasic) {
+                    log('validateTitle', `✅ Título validado (modo no-watch): "${candidateTitle}"`);
+                } else {
+                    log('validateTitle', `❌ Título rechazado (modo no-watch): "${candidateTitle}"`);
+                }
+                return isValidBasic;
+            }
+        } catch (_) { }
+
         // Normalizar títulos para comparación (eliminar espacios extras, convertir a minúsculas)
         const normalize = (str) => str.toLowerCase().replace(/\s+/g, ' ').trim();
         const normalizedCandidate = normalize(candidateTitle);
@@ -3444,6 +3901,21 @@ background: var(--color-danger);
             }
             warn('getVideoTittle', '⚠️ Título de YTHelper no validado, puede ser de video previo');
         }
+
+        try {
+            const pt = getYouTubePageType();
+            if (pt !== 'shorts') {
+                const mp = document.querySelector('#movie_player');
+                const mpTitle = mp?.getVideoData?.()?.title;
+                if (mpTitle) {
+                    log('getVideoTittle', `Título encontrado en movie_player.getVideoData(): ${mpTitle}`);
+                    if (validateTitle(mpTitle)) {
+                        return mpTitle;
+                    }
+                    warn('getVideoTittle', '⚠️ Título de movie_player no validado');
+                }
+            }
+        } catch (_) { }
 
         // Fallback de Shorts 
         const anchorTitleShorts =
@@ -3587,20 +4059,47 @@ background: var(--color-danger);
 
     // Función para obtener el autor del video
     function getVideoAuthor(player) {
-        // Prioridad: YouTube Helper API
-        if (YTHelper?.video?.channel) {
-            log('getVideoAuthor', `Autor encontrado en YTHelper: ${YTHelper.video.channel}`);
-            return YTHelper.video.channel;
+        const pt = getYouTubePageType();
+        // 1) Preferir author del player (movie_player) en watch/embed/home
+        try {
+            if (pt !== 'shorts') {
+                // Forzar movie_player si existe
+                const mp = document.querySelector('#movie_player');
+                const mpAuthor = mp?.getVideoData?.()?.author;
+                if (mpAuthor && typeof mpAuthor === 'string' && mpAuthor.trim().length > 0) {
+                    log('getVideoAuthor', `Autor encontrado en movie_player: ${mpAuthor}`);
+                    return mpAuthor.trim();
+                }
+            }
+        } catch (_) { }
+
+        // 1b) videoDetails.author (suele estar disponible en watch y es confiable)
+        try {
+            if (pt !== 'shorts') {
+                const vdAuthor = window.ytInitialPlayerResponse?.videoDetails?.author;
+                if (vdAuthor && typeof vdAuthor === 'string' && vdAuthor.trim().length > 0) {
+                    log('getVideoAuthor', `Autor encontrado en videoDetails: ${vdAuthor}`);
+                    return vdAuthor.trim();
+                }
+            }
+        } catch (_) { }
+
+        // 2) Player pasado por parámetro
+        try {
+            const playerAuthor = player?.getVideoData?.()?.author;
+            if (playerAuthor && typeof playerAuthor === 'string' && playerAuthor.trim().length > 0) {
+                log('getVideoAuthor', `Autor encontrado en player: ${playerAuthor}`);
+                return playerAuthor.trim();
+            }
+        } catch (_) { }
+
+        // 3) YTHelper solo tiene prioridad en Shorts. En otros contextos, úsese como fallback lejano
+        if (YTHelper?.video?.channel && pt === 'shorts') {
+            log('getVideoAuthor', `Autor encontrado en YTHelper (shorts): ${YTHelper.video.channel}`);
+            return ('' + YTHelper.video.channel).trim();
         }
 
-        // Player API
-        const playerAuthor = player?.getVideoData?.()?.author;
-        if (playerAuthor) {
-            log('getVideoAuthor', `Autor encontrado en player: ${playerAuthor}`);
-            return playerAuthor;
-        }
-
-        // DOM selectors
+        // 4) DOM selectors (fallback)
         const domAuthor =
             document.querySelector('link[itemprop="name"]')?.getAttribute('content') ||
             document.querySelector('yt-button-shape#subscribe-button-shape button.yt-spec-button-shape-next')?.getAttribute('aria-label')?.replace(/^Subscribe to /, '').replace(/\.$/, '').trim() ||
@@ -3609,6 +4108,12 @@ background: var(--color-danger);
         if (domAuthor) {
             log('getVideoAuthor', `Autor encontrado en DOM: ${domAuthor}`);
             return domAuthor;
+        }
+
+        // 5) Último intento: YTHelper fuera de Shorts si no hay nada más
+        if (YTHelper?.video?.channel) {
+            log('getVideoAuthor', `Autor fallback YTHelper: ${YTHelper.video.channel}`);
+            return ('' + YTHelper.video.channel).trim();
         }
 
         log('getVideoAuthor', 'No se pudo obtener autor, usando fallback');
@@ -3621,9 +4126,15 @@ background: var(--color-danger);
 
     function getVideoThumbnail(vid) {
         if (!vid) return null;
+        try {
+            const ptThumb = getYouTubePageType();
+            if (ptThumb === 'home' || ptThumb === 'search' || ptThumb === 'channel' || ptThumb === 'unknown') {
+                return `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`;
+            }
+        } catch (_) { }
 
-        let thumb = YTHelper?.video?.thumbnails[0].url;
-        if (thumb) return cleanThumbnailUrl(thumb);
+        let thumb = YTHelper?.video?.thumbnails?.[0]?.url;
+        if (thumb && thumbnailHasVideoId(thumb, vid)) return cleanThumbnailUrl(thumb);
 
         // Desde DOM
         /* 
@@ -3644,7 +4155,7 @@ background: var(--color-danger);
         for (const sel of selectors) {
             const el = document.querySelector(sel);
             const url = el?.content || el?.href;
-            if (url) return cleanThumbnailUrl(url);
+            if (url && thumbnailHasVideoId(url, vid)) return cleanThumbnailUrl(url);
         }
 
         // Desde el div de YouTube player
@@ -3655,7 +4166,7 @@ background: var(--color-danger);
         if (thumbDiv) {
             const style = thumbDiv.style.backgroundImage;
             const match = style.match(/url\((['"]?)(.*?)\1\)/);
-            if (match) return match[2];
+            if (match && thumbnailHasVideoId(match[2], vid)) return match[2];
         }
 
         // Desde JSON incrustado
@@ -3666,7 +4177,7 @@ background: var(--color-danger);
 
             const url = window.ytInitialPlayerResponse?.microformat?.playerMicroformatRenderer?.thumbnail?.thumbnails?.[0]?.url;
 
-            if (url != null && vid && url?.includes(vid)) {
+            if (url != null && vid && thumbnailHasVideoId(url, vid)) {
                 return cleanThumbnailUrl(url);
             }
         } catch (err) {
@@ -3679,8 +4190,19 @@ background: var(--color-danger);
 
     // Limpia parámetros innecesarios de la URL
     function cleanThumbnailUrl(url) {
-        const match = url.match(/^(https:\/\/i\.ytimg\.com\/vi\/[A-Za-z0-9_-]+\/[^?]+)/);
+        const match = url.match(/^(https:\/\/i\.ytimg\.com\/vi(?:_webp)?\/[A-Za-z0-9_-]+\/[^?]+)/);
         return match ? match[1] : url;
+    }
+
+    function thumbnailHasVideoId(url, vid) {
+        if (!url || !vid) return false;
+        try {
+            const m = url.match(/https:\/\/i\.ytimg\.com\/vi(?:_webp)?\/([A-Za-z0-9_-]+)\//);
+            if (m && m[1]) return m[1] === vid;
+            return url.includes(vid);
+        } catch (e) {
+            return false;
+        }
     }
 
     // ------------------------------------------
@@ -3689,6 +4211,47 @@ background: var(--color-danger);
 
     // Cache por video
     const viewCountCache = new Map();
+    var watchMetaCache = new Map();
+    var WATCH_META_TTL = 600000;
+    function fetchWatchMeta(videoId) {
+        return new Promise(function (resolve) {
+            try {
+                GM_xmlhttpRequest({
+                    method: 'GET',
+                    url: 'https://www.youtube.com/watch?v=' + encodeURIComponent(videoId),
+                    onload: function (response) {
+                        var text = response.responseText || '';
+                        var data = {};
+                        try {
+                            var m = text.match(/ytInitialPlayerResponse\s*=\s*(\{.*?\});/s);
+                            if (m && m[1]) {
+                                var json = JSON.parse(m[1]);
+                                var vd = json && json.videoDetails || null;
+                                var mf = json && json.microformat && json.microformat.playerMicroformatRenderer || null;
+                                if (vd && vd.title != null) data.title = vd.title;
+                                if (vd && vd.author != null) data.author = vd.author;
+                                if (vd && vd.channelId != null) data.authorId = vd.channelId;
+                                if (vd && vd.viewCount != null) {
+                                    try { data.viewsNumber = Number(vd.viewCount).toLocaleString(); } catch (_) { data.viewsNumber = '' + vd.viewCount; }
+                                }
+                                if (mf && mf.description && mf.description.simpleText != null) data.description = mf.description.simpleText.trim();
+                            }
+                        } catch (_) { }
+                        resolve(data);
+                    },
+                    onerror: function () { resolve({}); },
+                    ontimeout: function () { resolve({}); }
+                });
+            } catch (_) { resolve({}); }
+        });
+    }
+    function getWatchMetaCached(videoId) {
+        try {
+            var c = watchMetaCache.get(videoId);
+            if (c && (Date.now() - c.time) < WATCH_META_TTL) return Promise.resolve(c.data);
+        } catch (_) { }
+        return fetchWatchMeta(videoId).then(function (d) { try { watchMetaCache.set(videoId, { data: d, time: Date.now() }); } catch (_) { } return d; });
+    }
 
     async function getVideoInfo(player, videoId) {
         const now = Date.now();
@@ -3699,31 +4262,18 @@ background: var(--color-danger);
 
         // Thumbnail
         let thumb = getVideoThumbnail(videoId)
+        log('getVideoInfo', ' 📺 Thumbnail= ', thumb)
 
         // Datos adicionales para compatibilidad con FreeTube
-        let published = YTHelper?.video?.publishDate?.getTime() ||
+        let published =
+            YTHelper?.video?.publishDate?.getTime() ||
             (YTHelper?.video?.rawPublishDate ? new Date(YTHelper.video.rawPublishDate).getTime() : null);
+
 
         let description =
             YTHelper?.video?.rawDescription?.trim() ??
-            document.querySelector('div#snippet span.yt-formatted-string')?.textContent?.trim() ??
-            /*   document.querySelector('meta[name="description"]')?.getAttribute('content') ??
-              document.querySelector('meta[property="og:description"]')?.getAttribute('content') ??
-              document.querySelector('meta[name="twitter:description"]')?.getAttribute('content') ??
-              document.querySelector('meta[itemprop="description"]')?.getAttribute('content') ?? */
-            document.querySelector('div#expanded.ytd-text-inline-expander yt-attributed-string yt-core-attributed-string yt-core-attributed-string--link-inherit-color')?.textContent?.trim() ??
             document.querySelector('#inline-expander div#snippet.ytd-text-inline-expander yt-attributed-string')?.textContent.trim() ??
             '';
-
-
-        log('getVideoInfo', ' 📝 Descripción 0= ', YTHelper?.video?.rawDescription)
-        log('getVideoInfo', ' 📝 Descripción 1= ', document.querySelector('div#snippet span.yt-formatted-string')?.textContent?.trim())
-        /*  log('getVideoInfo', ' 📝 Descripción 2= ', document.querySelector('meta[name="description"]')?.getAttribute('content'))
-            log('getVideoInfo', ' 📝 Descripción 3= ', document.querySelector('meta[property="og:description"]')?.getAttribute('content'))
-            log('getVideoInfo', ' 📝 Descripción 4= ', document.querySelector('meta[name="twitter:description"]')?.getAttribute('content'))
-            log('getVideoInfo', ' 📝 Descripción 5= ', document.querySelector('meta[itemprop="description"]')?.getAttribute('content')) */
-        log('getVideoInfo', ' 📝 Descripción 6= ', document.querySelector('div#expanded.ytd-text-inline-expander yt-attributed-string yt-core-attributed-string yt-core-attributed-string--link-inherit-color')?.textContent?.trim())
-        log('getVideoInfo', ' 📝 Descripción 7= ', document.querySelector('#inline-expander div#snippet.ytd-text-inline-expander yt-attributed-string')?.textContent.trim())
 
         let isLive = YTHelper?.video?.isCurrentlyLive || false;
 
@@ -3746,20 +4296,68 @@ background: var(--color-danger);
         let duration = normalizeSeconds(getVideoDuration(player, videoEl));
         log('getVideoInfo', ' 🕕 Duración tras normalizeSeconds = ', duration);
 
-        // Autor ID (Channel ID)
-        let authorId =
-            YTHelper?.video?.channelId || // Prioridad a YouTube Helper API
-            window.ytInitialPlayerResponse?.videoDetails?.channelId ||
-            // Videos regulares
-            document.querySelector('#upload-info a.yt-simple-endpoint')?.href?.split('/channel/')[1] ||
-            document.querySelector('a.ytp-ce-channel-title.ytp-ce-link')?.href?.split('/channel/')[1] ||
-            document.querySelector('#items yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
-            document.querySelector('#infocard-channel-button yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
-            // Shorts
-            document.querySelector('link[rel="canonical"]')?.href?.split('/channel/')[1] ||
-            document.querySelector('meta[property="og:url"]')?.content?.split('/channel/')[1] ||
-            document.querySelector('link[itemprop="url"]')?.href?.split('/channel/')[1] ||
-            t('unknown');
+        const pt = getYouTubePageType();
+        let authorId;
+        let isMiniOnShorts = false;
+        try {
+            if (pt === 'shorts') {
+                const mpChk = document.querySelector('#movie_player');
+                const mpVid = mpChk?.getVideoData?.()?.video_id;
+                if (mpVid && mpVid === videoId) isMiniOnShorts = true;
+            }
+        } catch (_) { }
+        if (pt === 'shorts' && !isMiniOnShorts) {
+            // Shorts normales: usar enlaces del player de Shorts
+            authorId =
+                document.querySelector('#shorts-player a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
+                document.querySelector('ytd-reel-player-header-renderer a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
+                document.querySelector('ytd-reel-video-renderer a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
+                document.querySelector('link[rel="canonical"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
+                document.querySelector('meta[property="og:url"]')?.content?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
+                document.querySelector('link[itemprop="url"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
+                t('unknown');
+        } else if (pt === 'shorts' && isMiniOnShorts) {
+            // Shorts + miniplayer: NO usar window.ytInitialPlayerResponse (pertenece al Short)
+            // 1) Intentar enlaces dentro de #movie_player
+            authorId =
+                document.querySelector('#movie_player a.ytp-ce-channel-title.ytp-ce-link[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
+                document.querySelector('#movie_player a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
+                '';
+            // 2) Siempre fusionar con metadata de la página watch del miniplayer para asegurar author/authorId correctos
+            try {
+                const meta = await getWatchMetaCached(videoId);
+                if (meta && meta.authorId) authorId = meta.authorId;
+                if (meta && meta.author) author = meta.author;
+                if (meta && meta.viewsNumber) viewsNumber = meta.viewsNumber;
+                if (meta && meta.title) title = meta.title;
+                if (meta && meta.description) description = meta.description;
+            } catch (_) { }
+            if (!authorId) authorId = t('unknown');
+        } else {
+            // Páginas normales (watch, embed, home, etc.)
+            authorId =
+                window.ytInitialPlayerResponse?.videoDetails?.channelId ||
+                document.querySelector('#upload-info a.yt-simple-endpoint')?.href?.split('/channel/')[1] ||
+                document.querySelector('a.ytp-ce-channel-title.ytp-ce-link')?.href?.split('/channel/')[1] ||
+                document.querySelector('#items yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
+                document.querySelector('#infocard-channel-button yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
+                t('unknown');
+        }
+
+        try {
+            const pt2 = getYouTubePageType();
+            if (pt2 !== 'watch') {
+                const meta = await getWatchMetaCached(videoId);
+                const isGeneric = (s) => !s || ['YouTube', 'Loading...', 'Untitled'].includes(('' + s).trim());
+                if (meta) {
+                    if (isGeneric(title) && meta.title) title = meta.title;
+                    if ((!author || author === t('unknown')) && meta.author) author = meta.author;
+                    if ((!authorId || authorId === t('unknown')) && meta.authorId) authorId = meta.authorId;
+                    if (!viewsNumber && meta.viewsNumber) viewsNumber = meta.viewsNumber;
+                    if (!description && meta.description) description = meta.description;
+                }
+            }
+        } catch (_) { }
 
         // Caché de views
         const cached = viewCountCache.get(videoId);
@@ -3769,7 +4367,7 @@ background: var(--color-danger);
             viewsNumber = cached.views;
         }
 
-        log('getVideoInfo', 'Info Obtenida:', { title, author, thumb, viewsNumber, savedAt: now, duration, authorId, videoId, published, description, isLive })
+        log('getVideoInfo', 'Info:', { title, author, viewsNumber, duration, videoId, authorId, published })
         return {
             title,
             author,
@@ -3790,51 +4388,69 @@ background: var(--color-danger);
     // ------------------------------------------
 
     function getVideoDuration(player, videoEl) {
+        const nowTs = Date.now();
+        const canLogDur = nowTs - lastDurationLog > 2000;
+        if (canLogDur) lastDurationLog = nowTs;
         let duration;
 
         // Player directo
         // 275.421
         duration = player?.getDuration?.();
-        log('getVideoDuration', 'duración player.getDuration', duration)
+        if (canLogDur) log('getVideoDuration', 'duración player.getDuration', duration)
         if (duration && duration > 0 && !isNaN(duration)) return duration;
 
         // movie_player global
-        // 275.421
-        duration = document.querySelector('#movie_player')?.getDuration?.();
-        log('getVideoDuration', 'duración movie_player.getDuration', duration)
-        if (duration && duration > 0 && !isNaN(duration)) return duration;
+        // Evitar este fallback si estamos en Shorts o si el elemento pertenece a shorts-player
+        try {
+            const ptNow = getYouTubePageType();
+            const contId = videoEl?.closest?.('#movie_player, #shorts-player')?.id || null;
+            if (ptNow !== 'shorts' && contId !== 'shorts-player') {
+                duration = document.querySelector('#movie_player')?.getDuration?.();
+                if (canLogDur) log('getVideoDuration', 'duración movie_player.getDuration', duration)
+                if (duration && duration > 0 && !isNaN(duration)) return duration;
+            } else if (canLogDur) {
+                log('getVideoDuration', '⛔ Omitiendo movie_player.getDuration por contexto Shorts');
+            }
+        } catch (_) { }
 
         // PlayerObject
         // 275.421
         duration = player?.playerObject?.getDuration?.();
-        log('getVideoDuration', 'duración playerObject.getDuration', duration)
+        if (canLogDur) log('getVideoDuration', 'duración playerObject.getDuration', duration)
         if (duration && duration > 0 && !isNaN(duration)) return duration;
 
         // Elemento video
         // 275.421
         duration = videoEl?.duration;
-        log('getVideoDuration', 'duración videoEl.duration', duration)
+        if (canLogDur) log('getVideoDuration', 'duración videoEl.duration', duration)
+        if (duration && duration > 0 && !isNaN(duration)) return duration;
+
+        // YouTube Helper API API Proxy
+        // 275.421
+        duration = YTHelper.apiProxy.getDuration?.()
+        if (canLogDur) log('getVideoDuration', 'duración YTHelper.apiProxy.getDuration', duration)
         if (duration && duration > 0 && !isNaN(duration)) return duration;
 
         // YouTube Helper API (no da decimales)
         // 275 no da decimales!
         duration = YTHelper?.video?.lengthSeconds;
-        log('getVideoDuration', 'duración YTHelper.video.lengthSeconds', duration)
+        if (canLogDur) log('getVideoDuration', 'duración YTHelper.video.lengthSeconds', duration)
         if (duration && duration > 0 && !isNaN(duration)) return duration;
 
         // ytp-time-duration (no da decimales)
         // "4:35" -> parseTimeToSeconds -> 275 no da decimales!
         duration = document.querySelector('.ytp-time-duration')?.textContent;
-        log('getVideoDuration', 'duración document.querySelector(.ytp-time-duration).textContent', duration)
+        if (canLogDur) log('getVideoDuration', 'duración document.querySelector(.ytp-time-duration).textContent', duration)
         if (duration) {
             const parsedDuration = parseTimeToSeconds(duration.trim());
+            if (canLogDur) log('getVideoDuration', 'duración document.querySelector(.ytp-time-duration).textContent', parsedDuration)
             if (parsedDuration && parsedDuration > 0 && !isNaN(parsedDuration)) return parsedDuration;
         }
 
         // meta[itemprop="duration"] (no da decimales)
         // "PT4M35S" -> parseISODuration -> 275  no da decimales!
         duration = document.querySelector('meta[itemprop="duration"]')?.content;
-        log('getVideoDuration', 'duración document.querySelector(meta[itemprop="duration"]).content', duration)
+        if (canLogDur) log('getVideoDuration', 'duración document.querySelector(meta[itemprop="duration"]).content', duration)
         if (duration) {
             const parsedDuration = parseISODuration(duration);
             if (parsedDuration && parsedDuration > 0 && !isNaN(parsedDuration)) return parsedDuration;
@@ -3850,16 +4466,16 @@ background: var(--color-danger);
                     return new Promise(resolve => {
                         const checkDuration = () => {
                             if (!isNaN(videoEl.duration) && videoEl.duration > 0) {
-                                log('getVideoDuration', 'duración videoEl.duration (después de esperar metadatos)', videoEl.duration);
+                                if (canLogDur) log('getVideoDuration', 'duración videoEl.duration (después de esperar metadatos)', videoEl.duration);
                                 resolve(videoEl.duration);
                             } else {
                                 videoEl.addEventListener('loadedmetadata', () => {
-                                    log('getVideoDuration', 'duración videoEl.duration (después de loadedmetadata)', videoEl.duration);
+                                    if (canLogDur) log('getVideoDuration', 'duración videoEl.duration (después de loadedmetadata)', videoEl.duration);
                                     resolve(videoEl.duration);
                                 }, { once: true });
                                 // Timeout por si nunca se cargan los metadatos
                                 setTimeout(() => {
-                                    log('getVideoDuration', 'timeout esperando metadatos, usando 0');
+                                    if (canLogDur) log('getVideoDuration', 'timeout esperando metadatos, usando 0');
                                     resolve(0);
                                 }, 3000);
                             }
@@ -3868,7 +4484,7 @@ background: var(--color-danger);
                     });
                 } else {
                     duration = videoEl.duration;
-                    log('getVideoDuration', 'duración videoEl.duration (directo)', duration);
+                    if (canLogDur) log('getVideoDuration', 'duración videoEl.duration (directo)', duration);
                     return duration;
                 }
             }
@@ -3940,8 +4556,32 @@ background: var(--color-danger);
             // Si no es URL válida, continuar
         }
 
-        // Si todo falla
-        warn("extractOrNormalizeVideoId: no se pudo determinar video_id para", input);
+        // Si todo falla, decidir severidad según contexto de URL
+        try {
+            const url = new URL(trimmed);
+            const host = url.hostname || '';
+            const path = url.pathname || '';
+            const isYouTube = /(^|\.)youtube\.com$/i.test(host) || /youtu\.be$/i.test(host);
+            const isNonVideoPath = (
+                path === '/' ||
+                path.startsWith('/@') ||
+                path.startsWith('/channel/') ||
+                path.startsWith('/user/') ||
+                path.startsWith('/c/') ||
+                path.startsWith('/feed') ||
+                path.startsWith('/results') ||
+                path.startsWith('/account') ||
+                path.startsWith('/playlist') && !url.searchParams.get('list')
+            );
+            if (isYouTube && isNonVideoPath) {
+                // Páginas de canal/home/feed/búsqueda: no es un error, solo debug
+                log('extractOrNormalizeVideoId', 'No es página de video, omitiendo:', input);
+                return null;
+            }
+        } catch { }
+
+        // Caso general: advertencia
+        warn('extractOrNormalizeVideoId: no se pudo determinar video_id para', input);
         return null;
     }
 
@@ -3955,6 +4595,12 @@ background: var(--color-danger);
             log('isLiveVideo', `Tiempo fijo en URL: ${hasFixedTime}`);
             if (hasFixedTime) {
                 log('isLiveVideo', '❌ Video tiene tiempo fijo configurado - NO es live');
+                return false;
+            }
+
+            // Early return if YTHelper indicates non-live with duration
+            if (YTHelper?.video?.isCurrentlyLive === false && YTHelper?.video?.lengthSeconds > 0) {
+                log('isLiveVideo', '❌ YTHelper indica no live y duración >0 - NO es live');
                 return false;
             }
 
@@ -3976,13 +4622,15 @@ background: var(--color-danger);
                 }
             }
 
-            // 2. Fallback: Verificar badge de live en el player
+            // 2. Fallback: Verificar badge de live en el player (solo si es visible)
             const liveBadge = document.querySelector('.ytp-live-badge');
+            const isBadgeVisible = liveBadge && liveBadge.offsetParent !== null &&
+                window.getComputedStyle(liveBadge).display !== 'none';
             const liveBadgeText = liveBadge?.getAttribute('aria-label') || liveBadge?.textContent || '';
-            log('isLiveVideo', `2️⃣ Live badge encontrado: ${!!liveBadge}, tiene aria-label: ${liveBadge?.hasAttribute('aria-label')}`);
+            log('isLiveVideo', `2️⃣ Live badge encontrado: ${!!liveBadge}, visible: ${isBadgeVisible}, tiene aria-label: ${liveBadge?.hasAttribute('aria-label')}`);
             log('isLiveVideo', `2️⃣b Contenido del badge: "${liveBadgeText}"`);
 
-            if (liveBadge && liveBadge.hasAttribute('aria-label')) {
+            if (liveBadge && isBadgeVisible && liveBadge.hasAttribute('aria-label')) {
                 // Verificar que el contenido del badge realmente indique "live" actual
                 // Excluir mensajes de navegación como "Sigue adelante hasta alcanzar..."
                 const lowerText = liveBadgeText.toLowerCase();
@@ -4019,12 +4667,12 @@ background: var(--color-danger);
 
             if (isLiveBroadcast) {
                 // SIEMPRE validar meta tag con otros indicadores para evitar falsos positivos
-                const currentDocTitle = document.title.replace(/ - YouTube$/, '').trim();
-                const hasLiveInTitle = currentDocTitle.toLowerCase().includes('live');
+                const currentTitle = YTHelper?.video?.title || document.title.replace(/ - YouTube$/, '').trim();
+                const hasLiveInTitle = currentTitle.toLowerCase().includes('live');
                 const hasLiveInUrl = window.location.href.includes('/live/');
 
                 log('isLiveVideo', `Validación de meta tag isLiveBroadcast:`);
-                log('isLiveVideo', `   - Título: "${currentDocTitle}"`);
+                log('isLiveVideo', `   - Título: "${currentTitle}" YTHelper?.video?.title: ${YTHelper?.video?.title} | document.title.replace(/ - YouTube$/, '').trim(): ${document.title.replace(/ - YouTube$/, '').trim()}`);
                 log('isLiveVideo', `   - Título contiene "live": ${hasLiveInTitle}`);
                 log('isLiveVideo', `   - URL contiene "/live/": ${hasLiveInUrl}`);
 
@@ -4040,21 +4688,19 @@ background: var(--color-danger);
             // Verificar indicadores adicionales de live/DVR
             log('isLiveVideo', `Verificando indicadores adicionales de live/DVR`);
 
-            // Verificar si YouTube considera este contenido como live
+            // Verificar si YouTube considera este contenido como live (SOLO en URL)
             const hasLiveDvr = window.location.href.includes('live=dvr') ||
                 window.location.href.includes('pltype=contentlive');
 
-            // También verificar en el contexto del player y requests de YouTube
+            // Verificar en el contexto del player (elementos DOM específicos, NO innerHTML general)
             const hasPlayerLiveContext = document.querySelector('[data-live="true"]') ||
                 document.querySelector('.ytp-live:not(.ytp-live-badge)') ||
                 document.querySelector('.live-stream-text') ||
-                document.querySelector('.ytp-chrome-top .ytp-live') ||
-                document.body.innerHTML.includes('live=dvr') ||
-                document.body.innerHTML.includes('pltype=contentlive');
+                document.querySelector('.ytp-chrome-top .ytp-live');
 
             log('isLiveVideo', `YouTube live/DVR indicators:`);
             log('isLiveVideo', `   - URL contiene live=dvr/pltype=contentlive: ${hasLiveDvr}`);
-            log('isLiveVideo', `   - Contexto de player live detectado: ${hasPlayerLiveContext}`);
+            log('isLiveVideo', `   - Contexto de player live detectado (selectores DOM): ${hasPlayerLiveContext}`);
 
             if (hasLiveDvr || hasPlayerLiveContext) {
                 log('isLiveVideo', '✅ Detectado como LIVE por indicadores de YouTube (live=dvr, pltype=contentlive o contexto de player)');
@@ -4081,7 +4727,9 @@ background: var(--color-danger);
 
                     const hasLiveIndicators = liveAriaLabel || liveTitle || liveBadgeClass || liveUrl;
 
-                    if (hasLiveIndicators) {
+                    if (YTHelper?.video?.lengthSeconds > 0) {
+                        log('isLiveVideo', '⚠️ PT0M0S pero YTHelper indica duración >0 - no es live');
+                    } else if (hasLiveIndicators) {
                         log('isLiveVideo', '✅ Detectado como LIVE por PT0M0S + indicadores adicionales');
                         return true;
                     } else {
@@ -4241,6 +4889,19 @@ background: var(--color-danger);
 
         // Verificar si el caché es válido
         const isCacheValid = cached && (Date.now() - cached.timestamp) < cacheTimeout;
+        // En Shorts con miniplayer (ID del miniplayer coincide con video_id), forzar refresco para evitar contaminación
+        let effectiveCacheValid = isCacheValid;
+        try {
+            const ptNow = getYouTubePageType();
+            if (ptNow === 'shorts') {
+                const mpNow = document.querySelector('#movie_player');
+                const mpIdNow = mpNow?.getVideoData?.()?.video_id;
+                if (mpIdNow && mpIdNow === video_id) {
+                    effectiveCacheValid = false;
+                    log('getCachedVideoInfo', `⛔ Bypass cache en Shorts+Miniplayer para ${video_id}`);
+                }
+            }
+        } catch (_) { }
 
         // Durante navegación, también verificar que el título en caché coincida con document.title actual
         let isCacheAccurate = true;
@@ -4262,8 +4923,19 @@ background: var(--color-danger);
             }
         }
 
+        if (cached && effectiveCacheValid) {
+            if (cached?.data?.videoId && cached.data.videoId !== video_id) {
+                isCacheAccurate = false;
+                log('getCachedVideoInfo', `⚠️ Cache inválido para ${video_id}: videoId en cache (${cached.data.videoId}) no coincide`);
+            }
+            if (cached?.data?.thumb && !thumbnailHasVideoId(cached.data.thumb, video_id)) {
+                isCacheAccurate = false;
+                log('getCachedVideoInfo', `⚠️ Cache inválido para ${video_id}: thumbnail cacheado no corresponde al ID actual`);
+            }
+        }
+
         // Retornar cache solo si es válido Y preciso
-        if (isCacheValid && isCacheAccurate) {
+        if (effectiveCacheValid && isCacheAccurate) {
             log('getCachedVideoInfo', `✅ Usando cache para ${video_id}`);
             return cached.data;
         }
@@ -4296,12 +4968,114 @@ background: var(--color-danger);
      * @param {string} plId - ID del playlist (opcional)
      * @returns {Promise<object>} - Resultado del guardado
      */
-    const updateStatus = async (player, videoEl, type, plId) => {
+    const updateStatus = async (player, videoEl, type, plId, expectedVideoId) => {
         // Obtener el ID desde URL
         const homeVideoCheck = await getActiveVideoElement();
-        let url = getYouTubePageType() === 'home' && homeVideoCheck ? lastVideoUrl : location.href;
+        let url;
+        if (getYouTubePageType() === 'home' && homeVideoCheck) {
+            let containerId = null;
+            try { containerId = homeVideoCheck.closest('#movie_player, #shorts-player')?.id || null; } catch (_) { }
+            // Usar lastVideoUrl solo si el activo está en el miniplayer
+            url = (containerId === 'movie_player') ? lastVideoUrl : location.href;
+        } else {
+            url = location.href;
+        }
 
-        let video_id = extractOrNormalizeVideoId(url)?.id;
+        const pageTypeNow = getYouTubePageType();
+        const urlDataNow = extractOrNormalizeVideoId(url);
+        const urlIdNow = urlDataNow?.id || null;
+        try {
+            if (pageTypeNow === 'shorts') {
+                // Shorts: distinguir entre contenedor de Shorts y Miniplayer
+                let p = urlDataNow?.list || null;
+                let pSource = p ? 'url' : null; // url | anchor | fallback | null
+                let contId = null;
+                try { contId = videoEl?.closest?.('#movie_player, #shorts-player')?.id || null; } catch (_) { }
+
+                if (contId === 'movie_player') {
+                    // Miniplayer visible estando en página Shorts: permitir anchors del miniplayer y fallback a lastPlaylistId
+                    if (!p) {
+                        try {
+                            const a = document.querySelector('#movie_player a[href*="list="]') ||
+                                document.querySelector('.ytp-miniplayer-ui a[href*="list="]');
+                            if (a) {
+                                const ua = new URL(a.href, location.origin);
+                                const la = ua.searchParams.get('list');
+                                if (la) { p = la; pSource = 'anchor'; }
+                            }
+                        } catch (_) { }
+                    }
+                    if (!p) {
+                        try { if (lastPlaylistId) { p = lastPlaylistId; pSource = 'fallback'; } } catch (_) { }
+                    }
+                } else {
+                    // Contenido Shorts en su propio contenedor: solo evidencia explícita (URL o UI de Shorts)
+                    if (!p) {
+                        try {
+                            const a = document.querySelector('#shorts-player a[href*="list="]') ||
+                                document.querySelector('ytd-reel-player-overlay-renderer a[href*="list="]') ||
+                                document.querySelector('ytd-reel-video-renderer a[href*="list="]') ||
+                                document.querySelector('#metapanel a[href*="list="]');
+                            if (a) {
+                                const ua = new URL(a.href, location.origin);
+                                const la = ua.searchParams.get('list');
+                                if (la) { p = la; pSource = 'anchor'; }
+                            }
+                        } catch (_) { }
+                    }
+                }
+
+                plId = p || null;
+                // Actualizar lastPlaylistId solo si la fuente es explícita (url o anchor), nunca en fallback
+                try { if ((pSource === 'url' || pSource === 'anchor') && plId) { lastPlaylistId = plId; } } catch (_) { }
+            } else {
+                if (!plId) {
+                    let p = urlDataNow?.list || null;
+                    if (!p) {
+                        try {
+                            const a = document.querySelector('#anchored-panel a[href*="list="]') ||
+                                document.querySelector('#movie_player a[href*="list="]') ||
+                                document.querySelector('.ytp-miniplayer-ui a[href*="list="]');
+                            if (a) {
+                                const ua = new URL(a.href, location.origin);
+                                const la = ua.searchParams.get('list');
+                                if (la) p = la;
+                            }
+                        } catch (_) { }
+                    }
+                    if (!p) {
+                        try { if (lastPlaylistId) p = lastPlaylistId; } catch (_) { }
+                    }
+                    if (p) plId = p;
+                    try { if (plId) lastPlaylistId = plId; } catch (_) { }
+                }
+                const isHomeishNow = pageTypeNow === 'home' || pageTypeNow === 'search' || pageTypeNow === 'channel';
+                if (isHomeishNow && lastPlaylistId && /^RD/.test(lastPlaylistId) && plId && !/^RD/.test(plId)) {
+                    plId = lastPlaylistId;
+                }
+            }
+        } catch (_) { }
+        let video_id;
+        try {
+            if (pageTypeNow === 'watch' || pageTypeNow === 'embed' || pageTypeNow === 'playlist') {
+                video_id = urlIdNow || expectedVideoId || YTHelper?.video?.id || player?.getVideoData?.()?.video_id || null;
+            } else if (pageTypeNow === 'shorts') {
+                const cont = videoEl?.closest?.('#movie_player, #shorts-player');
+                if (cont?.id === 'movie_player') {
+                    const mp = document.querySelector('#movie_player');
+                    const mpId = mp?.getVideoData?.()?.video_id;
+                    video_id = expectedVideoId || mpId || player?.getVideoData?.()?.video_id || urlIdNow || YTHelper?.video?.id || null;
+                } else {
+                    video_id = urlIdNow || expectedVideoId || YTHelper?.video?.id || player?.getVideoData?.()?.video_id || null;
+                }
+            } else if (pageTypeNow === 'home') {
+                video_id = expectedVideoId || urlIdNow || YTHelper?.video?.id || player?.getVideoData?.()?.video_id || null;
+            } else {
+                video_id = expectedVideoId || urlIdNow || YTHelper?.video?.id || player?.getVideoData?.()?.video_id || null;
+            }
+        } catch (_) {
+            video_id = expectedVideoId || urlIdNow || YTHelper?.video?.id || player?.getVideoData?.()?.video_id || null;
+        }
         log('updateStatus', `URL del reproductor: ${url} | Video ID Extraido: ${video_id}`)
 
         if (!video_id) {
@@ -4309,17 +5083,103 @@ background: var(--color-danger);
             return { success: false, reason: 'no_video_id' };
         }
 
-        const currentTime = videoEl.currentTime;
+        // No forzar player desde YTHelper aquí para evitar mezclar contenedores; haremos rebind según tipo/ID
+        if (!videoEl || !document.contains(videoEl)) {
+            try { const hv = YTHelper?.player?.videoElement; if (hv) videoEl = hv; } catch (_) { }
+        }
+        // Re-enlazar al contenedor correcto para evitar contaminación entre Shorts y Miniplayer
+        try {
+            const mp = document.querySelector('#movie_player');
+            const sp = document.querySelector('#shorts-player');
+            const mpIdNow = mp?.getVideoData?.()?.video_id || null;
+            // Determinar el contenedor objetivo según el propio videoEl (no forzar movie_player en Home)
+            let targetContainerId = null;
+            try { targetContainerId = videoEl?.closest?.('#movie_player, #shorts-player')?.id || null; } catch (_) { }
+            if (!targetContainerId) {
+                if (type === 'shorts' || pageTypeNow === 'shorts') targetContainerId = 'shorts-player';
+            }
+            if (pageTypeNow === 'shorts' && mpIdNow && (video_id === mpIdNow || expectedVideoId === mpIdNow)) {
+                targetContainerId = 'movie_player';
+            }
+            if (targetContainerId === 'movie_player' && mp) {
+                player = mp;
+                const veMp = document.querySelector('#movie_player video.html5-main-video');
+                if (veMp) videoEl = veMp;
+            } else if (targetContainerId === 'shorts-player') {
+                const veSp = document.querySelector('#shorts-player video') || document.querySelector('ytd-shorts video.html5-main-video');
+                if (veSp) videoEl = veSp;
+                if (!player || typeof player.getDuration !== 'function') {
+                    player = {
+                        getVideoData: () => ({ video_id: urlIdNow, title: getVideoTittle(null) || null, author: getVideoAuthor(null) || null }),
+                        getCurrentTime: () => { try { return videoEl?.currentTime || 0; } catch (_) { return 0; } },
+                        getDuration: () => { try { return videoEl?.duration || 0; } catch (_) { return 0; } }
+                    };
+                }
+            }
+        } catch (_) { }
+        // Obtener currentTime evitando contaminación entre Shorts y Miniplayer
+        let currentTime = 0;
+        let contId = null;
+        try { contId = videoEl?.closest?.('#movie_player, #shorts-player')?.id || null; } catch (_) { }
+        // Evitar guardar si es una previsualización inline y el usuario no lo habilitó
+        try {
+            const isInline = !!(videoEl?.closest?.('#inline-preview-player') ||
+                videoEl?.closest?.('.ytp-inline-preview-ui') ||
+                videoEl?.closest?.('ytd-thumbnail-overlay-inline-playback-renderer'));
+            const allowInline = cachedSettings?.saveInlinePreviews === true;
+            if (isInline && !allowInline) {
+                log('updateStatus', '🔕 Inline preview detectada y deshabilitada por configuración. No guardar.');
+                return { success: false, reason: 'inline_preview_disabled' };
+            }
+        } catch (_) { }
+        // 1) Priorizar el <video> específico
+        try {
+            if (videoEl) {
+                const t3 = videoEl.currentTime;
+                if (typeof t3 === 'number' && isFinite(t3) && t3 > 0) currentTime = t3;
+            }
+        } catch (_) { }
+        // 2) Luego, player.getCurrentTime del player asociado
+        if (!currentTime || currentTime <= 0) {
+            try {
+                const t = player?.getCurrentTime?.();
+                if (typeof t === 'number' && isFinite(t) && t > 0) currentTime = t;
+            } catch (_) { }
+        }
+        // 3) Solo como último recurso en videos NO-Shorts, usar #movie_player
+        if ((!currentTime || currentTime <= 0) && type !== 'shorts' && contId !== 'shorts-player') {
+            try {
+                const mp = document.querySelector('#movie_player');
+                const t2 = mp?.getCurrentTime?.();
+                if (typeof t2 === 'number' && isFinite(t2) && t2 > 0) currentTime = t2;
+            } catch (_) { }
+        }
         const now = Date.now();
 
         return getCachedVideoInfo(player, video_id).then(async ({ duration, ...videoInfo }) => {
             log('updateStatus', `then duration: ${duration} = ${formatTime(duration)} | current time: ${currentTime} | video_id: ${video_id}`);
-            if (!duration || isNaN(currentTime) || currentTime < 1 || !isFinite(duration)) return { success: false, reason: 'invalid_data' };
+            const isLiveType = type === 'live';
+            // Evitar que un currentTime contaminado supere la duración
+            if (!isLiveType && duration && isFinite(duration) && currentTime > duration) {
+                try {
+                    warn('updateStatus', `⚠️ currentTime (${currentTime}) > duration (${duration}) para ${video_id}. Ajustando a duración.`);
+                } catch (_) { }
+                currentTime = Math.max(0, Math.min(currentTime, Math.max(0, duration - 0.05)));
+            }
+            if (isLiveType) {
+                // Para LIVE solo requerimos un currentTime válido >= 1s
+                if (isNaN(currentTime) || currentTime < 1) return { success: false, reason: 'invalid_data' };
+            } else {
+                // Para no-LIVE requerimos duración finita y datos válidos
+                if (!duration || !isFinite(duration) || isNaN(currentTime) || currentTime < 1) return { success: false, reason: 'invalid_data' };
+            }
 
-            // Evitar guardar progreso durante anuncios
-            // Verificar si hay anuncios activos usando el estado centralizado
-            if (isAdPlaying) {
-                log('updateStatus', '⏸ Anuncio activo detectado, no guardando progreso');
+            // Evitar guardar progreso durante anuncios (tipo-aware)
+            // Normalizar tipo para chequeo de anuncios: tratar preview_* como su base
+            const typeForAdsCheck = (type === 'shorts' || type === 'preview_shorts') ? 'shorts' : 'watch';
+            // Verificar si hay anuncios activos usando el estado por tipo
+            if (isAdBlockedFor(typeForAdsCheck)) {
+                log('updateStatus', `⏸ Anuncio activo (${type}) detectado, no guardando progreso`);
                 return { success: false, reason: 'ad_playing' };
             }
             if (isResuming) {
@@ -4332,7 +5192,7 @@ background: var(--color-danger);
             log('updateStatus', `Datos guardados encontrados para ${video_id} y currentTime ${currentTime}:`, sourceData);
 
             // Verificar si el video está completado (staticFinishPercent porcentaje del video)
-            const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
+            const isFinished = !isLiveType && duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
 
             log('updateStatus', 'duration', duration, 'currentTime', currentTime, 'percentWatched', (currentTime / duration) * 100, 'staticFinishPercent', cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent, 'isFinished:', isFinished, 'condicion se cumple?', (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent))
 
@@ -4345,6 +5205,9 @@ background: var(--color-danger);
                         lastUpdated: now,
                         timestamp: 0,
                     };
+                    if (!thumbnailHasVideoId(base.thumb, video_id)) {
+                        base.thumb = `https://i.ytimg.com/vi/${video_id}/maxresdefault.jpg`;
+                    }
                     if (plId) {
                         const playlist = Storage.get(plId);
                         if (playlist?.videos?.[video_id]) {
@@ -4361,41 +5224,130 @@ background: var(--color-danger);
                 return { success: false, reason: 'fixed_time_no_overwrite' };
             }
 
-            // En páginas que no son watch (home, etc.), evitar sobreescribir metadata sensible
+            // Ajustar metadata con fuentes confiables en watch/home
             const pageType = getYouTubePageType();
-            const safeVideoInfo = { ...videoInfo };
-            if (pageType !== 'watch' && sourceData) {
-                if (sourceData.title) safeVideoInfo.title = sourceData.title;
-                if (sourceData.author) safeVideoInfo.author = sourceData.author;
-                if (sourceData.authorId) safeVideoInfo.authorId = sourceData.authorId;
-                if (sourceData.thumb) safeVideoInfo.thumb = sourceData.thumb;
+            let baseVideoInfo = { ...videoInfo };
+            if (pageType !== 'shorts') {
+                try {
+                    const mp = document.querySelector('#movie_player');
+                    const mpData = mp?.getVideoData?.();
+                    const mpIdNow2 = mpData?.video_id;
+                    const mpAuthor = mpData?.author;
+                    if (mpIdNow2 && mpIdNow2 === video_id && mpAuthor) baseVideoInfo.author = mpAuthor;
+                } catch (_) { }
+                try {
+                    if (pageType === 'watch' || pageType === 'embed') {
+                        const vdAuthor = window.ytInitialPlayerResponse?.videoDetails?.author;
+                        if (vdAuthor) baseVideoInfo.author = vdAuthor;
+                        const chId = window.ytInitialPlayerResponse?.videoDetails?.channelId;
+                        if (chId) baseVideoInfo.authorId = chId;
+                    }
+                } catch (_) { }
             }
 
+            // En páginas que no son watch (home, etc.), evitar sobreescribir metadata sensible
+            const safeVideoInfo = { ...baseVideoInfo };
+            if (pageType !== 'watch' && sourceData) {
+                if (!safeVideoInfo.title && sourceData.title) safeVideoInfo.title = sourceData.title;
+                if ((!safeVideoInfo.author || safeVideoInfo.author === t('unknown')) && sourceData.author) safeVideoInfo.author = sourceData.author;
+                if ((!safeVideoInfo.authorId || safeVideoInfo.authorId === t('unknown')) && sourceData.authorId) safeVideoInfo.authorId = sourceData.authorId;
+                if (!safeVideoInfo.thumb && sourceData.thumb) safeVideoInfo.thumb = sourceData.thumb;
+            }
+
+            // Determinar tipo efectivo a guardar: preservar previews inline si están habilitadas y no son anuncios
+            let finalType = type;
+            try {
+                if (allowInline) {
+                    const isInlineCtx = !!(videoEl?.closest?.('#inline-preview-player') ||
+                        videoEl?.closest?.('.ytp-inline-preview-ui') ||
+                        videoEl?.closest?.('ytd-thumbnail-overlay-inline-playback-renderer'));
+                    const isAdInline = !!(videoEl?.closest?.('.ytp-ad-module, .ytp-ad-player-overlay, .video-ads, ytd-in-feed-ad-layout-renderer, ytd-ad-slot-renderer, ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer, #player-ads'));
+                    if (isInlineCtx) {
+                        if (isAdInline) {
+                            log('updateStatus', '⏸ Inline detectada pero es un contexto de anuncio. No guardar.');
+                            return { success: false, reason: 'ad_context_inline' };
+                        }
+                        const isShortishInline = !!(videoEl?.closest?.('ytd-reel-video-renderer, ytd-shorts, #shorts-player'));
+                        finalType = isShortishInline ? 'preview_shorts' : 'preview_watch';
+                    }
+                }
+            } catch (_) { }
+
+            // Protección adicional: en páginas home-like, si el enlace al video_id vive dentro de contenedores de anuncio o con badges de anuncio, no guardar
+            try {
+                const ptNow2 = getYouTubePageType();
+                const isHomeLike2 = (ptNow2 === 'home' || ptNow2 === 'search' || ptNow2 === 'channel' || ptNow2 === 'unknown');
+                const isPreviewType2 = typeof type === 'string' && type.startsWith('preview');
+                if (isHomeLike2 && isPreviewType2 && video_id) {
+                    const anchors = Array.from(document.querySelectorAll(`a[href*="/watch?v=${video_id}"]`));
+                    let adLinked = false;
+                    for (const a of anchors) {
+                        if (!a) continue;
+                        const inAdContainer = !!a.closest('ytd-in-feed-ad-layout-renderer, ytd-ad-slot-renderer, ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer');
+                        const hasAdBadgeNearby = !!(a.closest('ytd-rich-item-renderer, ytd-ad-slot-renderer')?.querySelector?.('.yt-badge-shape--ad, .ytwAdBadgeViewModelHostIsClickableAdComponent, [aria-label="Ad"], [aria-label="Sponsored"], [data-ad-impressions]'));
+                        if (inAdContainer || hasAdBadgeNearby) { adLinked = true; break; }
+                    }
+                    if (adLinked) {
+                        log('updateStatus', '⏸ Enlace asociado al video dentro de un contexto de anuncio (ID-based). No guardar.');
+                        return { success: false, reason: 'ad_link_context_inline' };
+                    }
+                }
+            } catch (_) { }
+
             // Guardar progreso en formato FreeTube (video independiente con metadata de playlist)
+            const normalizedDuration = isLiveType ? ((isFinite(duration) && duration > 0) ? duration : 0) : duration;
+
+            // Preservar asociación de playlist previa cuando corresponda
+            let prevSaved = null;
+            try { prevSaved = Storage.get(video_id) || null; } catch (_) { prevSaved = null; }
+            
+            let playlistToPersist = null;
+            if (type === 'shorts') {
+                // Para shorts, mantener la lógica actual
+                playlistToPersist = plId || null;
+            } else if (plId) {
+                // Si hay un plId en la URL, usarlo
+                playlistToPersist = plId;
+            } else if (prevSaved?.lastViewedPlaylistId) {
+                // Mantener la asociación con cualquier tipo de lista de reproducción previa
+                playlistToPersist = prevSaved.lastViewedPlaylistId;
+                log('updateStatus', `Manteniendo asociación con lista de reproducción: ${playlistToPersist}`);
+            }
+
             const videoData = {
                 videoId: video_id,
                 timestamp: currentTime,
                 lastUpdated: now,
-                videoType: type,
+                videoType: finalType,
                 isCompleted: isFinished,
-                duration: duration,
+                duration: normalizedDuration,
                 ...safeVideoInfo,
                 // Metadatos de playlist (estilo FreeTube)
-                lastViewedPlaylistId: plId || null,
-                lastViewedPlaylistType: plId ? 'channel' : '', // 'channel', 'user', o vacío
+                lastViewedPlaylistId: playlistToPersist,
+                lastViewedPlaylistType: playlistToPersist ? ((type === 'shorts') ? '' : (prevSaved?.lastViewedPlaylistType || 'channel')) : '', // 'channel', 'user', o vacío
                 lastViewedPlaylistItemId: null // YouTube no proporciona itemId, FreeTube lo usa internamente
             };
+            videoData.thumb = `https://i.ytimg.com/vi/${video_id}/maxresdefault.jpg`;
+
+            try {
+                const channelUrl = videoData.authorId ? `https://www.youtube.com/channel/${videoData.authorId}` : '';
+                log('updateStatus', 'Canal final para guardar', {
+                    author: videoData.author,
+                    authorId: videoData.authorId,
+                    channelUrl: channelUrl || '(none)'
+                });
+            } catch (_) { }
 
             // Siempre guardar con video_id como clave
             Storage.set(video_id, videoData);
             log('updateStatus', `Datos guardados para video ${video_id}${plId ? ` (playlist: ${plId})` : ''}:`, videoData);
 
             // Si hay playlist, obtener su nombre de manera asíncrona y guardarlo en metadata de playlist
-            if (plId) {
+            if (playlistToPersist) {
                 // Guardar metadata de la playlist por separado (para referencia)
-                const playlistMetaKey = `playlist_meta_${plId}`;
+                const playlistMetaKey = `playlist_meta_${playlistToPersist}`;
                 let playlistMeta = Storage.get(playlistMetaKey) || {
-                    playlistId: plId,
+                    playlistId: playlistToPersist,
                     title: '',
                     lastWatchedVideoId: video_id,
                     lastUpdated: now
@@ -4406,8 +5358,8 @@ background: var(--color-danger);
                 Storage.set(playlistMetaKey, playlistMeta);
 
                 if (!playlistMeta.title) {
-                    log('updateStatus', `Playlist ${plId} sin título, buscando...`);
-                    getPlaylistName(plId).then(name => {
+                    log('updateStatus', `Playlist ${playlistToPersist} sin título, buscando...`);
+                    getPlaylistName(playlistToPersist).then(name => {
                         const updated = Storage.get(playlistMetaKey);
                         if (updated && !updated.title) {
                             updated.title = name;
@@ -4416,7 +5368,7 @@ background: var(--color-danger);
                     });
                 }
 
-                return { success: true, video_id, timestamp: videoData.timestamp, playlistId: plId };
+                return { success: true, video_id, timestamp: videoData.timestamp, playlistId: playlistToPersist };
             } else {
                 return { success: true, video_id, timestamp: videoData.timestamp };
             }
@@ -4434,78 +5386,194 @@ background: var(--color-danger);
             return;
         }
 
-        log('resumePlayback', `🎬 Reanudando video, player tiene getDuration: ${typeof player?.getDuration}`);
-
         const lastTime = savedData.timestamp;
         const forceTime = savedData.forceResumeTime;
         const timeToSeek = forceTime > 0 ? forceTime : lastTime;
 
         log('resumePlayback', `🎬 Reanudando video ${vid} en ${timeToSeek}s = ${(timeToSeek / 60).toFixed(2)} minutos`);
+        try {
+            // Evitar adoptar shorts-player fuera de Shorts
+            const co = YTHelper?.player?.playerObject;
+            const ve = YTHelper?.player?.videoElement;
+            const pt0 = getYouTubePageType();
+            const isCoShorts = (co?.id || co?.getAttribute?.('id')) === 'shorts-player';
+            const isVeShorts = (() => { try { return ve?.closest?.('#shorts-player') != null; } catch (_) { return false; } })();
+            if (co && (!isCoShorts || pt0 === 'shorts')) player = co;
+            if (ve && (!isVeShorts || pt0 === 'shorts')) videoEl = ve;
+        } catch (_) { }
+        if (isNavigating) {
+            log('resumePlayback', '⏸ Navegación en curso, posponiendo reanudación...');
+            const cb = async () => {
+                try {
+                    const newEl = await getActiveVideoElement();
+                    const newPlayer = YTHelper?.player?.playerObject || player;
+                    setTimeout(() => { try { resumePlayback(newPlayer, vid, newEl || videoEl, savedData, type); } catch (_) { } }, 0);
+                } catch (_) { }
+            };
+            window.addEventListener('yt-navigate-finish', cb, { once: true });
+            return;
+        }
 
         if (!timeToSeek || timeToSeek <= 1) {
             log('resumePlayback', '⏩ No hay tiempo válido para reanudar');
             return;
         }
 
-        const waitForPlayer = () => {
-            // Usar el estado centralizado del monitor de anuncios
-            if (isAdPlaying) {
-                log('resumePlayback', '⏸ Anuncio activo detectado, esperando para hacer seek...');
-                setTimeout(waitForPlayer, 500);
-                return;
-            }
+        const container = YTHelper?.player?.playerObject || player?.playerContainer_?.children?.[0] || null;
+        const hasAdClasses = () => !!(container?.classList?.contains('ad-showing') || container?.classList?.contains('ad-interrupting'));
+        const isReadyNoAds = () => !isAdPlaying && !isScriptPaused && !hasAdClasses();
 
-            // obtener duracion con fallbacks
-            const duration = getVideoDuration(player, videoEl);
-
-            if (duration > 0) {
-                // Añadir delay extra si se está navegando rápidamente
-                const extraDelay = isNavigating ? 300 : 0;
-
-                if (extraDelay > 0) {
-                    log('resumePlayback', `⏳ Navegación rápida detectada, esperando ${extraDelay}ms extra...`);
-                }
-
-                setTimeout(() => {
-                    log('resumePlayback', `✅ Player listo, aplicando seek a ${timeToSeek}s`);
-                    applySeek(player, videoEl, timeToSeek, {
-                        bypassMinDiff: true,
-                        isForced: forceTime > 0,
-                        type,
-                    });
-                }, extraDelay);
-
-                // Actualizar barra de progreso con colores después del seek
-                setTimeout(() => {
+        const waitForNoAds = () => new Promise((resolve) => {
+            try {
+                if (isReadyNoAds()) return resolve();
+                let done = false;
+                const cleanup = () => {
+                    if (done) return;
+                    done = true;
+                    observer?.disconnect();
+                    YTHelper?.eventTarget?.removeEventListener?.('yt-helper-api-ready', onApiReady);
+                };
+                const onApiReady = (evt) => {
                     try {
-                        const duration = getVideoDuration(player, videoEl);
-                        // Determinar el tipo de video para la barra de progreso
-                        const videoType = Boolean(plId) ? 'shorts' : 'watch';
-                        updateProgressBarGradient(timeToSeek, duration, videoType);
-                    } catch (error) {
-                        // Silenciar errores para no afectar el funcionamiento principal
+                        const playingAds = evt?.detail?.player?.isPlayingAds === true;
+                        if (!playingAds && isReadyNoAds()) {
+                            cleanup();
+                            resolve();
+                        }
+                    } catch (_) { }
+                };
+                const observer = container ? new MutationObserver(() => {
+                    if (isReadyNoAds()) {
+                        cleanup();
+                        resolve();
                     }
-                }, 100);
-            } else {
-                setTimeout(waitForPlayer, 150);
+                }) : null;
+                if (observer && container) observer.observe(container, { attributes: true, attributeFilter: ['class'] });
+                YTHelper?.eventTarget?.addEventListener?.('yt-helper-api-ready', onApiReady);
+            } catch (_) {
+                resolve();
             }
-        };
-        waitForPlayer();
-    };
+        });
 
-    // ------------------------------------------
-    // MARK: 📢 Time Display
-    // ------------------------------------------
+        const waitForDuration = () => new Promise((resolve) => {
+            const hasDuration = () => {
+                try { return getVideoDuration(player, videoEl) > 0; } catch (_) { return false; }
+            };
+            if (hasDuration()) return resolve();
+            const cleanup = () => {
+                videoEl?.removeEventListener('loadedmetadata', onReady);
+                videoEl?.removeEventListener('durationchange', onReady);
+                videoEl?.removeEventListener('canplay', onReady);
+                videoEl?.removeEventListener('loadeddata', onReady);
+            };
+            const onReady = () => {
+                if (hasDuration()) { cleanup(); resolve(); }
+            };
+            videoEl?.addEventListener('loadedmetadata', onReady);
+            videoEl?.addEventListener('durationchange', onReady);
+            videoEl?.addEventListener('canplay', onReady);
+            videoEl?.addEventListener('loadeddata', onReady);
+        });
+
+        await Promise.all([waitForNoAds(), waitForDuration()]);
+        try { player = YTHelper?.player?.playerObject || player; videoEl = YTHelper?.player?.videoElement || videoEl; } catch (_) { }
+        try {
+            const pt = getYouTubePageType();
+            if (pt === 'watch') {
+                const mp = document.querySelector('#movie_player');
+                if (mp?.getDuration) player = mp;
+                const ve = document.querySelector('#movie_player video.html5-main-video');
+                if (ve) videoEl = ve;
+            } else if (pt === 'home') {
+                // En Home (miniplayer), preferir movie_player y su <video>
+                const mpH = document.querySelector('#movie_player');
+                if (mpH?.getDuration) player = mpH;
+                const veH = document.querySelector('#movie_player video.html5-main-video') || videoEl;
+                if (veH) videoEl = veH;
+            }
+        } catch (_) { }
+
+        const duration = getVideoDuration(player, videoEl);
+        if (duration > 0 && timeToSeek >= duration) {
+            warn('resumePlayback', `⚠️ Timestamp inválido: ${timeToSeek}s excede duración ${duration}s. Datos guardados corruptos para video ${vid}.`);
+            isResuming = false;
+            return;
+        }
+
+        log('resumePlayback', `✅ Player listo (event-driven), aplicando seek a ${timeToSeek}s`);
+        await applySeek(player, videoEl, timeToSeek, {
+            bypassMinDiff: forceTime > 0,
+            isForced: forceTime > 0,
+            type,
+            targetVideoId: vid,
+            retryOnFail: true,
+            resumeCallback: () => {
+                try {
+                    const newPlayer = YTHelper?.player?.playerObject || player;
+                    const newEl = YTHelper?.player?.videoElement || videoEl;
+                    setTimeout(() => {
+                        try { resumePlayback(newPlayer, vid, newEl, savedData, type); } catch (_) { }
+                    }, 200);
+                } catch (_) { }
+            }
+        });
+
+        try {
+            const d = getVideoDuration(player, videoEl);
+            const videoType = type === 'short' ? 'shorts' : 'watch';
+            updateProgressBarGradient(timeToSeek, d, videoType);
+        } catch (_) { }
+
+        try {
+            const saveResult = await updateStatus(player, videoEl, type, savedData?.lastViewedPlaylistId || null, vid);
+            if (saveResult?.success) {
+                log('resumePlayback', `💾 Progreso guardado post-resume para ${vid}`);
+                lastSaveTime = Date.now();
+            } else {
+                log('resumePlayback', `⚠️ No se guardó post-resume para ${vid}:`, saveResult?.reason);
+            }
+        } catch (e) {
+            conError('resumePlayback', 'Error guardando post-resume:', e);
+        }
+
+        // Asegurar re-enlace del handler de timeupdate al <video> actual tras el seek
+        try {
+            setTimeout(async () => {
+                try {
+                    const freshPlayer = YTHelper?.player?.playerObject || player;
+                    const freshEl = await getActiveVideoElement();
+                    if (freshPlayer && (freshEl || videoEl)) {
+                        try { processVideo(freshPlayer, freshEl || videoEl); } catch (_) { }
+                    }
+                } catch (_) { }
+            }, 500);
+        } catch (_) { }
+    };
 
     let timeDisplay;
     let clearMessageTimeout = null;
     let shortsTimeDisplay;
     let clearShortsMessageTimeout = null;
+    let lastHandlerPerfLog = 0;
+    let lastAdCheckLog = 0;
+    let lastAdStateLog = 0;
+    let lastDurationLog = 0;
+    let timeupdateRebindIntervalId = null;
+    let progressPollIntervalId = null;
+    let secondaryProgressPollIntervalId = null;
+    let lastTimeUpdateTick = 0;
 
     // Inicializa la visualización de tiempo en la barra de reproducción
     function initTimeDisplay() {
         const timeContainer = document.querySelector('.ytp-time-contents');
         log('initTimeDisplay', 'timeContainer encontrado:', timeContainer);
+
+        // Verificar si timeDisplay existe pero fue removido del DOM (ej: después de un anuncio)
+        if (timeDisplay && !document.contains(timeDisplay)) {
+            log('initTimeDisplay', 'timeDisplay existe pero no está en el DOM, reinicializando...');
+            timeDisplay = null;
+        }
+
         if (!timeContainer || timeDisplay) return;
         timeDisplay = createElement('span', {
             className: 'ypp-time-display ypp-d-none',
@@ -4555,10 +5623,15 @@ background: var(--color-danger);
     * @param {string} message - Mensaje a mostrar en la barra de reproducción
     */
     function updatePlaybackBarMessage(message) {
-        log('updatePlaybackBarMessage', `Actualizando mensaje: "${message}"`);
-        if (!timeDisplay) initTimeDisplay();
+        // Verificar si timeDisplay existe y está en el DOM, si no, reinicializar
+        if (!timeDisplay || !document.contains(timeDisplay)) {
+            initTimeDisplay();
+        }
 
-        if (!timeDisplay) return;
+        if (!timeDisplay) {
+            warn('updatePlaybackBarMessage', '⚠️ No se pudo inicializar timeDisplay');
+            return;
+        }
         setInnerHTML(timeDisplay, message);
         timeDisplay.classList.remove('ypp-d-none');
 
@@ -4595,10 +5668,13 @@ background: var(--color-danger);
     * @param {string} message - Mensaje a mostrar en Shorts
     */
     function updateShortsMessage(message) {
-        if (!shortsTimeDisplay || !document.querySelector('#metapanel')?.contains(shortsTimeDisplay)) initShortsTimeDisplay();
+        // Verificar si shortsTimeDisplay existe y está en el DOM, si no, reinicializar
+        if (!shortsTimeDisplay || !document.contains(shortsTimeDisplay)) {
+            initShortsTimeDisplay();
+        }
 
         if (!shortsTimeDisplay) {
-            warn('updateShortsMessage', 'No se pudo inicializar el display de Shorts');
+            warn('updateShortsMessage', '⚠️ No se pudo inicializar el display de Shorts');
             return;
         }
 
@@ -4662,14 +5738,33 @@ background: var(--color-danger);
         }
 
         const timeoutId = setTimeout(() => {
+            // Desactivar interacción y lanzar fade
+            toast.style.pointerEvents = 'none';
             toast.style.opacity = '0';
 
+            const container = toast.parentElement;
+            let cleanupTimer = null;
+
             const onTransitionEnd = () => {
-                toast.remove();
                 toast.removeEventListener('transitionend', onTransitionEnd);
+                if (cleanupTimer) {
+                    clearTimeout(cleanupTimer);
+                    cleanupTimer = null;
+                }
+                if (toast.isConnected) {
+                    toast.remove();
+                }
+                // Si el contenedor queda vacío, eliminarlo
+                if (container && container.children.length === 0) {
+                    container.remove();
+                }
             };
 
             toast.addEventListener('transitionend', onTransitionEnd);
+
+            // Fallback por si transitionend no dispara (seguridad)
+            cleanupTimer = setTimeout(onTransitionEnd, 600);
+
             toastTimeouts.delete(toast);
         }, duration);
 
@@ -4786,7 +5881,6 @@ background: var(--color-danger);
         });
 
         // Aplicar tema dinámico
-        applyThemeStyles(overlay);
 
         // Crear modal
         const modal = createElement('div', { className: 'ypp-modalBox' });
@@ -4884,6 +5978,11 @@ background: var(--color-danger);
         saveLiveStreamsLabel.appendChild(saveLiveStreamsCheckbox);
         saveLiveStreamsLabel.appendChild(createElement('span', { text: t('liveStreams') }));
 
+        const saveInlinePreviewsLabel = createElement('label', { className: 'ypp-label-save-type' });
+        const saveInlinePreviewsCheckbox = createElement('input', { atribute: { type: 'checkbox', id: 'saveInlinePreviews' } });
+        saveInlinePreviewsLabel.appendChild(saveInlinePreviewsCheckbox);
+        saveInlinePreviewsLabel.appendChild(createElement('span', { text: t('inlinePreviews') }));
+
         // Añadir todo al contenido
         const buttonsGroup = createElement('div');
         buttonsGroup.appendChild(languageLabel); // 
@@ -4897,6 +5996,7 @@ background: var(--color-danger);
         containerSavingOptions.appendChild(saveRegularVideosLabel);
         containerSavingOptions.appendChild(saveShortsLabel);
         containerSavingOptions.appendChild(saveLiveStreamsLabel);
+        containerSavingOptions.appendChild(saveInlinePreviewsLabel);
         savingOptions.appendChild(containerSavingOptions)
 
         savingOptions.appendChild(notifLabel);
@@ -4910,7 +6010,7 @@ background: var(--color-danger);
         // Crear footer fijo
         const footer = createElement('div', { className: 'ypp-btnGroup' });
         const saveBtn = createElement('button', {
-            className: 'ypp-btn ypp-save-button sombra',
+            className: 'ypp-btn ypp-save-button ypp-sombra',
             id: 'saveBtn',
             text: t('save'),
             onClickEvent: async () => {
@@ -4923,6 +6023,7 @@ background: var(--color-danger);
                     saveRegularVideos: document.getElementById('saveRegularVideos').checked,
                     saveShorts: document.getElementById('saveShorts').checked,
                     saveLiveStreams: document.getElementById('saveLiveStreams').checked,
+                    saveInlinePreviews: document.getElementById('saveInlinePreviews').checked,
                     language: languageSelect.value,
                     alertStyle: alertStyleSelect.value,
                 };
@@ -4935,7 +6036,7 @@ background: var(--color-danger);
             }
         });
         const viewBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-outlined sombra',
+            className: 'ypp-btn ypp-btn-outlined ypp-sombra',
             id: 'viewSavedBtn',
             text: `${t('savedVideos')}`,
             onClickEvent: () => {
@@ -4964,6 +6065,8 @@ background: var(--color-danger);
             saveRegularVideosCheckbox.checked = settings.saveRegularVideos;
             saveShortsCheckbox.checked = settings.saveShorts;
             saveLiveStreamsCheckbox.checked = settings.saveLiveStreams;
+            const inlineEl = document.getElementById('saveInlinePreviews');
+            if (inlineEl) inlineEl.checked = settings.saveInlinePreviews === true;
         });
 
         // Añadir al DOM
@@ -4998,15 +6101,12 @@ background: var(--color-danger);
         }
 
         if (!cachedSettings) {
-            Settings.get().then((settings) => {
-                cachedSettings = settings;
-            })
-                .catch((error) => {
-                    conError('notifySeekOrProgress', 'Error al cargar configuración para notificaciones (usaran defaults):', error);
-                    cachedSettings = CONFIG.defaultSettings;
-                });
-            log('notifySeekOrProgress', 'Cargando configuración para notificaciones...');
-            return;
+            try {
+                cachedSettings = await Settings.get();
+            } catch (error) {
+                conError('notifySeekOrProgress', 'Error al cargar configuración para notificaciones (usaran defaults):', error);
+                cachedSettings = CONFIG.defaultSettings;
+            }
         }
 
         if (cachedSettings.showNotifications === false || cachedSettings.alertStyle === 'hidden') {
@@ -5081,16 +6181,16 @@ background: var(--color-danger);
                 break;
         }
 
-        // Mostrar en toast o en barra de reproducción
+        // Mostrar en UI según el tipo de video realmente guardado (boundType)
         log('notifySeekOrProgress', 'Mostrando notificación en tipo de página:', currentPageType);
-        log('notifySeekOrProgress', `Mensaje generado: "${message}" | Contexto: ${context}`);
+        log('notifySeekOrProgress', `Mensaje generado timeStr: "${timeStr}" | Contexto: ${context}`);
 
-        if (currentPageType === 'shorts') {
+        const targetType = options.videoType || currentPageType;
+        if (targetType === 'shorts') {
             updateShortsMessage(message);
-        } else if (currentPageType === 'watch' || currentPageType === 'embed') {
-            updatePlaybackBarMessage(message);
         } else {
-            warn('notifySeekOrProgress', 'Tipo de página no soportado:', currentPageType);
+            // watch/embed/home con miniplayer -> usar barra de reproducción
+            updatePlaybackBarMessage(message);
         }
     }
 
@@ -5128,10 +6228,10 @@ background: var(--color-danger);
         if (createPlaylistBtn) {
             if (isSelectionMode) {
                 setInnerHTML(createPlaylistBtn, `${SVG_ICONS.close} ${t('selectVideos')} (${selectedVideos.size})`);
-                createPlaylistBtn.className = 'ypp-btn ypp-btn-danger sombra';
+                createPlaylistBtn.className = 'ypp-btn ypp-btn-danger ypp-sombra';
             } else {
                 setInnerHTML(createPlaylistBtn, `${SVG_ICONS.playlist} ${t('createPlaylist')}`);
-                createPlaylistBtn.className = 'ypp-btn ypp-btn-primary sombra';
+                createPlaylistBtn.className = 'ypp-btn ypp-btn-primary ypp-sombra';
             }
         }
 
@@ -5265,7 +6365,7 @@ background: var(--color-danger);
 
             log('copyToClipboard', 'Enlace copiado al portapapeles');
         } catch (err) {
-            console.error('Error al copiar al portapapeles:', err);
+            conError('copyToClipboard', 'Error al copiar al portapapeles:', err);
             // Fallback para navegadores que no soportan clipboard API
             const textarea = document.createElement('textarea');
             textarea.value = text;
@@ -5317,6 +6417,7 @@ background: var(--color-danger);
     let lastUrl = ''; // Rastrear la última URL procesada
     let lastVideoUrl = ''; // URL del último video (para miniplayer en home)
     let lastSaveTime = 0; // Para controlar la frecuencia de guardado
+    let lastSaveTimesByVideoId = Object.create(null);
     let lastResumeId = null;
     let currentlyProcessingVideoId = null;
     let currentTimeUpdateHandler = null; // Referencia al manejador actual para limpieza correcta
@@ -5326,7 +6427,20 @@ background: var(--color-danger);
         log('processVideo', `Llegando a processVideo con videoEl: ${videoEl?.constructor?.name} | src: ${videoEl?.src || 'N/A'}`);
         log('processVideo', `isNavigating: ${isNavigating}`);
         log('processVideo', `isResuming: ${isResuming} | Video paused: ${videoEl?.paused}`);
-        log('processVideo', `🔍 Estado inicial: isAdPlaying=${isAdPlaying}, cachedSettings=${!!cachedSettings}`);
+        log('processVideo', `🔍 Estado inicial: isAdPlaying=${isAdPlaying}, isScriptPaused=${isScriptPaused}, cachedSettings=${!!cachedSettings}`);
+
+        // CRÍTICO: Detener procesamiento solo por anuncios de watch; en Shorts continuar para permitir guardado del miniplayer
+        if (isScriptPaused) {
+            log('processVideo', '⏸️  ABORTANDO processVideo - Script pausado');
+            return;
+        }
+        try {
+            const pt0 = getYouTubePageType();
+            if (pt0 !== 'shorts' && isAdBlockedFor('watch')) {
+                log('processVideo', '⏸️  ABORTANDO processVideo - Anuncio (watch) activo');
+                return;
+            }
+        } catch (_) { }
 
         // Asegurar que cachedSettings esté cargado
         if (!cachedSettings) {
@@ -5376,43 +6490,176 @@ background: var(--color-danger);
                 warn('processVideo', 'No se encontró videoEl. Abortando.');
                 return;
             }
+            // En home, forzar el uso de movie_player/miniplayer y su <video> asociado
+            try {
+                if (getYouTubePageType() === 'home') {
+                    const mp = document.querySelector('#movie_player');
+                    if (mp?.getDuration) player = mp;
+                    const ve = document.querySelector('#movie_player video.html5-main-video') || videoEl;
+                    if (ve) videoEl = ve;
+                }
+            } catch (_) { }
         }
 
-        // Determinar la URL correcta para extraer video ID
         let urlForVideoId = window.location.href;
         const pageType = getYouTubePageType();
+        let videoIdDetected = null;
 
-        // Si estamos en home y hay un miniplayer activo, usar la última URL de video guardada
-        if (pageType === 'home' && lastVideoUrl && activeVideoCheck) {
-            urlForVideoId = lastVideoUrl;
-            log('processVideo', `📍 Usando lastVideoUrl para miniplayer: ${lastVideoUrl}`);
+        let urlData = extractOrNormalizeVideoId(urlForVideoId);
+
+        if (pageType === 'watch' || pageType === 'embed' || pageType === 'playlist') {
+            videoIdDetected = urlData?.id || YTHelper?.video?.id || player?.getVideoData?.()?.video_id || null;
+        } else if (pageType === 'shorts') {
+            try {
+                const cont = activeVideoCheck?.closest?.('#movie_player, #masthead-player, #shorts-player');
+                if (cont?.id === 'movie_player' || cont?.id === 'masthead-player') {
+                    try {
+                        const mp = document.querySelector('#movie_player') || document.querySelector('#masthead-player');
+                        const mpId = mp?.getVideoData?.()?.video_id;
+                        if (mpId) videoIdDetected = mpId;
+                    } catch (_) { }
+                }
+            } catch (_) { }
+            // Si shorts está deshabilitado, intentar forzar el ID del miniplayer si existe
+            if (!videoIdDetected) {
+                try {
+                    const shortsDisabled = cachedSettings?.saveShorts === false;
+                    if (shortsDisabled) {
+                        const mp2 = document.querySelector('#movie_player') || document.querySelector('#masthead-player');
+                        const mp2Id = mp2?.getVideoData?.()?.video_id || null;
+                        if (mp2Id) videoIdDetected = mp2Id;
+                    }
+                } catch (_) { }
+            }
+            if (!videoIdDetected) {
+                videoIdDetected = urlData?.id || YTHelper?.video?.id || player?.getVideoData?.()?.video_id || null;
+            }
+        } else if (pageType === 'home') {
+            // Priorizar ID desde el movie_player (miniplayer en Home) para evitar tomar Shorts antiguos
+            try {
+                const mp = document.querySelector('#movie_player');
+                const mpId = mp?.getVideoData?.()?.video_id;
+                if (mpId) videoIdDetected = mpId;
+            } catch (_) { }
+            if (!videoIdDetected) {
+                try { videoIdDetected = player?.getVideoData?.()?.video_id || YTHelper?.video?.id || null; } catch (_) { }
+            }
+            if (!videoIdDetected && lastVideoUrl && activeVideoCheck) {
+                urlForVideoId = lastVideoUrl;
+                urlData = extractOrNormalizeVideoId(urlForVideoId);
+                log('processVideo', `📍 Usando lastVideoUrl para miniplayer: ${lastVideoUrl}`);
+            }
+            if (!videoIdDetected) videoIdDetected = urlData?.id;
+        } else if (pageType === 'search' || pageType === 'channel') {
+            // En búsqueda/canal, preferir movie_player (miniplayer) si existe
+            try {
+                const mp = document.querySelector('#movie_player');
+                const mpId = mp?.getVideoData?.()?.video_id;
+                if (mpId) videoIdDetected = mpId;
+            } catch (_) { }
+            if (!videoIdDetected) {
+                try { videoIdDetected = player?.getVideoData?.()?.video_id || YTHelper?.video?.id || null; } catch (_) { }
+            }
+            if (!videoIdDetected) videoIdDetected = urlData?.id;
+        } else {
+            videoIdDetected = urlData?.id || YTHelper?.video?.id || player?.getVideoData?.()?.video_id || null;
         }
 
-        let videoData = extractOrNormalizeVideoId(urlForVideoId);
-        let videoIdDetected = videoData?.id;
-
-        // Validación temprana: si no hay video ID, salir antes de procesar
         if (!videoIdDetected) {
             log('processVideo', `🚨 No se pudo determinar el video_id desde ${urlForVideoId}. Abortando procesamiento temprano.`);
             return;
         }
 
-        // Guardar la URL del video actual para uso en miniplayer
-        if (videoIdDetected && pageType !== 'home') {
+        if (pageType !== 'home') {
             lastVideoUrl = window.location.href;
-            log('processVideo', `URL del video guardada para miniplayer: ${lastVideoUrl}`);
+        } else {
+            lastVideoUrl = `https://www.youtube.com/watch?v=${videoIdDetected}`;
+        }
+        log('processVideo', `URL del video guardada para miniplayer: ${lastVideoUrl}`);
+
+        let plId = urlData?.list;
+        // Intentar obtener playlistId desde el contenedor de la tarjeta actual (home/search/channel) para asociar correctamente Mix (RD...)
+        if (!plId && (pageType === 'home' || pageType === 'search' || pageType === 'channel')) {
+            try {
+                const elCtx = (currentVideoEl || videoEl || activeVideoCheck);
+                const card = elCtx?.closest?.('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-playlist-panel-video-renderer, ytd-grid-video-renderer');
+                if (card) {
+                    let aSel = null;
+                    try { if (videoIdDetected) aSel = card.querySelector(`a[href*="/watch?v=${videoIdDetected}"][href*="list="]`); } catch (_) { }
+                    if (!aSel) { try { aSel = card.querySelector('a[href*="list="]'); } catch (_) { }
+                    }
+                    if (aSel) {
+                        const uCard = new URL(aSel.href, location.origin);
+                        const lCard = uCard.searchParams.get('list');
+                        if (lCard) plId = lCard;
+                        log('processVideo', `📌 plId obtenido desde card actual: ${plId || '(none)'}`);
+                    }
+                }
+            } catch (_) { }
+        }
+        if (!plId) {
+            try {
+                if (pageType === 'home' || pageType === 'search' || pageType === 'channel') {
+                    const a = document.querySelector('#anchored-panel a[href*="list="]') ||
+                        document.querySelector('#movie_player a[href*="list="]') ||
+                        document.querySelector('.ytp-miniplayer-ui a[href*="list="]');
+                    if (a) {
+                        const u = new URL(a.href, location.origin);
+                        const l = u.searchParams.get('list');
+                        if (l) plId = l;
+                    }
+                }
+            } catch (_) { }
         }
 
-        let plId = videoData?.list;
+        if (!plId && (pageType === 'home' || pageType === 'search' || pageType === 'channel')) {
+            try { if (!plId && lastPlaylistId) plId = lastPlaylistId; } catch (_) { }
+            if (!plId) {
+                try {
+                    if (lastVideoUrl) {
+                        const u3 = new URL(lastVideoUrl, location.origin);
+                        const l3 = u3.searchParams.get('list');
+                        if (l3) plId = l3;
+                    }
+                } catch (_) { }
+            }
+        }
+        try {
+            const isHomeish = pageType === 'home' || pageType === 'search' || pageType === 'channel';
+            if (isHomeish && lastPlaylistId && /^RD/.test(lastPlaylistId) && plId && !/^RD/.test(plId)) {
+                plId = lastPlaylistId;
+            }
+            if (isHomeish && !plId && lastPlaylistId && /^RD/.test(lastPlaylistId)) {
+                plId = lastPlaylistId;
+            }
+        } catch (_) { }
+        try {
+            if (plId) {
+                const elForStability = (currentVideoEl || videoEl || activeVideoCheck);
+                const contForStability = elForStability?.closest?.('#movie_player, #masthead-player');
+                const ptForStability = getYouTubePageType();
+                const isStableContext = (ptForStability === 'watch' || ptForStability === 'embed') || !!contForStability;
+                if (isStableContext) lastPlaylistId = plId;
+            }
+        } catch (_) { }
+
+        try {
+            if ((pageType === 'home' || pageType === 'search' || pageType === 'channel') && videoIdDetected) {
+                lastVideoUrl = `https://www.youtube.com/watch?v=${videoIdDetected}${plId ? `&list=${plId}` : ''}`;
+            }
+        } catch (_) { }
 
         log('processVideo', `URL del reproductor: ${window.location.href} | Video ID del reproductor: ${videoIdDetected}`);
 
+        // Conjunto para rastrear videos que están siendo procesados actualmente
+        const currentlyProcessingVideos = new Set();
+
         // Evitar reprocesar el mismo video
-        if (currentlyProcessingVideoId === videoIdDetected) {
+        if (currentlyProcessingVideos.has(videoIdDetected)) {
             log('processVideo', `El video ${videoIdDetected} ya está siendo procesado. Ignorando.`);
             return;
         }
-        currentlyProcessingVideoId = videoIdDetected;
+        currentlyProcessingVideos.add(videoIdDetected);
 
         try {
             // Detección del tipo de video
@@ -5425,7 +6672,32 @@ background: var(--color-danger);
                 type = 'live';
                 log('processVideo', `🔄 Tipo cambiado a 'live' porque se detectó video en vivo`);
             }
+            try {
+                const cont2 = activeVideoCheck?.closest?.('#movie_player, #masthead-player, #shorts-player');
+                const shortsDisabled = (() => { try { return cachedSettings?.saveShorts === false; } catch (_) { return false; } })();
+                const mpPresent = (() => { try { return !!(document.querySelector('#movie_player') || document.querySelector('#masthead-player')); } catch (_) { return false; } })();
+                if (cont2?.id === 'movie_player' || cont2?.id === 'masthead-player' || (type === 'shorts' && shortsDisabled && mpPresent)) {
+                    if (type === 'shorts' || type === 'home') type = 'watch';
+                }
+            } catch (_) { }
             log('processVideo', `🎇 Tipo de video/página detectado: ${type}`);
+
+            // Determinar tipo lógico para guardado (distinguir previews)
+            let logicalType = type;
+            try {
+                const el = (currentVideoEl || videoEl || activeVideoCheck);
+                const cont = el?.closest?.('#movie_player, #masthead-player, #shorts-player');
+                const isHomeish = (type !== 'watch' && type !== 'shorts' && type !== 'embed' && type !== 'live');
+                if (isHomeish && (cont?.id !== 'movie_player' && cont?.id !== 'masthead-player')) {
+                    const isShortish = !!(el?.closest?.('ytd-reel-video-renderer, ytd-shorts, #shorts-player'));
+                    logicalType = isShortish ? 'preview_shorts' : 'preview_watch';
+                } else if (type === 'home' && (cont?.id === 'movie_player' || cont?.id === 'masthead-player')) {
+                    logicalType = 'watch';
+                } else if (type === 'shorts') {
+                    logicalType = 'shorts';
+                }
+            } catch (_) { }
+            log('processVideo', `🎯 Tipo lógico para guardado: ${logicalType}`);
 
             // Verificar si el tipo de video actual está deshabilitado en la configuración
             const typeToSetting = {
@@ -5435,10 +6707,24 @@ background: var(--color-danger);
             };
 
             // Si el tipo de video actual está deshabilitado en la configuración, sale de la función
-            if (!cachedSettings[typeToSetting[type]] && !(getYouTubePageType() === 'home' && activeVideoCheck)) {
+            // Excepto si hay miniplayer activo (video en #movie_player) aunque estemos en search/channel/etc.
+            let allowByMiniplayer = false;
+            try {
+                // Permitir procesamiento si hay un miniplayer presente aun estando en Shorts
+                const cont = activeVideoCheck?.closest?.('#movie_player, #masthead-player, #shorts-player');
+                const mp = document.querySelector('#movie_player') || document.querySelector('#masthead-player');
+                allowByMiniplayer = (!!cont && (cont.id === 'movie_player' || cont.id === 'masthead-player')) || !!mp;
+            } catch (_) { }
+            if (!cachedSettings[typeToSetting[type]] && !(((getYouTubePageType() === 'home') || allowByMiniplayer) && activeVideoCheck)) {
                 // Loguea un mensaje indicando que este tipo de video no se debe procesar
                 log('processVideo', `🛑 Tipo "${type}" no está habilitado para guardado, omitiendo.`);
                 log('processVideo', `Es home con un video activo? ${!(getYouTubePageType() === 'home' && activeVideoCheck)}`);
+
+                // NO detenemos el monitor - debe seguir activo para detectar ads en próximos videos
+                // El monitor se gestiona en handleNavigation y debe permanecer activo
+
+                // Resetear isNavigating para permitir nueva navegación inmediatamente
+                isNavigating = false;
 
                 // Sale de la función, evitando que el video se procese
                 return;
@@ -5446,11 +6732,17 @@ background: var(--color-danger);
 
             // Buscar progreso previo
             let savedData = getSavedVideoData(videoIdDetected, plId);
-            log('processVideo', `Datos guardados:`, savedData);
-            log('processVideo', `Verificando reanudación: savedData=${!!savedData}, videoId=${videoIdDetected}, lastResumeId=${lastResumeId}, iguales=${videoIdDetected === lastResumeId}`);
+            log('processVideo', `Verificando reanudación: savedData=${!!savedData}, videoIdDetected=${videoIdDetected}, lastResumeId=${lastResumeId}, videoIdDetected === lastResumeId=${videoIdDetected === lastResumeId}`);
 
             // Verifica si hay datos guardados para el video y si el video detectado es diferente al último ID de video que se intentó reanudar.
-            if (savedData && videoIdDetected !== lastResumeId) {
+            // Opción B: desactivar reanudación para previews inline en páginas no watch/shorts/embed (conservar miniplayer)
+            let disableResumeInInlinePreview = false;
+            try {
+                const cont3 = (currentVideoEl || videoEl || activeVideoCheck)?.closest?.('#movie_player, #shorts-player');
+                disableResumeInInlinePreview = (type !== 'watch' && type !== 'shorts' && type !== 'embed' && cont3?.id !== 'movie_player');
+            } catch (_) { }
+
+            if (savedData && videoIdDetected !== lastResumeId && !disableResumeInInlinePreview) {
                 // Define si se debe reanudar la reproducción del video
                 const shouldResume =
                     // La reanudación está forzada si 'forceResumeTime' es mayor que cero,
@@ -5479,9 +6771,6 @@ background: var(--color-danger);
                             videoIdDetected,
                             videoEl,
                             savedData,
-                            Boolean(plId),
-                            plId,
-                            lastPlaylistId,
                             type
                         );
                     } else {
@@ -5491,9 +6780,6 @@ background: var(--color-danger);
                             videoIdDetected,
                             videoEl,
                             savedData,
-                            Boolean(plId),
-                            plId,
-                            lastPlaylistId,
                             type
                         );
                     }
@@ -5506,19 +6792,67 @@ background: var(--color-danger);
                     log('processVideo', '⏩ No se cumple condición de reanudación, reproducción normal');
                 }
             } else {
+                if (disableResumeInInlinePreview) {
+                    log('processVideo', '⏭ Reanudación deshabilitada en previews inline (solo guardar).');
+                }
                 log('processVideo', '⏩ No hay datos guardados o video ya fue reanudado, reproducción normal');
             }
 
+            // Capturar contexto para evitar guardar en navegaciones cruzadas
+            const boundVideoId = videoIdDetected;
+            const boundType = logicalType;
+            const boundPlId = plId;
+
             // Handler para guardar progreso
+            let lastAdBlockedHandlerLogTs = 0; // throttle para logs repetitivos del handler
             const handler = () => {
                 try {
                     if (isNavigating) return;
 
-                    // Verificar si hay anuncios activos usando el estado centralizado
-                    if (isAdPlaying) {
-                        log('handler', '⏸ Anuncio activo detectado, no procesando timeupdate');
+                    // Verificar si hay anuncios activos usando el estado por tipo
+                    if (isAdBlockedFor(boundType)) {
+                        const now = Date.now();
+                        if (now - lastAdBlockedHandlerLogTs > 2000) {
+                            log('handler', `⏸ Anuncio activo (${boundType}) detectado, no procesando timeupdate`);
+                            lastAdBlockedHandlerLogTs = now;
+                        }
                         return;
                     }
+                    
+                    // Verificar visibilidad del video para previews en páginas de inicio/búsqueda
+                    const currentPageType = getYouTubePageType();
+                    const contNow = (currentVideoEl || videoEl)?.closest?.('#movie_player, #shorts-player');
+                    const isPreviewOnHomeLike = (currentPageType === 'home' || currentPageType === 'search' || currentPageType === 'channel') && 
+                                             contNow?.id !== 'movie_player';
+                    
+                    if (isPreviewOnHomeLike) {
+                        // Verificar si el elemento del video es visible y tiene un tamaño razonable
+                        const isVisible = (el) => {
+                            if (!el) return false;
+                            const rect = el.getBoundingClientRect();
+                            const isInViewport = (
+                                rect.top >= 0 &&
+                                rect.left >= 0 &&
+                                rect.bottom <= (window.innerHeight || document.documentElement.clientHeight) &&
+                                rect.right <= (window.innerWidth || document.documentElement.clientWidth)
+                            );
+                            return isInViewport && el.offsetWidth > 0 && el.offsetHeight > 0;
+                        };
+                        
+                        if (!isVisible(videoEl)) {
+                            log('handler', 'Video preview no está visible, omitiendo guardado');
+                            return;
+                        }
+                        
+                        // Para previews, asegurarse de que el tiempo de reproducción sea suficiente
+                        const currentTime = videoEl?.currentTime || 0;
+                        if (currentTime < 1.0) {
+                            log('handler', `Tiempo de reproducción insuficiente (${currentTime.toFixed(2)}s) para guardar preview`);
+                            return;
+                        }
+                    }
+
+                    lastTimeUpdateTick = Date.now();
 
                     // Validar que aún exista un video válido
                     if (!videoIdDetected) {
@@ -5527,26 +6861,65 @@ background: var(--color-danger);
                     }
 
                     // Diagnosticar si el video está pausado injustificadamente
-                    if (videoEl && videoEl.paused && !isAdPlaying && !isResuming) {
+                    if ((currentVideoEl || videoEl) && (currentVideoEl || videoEl).paused && !isAdPlaying && !isResuming) {
                         log('handler', '⚠️ Video está pausado. No por anuncios ni reanudación.');
                         // No intentar forzar reproducción - los navegadores modernos lo bloquean
+                        return;
                     }
 
-                    const currentVid = videoIdDetected;
                     // Evitar convertir player a string porque puede contener Symbols (es un Proxy)
-                    log('handler de processVideo', `Player tiene getDuration: ${typeof player?.getDuration}, isProxy: ${!!YTHelper?.apiProxy}`);
+                    if (!lastHandlerPerfLog || Date.now() - lastHandlerPerfLog > 3000) {
+                        log('handler de processVideo', `Player tiene getDuration: ${typeof player?.getDuration}, isProxy: ${!!YTHelper?.apiProxy}`);
+                        lastHandlerPerfLog = Date.now();
+                    }
 
-                    // Verificar si cambió de video durante la ejecución
-                    if (currentVid !== videoIdDetected) {
-                        warn('handler', 'El ID del video cambió durante la ejecución. Abortando guardado.');
+                    // Usar currentPageType ya definido arriba
+                    const urlIdNow = extractOrNormalizeVideoId(window.location.href)?.id || null;
+                    let currentId = null;
+                    try { currentId = YTHelper?.video?.id || player?.getVideoData?.()?.video_id || null; } catch (_) { }
+                    let mpId = null;
+                    try { const mp = document.querySelector('#movie_player'); mpId = mp?.getVideoData?.()?.video_id || null; } catch (_) { }
+                    let effectiveIdNow = null;
+                    try {
+                        const cont = (currentVideoEl || videoEl)?.closest?.('#movie_player, #shorts-player');
+                        if (cont?.id === 'movie_player') {
+                            effectiveIdNow = mpId || currentId || urlIdNow || videoIdDetected;
+                        } else if (cont?.id === 'shorts-player') {
+                            effectiveIdNow = urlIdNow || currentId || videoIdDetected;
+                        } else {
+                            effectiveIdNow = currentId || mpId || urlIdNow || videoIdDetected;
+                        }
+                    } catch (_) {
+                        effectiveIdNow = currentId || mpId || urlIdNow || videoIdDetected;
+                    }
+
+                    if (effectiveIdNow && effectiveIdNow !== boundVideoId) {
+                        log('handler', `El ID del video cambió (${boundVideoId} -> ${effectiveIdNow}). Re-enlazando handler.`);
+                        try {
+                            videoEl.removeEventListener('timeupdate', currentTimeUpdateHandler || handler);
+                        } finally {
+                            // Limpiar el estado de procesamiento con un pequeño retraso
+                            setTimeout(() => {
+                                currentlyProcessingVideos.delete(videoIdDetected);
+                            }, 1000);
+                        }try { clearVideoInfoCache(boundVideoId); } catch (_) { }
+                        try { clearVideoInfoCache(effectiveIdNow); } catch (_) { }
+                        if (currentPageType === 'home' || currentPageType === 'search' || currentPageType === 'channel') {
+                            lastVideoUrl = `https://www.youtube.com/watch?v=${effectiveIdNow}${boundPlId ? `&list=${boundPlId}` : ''}`;
+                            try { if (boundPlId) lastPlaylistId = boundPlId; } catch (_) { }
+} else if (currentPageType === 'watch' || currentPageType === 'embed') {
+                            lastVideoUrl = window.location.href;
+                        }
+                        setTimeout(() => {
+                            try { processVideo(player, videoEl); } catch (_) { }
+                        }, 0);
                         return;
                     }
 
                     // Limpiar mensaje seek si el video comienza a reproducirse
                     const currentMessage = timeDisplay?.innerHTML || '';
-                    log('handler', `currentMessage: ${currentMessage}`)
                     const hasSeekMessage = /* currentMessage.includes('⏯'); */ !!currentMessage.includes('svgPlayOrPauseIcon');
-                    if (hasSeekMessage && !videoEl.paused) {
+                    if (hasSeekMessage && !(currentVideoEl || videoEl)?.paused) {
                         log('handler', '🎬 Video comenzó a reproducirse, limpiando mensaje seek');
                         clearPlaybackBarMessage();
                         clearShortsMessage();
@@ -5555,27 +6928,50 @@ background: var(--color-danger);
                     // Lógica de guardado de progreso
                     const now = Date.now();
                     const minInterval = (cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves) * 1000;
+                    const lastSavedForVideo = lastSaveTimesByVideoId[boundVideoId] || 0;
+                    
+                    // Para previews, usar un intervalo más corto para mejor respuesta
+                    const effectiveMinInterval = isPreviewOnHomeLike ? 
+                        Math.min(minInterval, 2000) : // Máximo 2 segundos para previews
+                        minInterval;
 
-                    if (now - lastSaveTime >= minInterval) {
-                        log('processVideo', `💾 Guardando progreso con updateStatus para ${videoIdDetected} (${type})...`);
+                    // Verificar si ya se guardó recientemente
+                    if (now - lastSavedForVideo < effectiveMinInterval) {
+                        return;
+                    }
+
+                    if (now - lastSavedForVideo >= minInterval) {
+                        log('processVideo', `💾 updateStatus para ${videoIdDetected} (${type})...`);
 
                         // Llamar a updateStatus y esperar el resultado
-                        updateStatus(player, videoEl, type, plId).then(saveResult => {
+                        updateStatus(player, (currentVideoEl || videoEl), boundType, ((boundType === 'shorts' || currentPageType === 'shorts') ? null : boundPlId), boundVideoId).then(saveResult => {
                             if (saveResult?.success) {
                                 log('processVideo', `✅ Progreso guardado exitosamente para ${videoIdDetected}`);
 
                                 // Notificar solo si realmente se guardó
-                                const currentTime = player.getCurrentTime ? player.getCurrentTime() : (videoEl?.currentTime || 0);
-                                notifySeekOrProgress(currentTime, 'progress', { saveResult });
+                                const currentTime = player.getCurrentTime ? player.getCurrentTime() : ((currentVideoEl || videoEl)?.currentTime || 0);
+                                notifySeekOrProgress(saveResult?.timestamp ?? currentTime, 'progress', { saveResult, videoType: boundType });
+                                try { lastSaveTimesByVideoId[boundVideoId] = Date.now(); } catch (_) { }
                             } else {
                                 log('processVideo', `⚠️ No se guardó progreso para ${videoIdDetected}:`, saveResult?.reason);
+                                // Throttle de reintentos cuando es preview inline con datos inválidos
+                                try {
+                                    if (saveResult?.reason === 'invalid_data') {
+                                        const contNow2 = (currentVideoEl || videoEl)?.closest?.('#movie_player, #shorts-player');
+                                        let pageTypeNow2 = getYouTubePageType();
+                                        const isPreviewOnHomeLike2 = (pageTypeNow2 === 'home' || pageTypeNow2 === 'search' || pageTypeNow2 === 'channel') && contNow2?.id !== 'movie_player';
+                                        if (isPreviewOnHomeLike2) {
+                                            lastSaveTimesByVideoId[boundVideoId] = Date.now();
+                                        }
+                                    }
+                                } catch (_) { }
                             }
 
                             // Actualizar barra de progreso con colores (independientemente del guardado)
                             try {
-                                const currentTime = player.getCurrentTime ? player.getCurrentTime() : (videoEl?.currentTime || 0);
-                                const duration = getVideoDuration(player, videoEl);
-                                updateProgressBarGradient(currentTime, duration, type);
+                                const currentTime = player.getCurrentTime ? player.getCurrentTime() : ((currentVideoEl || videoEl)?.currentTime || 0);
+                                const duration = getVideoDuration(player, (currentVideoEl || videoEl));
+                                updateProgressBarGradient(currentTime, duration, boundType);
                             } catch (error) {
                                 // Silenciar errores para no afectar el funcionamiento principal
                             }
@@ -5583,12 +6979,22 @@ background: var(--color-danger);
                             conError('processVideo', 'Error al guardar progreso:', error);
                         });
 
-                        lastSaveTime = now;
+                        // No mover lastSaveTime aquí; se actualiza solo en éxito para permitir reintentos tempranos
                     }
                 } catch (err) {
                     conError('handler', 'Error en el handler de timeupdate:', err);
                 }
             };
+
+            // Si es preview y el usuario no permite guardar previews, no enlazar handler ni pollers
+            try {
+                const isPreviewType = typeof boundType === 'string' && boundType.startsWith('preview');
+                const allowInline = cachedSettings?.saveInlinePreviews === true;
+                if (isPreviewType && !allowInline) {
+                    log('processVideo', '🔕 Inline preview deshabilitada por configuración. No se enlaza handler.');
+                    return;
+                }
+            } catch (_) { }
 
             // Antes de agregar el nuevo handler, elimina el anterior si existía
             if (currentVideoEl && currentTimeUpdateHandler) {
@@ -5604,7 +7010,185 @@ background: var(--color-danger);
             currentVideoEl = videoEl;
             videoEl.addEventListener('timeupdate', handler);
 
-            lastPlaylistId = plId;
+            if (timeupdateRebindIntervalId) {
+                try { clearInterval(timeupdateRebindIntervalId); } catch (_) { }
+            }
+            const observedHandler = handler;
+            const observedVideoId = boundVideoId;
+            timeupdateRebindIntervalId = setInterval(async () => {
+                try {
+                    let activeEl = null;
+                    const pt = getYouTubePageType();
+                    if (pt === 'watch' || pt === 'embed') {
+                        try { activeEl = document.querySelector('#movie_player video.html5-main-video') || document.querySelector('#masthead-player video.html5-main-video') || YTHelper?.player?.videoElement || await getActiveVideoElement(); } catch (_) { }
+                    } else if (pt === 'shorts') {
+                        try {
+                            const mpVid = (() => { try { return (document.querySelector('#movie_player') || document.querySelector('#masthead-player'))?.getVideoData?.()?.video_id || null; } catch (_) { return null; } })();
+                            const preferMp = (observedVideoId && mpVid && observedVideoId === mpVid) || (cachedSettings?.saveShorts === false);
+                            const preferSp = (observedVideoId && mpVid && observedVideoId !== mpVid) || (cachedSettings?.saveShorts !== false);
+                            if (preferMp) {
+                                activeEl = document.querySelector('#movie_player video.html5-main-video') || document.querySelector('#masthead-player video.html5-main-video');
+                            } else if (preferSp) {
+                                activeEl = document.querySelector('#shorts-player video') || document.querySelector('ytd-shorts video.html5-main-video');
+                            }
+                            if (!activeEl) {
+                                // Fallbacks en orden: Shorts explícito -> helper -> cualquier activo
+                                activeEl = document.querySelector('#shorts-player video') || document.querySelector('ytd-shorts video.html5-main-video') || YTHelper?.player?.videoElement || await getActiveVideoElement();
+                            }
+                        } catch (_) { }
+                    } else {
+                        try { activeEl = await getActiveVideoElement(); if (!activeEl) { activeEl = YTHelper?.player?.videoElement; } } catch (_) { }
+                    }
+                    if (!activeEl) return;
+                    let idOk = true;
+                    try {
+                        const container = activeEl.closest('#movie_player, #shorts-player');
+                        if (container?.id === 'shorts-player') {
+                            const urlShortId = extractOrNormalizeVideoId(window.location.href)?.id || null;
+                            if (urlShortId && observedVideoId) idOk = (urlShortId === observedVideoId);
+                        } else {
+                            const vid = container?.getVideoData?.()?.video_id;
+                            if (vid && observedVideoId) idOk = (vid === observedVideoId);
+                        }
+                    } catch (_) { }
+                    if ((activeEl !== currentVideoEl || !document.contains(currentVideoEl)) && idOk) {
+                        try { currentVideoEl?.removeEventListener('timeupdate', currentTimeUpdateHandler || observedHandler); } catch (_) { }
+                        currentVideoEl = activeEl;
+                        currentTimeUpdateHandler = observedHandler;
+                        try { activeEl.addEventListener('timeupdate', observedHandler); } catch (_) { }
+                    }
+                } catch (_) { }
+            }, 1000);
+
+            if (progressPollIntervalId) {
+                try { clearInterval(progressPollIntervalId); } catch (_) { }
+            }
+            progressPollIntervalId = setInterval(async () => {
+                try {
+                    const nowTs = Date.now();
+                    if (nowTs - lastTimeUpdateTick <= 2500) return; // timeupdate activo, no hace falta fallback
+                    if (isNavigating || isAdBlockedFor(boundType)) return;
+
+                    let activeEl = null;
+                    try { activeEl = YTHelper?.player?.videoElement || await getActiveVideoElement(); } catch (_) { }
+                    if (!activeEl || !document.contains(activeEl)) return;
+                    if (activeEl.paused) return; // Evitar polling cuando está pausado
+
+                    let effPlayer = player;
+                    try { const hp = YTHelper?.player?.playerObject; if (hp) effPlayer = hp; } catch (_) { }
+                    let pageTypeNow = getYouTubePageType();
+                    const urlIdNow = extractOrNormalizeVideoId(window.location.href)?.id || null;
+                    let currentId = null;
+                    try { currentId = YTHelper?.video?.id || effPlayer?.getVideoData?.()?.video_id || null; } catch (_) { }
+                    let mpId2 = null;
+                    try { if (pageTypeNow !== 'shorts') { const mp2 = document.querySelector('#movie_player') || document.querySelector('#masthead-player'); mpId2 = mp2?.getVideoData?.()?.video_id || null; } else { const mp2s = document.querySelector('#movie_player') || document.querySelector('#masthead-player'); mpId2 = mp2s?.getVideoData?.()?.video_id || null; } } catch (_) { }
+                    const effectiveIdNow = (pageTypeNow === 'watch' || pageTypeNow === 'embed')
+                        ? (urlIdNow || currentId)
+                        : (pageTypeNow === 'shorts')
+                            ? ((boundType === 'watch' || (cachedSettings?.saveShorts === false)) ? (mpId2 || currentId || urlIdNow || boundVideoId) : (urlIdNow || currentId))
+                            : (mpId2 || currentId || urlIdNow || boundVideoId);
+                    if (effectiveIdNow && effectiveIdNow !== boundVideoId) return;
+
+                    const minInterval = (cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves) * 1000;
+                    if (nowTs - lastSaveTime < minInterval) return;
+
+                    log('processVideo', `💾 updateStatus para ${boundVideoId} (${boundType})...`);
+                    updateStatus(effPlayer, activeEl, boundType, ((boundType === 'shorts' || pageTypeNow === 'shorts') ? null : boundPlId), boundVideoId).then(saveResult => {
+                        if (saveResult?.success) {
+                            log('processVideo', `✅ Progreso guardado exitosamente para ${boundVideoId}`);
+                            const currentTime = effPlayer.getCurrentTime ? effPlayer.getCurrentTime() : (activeEl?.currentTime || 0);
+                            notifySeekOrProgress(saveResult?.timestamp ?? currentTime, 'progress', { saveResult, videoType: boundType });
+                        } else {
+                            log('processVideo', `⚠️ No se guardó progreso para ${boundVideoId}:`, saveResult?.reason);
+                        }
+                        try {
+                            const currentTime = effPlayer.getCurrentTime ? effPlayer.getCurrentTime() : (activeEl?.currentTime || 0);
+                            const duration = getVideoDuration(effPlayer, activeEl);
+                            updateProgressBarGradient(currentTime, duration, boundType);
+                        } catch (_) { }
+                    }).catch(err => {
+                        conError('processVideo', 'Error al guardar progreso (poller):', err);
+                    });
+
+                    lastSaveTime = nowTs;
+                } catch (_) { }
+            }, 1000);
+
+            if (secondaryProgressPollIntervalId) {
+                try { clearInterval(secondaryProgressPollIntervalId); } catch (_) { }
+            }
+            secondaryProgressPollIntervalId = setInterval(async () => {
+                try {
+                    if (isNavigating) return;
+                    const pageTypeNow2 = getYouTubePageType();
+                    if (pageTypeNow2 !== 'shorts') return;
+                    const mpC = document.querySelector('#movie_player');
+                    const spC = document.querySelector('#shorts-player');
+                    if (!mpC && !spC) return;
+                    const mpEl2 = document.querySelector('#movie_player video.html5-main-video');
+                    const spEl2 = document.querySelector('#shorts-player video');
+                    const nowTs2 = Date.now();
+                    const minInterval2 = (cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves) * 1000;
+                    let mpId3 = null;
+                    try { mpId3 = mpC?.getVideoData?.()?.video_id || null; } catch (_) { }
+                    const urlIdNow2 = extractOrNormalizeVideoId(window.location.href)?.id || null;
+                    if (mpEl2 && !mpEl2.paused && mpId3 && mpId3 !== boundVideoId && !isAdBlockedFor('watch')) {
+                        const lastSavedMp = lastSaveTimesByVideoId[mpId3] || 0;
+                        if (nowTs2 - lastSavedMp >= minInterval2) {
+                            const mpPlayer2 = mpC && typeof mpC.getDuration === 'function' ? mpC : player;
+                            try { clearVideoInfoCache(mpId3); } catch (_) { }
+                            // Derivar playlistId del miniplayer desde lastVideoUrl o anclado
+                            let mpPlId2 = boundPlId;
+                            if (!mpPlId2) {
+                                try {
+                                    if (lastVideoUrl) {
+                                        const u = new URL(lastVideoUrl, location.origin);
+                                        const l = u.searchParams.get('list');
+                                        if (l) mpPlId2 = l;
+                                    }
+                                } catch (_) { }
+                                if (!mpPlId2) {
+                                    try {
+                                        const a = document.querySelector('#anchored-panel a[href*="list="]') || document.querySelector('#movie_player a[href*="list="]');
+                                        if (a) {
+                                            const u2 = new URL(a.href, location.origin);
+                                            const l2 = u2.searchParams.get('list');
+                                            if (l2) mpPlId2 = l2;
+                                        }
+                                    } catch (_) { }
+                                }
+                            }
+                            updateStatus(mpPlayer2, mpEl2, 'watch', mpPlId2, mpId3).then(r => {
+                                if (r && r.success) { try { lastSaveTimesByVideoId[mpId3] = Date.now(); } catch (_) { } }
+                            }).catch(() => { });
+                        }
+                    }
+                    if (spEl2 && !spEl2.paused && urlIdNow2 && urlIdNow2 !== boundVideoId && !isAdBlockedFor('shorts')) {
+                        // Respetar configuración: no guardar shorts si está deshabilitado
+                        try { if (cachedSettings?.saveShorts === false) return; } catch (_) { }
+                        const lastSavedSp = lastSaveTimesByVideoId[urlIdNow2] || 0;
+                        if (nowTs2 - lastSavedSp >= minInterval2) {
+                            const spPlayer2 = {
+                                getVideoData: () => ({ video_id: urlIdNow2, title: getVideoTittle(null) || null, author: getVideoAuthor(null) || null }),
+                                getCurrentTime: () => { try { return spEl2.currentTime || 0; } catch (_) { return 0; } },
+                                getDuration: () => { try { return spEl2.duration || 0; } catch (_) { return 0; } }
+                            };
+                            try { clearVideoInfoCache(urlIdNow2); } catch (_) { }
+                            updateStatus(spPlayer2, spEl2, 'shorts', null, urlIdNow2).then(r => {
+                                if (r && r.success) { try { lastSaveTimesByVideoId[urlIdNow2] = Date.now(); } catch (_) { } }
+                            }).catch(() => { });
+                        }
+                    }
+                } catch (_) { }
+            }, 1000);
+
+            try {
+                const ptEnd = getYouTubePageType();
+                const elEnd = currentVideoEl || videoEl || activeVideoCheck;
+                const contEnd = elEnd?.closest?.('#movie_player, #masthead-player');
+                const isStableEnd = (ptEnd === 'watch' || ptEnd === 'embed') || !!contEnd;
+                if (plId && isStableEnd && ptEnd !== 'shorts') lastPlaylistId = plId;
+            } catch (_) { }
         } catch (error) {
             conError('processVideo', `Error al procesar el video ${videoIdDetected}:`, error);
         } finally {
@@ -5617,7 +7201,98 @@ background: var(--color-danger);
     // ------------------------------------------
 
     const applySeek = async (player, videoEl, time, options = {}) => {
-        const { bypassMinDiff = false, isForced = false, type = 'normal' } = options;
+        const { bypassMinDiff = false, isForced = false, type = 'normal', retryOnFail = false, resumeCallback = null, targetVideoId = null } = options;
+        // CRÍTICO: No hacer seek si hay anuncio activo del tipo correspondiente
+        if (isAdBlockedFor(type) || isScriptPaused) {
+            log('applySeek', `⏸️  ABORTANDO applySeek - Anuncio (${type}) activo detectado`);
+            return;
+        }
+        const startedPageType = getYouTubePageType();
+        const getContainerForEl = (el) => { try { return el?.closest?.('#movie_player, #shorts-player'); } catch (_) { return null; } };
+        const matchesTargetPlayer = () => {
+            try {
+                const id = player?.getVideoData?.()?.video_id;
+                return !targetVideoId || id === targetVideoId;
+            } catch (_) { return !targetVideoId; }
+        };
+        const matchesTargetVideoEl = () => {
+            try {
+                const c = getContainerForEl(videoEl);
+                const id = c?.getVideoData?.()?.video_id;
+                return !targetVideoId || id === targetVideoId;
+            } catch (_) { return !targetVideoId; }
+        };
+        const refreshRefs = async () => {
+            try {
+                const pt = getYouTubePageType();
+                if (pt === 'watch') {
+                    const mp = document.querySelector('#movie_player');
+                    if (mp?.getDuration) {
+                        try {
+                            const idOk = typeof mp.getVideoData === 'function' ? (mp.getVideoData()?.video_id === targetVideoId || !targetVideoId) : true;
+                            if (idOk) player = mp;
+                        } catch (_) { player = mp; }
+                    }
+                    const ve = document.querySelector('#movie_player video.html5-main-video');
+                    if (ve && document.contains(ve)) {
+                        const idOkVe = (() => { try { const id = mp?.getVideoData?.()?.video_id; return !targetVideoId || !id || id === targetVideoId; } catch (_) { return !targetVideoId; } })();
+                        if (idOkVe) videoEl = ve;
+                    }
+                } else if (pt === 'shorts') {
+                    const sp = document.querySelector('#shorts-player');
+                    if (sp?.getDuration) {
+                        try {
+                            const idOk = typeof sp.getVideoData === 'function' ? (sp.getVideoData()?.video_id === targetVideoId || !targetVideoId) : true;
+                            if (idOk) player = sp;
+                        } catch (_) { player = sp; }
+                    }
+                    const ve2 = document.querySelector('#shorts-player video');
+                    if (ve2 && document.contains(ve2)) {
+                        const idOkVe2 = (() => { try { const id = sp?.getVideoData?.()?.video_id; return !targetVideoId || !id || id === targetVideoId; } catch (_) { return !targetVideoId; } })();
+                        if (idOkVe2) videoEl = ve2;
+                    }
+                }
+
+                const hp = YTHelper?.player?.playerObject;
+                const hv = YTHelper?.player?.videoElement;
+                if (!player && hp) {
+                    try {
+                        const id = hp?.getVideoData?.()?.video_id;
+                        if (!targetVideoId || !id || id === targetVideoId) player = hp;
+                    } catch (_) { player = hp; }
+                }
+                if (!(videoEl && document.contains(videoEl))) {
+                    if (hv && document.contains(hv)) {
+                        try {
+                            const c = getContainerForEl(hv);
+                            const id = c?.getVideoData?.()?.video_id;
+                            if (!targetVideoId || !id || id === targetVideoId) videoEl = hv;
+                        } catch (_) { }
+                    } else {
+                        try {
+                            const newEl = await getActiveVideoElement();
+                            if (newEl) {
+                                const c2 = getContainerForEl(newEl);
+                                const id2 = c2?.getVideoData?.()?.video_id;
+                                if (!targetVideoId || !id2 || id2 === targetVideoId) videoEl = newEl;
+                            }
+                        } catch (_) { }
+                    }
+                }
+            } catch (_) { }
+        };
+        try {
+            const hp = YTHelper?.player?.playerObject;
+            const hv = YTHelper?.player?.videoElement;
+            if (hp) player = hp;
+            if (hv) videoEl = hv;
+        } catch (_) { }
+        if (videoEl && !document.contains(videoEl)) {
+            try {
+                const newEl = await getActiveVideoElement();
+                if (newEl) videoEl = newEl;
+            } catch (_) { }
+        }
         // Si es un tiempo forzado (manual), automáticamente bypass minSeekDiff
         const effectiveBypassMinDiff = bypassMinDiff || isForced;
         const TIMEOUT_MS = 5000; // Timeout máximo para el seek
@@ -5661,7 +7336,7 @@ background: var(--color-danger);
                     const currentTime = player.getCurrentTime?.();
                     return duration > 0 && typeof currentTime === 'number';
                 }
-                return videoEl && !isNaN(videoEl.duration) && videoEl.duration > 0;
+                return videoEl && videoEl.readyState >= 2 && !isNaN(videoEl.duration) && videoEl.duration > 0;
             } catch (e) {
                 return false;
             }
@@ -5675,6 +7350,7 @@ background: var(--color-danger);
                 const maxAttempts = 10;
                 const checkReady = () => {
                     attempts++;
+                    try { const hp2 = YTHelper?.player?.playerObject; const hv2 = YTHelper?.player?.videoElement; if (hp2) player = hp2; if (hv2) videoEl = hv2; } catch (_) { }
                     if (isPlayerReady() || attempts >= maxAttempts) {
                         log('applySeek', `Player listo después de ${attempts} intentos`);
                         resolve();
@@ -5684,6 +7360,7 @@ background: var(--color-danger);
                 };
                 checkReady();
             });
+            await refreshRefs();
         }
 
         // Ejecutar el seek con retry logic
@@ -5692,12 +7369,33 @@ background: var(--color-danger);
         const maxRetries = 3;
 
         while (!seekSuccess && retryCount < maxRetries) {
+            await refreshRefs();
+            if (!isPlayerReady()) {
+                // Espera breve adicional para casos de swap tardío del <video>/player
+                let inner = 0;
+                while (!isPlayerReady() && inner < 5) {
+                    await new Promise(r => setTimeout(r, 150));
+                    await refreshRefs();
+                    inner++;
+                }
+            }
+            const currentPageType = getYouTubePageType();
+            if (currentPageType !== startedPageType) {
+                warn('applySeek', `Página cambió de ${startedPageType} a ${currentPageType} durante seek. Abortando para evitar cruce.`);
+                try { if (retryOnFail && typeof resumeCallback === 'function') resumeCallback(); } catch (_) { }
+                return;
+            }
+            if (!matchesTargetPlayer() && !matchesTargetVideoEl()) {
+                warn('applySeek', 'Player/Video no corresponde al targetVideoId, abortando para evitar cruce');
+                try { if (retryOnFail && typeof resumeCallback === 'function') resumeCallback(); } catch (_) { }
+                return;
+            }
             try {
-                if (player?.seekTo && isPlayerReady()) {
+                if (player?.seekTo && isPlayerReady() && matchesTargetPlayer()) {
                     log('applySeek', `Usando player.seekTo(${time}, true) - Intento ${retryCount + 1}`);
                     player.seekTo(time, true);
                     seekSuccess = true;
-                } else if (videoEl && !isNaN(videoEl.duration)) {
+                } else if (videoEl && !isNaN(videoEl.duration) && matchesTargetVideoEl()) {
                     log('applySeek', `Asignando videoEl.currentTime = ${time} - Intento ${retryCount + 1}`);
                     videoEl.currentTime = time;
                     seekSuccess = true;
@@ -5708,9 +7406,16 @@ background: var(--color-danger);
                 retryCount++;
                 if (retryCount < maxRetries) {
                     warn('applySeek', `Error en intento ${retryCount}, reintentando en 300ms:`, e);
+                    await refreshRefs();
                     await new Promise(resolve => setTimeout(resolve, 300));
                 } else {
                     conError('applySeek', 'Error al ejecutar seek después de todos los reintentos:', e);
+                    try {
+                        if (retryOnFail && typeof resumeCallback === 'function') {
+                            log('applySeek', '🔁 Reintentando resumePlayback tras fallo de seek');
+                            resumeCallback();
+                        }
+                    } catch (_) { }
                     return;
                 }
             }
@@ -5743,6 +7448,7 @@ background: var(--color-danger);
 
             const onTimeUpdate = () => {
                 try {
+                    try { const hvNow = YTHelper?.player?.videoElement; if (hvNow) videoEl = hvNow; } catch (_) { }
                     const currentTime = videoEl?.currentTime ?? player?.getCurrentTime?.();
                     if (Math.abs(currentTime - time) <= NEAR_THRESHOLD) {
                         log('applySeek', `Seek detectado por timeupdate. Diferencia: ${Math.abs(currentTime - time)}s`);
@@ -5756,6 +7462,7 @@ background: var(--color-danger);
             // Intervalo de verificación como respaldo
             const checkInterval = setInterval(() => {
                 try {
+                    try { const hvNow = YTHelper?.player?.videoElement; if (hvNow) videoEl = hvNow; } catch (_) { }
                     const currentTime = videoEl?.currentTime ?? player?.getCurrentTime?.();
                     if (Math.abs(currentTime - time) <= NEAR_THRESHOLD) {
                         log('applySeek', `Seek detectado por intervalo. Diferencia: ${Math.abs(currentTime - time)}s`);
@@ -5803,7 +7510,36 @@ background: var(--color-danger);
         });
 
         // Notificación final
-        notifySeekOrProgress(time, 'seek', { isForced });
+        notifySeekOrProgress(time, 'seek', { isForced, videoType: type });
+        try {
+            const ptAfter = getYouTubePageType();
+            const shouldAutoPlay = (ptAfter === 'watch' || ptAfter === 'embed' || type === 'watch' || type === 'embed');
+            if (shouldAutoPlay) {
+                if (typeof player?.playVideo === 'function') {
+                    try { player.playVideo(); } catch (_) { }
+                } else if (videoEl?.paused && typeof videoEl.play === 'function') {
+                    try { videoEl.play(); } catch (_) { }
+                }
+                try {
+                    let tries = 0;
+                    while (tries < 6) {
+                        try { const hv = YTHelper?.player?.videoElement; if (hv) videoEl = hv; } catch (_) { }
+                        const state = (() => { try { return player?.getPlayerState?.(); } catch (_) { return null; } })();
+                        const paused = !!videoEl?.paused || state === 2;
+                        if (!paused) break;
+                        try { player?.playVideo?.(); } catch (_) { }
+                        if (videoEl?.paused) {
+                            try { videoEl.play?.(); } catch (_) { }
+                        }
+                        if (videoEl?.paused) {
+                            try { document.querySelector('#movie_player .ytp-play-button')?.click?.(); } catch (_) { }
+                        }
+                        await new Promise(r => setTimeout(r, 300));
+                        tries++;
+                    }
+                } catch (_) { }
+            }
+        } catch (_) { }
 
         // Resetear flag de reanudación para permitir notificaciones de progreso
         isResuming = false;
@@ -5843,6 +7579,7 @@ background: var(--color-danger);
         <option value="all" ${currentValue === 'all' ? 'selected' : ''}>🔎 ${t('all')}</option>
         <option value="watch" ${currentValue === 'watch' ? 'selected' : ''}>▶️ ${t('videos')}</option>
         <option value="shorts" ${currentValue === 'shorts' ? 'selected' : ''}>📱 ${t('shorts')}</option>
+        <option value="preview" ${currentValue === 'preview' ? 'selected' : ''}>👁️ ${t('previews')}</option>
         <option value="live" ${currentValue === 'live' ? 'selected' : ''}>🔴 ${t('liveStreams')}</option>
         <option value="playlist" ${currentValue === 'playlist' ? 'selected' : ''}>📁 ${t('playlist')}</option>
         <option value="completed" ${currentValue === 'completed' ? 'selected' : ''}>✅ ${t('completedVideos')}</option>
@@ -5867,11 +7604,11 @@ background: var(--color-danger);
             }
         });
         input.value = currentValue;
-        
+
         // Aplicar debounce para no procesar cada tecla inmediatamente
         const debouncedOnChange = debounce((value) => onChange(value), 300);
         input.addEventListener('input', () => debouncedOnChange(input.value.trim()));
-        
+
         wrapper.appendChild(input);
         return wrapper;
     }
@@ -5904,6 +7641,32 @@ background: var(--color-danger);
     let listContainer = null;
     let currentOrderBy, currentFilterBy, currentSearchQuery;
 
+    function fixThumbnailsInStorage() {
+        const keys = (Storage.keys?.() || []).filter(k => !k.startsWith('userSettings') && !k.startsWith('userFilters') && !k.startsWith('playlist_meta_'));
+        let outer = 0;
+        for (const key of keys) {
+            const data = Storage.get(key);
+            if (!data) continue;
+            if (data.videos && typeof data.videos === 'object') {
+                let modified = false;
+                for (const [vid, info] of Object.entries(data.videos)) {
+                    const vId = info?.videoId || vid;
+                    if (!thumbnailHasVideoId(info?.thumb, vId)) {
+                        if (data.videos[vid]) data.videos[vid].thumb = `https://i.ytimg.com/vi/${vId}/maxresdefault.jpg`;
+                        modified = true;
+                    }
+                }
+                if (modified) Storage.set(key, data);
+            } else {
+                const vId = data.videoId || key;
+                if (!thumbnailHasVideoId(data?.thumb, vId)) {
+                    data.thumb = `https://i.ytimg.com/vi/${vId}/maxresdefault.jpg`;
+                    Storage.set(key, data);
+                }
+            }
+        }
+    }
+
     function updateVideoList() {
         const keys = Storage.keys().filter(k => !k.startsWith('userSettings') && !k.startsWith('playlist_meta_'));
         setInnerHTML(listContainer, ''); // Limpiar contenido previo
@@ -5920,7 +7683,6 @@ background: var(--color-danger);
         let allItems = [];
         keys.forEach(key => {
             const data = Storage.get(key);
-            log('updateVideoList', `Data for ${key}:`, JSON.stringify(data))
 
             if (!data) return;
 
@@ -5966,6 +7728,7 @@ background: var(--color-danger);
             if (currentFilterBy === 'completed') return item.info.isCompleted === true;
             if (currentFilterBy === 'fixedTime') return item.info.forceResumeTime && item.info.forceResumeTime > 0;
             if (currentFilterBy === 'playlist') return item.type === 'playlist-video';
+            if (currentFilterBy === 'preview') return (item.info.videoType && item.info.videoType.startsWith('preview'));
             if (currentFilterBy === 'all') return true;
             return item.info.videoType === currentFilterBy;
         }).filter(item => {
@@ -5989,6 +7752,7 @@ background: var(--color-danger);
         });
 
         let lastRenderedPlaylistKey = null;
+        const fragment = document.createDocumentFragment();
         filteredItems.forEach(item => {
             if (item.type === 'playlist-video') {
                 if (item.playlistKey !== lastRenderedPlaylistKey) {
@@ -6007,14 +7771,16 @@ background: var(--color-danger);
                             rel: 'noopener noreferrer'
                         }
                     });
-                    listContainer.appendChild(h3);
+                    fragment.appendChild(h3);
                     lastRenderedPlaylistKey = item.playlistKey;
                 }
-                listContainer.appendChild(createVideoEntry(item.videoId, item.info, item.playlistKey, item.playlistTitle));
+                fragment.appendChild(createVideoEntry(item.videoId, item.info, item.playlistKey, item.playlistTitle));
             } else {
-                listContainer.appendChild(createVideoEntry(item.videoId, item.info, null));
+                fragment.appendChild(createVideoEntry(item.videoId, item.info, null));
             }
         });
+
+        listContainer.appendChild(fragment);
 
         if (filteredItems.length === 0) {
             const p = createElement('p', { className: 'ypp-emptyMsg', text: t('noSavedVideos') });
@@ -6043,13 +7809,13 @@ background: var(--color-danger);
     // ------------------------------------------
 
     const createFloatingButton = async () => {
-        const settings = await Settings.get();
+        const settings = cachedSettings || await Settings.get();
 
         if (!settings.showFloatingButtons) return;
 
         const wrapper = createElement('div', { className: 'ypp-floatingBtnContainer' });
         const btnConfig = createElement('div', {
-            className: 'ypp-btn ypp-btn-secondary sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
             html: `${SVG_ICONS.settings} ${t('youtubePlaybackPlox')}`,
             onClickEvent: showSettingsUI
         });
@@ -6076,6 +7842,8 @@ background: var(--color-danger);
         // Cargar filtros guardados para asegurar sincronización
         const saved = await getSavedFilters();
 
+        fixThumbnailsInStorage();
+
         // Usar los filtros pasados como parámetro o los guardados
         currentOrderBy = saved.orderBy ?? CONFIG.defaultFilters.orderBy;
         currentFilterBy = saved.filterBy ?? CONFIG.defaultFilters.filterBy;
@@ -6086,8 +7854,6 @@ background: var(--color-danger);
         videosContainer = createElement('div', { className: 'ypp-videosContainer' });
 
         // Aplicar tema dinámico
-        applyThemeStyles(videosOverlay);
-        applyThemeStyles(videosContainer);
 
         listContainer = createElement('div', { id: 'video-list-container' });
 
@@ -6130,54 +7896,55 @@ background: var(--color-danger);
         const firstRow = createElement('div', { className: 'ypp-footer-row' });
 
         const btnExport = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
             html: `${SVG_ICONS.upload} ${t('export')} (JSON)`,
             onClickEvent: exportDataToFile
         });
         const btnImport = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
             html: `${SVG_ICONS.download} ${t('import')} (JSON)`,
             onClickEvent: importDataFromFile
         });
         const btnExportFreeTube = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
             html: `${SVG_ICONS.upload} ${t('export')} (FreeTube)`,
             onClickEvent: exportToFreeTube
         });
         const btnImportFreeTube = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
             html: `${SVG_ICONS.download} ${t('import')} (FreeTube)`,
             onClickEvent: importFromFreeTube
         });
 
-        const btnCreatePlaylist = createElement('button', {
-            className: 'ypp-btn ypp-btn-primary sombra',
-            html: `${SVG_ICONS.playlist} ${t('createPlaylist')}`,
-            onClickEvent: toggleSelectionMode
-        });
 
         firstRow.appendChild(btnExport);
         firstRow.appendChild(btnImport);
         firstRow.appendChild(btnExportFreeTube);
         firstRow.appendChild(btnImportFreeTube);
-        firstRow.appendChild(btnCreatePlaylist);
 
         // Segunda fila: Eliminar todo (izquierda) y Configuraciones (derecha)
         const secondRow = createElement('div', { className: 'ypp-footer-row ypp-footer-row-bottom' });
 
         const btnClearAll = createElement('button', {
-            className: 'ypp-btn ypp-btn-danger sombra',
+            className: 'ypp-btn ypp-btn-danger ypp-sombra',
             html: `${SVG_ICONS.trash} ${t('clearAll')}`,
             onClickEvent: clearAllData
         });
 
+        const btnCreatePlaylist = createElement('button', {
+            className: 'ypp-btn ypp-btn-primary ypp-sombra',
+            html: `${SVG_ICONS.playlist} ${t('createPlaylist')}`,
+            onClickEvent: toggleSelectionMode
+        });
+
         const btnSettings = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
             html: `${SVG_ICONS.settings} ${t('settings')}`,
             onClickEvent: showSettingsUI
         });
 
         secondRow.appendChild(btnClearAll);
+        secondRow.appendChild(btnCreatePlaylist);
         secondRow.appendChild(btnSettings);
 
         // Área de creación de playlist integrada
@@ -6212,21 +7979,21 @@ background: var(--color-danger);
         });
 
         const copyBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-primary',
+            className: 'ypp-btn ypp-btn-primary ypp-sombra',
             html: `${SVG_ICONS.copy} ${t('copyLink')}`,
             id: 'ypp-copy-playlist-btn',
             onClickEvent: copyPlaylistLink
         });
 
         const openBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary',
+            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
             html: `${SVG_ICONS.externalLink} ${t('openPlaylist')}`,
             id: 'ypp-open-playlist-btn',
             onClickEvent: openPlaylistLink
         });
 
         const cancelBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-danger',
+            className: 'ypp-btn ypp-btn-danger ypp-sombra',
             html: `${SVG_ICONS.close} ${t('cancel')}`,
             onClickEvent: () => toggleSelectionMode()
         });
@@ -6265,7 +8032,7 @@ background: var(--color-danger);
      * @returns {string} Color en formato HSL
      */
     function generatePlaylistColor(str) {
-        if (!str) return 'var(--color-bg-secondary)';
+        if (!str) return 'var(--ypp-bg-secondary)';
 
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
@@ -6283,7 +8050,7 @@ background: var(--color-danger);
      * @returns {string} Color en formato HSL
      */
     function generatePlaylistBorderColor(str) {
-        if (!str) return 'var(--color-border)';
+        if (!str) return 'var(--ypp-border)';
 
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
@@ -6295,8 +8062,7 @@ background: var(--color-danger);
     }
 
     function createVideoEntry(videoId, info, playlistKey = null, playlistTitle = null) {
-        log('createVideoEntry', `🔍 Info completo para ${videoId}:`, JSON.stringify(info));
-        log('createVideoEntry', `🔍 Playlist info: playlistKey=${playlistKey}, playlistTitle=${playlistTitle}`);
+
         const isCompleted =
             info.isCompleted ||
             // Verificar si el video está completado (más de 95% reproducido)
@@ -6312,11 +8078,11 @@ background: var(--color-danger);
             log('createVideoEntry', `⚠️ Video ${videoId} sin duración guardada (formato antiguo)`);
         }
 
-        log('createVideoEntry', `🔍 Depuración duration: rawDuration=${rawDuration} (type: ${typeof rawDuration}), duration=${duration} (type: ${typeof duration})`);
+
         const watched = normalizeSeconds(info.timestamp);
         const remaining = Math.max(duration - watched, 0);
         const percent = duration ? Math.min(100, Math.round((watched / duration) * 100)) : null;
-        log('createVideoEntry', `🔍 Depuración porcentaje: videoId=${videoId}, duration=${duration}, watched=${watched}, percent=${percent}, isCompleted=${isCompleted}`);
+
         // Aplicar estilos únicos por playlist
         const isPlaylistItem = !!playlistKey;
         let finalPlaylistTitle = isPlaylistItem ? (playlistTitle || info.playlistTitle || playlistKey) : null;
@@ -6331,7 +8097,7 @@ background: var(--color-danger);
             finalPlaylistTitle = finalPlaylistTitle.replace(/undefined/g, '').trim();
         }
 
-        log('createVideoEntry', `🔍 Final playlist title: "${finalPlaylistTitle}" para ${videoId}`);
+
 
         const wrapper = createElement('div', {
             className: `ypp-videoWrapper ${isPlaylistItem ? 'playlist-item' : 'regular-item'}${isSelectionMode ? ' selection-mode' : ''}`
@@ -6364,18 +8130,48 @@ background: var(--color-danger);
             wrapper.style.borderLeft = `4px solid ${borderColor}`;
             wrapper.style.position = 'relative';
         }
+        const defaultThumbUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
+        const thumb = createElement('img', {
+            className: 'ypp-thumb',
+            atribute: {
+                title: info.title || videoId,
+                loading: 'lazy',
+                alt: info.title || 'Miniatura',
+                src: defaultThumbUrl,
+                width: 320,
+                height: 180
+            },
+            props: { draggable: false }
+        });
+        wrapper.prepend(thumb);
+        if (!thumbnailHasVideoId(info.thumb, videoId)) {
+            try {
+                if (playlistKey) {
+                    const playlistData = Storage.get(playlistKey);
+                    const isOld = playlistData?.videos && typeof playlistData.videos === 'object';
+                    if (isOld && playlistData.videos[videoId]) {
+                        playlistData.videos[videoId].thumb = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+                        Storage.set(playlistKey, playlistData);
+                    } else {
+                        const data = Storage.get(videoId);
+                        if (data) {
+                            data.thumb = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+                            Storage.set(videoId, data);
+                        }
+                    }
+                } else {
+                    const data = Storage.get(videoId);
+                    if (data) {
+                        data.thumb = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
+                        Storage.set(videoId, data);
+                    }
+                }
+            } catch (_) { }
+        }
         loadYouTubeThumbnail(videoId).then((thumbnailUrl) => {
-            const thumb = createElement('img', {
-                className: 'ypp-thumb',
-                atribute: {
-                    title: info.title || videoId,
-                    loading: 'lazy',
-                    alt: info.title || 'Miniatura',
-                    src: thumbnailUrl
-                },
-                props: { draggable: false }
-            })
-            wrapper.prepend(thumb);
+            if (thumbnailUrl && thumbnailUrl !== defaultThumbUrl) {
+                thumb.src = thumbnailUrl;
+            }
         });
 
         const infoDiv = createElement('div', { className: 'ypp-infoDiv' });
@@ -6480,7 +8276,6 @@ background: var(--color-danger);
         infoDiv.appendChild(author);
         infoDiv.appendChild(views);
         infoDiv.appendChild(timestamp);
-        log('createVideoEntry', `🔍 Verificando mostrar porcentaje de ${videoId}: percent=${percent}, isCompleted=${isCompleted}, condición=${percent !== null && !isCompleted}`);
         if (percent !== null && !isCompleted) {
             const progressColor = getProgressColor(percent);
             const progressInfo = createElement('div', {
@@ -6489,9 +8284,6 @@ background: var(--color-danger);
                 styles: { color: progressColor, fontWeight: 'bold' }
             });
             infoDiv.appendChild(progressInfo);
-            log('createVideoEntry', `✅ Porcentaje agregado: ${percent}%`);
-        } else {
-            log('createVideoEntry', `❌ No se mostró porcentaje: percent=${percent}, isCompleted=${isCompleted}`);
         }
         wrapper.appendChild(infoDiv);
 
@@ -6677,19 +8469,27 @@ background: var(--color-danger);
 
     // Función para registrar los comandos del menú con traducciones
     function registerMenuCommands() {
-        GM_registerMenuCommand(`⚙️ ${t('settings')}`, showSettingsUI);
-        /* GM_registerMenuCommand(`📋 ${t('savedVideos')}`, showSavedVideosList); */
+        GM_registerMenuCommand(`⚙️ ${t('settings')}`, () => {
+            try {
+                if (!document || !document.body) {
+                    setTimeout(() => { try { showSettingsUI(); } catch (_) { } }, 0);
+                } else {
+                    showSettingsUI();
+                }
+            } catch (e) { conError('registerMenuCommands', 'Error abriendo Settings UI:', e); }
+        });
+        /* GM_registerMenuCommand(`📋 ${t('savedVideos')}`, () => { try { showSavedVideosList(); } catch (_) { } }); */
         GM_registerMenuCommand(`📚 ${t('viewAllHistory')}`, async () => {
             // Guardar filtros y esperar a que se complete
             await saveFilters({ filterBy: 'all', searchQuery: '' });
             // Establecer filtro global y mostrar lista
             currentFilterBy = 'all';
-            showSavedVideosList();
+            try { showSavedVideosList(); } catch (e) { conError('registerMenuCommands', 'Error abriendo listado de historial:', e); }
         });
         GM_registerMenuCommand(`✅ ${t('viewCompletedVideos')}`, async () => {
             await saveFilters({ filterBy: 'completed' });
             currentFilterBy = 'completed';
-            showSavedVideosList();
+            try { showSavedVideosList(); } catch (e) { conError('registerMenuCommands', 'Error abriendo listado de completados:', e); }
         });
     }
 
@@ -6697,15 +8497,16 @@ background: var(--color-danger);
     // MARK: 📢 Ad Monitor 
     // ------------------------------------------
 
-    let isAdPlaying = false;
-
     // Observer centralizado para detectar anuncios
     function createAdStateMonitor() {
+        log('createAdStateMonitor', '🚀 Iniciando creación del monitor de anuncios');
+
         const target = getActiveContainer();
         if (!target) {
             warn('createAdStateMonitor', '⚠️ No se pudo obtener container activo, monitor no inicializado');
             return null;
         }
+        log('createAdStateMonitor', '✅ Container activo obtenido:', target.nodeName, target.className?.substring(0, 50));
 
         // Selectores específicos de anuncios activos
         const adSelectors = [
@@ -6721,19 +8522,75 @@ background: var(--color-danger);
             '.video-ads:not([hidden]):not([style*="display: none"])', // Contenedor general de anuncios
             'ytd-in-feed-ad-layout-renderer' // Anuncios en feed
         ].join(',');
+        log('createAdStateMonitor', '📋 Selectores de anuncios configurados');
 
         let observer = null;
+        let classObserver = null;
+        let adRapidCheckInterval = null;
+        let adRapidDelay = 75;
+        const AD_RAPID_MIN = 75;
+        const AD_RAPID_MAX = 250;
+        const playerObj = YTHelper?.player?.playerObject || target;
+
+        // Función para pausar/reanudar el script completamente
+        const pauseScript = () => {
+            if (!isScriptPaused) {
+                isScriptPaused = true;
+                log('createAdStateMonitor', '⏸️  SCRIPT PAUSADO TOTALMENTE - Anuncio detectado');
+                // Detener todos los procesos principales del script
+                if (window.mainInterval) clearInterval(window.mainInterval);
+                if (window.progressInterval) clearInterval(window.progressInterval);
+                // Despachar evento global para que otros módulos se detengan
+                window.dispatchEvent(new CustomEvent('scriptPauseStateChanged', { detail: { isPaused: true } }));
+            }
+        };
+
+        const resumeScript = () => {
+            if (isScriptPaused) {
+                isScriptPaused = false;
+                lastAdEndTime = Date.now(); // Marcar cuándo terminó el anuncio
+                log('createAdStateMonitor', '▶️  SCRIPT REANUDADO - Anuncio finalizado');
+                // Reanudar procesos principales del script
+                // El evento scriptPauseStateChanged disparará handleNavigation en el listener global
+                window.dispatchEvent(new CustomEvent('scriptPauseStateChanged', { detail: { isPaused: false } }));
+            }
+        };
 
         const checkAdState = () => {
+            const nowTs = Date.now();
+            const canLog = nowTs - lastAdCheckLog > 1000;
+            if (canLog) lastAdCheckLog = nowTs;
+            // Evitar trabajo cuando no hay anuncio y el video está pausado/no visible,
+            // pero antes hacer una verificación ligera de señales fuertes (clases/overlay/API)
+            try {
+                const ve = YTHelper?.player?.videoElement;
+                let isVisible = true;
+                if (ve && ve.getBoundingClientRect) {
+                    const r = ve.getBoundingClientRect();
+                    isVisible = (r.width > 100 && r.height > 50 && r.bottom > 0 && r.top < (window.innerHeight || 0) + 1);
+                }
+                if (!isAdPlaying && ((ve && ve.paused) || !isVisible)) {
+                    const ytHelperAdQuick = !!YTHelper?.player?.isPlayingAds;
+                    const po = YTHelper?.player?.playerObject;
+                    const hasAdClassQuick = po?.classList?.contains('ad-showing') || po?.classList?.contains('ad-interrupting');
+                    const overlayQuick = target?.querySelector?.('.ytp-ad-module, .ytp-ad-player-overlay, .video-ads');
+                    if (!ytHelperAdQuick && !hasAdClassQuick && !overlayQuick) {
+                        return false;
+                    }
+                }
+            } catch (_) { }
+            if (canLog) log('checkAdState', '🔍 Iniciando verificación de estado de anuncios...');
+
+            let newWatch = false;
+            let newShorts = false;
+
             // 1. Verificación principal: YTHelper API (más confiable)
             const ytHelperAd = YTHelper?.player?.isPlayingAds;
-
-            log('checkAdState', '✅ Verificación principal: YTHelper API', ytHelperAd);
+            if (canLog) log('checkAdState', '✅ Verificación principal: YTHelper API', ytHelperAd);
 
             if (ytHelperAd) {
-                log('checkAdState', '✅ Anuncio detectado por YTHelper API');
-                isAdPlaying = true;
-                return true;
+                if (canLog) log('checkAdState', '✅ Anuncio detectado por YTHelper API');
+                try { const ptNow = (currentPageType || getYouTubePageType()); if (ptNow === 'shorts') newShorts = true; else newWatch = true; } catch (_) { newWatch = true; }
             }
 
             // 2. Verificación de clases en el playerObject (método del Helper API)
@@ -6744,97 +8601,87 @@ background: var(--color-danger);
                 playerObject?.classList.contains('ad-interrupting')
             );
 
-            log('checkAdState', '✅ Verificación de clases en el playerObject', hasAdClassOnPlayer);
+            if (canLog) log('checkAdState', '✅ Verificación de clases en el playerObject', hasAdClassOnPlayer);
 
             if (hasAdClassOnPlayer) {
-                log('checkAdState', '✅ Anuncio detectado por clases en el playerObject');
-                isAdPlaying = true;
-                return true;
+                if (canLog) log('checkAdState', '✅ Anuncio detectado por clases en el playerObject');
+                newWatch = true;
             }
 
-    
+
 
             // 3. Verificación de elementos visuales DOM
             const adElement = target.querySelector(adSelectors);
             let adVisible = false;
-            
-            if (adElement) {
-                const styles = getComputedStyle(adElement); // Cachear resultado para evitar múltiples llamadas
-                adVisible = 
-                    adElement.offsetParent !== null && // Visible en el DOM
-                    styles.display !== 'none' && // No oculto por CSS
-                    styles.visibility !== 'hidden' && // No invisible
-                    adElement.getBoundingClientRect().height > 0; // Tiene altura
-            }
 
-            log('checkAdState', '✅ Verificación de elementos visuales DOM', adVisible);
+            if (adElement) {
+                const styles = getComputedStyle(adElement);
+                adVisible =
+                    adElement.offsetParent !== null &&
+                    styles.display !== 'none' &&
+                    styles.visibility !== 'hidden' &&
+                    adElement.getBoundingClientRect().height > 0;
+                if (canLog) log('checkAdState', '👁️  Elemento de anuncio encontrado:', adElement.className, 'visible:', adVisible);
+            } else {
+                if (canLog) log('checkAdState', '👁️  No se encontraron elementos visuales de anuncio');
+            }
 
             if (adVisible) {
                 log('checkAdState', '✅ Anuncio detectado por elementos visuales DOM');
-                isAdPlaying = true;
-                return true;
+                newWatch = true;
             }
 
-            // 4. Verificación para Shorts
-            // Validación independiente de título/autor sospechoso
+            // 4. Verificación para Shorts - Optimizada y sin duplicados
             const videoTitle = YTHelper?.video?.title || '';
             const videoAuthor = YTHelper?.video?.author || '';
             const authorLower = videoAuthor.toLowerCase();
-            
-            // Patrones de autores de anuncios
-            const isAdChannel = authorLower.includes('ad upload channel') || 
-                               authorLower.includes('video ad');
-            const isSuspiciousAuthor = authorLower.includes('game') || 
-                                      authorLower.includes('app') ||
-                                      authorLower.includes('download') ||
-                                      authorLower.includes('install') ||
-                                      authorLower.match(/\d{3,}/); // IDs numéricos largos
-            
-            const isGenericTitle = videoTitle === 'YouTube' || videoTitle === 'Advertisement';
-            
-            const shortsPlayer = document.querySelector('#shorts-player');
-            const hasAdCreatedClass = shortsPlayer?.classList.contains('ad-created');
-            const isInShortsPage = window.location.pathname.includes('/shorts/');
-            
-            log('checkAdState', '✅ Verificación para Shorts | isInShortsPage', isInShortsPage);
-            log('checkAdState', '✅ Verificación para Shorts | hasAdCreatedClass', hasAdCreatedClass);
-            log('checkAdState', '✅ Verificación para Shorts | isAdChannel', isAdChannel);
-            log('checkAdState', '✅ Verificación para Shorts | isSuspiciousAuthor', isSuspiciousAuthor);
-            log('checkAdState', '✅ Verificación para Shorts | isGenericTitle', isGenericTitle);
-            
-            // Anuncio en shorts detectado si:
+            const isInShortsPage = (currentPageType || getYouTubePageType()) === 'shorts';
+
+            if (canLog) log('checkAdState', '📺 Verificación con title:', videoTitle, 'author:', videoAuthor, 'isShorts:', isInShortsPage);
+
             let hasAdClassShorts = false;
+
             if (isInShortsPage) {
                 const videoEl = YTHelper?.player?.videoElement;
                 const duration = videoEl?.duration || 0;
-                
-                // 1. Autor claramente de anuncios
-                if (isAdChannel) {
+
+                // 0. Detectar clase 'ad-created' (método más confiable)
+                const shortsPlayer = document.querySelector('#shorts-player');
+                const hasAdCreatedClass = shortsPlayer?.classList.contains('ad-created');
+                if (canLog) log('checkAdState', '🎯 Clase ad-created detectada:', hasAdCreatedClass);
+
+                // Patrones de autores de anuncios
+                const isAdChannel = authorLower.includes('ad upload channel') || authorLower.includes('video ad');
+                const isSuspiciousAuthor = authorLower.includes('game') || authorLower.includes('app') ||
+                    authorLower.includes('download') || authorLower.includes('install') ||
+                    authorLower.match(/\d{3,}/);
+                const isGenericTitle = videoTitle === 'YouTube' || videoTitle === 'Advertisement';
+
+                if (canLog) log('checkAdState', '🔍 Patros | isAdChannel:', isAdChannel, 'isSuspicious:', isSuspiciousAuthor, 'isGeneric:', isGenericTitle, 'duration:', duration);
+
+                if (hasAdCreatedClass) {
                     hasAdClassShorts = true;
-                }
-                // 2. Título genérico "YouTube" es un indicador MUY fuerte de anuncio
-                // La mayoría de shorts reales tienen títulos descriptivos
-                else if (isGenericTitle && duration > 0 && duration <= 60) {
-                    // Solo NO es anuncio si tiene autor muy largo (contenido real tiende a tener nombres creativos)
+                    if (canLog) log('checkAdState', '✅ Anuncio de short detectado por clase ad-created');
+                } else if (isAdChannel) {
+                    hasAdClassShorts = true;
+                    if (canLog) log('checkAdState', '✅ Anuncio de short detectado por canal de anuncios');
+                } else if (isGenericTitle && duration > 0 && duration <= 60) {
                     const hasRealAuthorName = videoAuthor.length > 20 && !isSuspiciousAuthor;
                     hasAdClassShorts = !hasRealAuthorName;
-                }
-                // 3. Clase ad-created + YTHelper confirma
-                else if (hasAdCreatedClass && ytHelperAd) {
+                    if (canLog) log('checkAdState', '✅ Anuncio de short detectado por título genérico:', hasAdClassShorts);
+                } else if (hasAdCreatedClass && ytHelperAd) {
                     hasAdClassShorts = true;
+                    if (canLog) log('checkAdState', '✅ Anuncio de short confirmado por clase + API');
                 }
             }
 
-            log('checkAdState', '✅ Verificación para Shorts | hasAdClassShorts', hasAdClassShorts);
-
-           if (hasAdClassShorts) {
-                log('checkAdState', '✅ Anuncio detectado | hasAdClassShorts', hasAdClassShorts);
-                isAdPlaying = true;
-                return true;
+            if (hasAdClassShorts) {
+                if (canLog) log('checkAdState', '✅ Anuncio detectado en shorts:', hasAdClassShorts);
+                newShorts = true;
             }
-        
 
-            // 5. Fallback: Comparación de duraciones (método del Helper API)
+
+            // 5. Fallback: Comparación de duraciones
             let durationMismatch = false;
             if (YTHelper?.apiProxy) {
                 try {
@@ -6843,46 +8690,104 @@ background: var(--color-danger);
                     const realDuration = YTHelper.apiProxy.getDuration?.();
                     if (reportedDuration && realDuration) {
                         durationMismatch = Math.trunc(realDuration) !== Math.trunc(reportedDuration);
+                        if (canLog) log('checkAdState', '⏱️  Comparación duraciones | real:', realDuration, 'reported:', reportedDuration, 'mismatch:', durationMismatch);
                     }
                 } catch (e) {
-                    // Silenciar errores del fallback
+                    if (canLog) log('checkAdState', '⚠️ Error en verificación de duraciones:', e.message);
                 }
             }
-
-            log('checkAdState', '✅ Verificación para Shorts | durationMismatch', durationMismatch);
 
             // 6. Detección por duración corta + elementos de anuncio visibles
             let shortDurationWithAdElements = false;
             const videoEl = YTHelper?.player?.videoElement;
             if (videoEl && videoEl.duration > 0 && videoEl.duration <= 90) {
-                // Anuncios pueden ser hasta 90s, especialmente en videos regulares
                 const hasAdElements = document.querySelector('.ytp-ad-text, .ytp-ad-skip-button-container, .ytp-ad-preview');
                 shortDurationWithAdElements = !!hasAdElements;
+                if (canLog) log('checkAdState', '⏱️  Duración corta con elementos de anuncio | duration:', videoEl.duration, 'hasElements:', shortDurationWithAdElements);
             }
 
-            log('checkAdState', '✅ Verificación para Shorts | shortDurationWithAdElements', shortDurationWithAdElements);
+            // Estado final combinado
+            // Núcleo confiable: API Helper, clases del player, elementos visibles y shorts
+            let newState = ytHelperAd || hasAdClassOnPlayer || adVisible || hasAdClassShorts;
+            if (isInShortsPage) { newShorts = newShorts || hasAdClassShorts || (ytHelperAd && !hasAdClassOnPlayer); }
+            if (!isInShortsPage) { newWatch = newWatch || ytHelperAd || hasAdClassOnPlayer || adVisible; }
 
-            const newState = ytHelperAd || hasAdClassOnPlayer || adVisible || hasAdClassShorts || durationMismatch || shortDurationWithAdElements;
+            // Heurísticas débiles: solo se usan para detectar INICIO cuando aún no hay anuncio en curso
+            if (!newState && !isAdPlaying) {
+                if (isInShortsPage) newShorts = durationMismatch || shortDurationWithAdElements; else newWatch = durationMismatch || shortDurationWithAdElements;
+            }
+            if (canLog) log('checkAdState', '🏁 Resultado final | newWatch:', newWatch, 'newShorts:', newShorts, 'prevWatch:', isAdWatchPlaying, 'prevShorts:', isAdShortsPlaying);
 
-            if (newState !== isAdPlaying) {
-                const prevState = isAdPlaying;
-                isAdPlaying = newState;
-                log('adStateMonitor', isAdPlaying ? '⏹ Anuncio detectado' : '✅ Anuncio finalizado');
-                // Log detallado para diagnóstico
-                const diagDetails = isInShortsPage ? 
-                    ` (title:"${videoTitle.substring(0, 20)}", author:"${videoAuthor.substring(0, 25)}", dur:${YTHelper?.player?.videoElement?.duration?.toFixed(1) || 0}s, genTitle:${isGenericTitle})` : '';
-                log('adStateMonitor', `Estado cambió: ${prevState} → ${newState} | ytHelper: ${ytHelperAd}, playerClass: ${hasAdClassOnPlayer}, visible: ${adVisible}, shorts: ${hasAdClassShorts}${diagDetails}, duration: ${durationMismatch}, shortWithAd: ${shortDurationWithAdElements}`);
-                // Disparar eventos para que otras partes del código reaccionen
-                if (isAdPlaying) {
-                    window.dispatchEvent(new CustomEvent('adStateChanged', { detail: { isPlaying: true } }));
-                } else {
-                    window.dispatchEvent(new CustomEvent('adStateChanged', { detail: { isPlaying: false } }));
+            // Manejar cambio de estado
+            const prevWatch = isAdWatchPlaying;
+            const prevShorts = isAdShortsPlaying;
+            const prevAny = isAdPlaying;
+            isAdWatchPlaying = !!newWatch;
+            isAdShortsPlaying = !!newShorts;
+            isAdPlaying = isAdWatchPlaying || isAdShortsPlaying;
+
+            if (prevWatch !== isAdWatchPlaying || prevShorts !== isAdShortsPlaying) {
+                if (isAdWatchPlaying && !prevWatch) {
+                    log('adStateMonitor', '⏹️  ANUNCIO DETECTADO (watch) - Pausando script');
+                    pauseScript();
+                    if (!adRapidCheckInterval) { startAdRapidCheck(); }
+                } else if (!isAdWatchPlaying && prevWatch) {
+                    log('adStateMonitor', '✅ ANUNCIO FINALIZADO (watch) - Reanudando script');
+                    resumeScript();
+                    if (adRapidCheckInterval) { try { clearTimeout(adRapidCheckInterval); } catch (_) { } adRapidCheckInterval = null; adRapidDelay = AD_RAPID_MIN; }
                 }
+
+                const diagDetails = isInShortsPage ? ` (title:"${videoTitle.substring(0, 20)}", author:"${videoAuthor.substring(0, 25)}", dur:${videoEl?.duration?.toFixed(1) || 0}s)` : '';
+                if (nowTs - lastAdStateLog > 1000) {
+                    log('adStateMonitor', `📊 Estado cambió: any ${prevAny}→${isAdPlaying} | watch ${prevWatch}→${isAdWatchPlaying} | shorts ${prevShorts}→${isAdShortsPlaying} | ytHelper:${ytHelperAd}, playerClass:${hasAdClassOnPlayer}, visible:${adVisible}, shortsClass:${hasAdClassShorts}${diagDetails}, duration:${durationMismatch}, shortWithAd:${shortDurationWithAdElements}`);
+                    lastAdStateLog = nowTs;
+                }
+
+                window.dispatchEvent(new CustomEvent('adStateChanged', { detail: { isPlaying: isAdPlaying, watch: isAdWatchPlaying, shorts: isAdShortsPlaying } }));
+            } else {
+                if (canLog) log('checkAdState', '✅ Sin cambios en el estado de anuncios');
             }
         };
 
-        // Usar la función debounce centralizada
-        const debouncedCheck = debounce(checkAdState, 100);
+        // Usar la función debounce centralizada con mayor delay cuando no hay anuncios
+        const debouncedCheck = debounce(checkAdState, 250);
+        
+        /**
+         * Programa comprobaciones rápidas durante anuncios con backoff y uso de RAF si visible.
+         */
+        const startAdRapidCheck = () => {
+            const scheduleRAFIfVisible = (cb) => {
+                try {
+                    if (document.visibilityState === 'visible' && typeof requestAnimationFrame === 'function') {
+                        requestAnimationFrame(cb);
+                    } else {
+                        setTimeout(cb, 0);
+                    }
+                } catch (_) { setTimeout(cb, 0); }
+            };
+
+            const tick = () => {
+                const prevWatch = isAdWatchPlaying;
+                const prevShorts = isAdShortsPlaying;
+                scheduleRAFIfVisible(() => {
+                    try { checkAdState(); } catch (_) { }
+                    const stillAd = !!isAdPlaying;
+                    const noChange = (prevWatch === isAdWatchPlaying) && (prevShorts === isAdShortsPlaying);
+                    if (stillAd) {
+                        if (noChange && adRapidDelay < AD_RAPID_MAX) adRapidDelay = Math.min(AD_RAPID_MAX, adRapidDelay + 25);
+                        adRapidCheckInterval = setTimeout(tick, adRapidDelay);
+                    } else {
+                        adRapidCheckInterval = null;
+                        adRapidDelay = AD_RAPID_MIN;
+                    }
+                });
+            };
+
+            if (!adRapidCheckInterval) {
+                adRapidDelay = AD_RAPID_MIN;
+                adRapidCheckInterval = setTimeout(tick, adRapidDelay);
+            }
+        };
 
         const start = () => {
             if (observer) return;
@@ -6890,21 +8795,75 @@ background: var(--color-danger);
 
             checkAdState();
 
-            observer = new MutationObserver(debouncedCheck);
-            observer.observe(target, {
+            if (playerObj && !classObserver) {
+                classObserver = new MutationObserver((mutations) => {
+                    for (const m of mutations) {
+                        if (m.type === 'attributes' && m.attributeName === 'class') {
+                            checkAdState();
+                            break;
+                        }
+                    }
+                });
+                classObserver.observe(playerObj, { attributes: true, attributeFilter: ['class'] });
+            }
+
+            // Crear callback optimizado que filtra mutaciones irrelevantes
+            const optimizedCallback = (mutations) => {
+                // Solo procesar si hay mutaciones relevantes para anuncios
+                const hasRelevantMutation = mutations.some(mutation => {
+                    // Cambios en atributos de clase o hidden
+                    if (mutation.type === 'attributes') {
+                        const target = mutation.target;
+                        // Solo si el elemento tiene clases relacionadas con anuncios
+                        const className = target.className || '';
+                        return className.includes('ad') || className.includes('ytp') || className.includes('video-ads');
+                    }
+                    // Cambios en nodos hijos solo si están en contenedores de anuncios
+                    if (mutation.type === 'childList') {
+                        const target = mutation.target;
+                        const className = target.className || '';
+                        return className.includes('ad') || className.includes('ytp');
+                    }
+                    return false;
+                });
+
+                // Evitar trabajo cuando no hay anuncio y el video está pausado/no visible, salvo que haya mutación relevante
+                try {
+                    const ve = YTHelper?.player?.videoElement;
+                    let isVisible = true;
+                    if (ve && ve.getBoundingClientRect) {
+                        const r = ve.getBoundingClientRect();
+                        isVisible = (r.width > 100 && r.height > 50 && r.bottom > 0 && r.top < (window.innerHeight || 0) + 1);
+                    }
+                    if (!isAdPlaying && ((ve && ve.paused) || !isVisible) && !hasRelevantMutation) {
+                        return;
+                    }
+                } catch (_) { }
+
+                if (hasRelevantMutation) {
+                    debouncedCheck();
+                }
+            };
+
+            observer = new MutationObserver(optimizedCallback);
+            // Observar un subárbol más específico si existe para reducir ruido
+            const adRoot = target.querySelector('.video-ads, .ytp-ad-module, .ytp-ad-player-overlay') || target;
+            observer.observe(adRoot, {
                 attributes: true,
                 attributeFilter: ['class', 'hidden'],
                 childList: true,
                 subtree: true
             });
-            
-            // Log periódico para verificar que el monitor está activo (solo durante anuncios)
+
+            // Log periódico para verificar que el monitor está activo (solo durante anuncios de watch)
             const periodicCheck = setInterval(() => {
-                if (isAdPlaying) {
-                    log('adStateMonitor', `🔄 Monitor activo, anuncio aún presente (ytHelper: ${YTHelper?.player?.isPlayingAds})`);
-                }
-            }, 5000);
-            
+                try {
+                    if (isAdWatchPlaying) {
+                        log('adStateMonitor', `🔄 Monitor activo (watch), anuncio aún presente (ytHelper: ${YTHelper?.player?.isPlayingAds})`);
+                    }
+                } catch (_) { }
+            }, 15000);
+
             // Guardar referencia para limpiarlo después
             observer._periodicCheck = periodicCheck;
         };
@@ -6917,6 +8876,11 @@ background: var(--color-danger);
                 observer.disconnect();
                 observer = null;
                 log('adStateMonitor', 'Monitor de anuncios detenido');
+            }
+            if (adRapidCheckInterval) { try { clearTimeout(adRapidCheckInterval); } catch (_) { } adRapidCheckInterval = null; adRapidDelay = AD_RAPID_MIN; }
+            if (classObserver) {
+                classObserver.disconnect();
+                classObserver = null;
             }
         };
 
@@ -6945,37 +8909,49 @@ background: var(--color-danger);
     // ------------------------------------------
 
     let waitingForAdEnd = false; // Variable de control para evitar listeners duplicados
+    let isHandlingNavigation = false; // Prevenir llamadas simultáneas a handleNavigation
+    let currentHandlingUrl = null; // URL que se está procesando actualmente
 
     const handleNavigation = () => {
-        if (isAdPlaying) {
+        if (isAdWatchPlaying) {
             // Si ya hay un listener esperando, no agregar otro
             if (waitingForAdEnd) {
                 log('handleNavigation', '⏸ Ya hay un listener esperando el fin del anuncio.');
                 return;
             }
-            
-            log('handleNavigation', '❌ Anuncio en curso, esperando a que finalice...');
+
+            log('handleNavigation', '❌ Anuncio (watch) en curso, esperando a que finalice...');
             waitingForAdEnd = true;
-            
+
             // Configurar listener para procesar cuando el anuncio termine
             const handleAdEndForNavigation = (event) => {
-                if (!event.detail.isPlaying) {
+                if (event?.detail && event.detail.watch === false) {
                     log('handleNavigation', '▶️ Anuncio finalizado, reanudando navegación.');
                     window.removeEventListener('adStateChanged', handleAdEndForNavigation);
                     waitingForAdEnd = false; // Resetear flag
                     handleNavigation(); // Reintentar navegación
                 }
             };
-            
+
             window.addEventListener('adStateChanged', handleAdEndForNavigation);
             return;
         }
+
         const currentUrl = location.href;
         if (currentUrl === lastUrl) return;
 
+        // Bloquear solo si estamos procesando la MISMA URL
+        if (isHandlingNavigation && currentHandlingUrl === currentUrl) {
+            log('handleNavigation', '⏸ Ya hay una navegación en progreso para esta URL');
+            return;
+        }
+
+        isHandlingNavigation = true;
+        currentHandlingUrl = currentUrl;
+
         // Limpiar caché de video info para asegurar datos frescos
         clearVideoInfoCache();
-        
+
         // Reinicializar monitor de anuncios en cada navegación para asegurar que esté activo
         initAdMonitor();
 
@@ -6987,23 +8963,43 @@ background: var(--color-danger);
 
         // Programar nueva limpieza y búsqueda de video (50ms de delay optimizado)
         navigationDebounceTimeout = setTimeout(() => {
+            // Verificar si hay anuncio activo antes de continuar (solo watch)
+            if (isAdWatchPlaying || isScriptPaused) {
+                log('handleNavigation', '⏸️  Anuncio detectado en setTimeout, abortando navegación');
+                isNavigating = false;
+                isHandlingNavigation = false;
+                currentHandlingUrl = null;
+                return;
+            }
+
             currentPageType = getYouTubePageType();
             log('handleNavigation', `Tipo de página: ${currentPageType}`);
 
-            // Si navegando a home con miniplayer activo, no limpiar ni reprocesar
-            // Solo actualizar estados y salir
+            // Si navegando a home con miniplayer activo, mantener solo si YA tenemos handler enlazado a ese miniplayer
             if (currentPageType === 'home' && YTHelper?.player?.videoElement) {
-                // Verificar que el miniplayer sea realmente visible y activo
                 const videoEl = YTHelper.player.videoElement;
                 const rect = videoEl.getBoundingClientRect();
-                const isVisible = rect.width > 100 && rect.height > 50 && rect.top >= 0; // No oculto arriba
+                const isVisible = rect.width > 100 && rect.height > 50 && rect.top >= 0;
                 const isInMiniplayerContainer = videoEl.closest('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer');
 
-                if (isVisible && isInMiniplayerContainer) {
-                    log('handleNavigation', '🎵 Miniplayer activo en home, manteniendo procesamiento actual');
+                // Verificar que nuestro handler esté enlazado al mismo elemento del miniplayer
+                let isHandlerBoundToMini = false;
+                try {
+                    const cur = currentVideoEl;
+                    const hasHandler = !!currentTimeUpdateHandler;
+                    const sameEl = cur && document.contains(cur) && cur === videoEl;
+                    const sameContainer = sameEl && !!cur.closest('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer');
+                    isHandlerBoundToMini = hasHandler && sameContainer;
+                } catch (_) { isHandlerBoundToMini = false; }
+
+                if (isVisible && isInMiniplayerContainer && isHandlerBoundToMini) {
+                    log('handleNavigation', '🎵 Miniplayer activo en home y handler enlazado, manteniendo procesamiento actual');
                     isNavigating = false;
                     lastUrl = currentUrl;
                     return;
+                } else if (isVisible && isInMiniplayerContainer && !isHandlerBoundToMini) {
+                    log('handleNavigation', '🎵 Miniplayer activo en home pero sin handler enlazado. Reprocesando para habilitar guardado.');
+                    // Continuar flujo normal: cleanupAll y processVideoFromHelper más abajo
                 } else {
                     log('handleNavigation', '🚫 Video detectado pero no es miniplayer visible, continuando navegación normal');
                 }
@@ -7015,21 +9011,21 @@ background: var(--color-danger);
             const processIfReady = () => {
                 if (!YTHelper?.player?.videoElement) {
                     log('handleNavigation', '⏳ Esperando evento yt-helper-api-ready...');
-                    
+
                     // Usar evento del Helper API en lugar de polling
                     const handleHelperReady = () => {
                         log('handleNavigation', '✅ YouTube Helper API listo (via evento)');
-                        
+
                         // Verificar de nuevo el estado del anuncio (pudo haber cambiado)
                         if (!isAdPlaying) {
                             log('handleNavigation', '▶️ Anuncio ya finalizó, procesando inmediatamente');
                         }
-                        
+
                         processVideoOrWaitForAd();
                     };
-                    
+
                     YTHelper?.eventTarget?.addEventListener('yt-helper-api-ready', handleHelperReady, { once: true });
-                    
+
                     // Fallback timeout solo por seguridad (5 segundos)
                     setTimeout(() => {
                         YTHelper?.eventTarget?.removeEventListener('yt-helper-api-ready', handleHelperReady);
@@ -7049,20 +9045,20 @@ background: var(--color-danger);
 
             // Función separada para manejar anuncios y procesar video
             const processVideoOrWaitForAd = () => {
-                // Usar el estado centralizado del monitor de anuncios
-                if (isAdPlaying) {
-                    log('handleNavigation', '⏸ Anuncio activo detectado, esperando...');
-                    
+                // Usar el estado centralizado del monitor de anuncios (solo watch)
+                if (isAdWatchPlaying) {
+                    log('handleNavigation', '⏸ Anuncio (watch) activo detectado, esperando...');
+
                     // Esperar evento de cambio de estado de anuncio
                     const handleAdEnd = (event) => {
-                        // Solo procesar cuando el anuncio termina (isPlaying: false)
-                        if (!event.detail.isPlaying) {
+                        // Solo procesar cuando el anuncio watch termina (detail.watch: false)
+                        if (event?.detail && event.detail.watch === false) {
                             log('handleNavigation', '▶️ Anuncio finalizado, procesando video.');
                             window.removeEventListener('adStateChanged', handleAdEnd);
                             processVideoFromHelper();
                         }
                     };
-                    
+
                     window.addEventListener('adStateChanged', handleAdEnd);
                 } else {
                     log('handleNavigation', '✅ No hay anuncio, procesando video...');
@@ -7073,10 +9069,26 @@ background: var(--color-danger);
             const processVideoFromHelper = async () => {
                 try {
                     // Usar getActiveVideoElement que ya tiene todos los fallbacks
-                    const videoEl = await getActiveVideoElement();
+                    let videoEl = await getActiveVideoElement();
                     if (!videoEl) {
-                        log('handleNavigation', '⚠️ No se encontró elemento de video, abortando procesamiento');
-                        return;
+                        // En páginas home-like, dar un pequeño margen para que la preview por hover se inicie
+                        const ptTmp = getYouTubePageType();
+                        const isHomeLike = (ptTmp === 'home' || ptTmp === 'search' || ptTmp === 'channel' || ptTmp === 'unknown');
+                        if (isHomeLike) {
+                            const startTs = Date.now();
+                            for (let i = 0; i < 15; i++) { // ~15 intentos hasta ~1.5s-1.8s
+                                await new Promise(r => setTimeout(r, 100));
+                                videoEl = await getActiveVideoElement();
+                                if (videoEl) {
+                                    log('handleNavigation', `✅ Video encontrado tras reintento de preview en ${Date.now() - startTs}ms`);
+                                    break;
+                                }
+                            }
+                        }
+                        if (!videoEl) {
+                            log('handleNavigation', '⚠️ No se encontró elemento de video, abortando procesamiento');
+                            return;
+                        }
                     }
 
                     // Verificar si YTHelper está disponible
@@ -7131,13 +9143,15 @@ background: var(--color-danger);
                     conError('handleNavigation', 'Error al procesar video:', error);
                 } finally {
                     isNavigating = false;
+                    isHandlingNavigation = false; // Permitir nueva navegación
+                    currentHandlingUrl = null; // Limpiar URL procesada
                     lastUrl = currentUrl;
                 }
             };
 
             // Iniciar verificación
             processIfReady();
-        }, 50); // Delay mínimo para estabilidad del DOM
+        }, 50); // Optimizado a 50ms
     };
 
     // ------------------------------------------
@@ -7148,9 +9162,18 @@ background: var(--color-danger);
     const cleanupAll = () => {
         log('cleanupAll', 'Iniciando limpieza de observadores, intervalos y estados');
 
+        // CRÍTICO: No limpiar si hay anuncio activo
+        if (isAdPlaying || isScriptPaused) {
+            log('cleanupAll', '⏸️  ABORTANDO cleanupAll - Anuncio activo, no se debe limpiar');
+            return;
+        }
+
         // Limpiar timers/intervals
         const timers = [
-            { ref: navigationDebounceTimeout, fn: clearTimeout, name: 'navigationDebounceTimeout' }
+            { ref: navigationDebounceTimeout, fn: clearTimeout, name: 'navigationDebounceTimeout' },
+            { ref: timeupdateRebindIntervalId, fn: clearInterval, name: 'timeupdateRebindIntervalId' },
+            { ref: progressPollIntervalId, fn: clearInterval, name: 'progressPollIntervalId' },
+            { ref: secondaryProgressPollIntervalId, fn: clearInterval, name: 'secondaryProgressPollIntervalId' },
         ];
 
         timers.forEach(({ ref, fn, name }) => {
@@ -7160,22 +9183,38 @@ background: var(--color-danger);
             }
         });
 
-        // Resetear estados
+        // Determinar si debemos preservar miniplayer ANTES de resetear estados/URLs
+        // Preservar cuando:
+        // - Página es home y el miniplayer está activo (comportamiento original)
+        // - Página es shorts y saveShorts=false y existe contenedor de miniplayer (#movie_player o #masthead-player)
+        const ptNowCleanup = getYouTubePageType();
+        let shouldPreserveMiniplayer = false;
+        try {
+            const mpContainer = document.querySelector('#movie_player') || document.querySelector('#masthead-player');
+            const mpHasVideo = !!(mpContainer && typeof mpContainer.getVideoData === 'function' && mpContainer.getVideoData()?.video_id);
+            const shortsDisabled = (() => { try { return cachedSettings?.saveShorts === false; } catch (_) { return false; } })();
+            shouldPreserveMiniplayer = (ptNowCleanup === 'home' && mpHasVideo) || (ptNowCleanup === 'shorts' && shortsDisabled && mpHasVideo);
+        } catch (_) { shouldPreserveMiniplayer = false; }
+
+        // Resetear estados (NO resetear isAdPlaying aquí, lo maneja el monitor)
         navigationDebounceTimeout = null;
-        isAdPlaying = false;
+        timeupdateRebindIntervalId = null;
+        progressPollIntervalId = null;
+        secondaryProgressPollIntervalId = null;
         currentlyProcessingVideoId = null;
         lastPlaylistId = null;
         isResuming = false;
         lastResumeId = null;
-        lastVideoUrl = ''; // Limpiar URL del video guardada
+        // Conservar lastVideoUrl si preservamos miniplayer (para mantener playlistId y reanudaciones correctas)
+        if (!shouldPreserveMiniplayer) {
+            lastVideoUrl = '';
+        } else {
+            log('cleanupAll', 'lastVideoUrl preservado por miniplayer activo');
+        }
         log('cleanupAll', 'Estados internos reseteados');
 
-        // Limpiar eventos del video SOLO si no hay miniplayer activo
-        // Si hay miniplayer, mantener los listeners para continuar guardando progreso
-        const hasActiveMiniplayer = YTHelper?.player?.videoElement &&
-            getYouTubePageType() === 'home';
-
-        if (currentVideoEl && !hasActiveMiniplayer) {
+        // Limpiar eventos del video SOLO si no hay miniplayer activo que deseemos preservar
+        if (currentVideoEl && !shouldPreserveMiniplayer) {
             if (currentTimeUpdateHandler) {
                 currentVideoEl.removeEventListener('timeupdate', currentTimeUpdateHandler);
                 currentTimeUpdateHandler = null;
@@ -7183,8 +9222,8 @@ background: var(--color-danger);
             delete currentVideoEl._cachedPlayerEl;
             currentVideoEl = null;
             log('cleanupAll', 'Eventos del video eliminados');
-        } else if (hasActiveMiniplayer) {
-            log('cleanupAll', 'Miniplayer activo detectado, manteniendo event listeners para continuar guardando progreso');
+        } else if (shouldPreserveMiniplayer) {
+            log('cleanupAll', 'Miniplayer activo detectado (home/shorts con saveShorts=false), manteniendo event listeners para continuar guardando progreso');
         }
 
         // No limpiar mensajes si estamos a punto de reanudar (evita borrar mensajes seek antes de establecerlos)
@@ -7213,6 +9252,12 @@ background: var(--color-danger);
             if (removed > 0) log('cleanupAll', `${removed} toasts removidos`);
         }
         log('cleanupAll', 'Limpieza completa realizada');
+    };
+
+    const prepareForNavigationStart = () => {
+        log('prepareForNavigationStart', '⏳ yt-navigate-start: suspendiendo procesamiento');
+        isNavigating = true;
+        if (navigationDebounceTimeout) clearTimeout(navigationDebounceTimeout);
     };
 
     // ------------------------------------------
@@ -7261,7 +9306,8 @@ background: var(--color-danger);
                 });
 
                 // Migrar cada video de la playlist
-                Object.entries(data.videos).forEach(([videoId, videoData]) => {
+                let inner = 0;
+                for (const [videoId, videoData] of Object.entries(data.videos)) {
                     // Crear entrada de video en formato FreeTube
                     const migratedVideo = {
                         videoId: videoId,
@@ -7289,7 +9335,8 @@ background: var(--color-danger);
                     Storage.set(videoId, migratedVideo);
                     migrated++;
                     log('migrateToFreeTubeFormat', `✅ Video ${videoId} migrado`);
-                });
+                    if ((++inner % 50) === 0) { await new Promise(r => setTimeout(r, 0)); }
+                }
 
                 // Eliminar la entrada antigua de playlist
                 Storage.del(key);
@@ -7330,80 +9377,101 @@ background: var(--color-danger);
     // Inicialización global (solo una vez)
     const initializeGlobal = async () => {
         if (isGloballyInitialized) {
-            log('initializeGlobal', '✅ Ya inicializado globalmente, omitiendo...');
+            info('initializeGlobal', '✅ Ya inicializado globalmente, omitiendo...');
             return;
         }
 
         if (initializationPromise) {
-            log('initializeGlobal', '⏳ Inicialización en progreso, esperando...');
+            info('initializeGlobal', '⏳ Inicialización en progreso, esperando...');
             return await initializationPromise;
         }
 
         initializationPromise = (async () => {
-            log('initializeGlobal', '🚀 Iniciando inicialización global...');
+            info('initializeGlobal', '🚀 Iniciando inicialización global...');
+            let hadLanguageInStorage = false;
 
             // --- Inicializar YouTube Helper API ---
             try {
-                YTHelper = await waitForHelper();
-                log('initializeGlobal', '✅ Referencia a YouTube Helper API obtenida');
+                waitForHelper().then((h) => {
+                    YTHelper = h;
+                    try { info('initializeGlobal', '✅ Referencia a YouTube Helper API obtenida'); } catch (_) { }
+                    try { initAdMonitor(); } catch (_) { }
+                    try { setTimeout(() => { try { handleNavigation(); } catch (_) { } }, 0); } catch (_) { }
+                }).catch((error) => {
+                    try { warn('initializeGlobal', '⚠️ Helper API no listo aún, continuando en fallback', error); } catch (_) { }
+                });
             } catch (error) {
-                conError('initializeGlobal', '❌ Helper API no disponible:', error);
+                try { warn('initializeGlobal', '⚠️ Error al iniciar espera de Helper API, continuando', error); } catch (_) { }
             }
 
             // --- Cargar traducciones ---
             try {
-                const externalTranslations = await loadTranslations();
+                const [externalTranslations, loadedSettings] = await Promise.all([
+                    loadTranslations().catch((err) => {
+                        conError('initializeGlobal', '❌ Error al cargar traducciones:', err);
+                        return null;
+                    }),
+                    Settings.get().catch((err) => {
+                        conError('initializeGlobal', '❌ Error al cargar settings:', err);
+                        return { ...CONFIG.defaultSettings };
+                    })
+                ]);
+
                 if (externalTranslations && Object.keys(externalTranslations).length > 0) {
-                    log('initializeGlobal', '✅ Traducciones externas cargadas correctamente');
-                    LANGUAGE_FLAGS = externalTranslations.flags || FALLBACK_FLAGS;
-                    TRANSLATIONS = externalTranslations.translations || FALLBACK_TRANSLATIONS;
+                    info('initializeGlobal', ' Traducciones externas cargadas correctamente');
+                    const extFlags = externalTranslations.LANGUAGE_FLAGS || externalTranslations.flags || {};
+                    const extTranslations = externalTranslations.TRANSLATIONS || externalTranslations.translations || {};
+                    LANGUAGE_FLAGS = { ...FALLBACK_FLAGS, ...extFlags };
+                    TRANSLATIONS = deepMergeTranslations(FALLBACK_TRANSLATIONS, extTranslations);
                 } else {
-                    warn('initializeGlobal', '⚠️ Traducciones externas incompletas, usando fallback');
+                    warn('initializeGlobal', ' Traducciones externas incompletas, usando fallback');
                     LANGUAGE_FLAGS = FALLBACK_FLAGS;
                     TRANSLATIONS = FALLBACK_TRANSLATIONS;
                 }
+                hadLanguageInStorage = Object.prototype.hasOwnProperty.call(loadedSettings || {}, 'language');
+                cachedSettings = { ...CONFIG.defaultSettings, ...(loadedSettings || {}) };
+                info('initializeGlobal', 'Settings cargados:', cachedSettings);
             } catch (error) {
-                conError('initializeGlobal', '❌ Error al cargar traducciones:', error);
+                conError('initializeGlobal', ' Error al preparar traducciones/settings:', error);
                 LANGUAGE_FLAGS = FALLBACK_FLAGS;
                 TRANSLATIONS = FALLBACK_TRANSLATIONS;
+                cachedSettings = { ...CONFIG.defaultSettings };
             }
 
             // --- Cargar configuración y establecer idioma ---
             try {
-                cachedSettings = await Settings.get();
-                log('initializeGlobal', 'Settings cargados:', cachedSettings);
-
                 let langToUse;
 
-                if (cachedSettings.language && TRANSLATIONS[cachedSettings.language] && cachedSettings.language !== CONFIG.defaultSettings.language) {
+                if (cachedSettings?.language && TRANSLATIONS[cachedSettings.language] && cachedSettings.language !== CONFIG.defaultSettings.language) {
                     // Idioma guardado por el usuario y válido
                     langToUse = cachedSettings.language;
-                    log('initializeGlobal', `Idioma guardado válido: ${langToUse}`);
+                    info('initializeGlobal', `Idioma guardado válido: ${langToUse}`);
                 } else {
                     // Primera carga o idioma no configurado, usar navegador si existe
                     const browserLang = detectBrowserLanguage();
                     langToUse = TRANSLATIONS[browserLang] ? browserLang : CONFIG.defaultSettings.language;
-                    log('initializeGlobal', `Idioma detectado o fallback: ${langToUse}`);
+                    info('initializeGlobal', `Idioma detectado o fallback: ${langToUse}`);
                 }
 
-                await setLanguage(langToUse);
-                log('initializeGlobal', `🌐 Idioma configurado: ${langToUse}`);
+                await setLanguage(langToUse, { persist: false });
+                info('initializeGlobal', ` Idioma configurado: ${langToUse}`);
 
                 // Guardar preferencia si era primera carga
-                if (!cachedSettings.language || cachedSettings.language === CONFIG.defaultSettings.language) {
+                if (!hadLanguageInStorage) {
+                    cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
                     cachedSettings.language = langToUse;
                     await Settings.set(cachedSettings);
-                    log('initializeGlobal', `Idioma guardado en settings: ${langToUse}`);
+                    info('initializeGlobal', `Idioma guardado en settings: ${langToUse}`);
                 }
             } catch (error) {
-                conError('initializeGlobal', '❌ Error al cargar settings o establecer idioma:', error);
+                conError('initializeGlobal', '❌ Error al establecer idioma:', error);
             }
 
             // --- Normalizar almacenamiento ---
             try {
                 if (typeof normalizeYouTubeStorageKeys === 'function') {
                     await normalizeYouTubeStorageKeys();
-                    log('initializeGlobal', '🧹 Storage normalizado correctamente.');
+                    info('initializeGlobal', '🧹 Storage normalizado correctamente.');
                 } else {
                     warn('initializeGlobal', '⚠️ normalizeYouTubeStorageKeys no definida aún.');
                 }
@@ -7415,7 +9483,7 @@ background: var(--color-danger);
             try {
                 const migrationResult = await migrateToFreeTubeFormat();
                 if (migrationResult.migrated > 0) {
-                    log('initializeGlobal', `✅ Migración completada: ${migrationResult.migrated} videos migrados`);
+                    info('initializeGlobal', `✅ Migración completada: ${migrationResult.migrated} videos migrados`);
                 }
             } catch (err) {
                 conError('initializeGlobal', '❌ Error durante la migración de datos:', err);
@@ -7426,7 +9494,7 @@ background: var(--color-danger);
                 registerMenuCommands();
                 injectStyles();
                 injectProgressBarCSS();
-                log('initializeGlobal', '✅ Comandos y estilos registrados');
+                info('initializeGlobal', '✅ Comandos y estilos registrados');
                 // Crear botón flotante si está habilitado en settings
                 if (typeof createFloatingButton === 'function') {
                     await createFloatingButton();
@@ -7440,24 +9508,38 @@ background: var(--color-danger);
             // handleNavigation lo reiniciará cuando sea necesario
             try {
                 initAdMonitor();
-                log('initializeGlobal', '✅ Intento inicial de monitor de anuncios');
+                info('initializeGlobal', '✅ Intento inicial de monitor de anuncios');
             } catch (error) {
                 warn('initializeGlobal', '⚠️ Primer intento de monitor falló (normal si DOM no está listo):', error);
             }
 
             // --- Configurar eventos de navegación ---
             const debouncedNavigation = debounce(handleNavigation, 50);
+            window.addEventListener('yt-navigate-start', prepareForNavigationStart);
             window.addEventListener('yt-navigate-finish', debouncedNavigation);
-            log('initializeGlobal', '✅ Event listeners configurados');
-            
+
+            // --- Configurar listener global para pausa de script por anuncios ---
+            window.addEventListener('scriptPauseStateChanged', (event) => {
+                const { isPaused } = event.detail;
+                if (isPaused) {
+                    info('initializeGlobal', '⏸️  Script pausado por detección de anuncio - Módulos deben detenerse');
+                } else {
+                    info('initializeGlobal', '▶️  Script reanudado - Anuncio finalizado');
+                    // Llamar directamente a handleNavigation cuando se reanuda el script
+                    handleNavigation();
+                }
+            });
+
+            info('initializeGlobal', '✅ Event listeners configurados');
+
             // --- Ejecutar handleNavigation inicial para procesar página actual ---
             setTimeout(() => {
-                log('initializeGlobal', '🔄 Ejecutando navegación inicial...');
+                info('initializeGlobal', '🔄 Ejecutando navegación inicial...');
                 handleNavigation();
             }, 500); // Esperar a que el DOM esté completamente listo
 
             isGloballyInitialized = true;
-            log('initializeGlobal', '✨ Inicialización global completada');
+            info('initializeGlobal', '✨ Inicialización global completada');
         })();
 
         return await initializationPromise;
@@ -7465,9 +9547,9 @@ background: var(--color-danger);
 
     // Inicialización por página (se ejecuta en cada navegación)
     const initializePage = async () => {
-        log('initializePage', '📄 Iniciando inicialización de página...');
+        info('initializePage', '📄 Iniciando inicialización de página...');
         await initializeGlobal();
-        log('initializePage', '✅ Página inicializada');
+        info('initializePage', '✅ Página inicializada');
     };
 
     // Función principal de inicialización
@@ -7476,11 +9558,11 @@ background: var(--color-danger);
             await initializePage();
 
             // Procesar página inicial
-            log('init', '✨ Script completamente inicializado');
+            info('init', '✨ Script completamente inicializado');
 
             // Forzar inicialización de la página actual, ya que 'yt-navigate-finish'
             // puede no dispararse en la carga inicial.
-            setTimeout(() => handleNavigation(), 500);
+            setTimeout(() => handleNavigation(), 200);
         } catch (error) {
             conError('init', '❌ Error durante la inicialización:', error);
         }

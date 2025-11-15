@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.7
+// @version      0.0.7-1
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
@@ -215,6 +215,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
     // URL del archivo de traducciones
     const TRANSLATIONS_URL = 'https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/translations.json';
     const TRANSLATIONS_URL_BACKUP = 'https://cdn.jsdelivr.net/gh/Alplox/Youtube-Playback-Plox@refs/heads/main/translations.json';
+    const TRANSLATIONS_EXPECTED_VERSION = '0.0.7-1';
 
     // Variables globales para las traducciones
     let TRANSLATIONS = {};
@@ -252,6 +253,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "regularVideos": "Regular videos",
             "shorts": "Shorts",
             "liveStreams": "Live streams",
+            "live": "Live",
             "showNotifications": "Show save notifications",
             "minSecondsBetweenSaves": "Minimum seconds between saves",
             "showFloatingButton": "Show floating button",
@@ -355,6 +357,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "regularVideos": "Videos regulares",
             "shorts": "Shorts",
             "liveStreams": "Directos (Livestreams)",
+            "live": "Directo",
             "showNotifications": "Mostrar notificaciones de guardado",
             "minSecondsBetweenSaves": "Intervalo segundos mínimos entre guardados",
             "showFloatingButton": "Mostrar botón flotante",
@@ -458,6 +461,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "regularVideos": "Vidéos régulières",
             "shorts": "Shorts",
             "liveStreams": "Diffusions en direct",
+            "live": "Diffusions en direct",
             "showNotifications": "Afficher les notifications de sauvegarde",
             "minSecondsBetweenSaves": "Secondes minimales entre les sauvegardes",
             "showFloatingButton": "Afficher le bouton flottant",
@@ -562,7 +566,10 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
                 const raw = await GM_getValue(CACHE_KEY, null);
                 if (raw) {
                     const cached = JSON.parse(raw);
-                    if (cached?.ts && (Date.now() - cached.ts) < TTL_MS && cached?.data) {
+                    const isFresh = cached?.ts && (Date.now() - cached.ts) < TTL_MS;
+                    const cachedVersion = cached?.version ?? cached?.data?.VERSION;
+                    const versionMatches = !TRANSLATIONS_EXPECTED_VERSION || cachedVersion === TRANSLATIONS_EXPECTED_VERSION;
+                    if (isFresh && cached?.data && versionMatches) {
                         info('loadTranslations', 'Usando traducciones desde caché GM_*');
                         return cached.data;
                     }
@@ -573,7 +580,10 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             const raw = localStorage.getItem(CACHE_KEY);
             if (raw) {
                 const cached = JSON.parse(raw);
-                if (cached?.ts && (Date.now() - cached.ts) < TTL_MS && cached?.data) {
+                const isFresh = cached?.ts && (Date.now() - cached.ts) < TTL_MS;
+                const cachedVersion = cached?.version ?? cached?.data?.VERSION;
+                const versionMatches = !TRANSLATIONS_EXPECTED_VERSION || cachedVersion === TRANSLATIONS_EXPECTED_VERSION;
+                if (isFresh && cached?.data && versionMatches) {
                     info('loadTranslations', 'Usando traducciones desde caché localStorage');
                     return cached.data;
                 }
@@ -633,8 +643,8 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             data = { LANGUAGE_FLAGS: FALLBACK_FLAGS, TRANSLATIONS: FALLBACK_TRANSLATIONS };
         }
 
-        // 4) Guardar en caché (best-effort)
-        const cachePayload = JSON.stringify({ ts: Date.now(), data });
+        // 4) Guardar en caché
+        const cachePayload = JSON.stringify({ ts: Date.now(), version: data?.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null, data });
         try { if (typeof GM_setValue === 'function') await GM_setValue(CACHE_KEY, cachePayload); } catch (_) { }
         try { localStorage.setItem(CACHE_KEY, cachePayload); } catch (_) { }
 
@@ -995,6 +1005,7 @@ html[dark], body.dark-theme {
   position: relative; /* asegurar stacking context */
   z-index: var(--ypp-z-toast, 10001); /* asegurar visibilidad por encima de overlays transitorios */
   margin: 4px auto 0; /* centrar en metapanel */
+  border-radius: var(--ypp-spacing-md);
 
   /* Truncado de texto */
   white-space: nowrap;
@@ -1207,12 +1218,11 @@ html[dark], body.dark-theme {
   align-items: center;
   margin-bottom: var(--ypp-spacing-md);
   border-bottom: 1px solid var(--ypp-border);
-  padding-bottom: var(--ypp-spacing-sm);
+  padding: var(--ypp-spacing-md);
 }
 
 .ypp-videoWrapper.playlist-item {
   border-radius: 6px;
-  padding: var(--ypp-spacing-sm);
   margin-bottom: var(--ypp-spacing-sm);
   transition: all 0.2s ease;
 }
@@ -1845,12 +1855,13 @@ background: var(--ypp-danger);
         // calendar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>',
         // sort: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>',
         locked: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" xml:space="preserve" version="1.1" viewBox="0 0 30 30"><path d="M9 16V8c0-3.3 2.7-6 6-6h0c3.3 0 6 2.7 6 6v8" style="fill:none;stroke:#6a83ba;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10"/><path d="M22 29H8c-1.1 0-2-.9-2-2V16c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v11c0 1.1-.9 2-2 2z" style="fill:#f2bb41;stroke:#f2bb41;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10"/><path d="M15 24h0c-.6 0-1-.4-1-1v-3c0-.6.4-1 1-1h0c.6 0 1 .4 1 1v3c0 .6-.4 1-1 1z" style="fill:#354c75;stroke:#354c75;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10"/></svg>',
+        unlocked: '<svg idth="16" height="16" xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 0 512 512"><path fill="#c9d0d7" d="M484.17 244.87H417.4a16.7 16.7 0 0 1-16.7-16.7v-77.9c0-27.63-22.46-50.1-50.08-50.1s-50.09 22.47-50.09 50.1v111.3a16.7 16.7 0 0 1-16.7 16.7h-66.78a16.7 16.7 0 0 1-16.7-16.7v-111.3C200.35 67.4 267.76 0 350.62 0s150.26 67.4 150.26 150.26v77.91a16.7 16.7 0 0 1-16.7 16.7z"/><path fill="#b8c2c9" d="M400.7 150.26v77.91a16.7 16.7 0 0 0 16.7 16.7h66.78a16.7 16.7 0 0 0 16.7-16.7v-77.9C500.86 67.4 433.46 0 350.6 0v100.17a50.14 50.14 0 0 1 50.09 50.1z"/><path fill="#e79d2e" d="M328.35 512H61.22a50.14 50.14 0 0 1-50.09-50.09V294.96a50.14 50.14 0 0 1 50.09-50.09h267.13a50.14 50.14 0 0 1 50.08 50.09V461.9A50.14 50.14 0 0 1 328.35 512z"/><path fill="#d8842a" d="M378.44 461.91V294.96a50.14 50.14 0 0 0-50.1-50.09H194.79V512h133.57a50.14 50.14 0 0 0 50.08-50.09z"/><g fill="#6e6057"><path d="M194.78 445.22a16.7 16.7 0 0 1-16.7-16.7v-66.78a16.7 16.7 0 0 1 33.4 0v66.78a16.7 16.7 0 0 1-16.7 16.7z"/><path d="M194.78 378.44c-18.41 0-33.39-14.98-33.39-33.4s14.98-33.39 33.4-33.39 33.38 14.98 33.38 33.4-14.97 33.38-33.39 33.38zm0-33.4h.11-.1zm0 0h.11-.1zm0 0h.11-.1zm0 0zm0 0h.11-.1zm0-.01h.11-.1zm0 0h.11-.1z"/></g><g fill="#615349"><path d="M211.48 428.52v-66.78a16.7 16.7 0 0 0-16.7-16.7v100.18a16.7 16.7 0 0 0 16.7-16.7z"/><path d="M194.78 378.44c18.42 0 33.4-14.98 33.4-33.4s-14.98-33.39-33.4-33.39v66.79z"/></g></svg>',
         pin: '<svg class="ypp-svgPinIcon" width="16" height="16" viewBox="0 0 508.901 508.901" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve"><defs><path id="a" fill="#a31c09" d="m342.08 279.177 58.606-58.606c-24.594-6.727-48.746-21.389-69.853-42.496-21.116-21.116-35.257-45.789-41.366-70.991l-59.727 59.719-48.719 48.719c6.118 25.212 22.581 47.554 43.697 68.661 21.107 21.116 44.067 36.97 68.661 43.697l48.701-48.703z"/></defs><path fill="#a31c09" d="M505.605 190.556c-13.789 13.789-66.887-16.949-118.599-68.661s-82.45-104.81-68.661-118.599 66.887 16.949 118.599 68.661 82.45 104.811 68.661 118.599"/><path fill="#d9dbe8" d="m0 508.9 112.358-162.295 49.937 49.938z"/><path fill="#ce3929" d="M387.007 121.894c-51.712-51.712-82.45-104.81-68.661-118.599-49.991 49.991-39.23 123.065 12.482 174.777s121.671 65.589 171.652 15.607l-.786-.821c-18.069 6.577-66.93-23.207-114.687-70.964"/><use xlink:href="#a"/><path fill="#ce3929" d="M311.324 389.978c2.348-21.486-1.607-44.226-11.829-68.22l-6.118 6.126c-24.594-6.735-47.554-22.59-68.661-43.697-21.116-21.107-37.579-43.458-43.697-68.661l6.241-6.241-.274-.282c-24.143-10.346-47.016-14.345-68.626-11.979-40.157 4.378-64.071 45.877-47.634 82.785 12.509 28.072 35.566 60.734 66.322 91.489 30.746 30.747 63.417 53.813 91.489 66.313 36.901 16.437 78.4-7.477 82.787-47.633"/></svg>',
-        playOrPause: '<svg class="ypp-svgPlayOrPauseIcon" width="16"height="16" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" viewBox="0 0 40 40"><path fill="#3B88C3" d="M36 32a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4h28a4 4 0 0 1 4 4v28z"></path><path fill="#FFF" d="m6 7 13 11L6 29zm20 0h4v22h-4zm-7 0h4v22h-4z"></path></svg>',
-        warning: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" aria-hidden="true" class="iconify iconify--twemoji" viewBox="0 0 36 36"><path fill="#FFCC4D" d="M2.65 35C.81 35 0 33.66.85 32.03l15.6-30.06c.86-1.63 2.24-1.63 3.1 0l15.6 30.06c.85 1.63.04 2.97-1.8 2.97H2.65z"/><path fill="#231F20" d="M15.58 28.95A2.42 2.42 0 0 1 18 26.53a2.42 2.42 0 0 1 2.42 2.42A2.42 2.42 0 0 1 18 31.37a2.42 2.42 0 0 1-2.42-2.42zm.19-18.29c0-1.3.96-2.1 2.23-2.1 1.24 0 2.23.83 2.23 2.1V22.6c0 1.27-.99 2.1-2.23 2.1-1.27 0-2.23-.8-2.23-2.1V10.66z"/></svg>',
-        import: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" fill="none" viewBox="0 0 24 24"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v10m0 0 3-3m-3 3-3-3"/></svg>',
-        export: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" fill="none" viewBox="0 0 24 24"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 14V4m0 0 3 3m-3-3L9 7"/></svg>',
-        error: '<svg xmlns="http://www.w3.org/2000/svg" width="800" height="800" aria-hidden="true" viewBox="0 0 14 14"><path fill="red" d="M13 10.66q0 .4-.28.68l-1.38 1.38q-.28.28-.68.28t-.69-.28L7 9.75l-2.97 2.97q-.28.28-.69.28-.4 0-.68-.28l-1.38-1.38Q1 11.06 1 10.66t.28-.69L4.25 7 1.28 4.03Q1 3.75 1 3.34q0-.4.28-.68l1.38-1.38Q2.94 1 3.34 1t.69.28L7 4.25l2.97-2.97q.28-.28.69-.28.4 0 .68.28l1.38 1.38q.28.28.28.68t-.28.69L9.75 7l2.97 2.97q.28.28.28.69z"/></svg>'
+        playOrPause: '<svg class="ypp-svgPlayOrPauseIcon" width="16"height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path fill="#3B88C3" d="M36 32a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4h28a4 4 0 0 1 4 4v28z"></path><path fill="#FFF" d="m6 7 13 11L6 29zm20 0h4v22h-4zm-7 0h4v22h-4z"></path></svg>',
+        warning: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#FFCC4D" d="M2.65 35C.81 35 0 33.66.85 32.03l15.6-30.06c.86-1.63 2.24-1.63 3.1 0l15.6 30.06c.85 1.63.04 2.97-1.8 2.97H2.65z"/><path fill="#231F20" d="M15.58 28.95A2.42 2.42 0 0 1 18 26.53a2.42 2.42 0 0 1 2.42 2.42A2.42 2.42 0 0 1 18 31.37a2.42 2.42 0 0 1-2.42-2.42zm.19-18.29c0-1.3.96-2.1 2.23-2.1 1.24 0 2.23.83 2.23 2.1V22.6c0 1.27-.99 2.1-2.23 2.1-1.27 0-2.23-.8-2.23-2.1V10.66z"/></svg>',
+        import: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v10m0 0 3-3m-3 3-3-3"/></svg>',
+        export: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 14V4m0 0 3 3m-3-3L9 7"/></svg>',
+        error: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14"><path fill="red" d="M13 10.66q0 .4-.28.68l-1.38 1.38q-.28.28-.68.28t-.69-.28L7 9.75l-2.97 2.97q-.28.28-.69.28-.4 0-.68-.28l-1.38-1.38Q1 11.06 1 10.66t.28-.69L4.25 7 1.28 4.03Q1 3.75 1 3.34q0-.4.28-.68l1.38-1.38Q2.94 1 3.34 1t.69.28L7 4.25l2.97-2.97q.28-.28.69-.28.4 0 .68.28l1.38 1.38q.28.28.28.68t-.28.69L9.75 7l2.97 2.97q.28.28.28.69z"/></svg>'
     };
 
     // ------------------------------------------
@@ -4983,15 +4994,7 @@ background: var(--ypp-danger);
         try {
             log('isLiveVideo', '🔍 Iniciando detección de video live...');
 
-            // Verificar si hay tiempo fijo configurado (indicador de que NO es live)
-            const hasFixedTime = window.location.href.includes('&t=') || window.location.href.includes('#t=');
-            log('isLiveVideo', `Tiempo fijo en URL: ${hasFixedTime}`);
-            if (hasFixedTime) {
-                log('isLiveVideo', '❌ Video tiene tiempo fijo configurado - NO es live');
-                return false;
-            }
-
-            // Early return if YTHelper indicates non-live with duration
+            // Si YTHelper indica que NO es live y tiene duración >0, es un video VOD
             if (YTHelper?.video?.isCurrentlyLive === false && YTHelper?.video?.lengthSeconds > 0) {
                 log('isLiveVideo', '❌ YTHelper indica no live y duración >0 - NO es live');
                 return false;
@@ -5020,8 +5023,8 @@ background: var(--ypp-danger);
             const isBadgeVisible = liveBadge && liveBadge.offsetParent !== null &&
                 window.getComputedStyle(liveBadge).display !== 'none';
             const liveBadgeText = liveBadge?.getAttribute('aria-label') || liveBadge?.textContent || '';
-            log('isLiveVideo', `2️⃣ Live badge encontrado: ${!!liveBadge}, visible: ${isBadgeVisible}, tiene aria-label: ${liveBadge?.hasAttribute('aria-label')}`);
-            log('isLiveVideo', `2️⃣b Contenido del badge: "${liveBadgeText}"`);
+            log('isLiveVideo', `Live badge encontrado: ${!!liveBadge}, visible: ${isBadgeVisible}, tiene aria-label: ${liveBadge?.hasAttribute('aria-label')}`);
+            log('isLiveVideo', `Contenido del badge: "${liveBadgeText}"`);
 
             if (liveBadge && isBadgeVisible && liveBadge.hasAttribute('aria-label')) {
                 // Verificar que el contenido del badge realmente indique "live" actual
@@ -5131,6 +5134,14 @@ background: var(--ypp-danger);
                 }
             } else {
                 log('isLiveVideo', '⏭️ Omitiendo verificación PT0M0S durante navegación');
+            }
+
+            // Verificar si hay tiempo fijo desde el URL
+            const hasFixedTime = window.location.href.includes('&t=') || window.location.href.includes('#t=');
+            log('isLiveVideo', `Tiempo fijo en URL: ${hasFixedTime}`);
+            if (hasFixedTime) {
+                log('isLiveVideo', '❌ Video tiene tiempo fijo configurado - NO es live');
+                return false;
             }
 
             log('isLiveVideo', '❌ NO detectado como live');
@@ -5581,7 +5592,17 @@ background: var(--ypp-danger);
 
         return getCachedVideoInfo(player, video_id).then(async ({ duration, ...videoInfo }) => {
             log('updateStatus', `then duration: ${duration} = ${formatTime(duration)} | current time: ${currentTime} | video_id: ${video_id}`);
-            const isLiveType = type === 'live';
+            const infoIsLive = videoInfo?.isLive === true;
+            const isLiveType = type === 'live' || infoIsLive;
+
+            // Respeto estricto de configuración para lives también en updateStatus
+            try {
+                if (isLiveType && cachedSettings?.saveLiveStreams === false) {
+                    log('updateStatus', '🛑 Video detectado como LIVE en updateStatus y saveLiveStreams está deshabilitado, omitiendo guardado.');
+                    return { success: false, reason: 'live_disabled_by_settings' };
+                }
+            } catch (_) { }
+
             // Evitar que un currentTime contaminado supere la duración
             if (!isLiveType && duration && isFinite(duration) && currentTime > duration) {
                 try {
@@ -5725,8 +5746,12 @@ background: var(--ypp-danger);
                 }
             } catch (_) { }
 
-            // Forzar tipo "watch" si el contenedor es miniplayer/desktop player
-            try { if (contId === 'movie_player') { finalType = 'watch'; } } catch (_) { }
+            // Forzar tipo "watch" si el contenedor es miniplayer/desktop player, pero nunca sobreescribir "live"
+            try {
+                if (!isLiveType && contId === 'movie_player') {
+                    finalType = 'watch';
+                }
+            } catch (_) { }
 
             // Forzar tipo Shorts solo cuando el contenedor real es Shorts
             try {
@@ -5734,6 +5759,10 @@ background: var(--ypp-danger);
                     finalType = 'shorts';
                 }
             } catch (_) { }
+
+            if (isLiveType && finalType !== 'shorts' && !(typeof finalType === 'string' && finalType.startsWith('preview_'))) {
+                finalType = 'live';
+            }
 
             // Protección adicional: en páginas home-like, si el enlace al video_id vive dentro de contenedores de anuncio
             // o ni siquiera existe un enlace directo al watch para ese ID, no guardar (previene anuncios autoplay en Home).
@@ -5856,7 +5885,7 @@ background: var(--ypp-danger);
 
         const lastTime = savedData.timestamp;
         const forceTime = savedData.forceResumeTime;
-        const timeToSeek = forceTime > 0 ? forceTime : lastTime;
+        let timeToSeek = forceTime > 0 ? forceTime : lastTime;
 
         log('resumePlayback', `🎬 Reanudando video ${vid} en ${timeToSeek}s = ${(timeToSeek / 60).toFixed(2)} minutos`);
         try {
@@ -5963,9 +5992,10 @@ background: var(--ypp-danger);
 
         const duration = getVideoDuration(player, videoEl);
         if (duration > 0 && timeToSeek >= duration) {
-            warn('resumePlayback', `⚠️ Timestamp inválido: ${timeToSeek}s excede duración ${duration}s. Datos guardados corruptos para video ${vid}.`);
-            isResuming = false;
-            return;
+            const maxSeek = Math.max(0, duration - 1);
+            const originalTime = timeToSeek;
+            timeToSeek = maxSeek;
+            warn('resumePlayback', `⚠️ Timestamp inválido: ${originalTime}s excede duración ${duration}s. Ajustando a ${timeToSeek}s.`);
         }
 
         log('resumePlayback', `✅ Player listo (event-driven), aplicando seek a ${timeToSeek}s`);
@@ -6505,7 +6535,7 @@ background: var(--ypp-danger);
             toast.appendChild(actionBtn);
         }
 
-         // Agregar botón de cerrar para toasts persistentes
+        // Agregar botón de cerrar para toasts persistentes
         if (options.persistent) {
             const closeBtn = createElement('button', {
                 className: 'ypp-toast-close',
@@ -7352,7 +7382,7 @@ background: var(--ypp-danger);
 
         try {
             // Detección del tipo de video
-            let type = getYouTubePageType()
+            let type = getYouTubePageType();
             const isLive = isLiveVideo();
             log('processVideo', `📋 Tipo de página inicial: ${type}, isLive: ${isLive}`);
 
@@ -7366,9 +7396,11 @@ background: var(--ypp-danger);
                 const shortsDisabled = (() => { try { return cachedSettings?.saveShorts === false; } catch (_) { return false; } })();
                 const mpPresent = (() => { try { return !!(document.querySelector('#movie_player')); } catch (_) { return false; } })();
                 if (cont2?.id === 'movie_player' || (type === 'shorts' && shortsDisabled && mpPresent)) {
+                    // Si el video está en el miniplayer/movie_player, tratar shorts/home como watch para el guardado
                     if (type === 'shorts' || type === 'home') type = 'watch';
                 }
             } catch (_) { }
+
             log('processVideo', `🎇 Tipo de video/página detectado: ${type}`);
 
             // Determinar tipo lógico para guardado (distinguir previews)
@@ -7387,6 +7419,13 @@ background: var(--ypp-danger);
                 }
             } catch (_) { }
             log('processVideo', `🎯 Tipo lógico para guardado: ${logicalType}`);
+
+            // Respeto estricto de configuración para lives: si saveLiveStreams es false, no procesar
+            if (isLive && cachedSettings?.saveLiveStreams === false) {
+                log('processVideo', '🛑 Video detectado como LIVE y la opción saveLiveStreams está deshabilitada, omitiendo.');
+                isNavigating = false;
+                return;
+            }
 
             // Verificar si el tipo de video actual está deshabilitado en la configuración
             const typeToSetting = {
@@ -7448,7 +7487,6 @@ background: var(--ypp-danger);
                 // resumePlayback con 200 ms de espera para "shorts"
                 const debouncedResumePlayback = debounce(resumePlayback, 200);
 
-
                 if (shouldResume) {
                     isResuming = true;
                     log('processVideo', `✅ Reanudando ${videoIdDetected} (${type})...`);
@@ -7474,9 +7512,7 @@ background: var(--ypp-danger);
                     }
 
                     lastResumeId = videoIdDetected;
-                }
-
-                else {
+                } else {
                     isResuming = false;
                     log('processVideo', '⏩ No se cumple condición de reanudación, reproducción normal');
                 }
@@ -8259,8 +8295,8 @@ background: var(--ypp-danger);
         const wrapper = createElement('div', { className: 'ypp-d-flex' });
         const label = createElement('label', { className: 'ypp-label ypp-label-filters', text: `${t('sortBy')}:`, atribute: { for: 'sort-selector' } });
         const select = createElement('select', {
-            className: 'ypp-sort-select', 
-            id: 'sort-selector', 
+            className: 'ypp-sort-select',
+            id: 'sort-selector',
             html: `
             <option value="recent" ${currentValue === 'recent' ? 'selected' : ''}>📅 ${t('mostRecent')}</option>
             <option value="oldest" ${currentValue === 'oldest' ? 'selected' : ''}>📆 ${t('oldest')}</option>
@@ -8579,21 +8615,21 @@ background: var(--ypp-danger);
         videosContainer.appendChild(header);
 
         const filtersContainer = createElement('div', { className: 'ypp-filters' });
-            filtersContainer.appendChild(createSortSelector(currentOrderBy, async (selected) => {
-                currentOrderBy = selected;
-                await saveFilters({ orderBy: selected });
-                updateVideoList();
-            }));
-            filtersContainer.appendChild(createFilterSelector(currentFilterBy, async (selected) => {
-                currentFilterBy = selected;
-                await saveFilters({ filterBy: selected });
-                updateVideoList();
-            }));
-            filtersContainer.appendChild(createSearchInput(currentSearchQuery, async (query) => {
-                currentSearchQuery = query;
-                await saveFilters({ searchQuery: query });
-                updateVideoList();
-            }));
+        filtersContainer.appendChild(createSortSelector(currentOrderBy, async (selected) => {
+            currentOrderBy = selected;
+            await saveFilters({ orderBy: selected });
+            updateVideoList();
+        }));
+        filtersContainer.appendChild(createFilterSelector(currentFilterBy, async (selected) => {
+            currentFilterBy = selected;
+            await saveFilters({ filterBy: selected });
+            updateVideoList();
+        }));
+        filtersContainer.appendChild(createSearchInput(currentSearchQuery, async (query) => {
+            currentSearchQuery = query;
+            await saveFilters({ searchQuery: query });
+            updateVideoList();
+        }));
         videosContainer.appendChild(filtersContainer);
 
         videosContainer.appendChild(listContainer);
@@ -8804,7 +8840,7 @@ background: var(--ypp-danger);
             finalPlaylistTitle = finalPlaylistTitle.replace(/undefined/g, '').trim();
         }
 
-
+        const isLiveEntry = (info.videoType === 'live') || info.isLive === true;
 
         const wrapper = createElement('div', {
             className: `ypp-videoWrapper ${isPlaylistItem ? 'playlist-item' : 'regular-item'}${isSelectionMode ? ' selection-mode' : ''}`
@@ -8983,69 +9019,107 @@ background: var(--ypp-danger);
         infoDiv.appendChild(author);
         infoDiv.appendChild(views);
         infoDiv.appendChild(timestamp);
-        if (percent !== null && !isCompleted) {
-            const progressColor = getProgressColor(percent);
-            const progressInfo = createElement('div', {
-                className: 'ypp-progressInfo',
-                html: `${SVG_ICONS.chart} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds((remaining)))} ${t('remaining')})`,
-                styles: { color: progressColor, fontWeight: 'bold' }
-            });
-            infoDiv.appendChild(progressInfo);
+
+        // Línea de progreso: para lives mostramos solo la etiqueta LIVE, para el resto % visto y tiempo restante
+        if (!isCompleted) {
+            if (isLiveEntry) {
+                const liveInfo = createElement('div', {
+                    className: 'ypp-progressInfo',
+                    html: `${SVG_ICONS.chart} ${t('live')}`,
+                    styles: { fontWeight: 'bold' }
+                });
+                infoDiv.appendChild(liveInfo);
+            } else if (percent !== null) {
+                const progressColor = getProgressColor(percent);
+                const progressInfo = createElement('div', {
+                    className: 'ypp-progressInfo',
+                    html: `${SVG_ICONS.chart} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds(remaining))} ${t('remaining')})`,
+                    styles: { color: progressColor, fontWeight: 'bold' }
+                });
+                infoDiv.appendChild(progressInfo);
+            }
         }
+
         wrapper.appendChild(infoDiv);
 
+        // Botones de tiempo fijo y eliminar
         const buttonContainer = createElement('div', { className: 'ypp-containerButtonsTime' });
 
-        const btnForceTime = createElement('button', {
-            className: 'ypp-btn ypp-btn-small',
-            html: SVG_ICONS.timer,
-            atribute: { title: info.forceResumeTime ? t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds((info.forceResumeTime))) }) : t('setStartTime') },
-            onClickEvent: () => {
-                const promptText = info.forceResumeTime
-                    ? `${t('enterStartTimeOrEmpty')}:`
-                    : `${t('enterStartTime')}:`;
-                const timeStr = prompt(promptText, info.forceResumeTime ? formatTime(normalizeSeconds((info.forceResumeTime))) : '');
+        if (!isLiveEntry) {
+            const btnForceTime = createElement('button', {
+                className: 'ypp-btn ypp-btn-small',
+                html: SVG_ICONS.timer,
+                atribute: {
+                    title: info.forceResumeTime
+                        ? t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(info.forceResumeTime)) })
+                        : t('setStartTime')
+                },
+                onClickEvent: () => {
+                    let promptText = info.forceResumeTime
+                        ? `${t('enterStartTimeOrEmpty')}:`
+                        : `${t('enterStartTime')}:`;
 
-                if (timeStr === null) { // Usuario canceló
-                    return;
-                }
-
-                const timeSec = parseTimeToSeconds(timeStr);
-
-                // Determinar si es formato antiguo (playlist anidada) o nuevo (video individual)
-                const playlistData = Storage.get(playlistKey);
-                const isOldFormat = playlistData?.videos && typeof playlistData.videos === 'object';
-
-                if (isOldFormat && playlistKey) {
-                    // Formato antiguo: video está dentro de playlist.videos
-                    if (playlistData?.videos?.[videoId]) {
-                        if (timeSec > 0) {
-                            playlistData.videos[videoId].forceResumeTime = timeSec;
-                            showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds((timeSec)))}`);
-                        } else {
-                            delete playlistData.videos[videoId].forceResumeTime;
-                            showFloatingToast(`🔓 ${t('fixedTimeRemoved')}`);
+                    // Añadir pista del rango máximo permitido cuando se conoce la duración
+                    try {
+                        if (duration > 0) {
+                            const maxLabel = formatTime(duration);
+                            promptText += `\n[0 - ${maxLabel}]`;
                         }
-                        Storage.set(playlistKey, playlistData);
+                    } catch (_) { }
+
+                    const timeStr = prompt(
+                        promptText,
+                        info.forceResumeTime ? formatTime(normalizeSeconds(info.forceResumeTime)) : ''
+                    );
+
+                    if (timeStr === null) { // Usuario canceló
+                        return;
                     }
-                } else {
-                    // Formato nuevo: video es entrada individual (con o sin playlistId)
-                    const data = Storage.get(videoId);
-                    if (data) {
-                        if (timeSec > 0) {
-                            data.forceResumeTime = timeSec;
-                            showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds((timeSec)))}`);
-                        } else {
-                            delete data.forceResumeTime;
-                            showFloatingToast(`🔓 ${t('fixedTimeRemoved')}`);
+
+                    const timeSecRaw = parseTimeToSeconds(timeStr);
+                    let timeSec = timeSecRaw;
+
+                    // Validar que el tiempo fijo no exceda la duración conocida del video
+                    if (timeSec > 0 && duration > 0 && timeSec >= duration) {
+                        showFloatingToast(`${SVG_ICONS.warning} ${t('invalidFormat')}`);
+                        return;
+                    }
+
+                    // Determinar si es formato antiguo (playlist anidada) o nuevo (video individual)
+                    const playlistData = Storage.get(playlistKey);
+                    const isOldFormat = playlistData?.videos && typeof playlistData.videos === 'object';
+
+                    if (isOldFormat && playlistKey) {
+                        // Formato antiguo: video está dentro de playlist.videos
+                        if (playlistData?.videos?.[videoId]) {
+                            if (timeSec > 0) {
+                                playlistData.videos[videoId].forceResumeTime = timeSec;
+                                showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds(timeSec))}`);
+                            } else {
+                                delete playlistData.videos[videoId].forceResumeTime;
+                                showFloatingToast(`${SVG_ICONS.unlocked} ${t('fixedTimeRemoved')}`);
+                            }
+                            Storage.set(playlistKey, playlistData);
                         }
-                        Storage.set(videoId, data);
+                    } else {
+                        // Formato nuevo: video es entrada individual (con o sin playlistId)
+                        const data = Storage.get(videoId);
+                        if (data) {
+                            if (timeSec > 0) {
+                                data.forceResumeTime = timeSec;
+                                showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds(timeSec))}`);
+                            } else {
+                                delete data.forceResumeTime;
+                                showFloatingToast(`${SVG_ICONS.unlocked} ${t('fixedTimeRemoved')}`);
+                            }
+                            Storage.set(videoId, data);
+                        }
                     }
+                    updateVideoList();
                 }
-                updateVideoList();
-            }
-        });
-        buttonContainer.appendChild(btnForceTime);
+            });
+            buttonContainer.appendChild(btnForceTime);
+        }
 
         const btnDelete = createElement('button', {
             className: 'ypp-btn ypp-btn-delete ypp-btn-small',
@@ -9103,6 +9177,7 @@ background: var(--ypp-danger);
                 });
             }
         });
+
         buttonContainer.appendChild(btnDelete);
         wrapper.appendChild(buttonContainer);
 
@@ -9380,7 +9455,6 @@ background: var(--ypp-danger);
                 if (canLog) log('checkAdState', '✅ Anuncio detectado en shorts:', hasAdClassShorts);
                 newShorts = true;
             }
-
 
             // 5. Fallback: Comparación de duraciones
             let durationMismatch = false;

@@ -2,7 +2,7 @@
 // @name            YouTube Helper API
 // @author          ElectroKnight22
 // @namespace       electroknight22_helper_api_namespace
-// @version         0.7.2
+// @version         0.7.5
 // @license         MIT
 // @description     A helper api for YouTube scripts that provides easy and consistent access for commonly needed functions, objects, and values.
 // ==/UserScript==
@@ -42,7 +42,7 @@ window.youtubeHelperApi = (function () {
         {
             get(target, property) {
                 return (...args) => {
-                    if (!appState.player.api) return;
+                    if (!appState.player.api) return console.warn(`YouTube player API not ready.`);
                     if (typeof appState.player.api[property] === 'function') {
                         return appState.player.api[property](...args);
                     } else {
@@ -66,6 +66,7 @@ window.youtubeHelperApi = (function () {
     const appState = {
         player: {
             playerObject: null,
+            response: null,
             api: null,
             videoElement: null,
             isFullscreen: false,
@@ -280,6 +281,19 @@ window.youtubeHelperApi = (function () {
         return document.querySelector(SELECTORS.inlinePlayer);
     }
 
+    function getPlayerResponseWhenReady() {
+        return new Promise((resolve, reject) => {
+            function check() {
+                if (!appState?.player?.api) return resolve(null);
+                const playerResponse = apiProxy.getPlayerResponse();
+                if (playerResponse) return resolve(playerResponse);
+                console.warn('Player API exists, but playerResponse is missing. Waiting for metadata event...');
+                appState.player.videoElement.addEventListener('loadedmetadata', check, { once: true });
+            }
+            check();
+        });
+    }
+
     function getOptimalResolution(targetResolutionString, usePremium = true) {
         try {
             if (!targetResolutionString || !POSSIBLE_RESOLUTIONS[targetResolutionString])
@@ -359,21 +373,25 @@ window.youtubeHelperApi = (function () {
         if (appState.page.isIframe) privateEventTarget.dispatchEvent(new Event('yt-helper-api-detected-iframe'));
     }
 
+    async function updatePlayerState(event) {
+        appState.player.api = event?.target?.player_ ?? fallbackGetPlayerApi();
+        appState.player.playerObject = event?.target?.playerContainer_?.children[0] ?? fallbackGetPlayerApi();
+        appState.player.videoElement = appState.player.playerObject?.querySelector(SELECTORS.videoElement);
+        appState.player.response = await getPlayerResponseWhenReady();
+    }
+
     function updateVideoLanguage() {
         if (!appState.player.api) return;
-        const getAudioTrackId = (track) => Object.values(track ?? {}).find((p) => p?.id)?.id ?? null;
         const availableTracks = apiProxy.getAvailableAudioTracks();
-        const renderer = apiProxy.getPlayerResponse()?.captions?.playerCaptionsTracklistRenderer;
-        const originalAudioId = renderer?.audioTracks?.[renderer?.defaultAudioTrackIndex]?.audioTrackId;
         const playingAudioTrack = apiProxy.getAudioTrack();
-        const originalAudioTrack = availableTracks?.find((track) => getAudioTrackId(track) === originalAudioId);
+        const originalAudioTrack = availableTracks?.find((track) => track.S === true);
         appState.video.playingLanguage = playingAudioTrack;
         appState.video.originalLanguage = originalAudioTrack;
     }
 
     function updateVideoState() {
         if (!appState.player.api) return;
-        const playerResponseObject = apiProxy.getPlayerResponse();
+        const playerResponseObject = appState.player.response;
         const searchParams = new URL(window.location.href).searchParams;
         appState.video.id = playerResponseObject?.videoDetails?.videoId;
         appState.video.title = playerResponseObject?.videoDetails?.title;
@@ -395,12 +413,6 @@ window.youtubeHelperApi = (function () {
         appState.video.realCurrentProgress = apiProxy.getCurrentTime();
         appState.video.isTimeSpecified = searchParams.has('t');
         appState.video.playlistId = apiProxy.getPlaylistId();
-    }
-
-    function updatePlayerState(event) {
-        appState.player.api = event?.target?.player_ ?? fallbackGetPlayerApi();
-        appState.player.playerObject = event?.target?.playerContainer_?.children[0] ?? fallbackGetPlayerApi();
-        appState.player.videoElement = appState.player.playerObject?.querySelector(SELECTORS.videoElement);
     }
 
     function updateFullscreenState() {
@@ -487,21 +499,19 @@ window.youtubeHelperApi = (function () {
 
     let updateLocked = false;
 
-    function _handlePlayerUpdate(event = null) {
+    async function _handlePlayerUpdate(event = null) {
         if (updateLocked) return;
         updateLocked = true;
         const customEvent = new CustomEvent('yt-helper-api-update-started');
         privateEventTarget.dispatchEvent(customEvent);
-        setTimeout(() => {
-            updatePlayerState(event);
-            updateAdState();
-            trackAdState();
-            updateVideoState();
-            updateVideoLanguage();
-            trackPlaybackProgress();
-            _dispatchHelperApiReadyEvent();
-            updateLocked = false;
-        }, 0);
+        await updatePlayerState(event);
+        updateAdState();
+        trackAdState();
+        updateVideoState();
+        updateVideoLanguage();
+        trackPlaybackProgress();
+        queueMicrotask(_dispatchHelperApiReadyEvent);
+        updateLocked = false;
     }
 
     function _handlePageDataUpdate(event) {

@@ -1,58 +1,125 @@
 # 🔴 YouTube Playback Plox
 
-Guarda y retoma automáticamente el progreso de videos en YouTube sin necesidad de iniciar sesión.
+Save and resume automatically video playback progress on YouTube without needing to log in.
 
-## Descripción
+## Description
 
-**YouTube Playback Plox** es un userscript que recuerda automáticamente el punto exacto donde dejaste un video en YouTube, para que puedas retomarlo después sin necesidad de tener una cuenta o iniciar sesión.
+**YouTube Playback Plox** is a userscript that automatically remembers the exact point where you left a video on YouTube, so you can resume it later without needing an account or logging in.
 
-Ideal para quienes:
+Ideal for those who:
 
-- No quieren depender del historial de YouTube.
-- Usan navegadores con bloqueadores o sin cookies persistentes.
-- Quieren una experiencia más privada.
+- Don't want to depend on YouTube's history.
+- Use browsers with blockers or without persistent cookies.
+- Want a more private experience.
 
-## ✨ Características
+## ✨ Features
 
-- 🕒 Guarda el tiempo actual del video al cerrar la pestaña o navegar.
-- 🔁 Retoma automáticamente desde ese punto cuando vuelves al mismo video.
-- 🔐 Funciona sin cuenta de Google; todo se almacena localmente en tu navegador.
-- 💾 Almacena localmente el progreso mediante funciones de Tampermonkey/Greasemonkey.
-- 🟢 Botón flotante para acceso rápido.
-- 🔔 Mensajes integrados en la barra del reproductor mostrando cuándo se ha retomado o se está guardando progreso.
-- ⏱ Establecer un "tiempo de inicio fijo" por video para que siempre comience desde un punto concreto.
-- 🗂 Modal con lista de videos guardados, miniaturas, autor, porcentaje visto y tiempo restante.
-- 📦 Exporta/Importa todos los datos guardados a un JSON.
-- 🌐 Soporte diferentes lenguajes.
+- 🔐 Works without Google account; everything is stored locally in your browser.
+- 🕒 Saves the time and automatically resumes from that point when you return to the same video.
+    - `Videos`
+        - `Miniplayer`
+    - `Shorts` (by default disabled)
+    - `Live streams` (by default disabled)
+    - `Previews on home` (by default disabled)
+- 🛑 Stops saving during ads.
+- 🔔 Integrated messages in the player bar showing when it has been resumed or progress is being saved.
+- 🟢 Floating button for quick access to settings.
+- 🗂 Modal with list of saved videos, thumbnails, author, percentage watched and remaining time.
+    - ⏱ Set a "fixed start time" per video to always start from a specific point.
+    - 📦 Export/Import all saved data to a JSON or DB (Compatible with Freetube history).
+    - 🔀 Create public playlists from watched videos.
 
-## 🛠️ Requisitos
+## 🌐 Languages
 
-Necesitas un gestor de scripts de usuario como:
+| Flag | Code | Language |
+|:----:|:-----|:----------|
+| 🇬🇧 | `en-GB` | English (UK) |
+| 🇺🇸 | `en-US` | English (US) |
+| 🇪🇸 | `es-ES` | Español |
+| 🇪🇸 | `es-419` | Español (Latinoamérica) |
+| 🇪🇸 | `ca` | Català |
+| 🇫🇷 | `fr` | Français |
+| 🇩🇪 | `de` | Deutsch |
+| 🇮🇹 | `it` | Italiano |
+| 🇵🇹 | `pt` | Português |
+| 🇳🇱 | `nl` | Nederlands |
+| 🇵🇱 | `pl` | Polski |
+| 🇸🇪 | `sv` | Svenska |
+| 🇩🇰 | `da` | Dansk |
+| 🇳🇴 | `no` | Norsk |
+| 🇫🇮 | `fi` | Suomi |
+| 🇨🇿 | `cs` | Čeština |
+| 🇸🇰 | `sk` | Slovenčina |
+| 🇭🇺 | `hu` | Magyar |
+| 🇷🇴 | `ro` | Română |
+| 🇧🇬 | `bg` | Български |
+| 🇬🇷 | `el` | Ελληνικά |
+| 🇷🇸 | `sr` | Српски |
+| 🇭🇷 | `hr` | Hrvatski |
+| 🇸🇮 | `sl` | Slovenščina |
+| 🇱🇹 | `lt` | Lietuvių |
+| 🇱🇻 | `lv` | Latviešu |
+| 🇺🇦 | `uk` | Українська |
+| 🇷🇺 | `ru` | Русский |
+| 🇹🇷 | `tr` | Türkçe |
+| 🇸🇦 | `ar` | العربية |
+| 🇮🇷 | `fa` | فارسی |
+| 🇮🇱 | `he` | עברית |
+| 🇮🇳 | `hi` | हिन्दी |
+| 🇧🇩 | `bn` | বাংলা |
+| 🇮🇳 | `te` | తెలుగు |
+| 🇱🇰 | `ta` | தமிழ் |
+| 🇮🇳 | `mr` | मराठी |
+| 🇨🇳 | `zh` | 简体中文 |
+| 🇹🇼 | `zh-TW` | 繁體中文 |
+| 🇭🇰 | `yue` | 粵語 (Cantonese) |
+| 🇭🇰 | `zh-HK` | 繁體中文 (香港) |
+| 🇯🇵 | `ja` | 日本語 |
+| 🇰🇷 | `ko` | 한국어 |
+| 🇹🇭 | `th` | ไทย |
+| 🇻🇳 | `vi` | Tiếng Việt |
+| 🇮🇩 | `id` | Bahasa Indonesia |
+| 🇲🇾 | `ms` | Bahasa Melayu |
+| 🇵🇭 | `tl` | Filipino |
+| 🇲🇲 | `my` | မြန်မာ |
+| 🇰🇪 | `sw` | Kiswahili |
+| 🇪🇹 | `am` | አማርኛ |
+| 🇳🇬 | `ha` | Hausa |
+| 🇵🇰 | `ur` | اردو |
+| 🇿🇦 | `zu` | isiZulu |
+
+## 🛠️ Requirements
+
+You need a userscript manager like:
 
 - [Violentmonkey](https://violentmonkey.github.io/)
 - [Tampermonkey](https://www.tampermonkey.net/)
 - [Greasemonkey](https://www.greasespot.net/)
 
-## 📦 Instalación
+## 📦 Installation
 
-1. Instala un gestor de userscripts (ver arriba)
-2. 📥 [Haz clic aquí para instalar el script](https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js) o [Ir a Greasyfork](https://greasyfork.org/es/scripts/553387-youtube-playback-plox)
+1. Install a userscript manager (see above)
+2. 📥 [Click here to install the script](https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js) or [Go to Greasyfork](https://greasyfork.org/es/scripts/553387-youtube-playback-plox)
 
-## ¿Cómo funciona?
+## How it works?
 
-Este script escucha los eventos del reproductor de YouTube para guardar el tiempo de reproducción cada cierto intervalo o al salir de la página. Cuando visitas nuevamente el mismo video, detecta el ID y busca el último progreso guardado para hacer que el video se reanude automáticamente desde ese punto.
+This script listens to the events of the YouTube player to save the playback time at certain intervals or when leaving the page. When you visit the same video again, it detects the ID and searches for the last saved progress to automatically resume the video from that point.
 
-## Privacidad
+## Privacy
 
-Toda la información se almacena localmente en tu navegador. **No se envía ningún dato a servidores externos.**
+All information is stored locally in your browser. **No data is sent to external servers.**
 
-## 📸 Capturas de pantalla
+## 📸 Screenshots
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-2_ejemplo-alerta-retomado.png" alt="Ejemplo de alerta tiempo cargado">
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-2_ejemplo-tiempo-guardado.png" alt="Ejemplo de notificacion tiempo guardado">
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-2_ejemplo-tiempo-fijo.png" alt="Ejemplo de alerta tiempo fijo cargado">
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-2_ejemplo-modal-videos.png" alt="Ejemplo de modal visualizar videos guardados">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-alerta-guardado.png" alt="Example of alert time saved">
 
-## 📄 Licencia
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-videos.png" alt="Example of modal to view saved videos">
 
-Este proyecto está bajo la licencia MIT. Consulta el archivo [LICENSE](./LICENSE) para más detalles.
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-config.png" alt="Example of configuration modal">
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-crear-playlist.png" alt="Example of playlist creation">
+
+
+## 📄 License
+
+This project is under the MIT license. Consult the file [LICENSE](./LICENSE) for more details.

@@ -1,7 +1,7 @@
 {
     "DESCRIPTION": "Traducciones para userscript YouTube Playback Plox. Hechas con LLM's y revisadas un poco manualmente.",
     "AUTHOR": "Alplox",
-    "VERSION": "0.0.7-1",
+    "VERSION": "0.0.7-2",
     "GITHUB": "https://github.com/Alplox/Youtube-Playback-Plox",
     "GREASYFORK": "https://greasyfork.org/es/scripts/553387-youtube-playback-plox",
     "LANGUAGE_FLAGS": {

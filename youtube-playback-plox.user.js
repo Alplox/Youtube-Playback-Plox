@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.7-1
+// @version      0.0.7-2
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
@@ -215,7 +215,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
     // URL del archivo de traducciones
     const TRANSLATIONS_URL = 'https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/translations.json';
     const TRANSLATIONS_URL_BACKUP = 'https://cdn.jsdelivr.net/gh/Alplox/Youtube-Playback-Plox@refs/heads/main/translations.json';
-    const TRANSLATIONS_EXPECTED_VERSION = '0.0.7-1';
+    const TRANSLATIONS_EXPECTED_VERSION = '0.0.7-2';
 
     // Variables globales para las traducciones
     let TRANSLATIONS = {};
@@ -1915,8 +1915,6 @@ background: var(--ypp-danger);
                         shortsPlayheadDot.style.backgroundColor = progressColor;
                         shortsPlayheadDot.style.setProperty('background', progressColor, 'important');
                     }
-
-                    log('updateProgressBarGradient', `Barra de progreso de shorts actualizada: ${percent}% - Color: ${progressColor}`);
                 }
             } else {
                 // Selectores para videos regulares
@@ -1939,8 +1937,6 @@ background: var(--ypp-danger);
                         hoverProgress.style.backgroundColor = progressColor;
                         hoverProgress.style.setProperty('background', progressColor, 'important');
                     }
-
-                    log('updateProgressBarGradient', `Barra de progreso regular actualizada: ${percent}% - Color: ${progressColor}`);
                 }
             }
         } catch (error) {
@@ -5662,12 +5658,9 @@ background: var(--ypp-danger);
 
             // Buscar progreso previo siempre
             const sourceData = getSavedVideoData(video_id, plId);
-            log('updateStatus', `Datos guardados encontrados para ${video_id} y currentTime ${currentTime}:`, sourceData);
 
             // Verificar si el video está completado (staticFinishPercent porcentaje del video)
             const isFinished = !isLiveType && duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
-
-            log('updateStatus', 'duration', duration, 'currentTime', currentTime, 'percentWatched', (currentTime / duration) * 100, 'staticFinishPercent', cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent, 'isFinished:', isFinished, 'condicion se cumple?', (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent))
 
             if (sourceData && sourceData.forceResumeTime > 0) {
                 if (isFinished) {
@@ -6277,7 +6270,7 @@ background: var(--ypp-danger);
         const isSeekMessage = !!message.includes('svgPlayOrPauseIcon')
         const activeVideoEl = currentVideoEl || getActiveVideoElement();
         const isVideoPaused = activeVideoEl?.paused || false;
-        log('updatePlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, currentMessage="${message}", isSeekMessage=${isSeekMessage}, currentVideoEl=${!!currentVideoEl}`);
+        log('updatePlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}, currentVideoEl=${!!currentVideoEl}`);
 
         if (isSeekMessage && isVideoPaused) return;
 
@@ -6392,7 +6385,7 @@ background: var(--ypp-danger);
         const isSeekMessage = !!message.includes('svgPlayOrPauseIcon')
         const activeVideoEl = currentVideoEl || getActiveVideoElement();
         const isVideoPaused = activeVideoEl?.paused || false;
-        log('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, currentMessage="${message}", isSeekMessage=${isSeekMessage}, currentVideoEl=${!!currentVideoEl}`);
+        log('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}, currentVideoEl=${!!currentVideoEl}`);
 
         if (isSeekMessage && isVideoPaused) return;
 
@@ -6667,7 +6660,6 @@ background: var(--ypp-danger);
         staticFinishPercentLabel.appendChild(staticFinishPercentInput);
         staticFinishPercentLabel.appendChild(createElement('span', { className: 'ypp-percent-symbol', text: `%` }));
 
-
         const alertStyleLabel = createElement('label', { className: 'ypp-label' });
         alertStyleLabel.appendChild(createElement('span', { text: `${t('alertStyle')}: ` }));
         alertStyleLabel.appendChild(alertStyleSelect);
@@ -6852,7 +6844,7 @@ background: var(--ypp-danger);
             const currentMessage = displayType === 'shorts' ? (shortsTimeDisplay?.innerHTML || '') : (timeDisplay?.innerHTML || '');
             const hasSeekMessage = !!currentMessage.includes('svgPlayOrPauseIcon')
 
-            log('notifySeekOrProgress', `🔍 Estado: videoPaused=${isVideoPaused}, currentMessage="${currentMessage}", hasSeekMessage=${hasSeekMessage}, currentVideoEl=${!!currentVideoEl}`);
+            log('notifySeekOrProgress', `🔍 Estado: videoPaused=${isVideoPaused}, hasSeekMessage=${hasSeekMessage}, currentVideoEl=${!!currentVideoEl}`);
 
             if (displayType !== 'shorts' && hasSeekMessage && isVideoPaused) {
                 log('notifySeekOrProgress', '⏸ Video pausado con mensaje seek activo, omitiendo notificación de progreso');
@@ -6899,8 +6891,7 @@ background: var(--ypp-danger);
         }
 
         // Mostrar en UI según el tipo de video realmente guardado (boundType)
-        log('notifySeekOrProgress', 'Mostrando notificación en tipo de página:', currentPageType);
-        log('notifySeekOrProgress', `Mensaje generado timeStr: "${timeStr}" | Contexto: ${context}`);
+        log('notifySeekOrProgress', `Mensaje generado timeStr: "${timeStr}" | Contexto: ${context} | currentPageType: ${currentPageType}`);
 
         // Mostrar en el contexto visible: para progreso, priorizar el tipo de página actual (evita perder el mensaje en Shorts con miniplayer activo)
         const targetType = context === 'progress' ? currentPageType : (options.videoType || currentPageType);
@@ -7675,8 +7666,6 @@ background: var(--ypp-danger);
                     }
 
                     if (now - lastSavedForVideo >= minInterval) {
-                        log('processVideo', `💾 updateStatus para ${videoIdDetected} (${type})...`);
-
                         // Llamar a updateStatus y esperar el resultado
                         updateStatus(player, (currentVideoEl || videoEl), boundType, ((boundType === 'shorts' || currentPageType === 'shorts') ? null : boundPlId), boundVideoId).then(saveResult => {
                             if (saveResult?.success) {
@@ -7826,7 +7815,6 @@ background: var(--ypp-danger);
                     const minInterval = (cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves) * 1000;
                     if (nowTs - lastSaveTime < minInterval) return;
 
-                    log('processVideo', `💾 updateStatus para ${boundVideoId} (${boundType})...`);
                     updateStatus(effPlayer, activeEl, boundType, ((boundType === 'shorts' || pageTypeNow === 'shorts') ? null : boundPlId), boundVideoId).then(saveResult => {
                         if (saveResult?.success) {
                             log('processVideo', `✅ Progreso guardado exitosamente para ${boundVideoId}`);
@@ -9409,11 +9397,11 @@ background: var(--ypp-danger);
 
             // 4. Verificación para Shorts - Optimizada y sin duplicados
             const videoTitle = YTHelper?.video?.title || '';
-            const videoAuthor = YTHelper?.video?.author || '';
+            const videoAuthor = YTHelper?.video?.channel || '';
             const authorLower = videoAuthor.toLowerCase();
             const isInShortsPage = (currentPageType || getYouTubePageType()) === 'shorts';
 
-            if (canLog) log('checkAdState', '📺 Verificación= title:', videoTitle, 'author:', videoAuthor, 'isShorts:', isInShortsPage);
+            if (canLog) log('checkAdState', `📺 Verificación= title: "${videoTitle}", author: "${videoAuthor}", isShorts: ${isInShortsPage}`);
 
             let hasAdClassShorts = false;
 
@@ -9424,7 +9412,7 @@ background: var(--ypp-danger);
                 // 0. Detectar clase 'ad-created' (método más confiable)
                 const shortsPlayer = document.querySelector('#shorts-player');
                 const hasAdCreatedClass = shortsPlayer?.classList.contains('ad-created');
-                if (canLog) log('checkAdState', '🎯 Clase ad-created detectada:', hasAdCreatedClass);
+                if (canLog) log('checkAdState', `🎯 Clase ad-created detectada: ${hasAdCreatedClass}`);
 
                 // Patrones de autores de anuncios
                 const isAdChannel = authorLower.includes('ad upload channel') || authorLower.includes('video ad');
@@ -9433,26 +9421,26 @@ background: var(--ypp-danger);
                     authorLower.match(/\d{3,}/);
                 const isGenericTitle = videoTitle === 'YouTube' || videoTitle === 'Advertisement';
 
-                if (canLog) log('checkAdState', '🔍 Patros | isAdChannel:', isAdChannel, 'isSuspicious:', isSuspiciousAuthor, 'isGeneric:', isGenericTitle, 'duration:', duration);
+                if (canLog) log('checkAdState', `🔍 Patros | isAdChannel: ${isAdChannel}, isSuspicious: ${isSuspiciousAuthor}, isGeneric: ${isGenericTitle}, duration: ${duration}`);
 
                 if (hasAdCreatedClass) {
                     hasAdClassShorts = true;
-                    if (canLog) log('checkAdState', '✅ Anuncio de short detectado por clase ad-created');
+                    if (canLog) log('checkAdState', `✅ Anuncio de short detectado por clase ad-created`);
                 } else if (isAdChannel) {
                     hasAdClassShorts = true;
-                    if (canLog) log('checkAdState', '✅ Anuncio de short detectado por canal de anuncios');
+                    if (canLog) log('checkAdState', `✅ Anuncio de short detectado por canal de anuncios`);
                 } else if (isGenericTitle && duration > 0 && duration <= 60) {
                     const hasRealAuthorName = videoAuthor.length > 20 && !isSuspiciousAuthor;
                     hasAdClassShorts = !hasRealAuthorName;
-                    if (canLog) log('checkAdState', '✅ Anuncio de short detectado por título genérico:', hasAdClassShorts);
+                    if (canLog) log('checkAdState', `✅ Anuncio de short detectado por título genérico: ${hasAdClassShorts}`);
                 } else if (hasAdCreatedClass && ytHelperAd) {
                     hasAdClassShorts = true;
-                    if (canLog) log('checkAdState', '✅ Anuncio de short confirmado por clase + API');
+                    if (canLog) log('checkAdState', `✅ Anuncio de short confirmado por clase + API`);
                 }
             }
 
             if (hasAdClassShorts) {
-                if (canLog) log('checkAdState', '✅ Anuncio detectado en shorts:', hasAdClassShorts);
+                if (canLog) log('checkAdState', `✅ Anuncio detectado en shorts: ${hasAdClassShorts}`);
                 newShorts = true;
             }
 
@@ -9465,10 +9453,10 @@ background: var(--ypp-danger);
                     const realDuration = YTHelper.apiProxy.getDuration?.();
                     if (reportedDuration && realDuration) {
                         durationMismatch = Math.trunc(realDuration) !== Math.trunc(reportedDuration);
-                        if (canLog) log('checkAdState', '⏱️  Comparación duraciones | real:', realDuration, 'reported:', reportedDuration, 'mismatch:', durationMismatch);
+                        if (canLog) log('checkAdState', `⏱️  Comparación duraciones | real: ${realDuration}, reported: ${reportedDuration}, mismatch: ${durationMismatch}`);
                     }
                 } catch (e) {
-                    if (canLog) log('checkAdState', '⚠️ Error en verificación de duraciones:', e.message);
+                    if (canLog) log('checkAdState', `⚠️ Error en verificación de duraciones: ${e.message}`);
                 }
             }
 
@@ -9478,7 +9466,7 @@ background: var(--ypp-danger);
             if (videoEl && videoEl.duration > 0 && videoEl.duration <= 90) {
                 const hasAdElements = document.querySelector('.ytp-ad-text, .ytp-ad-skip-button-container, .ytp-ad-preview');
                 shortDurationWithAdElements = !!hasAdElements;
-                if (canLog) log('checkAdState', '⏱️  Duración corta con elementos de anuncio | duration:', videoEl.duration, 'hasElements:', shortDurationWithAdElements);
+                if (canLog) log('checkAdState', `⏱️  Duración corta con elementos de anuncio | duration: ${videoEl.duration}, hasElements: ${shortDurationWithAdElements}`);
             }
 
             // Estado final combinado
@@ -9491,7 +9479,7 @@ background: var(--ypp-danger);
             if (!newState && !isAdPlaying) {
                 if (isInShortsPage) newShorts = durationMismatch || shortDurationWithAdElements; else newWatch = durationMismatch || shortDurationWithAdElements;
             }
-            if (canLog) log('checkAdState', '🏁 Resultado final | newWatch:', newWatch, 'newShorts:', newShorts, 'prevWatch:', isAdWatchPlaying, 'prevShorts:', isAdShortsPlaying);
+            if (canLog) log('checkAdState', `🏁 Resultado final | newWatch: ${newWatch}, newShorts: ${newShorts}, prevWatch: ${isAdWatchPlaying}, prevShorts: ${isAdShortsPlaying}`);
 
             // Manejar cambio de estado
             const prevWatch = isAdWatchPlaying;
@@ -9503,11 +9491,11 @@ background: var(--ypp-danger);
 
             if (prevWatch !== isAdWatchPlaying || prevShorts !== isAdShortsPlaying) {
                 if (isAdWatchPlaying && !prevWatch) {
-                    log('checkAdState', '⏹️  ANUNCIO DETECTADO (watch) - Pausando script');
+                    log('checkAdState', `⏹️  ANUNCIO DETECTADO (watch) - Pausando script`);
                     pauseScript();
                     if (!adRapidCheckInterval) { startAdRapidCheck(); }
                 } else if (!isAdWatchPlaying && prevWatch) {
-                    log('checkAdState', '✅ ANUNCIO FINALIZADO (watch) - Reanudando script');
+                    log('checkAdState', `✅ ANUNCIO FINALIZADO (watch) - Reanudando script`);
                     resumeScript();
                     if (adRapidCheckInterval) { try { clearTimeout(adRapidCheckInterval); } catch (_) { } adRapidCheckInterval = null; adRapidDelay = AD_RAPID_MIN; }
                 }
@@ -9520,7 +9508,7 @@ background: var(--ypp-danger);
 
                 window.dispatchEvent(new CustomEvent('adStateChanged', { detail: { isPlaying: isAdPlaying, watch: isAdWatchPlaying, shorts: isAdShortsPlaying } }));
             } else {
-                if (canLog) log('checkAdState', '✅ Sin cambios en el estado de anuncios');
+                if (canLog) log('checkAdState', `✅ Sin cambios en el estado de anuncios`);
             }
         };
 
@@ -9884,7 +9872,7 @@ background: var(--ypp-danger);
                             getVideoData: () => ({
                                 video_id: YTHelper?.video.id,
                                 title: YTHelper?.video?.title || getVideoTittle(null) || null,
-                                author: YTHelper?.video?.author || getVideoAuthor(null) || null
+                                author: YTHelper?.video?.channel || getVideoAuthor(null) || null
                             }),
                             getCurrentTime: () => YTHelper?.player.videoElement?.currentTime || 0,
                             getDuration: () => YTHelper?.video.lengthSeconds || 0,

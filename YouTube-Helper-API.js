@@ -2,15 +2,162 @@
 // @name            YouTube Helper API
 // @author          ElectroKnight22
 // @namespace       electroknight22_helper_api_namespace
-// @version         0.7.5
+// @version         0.9.4
 // @license         MIT
 // @description     A helper api for YouTube scripts that provides easy and consistent access for commonly needed functions, objects, and values.
 // ==/UserScript==
 
 /*jshint esversion: 11 */
 
-window.youtubeHelperApi = (function () {
-    'use strict';
+'use strict';
+
+// eslint-disable-next-line no-unused-vars
+const youtubeHelperApi = (function () {
+    // --- DEBUG SYSTEM ---
+    const debug = {
+        enabled: false,
+        _level: 1,
+        debugBadgeText: 'YT-Helper-API-Debug',
+
+        set level(val) {
+            const map = { minimal: 0, typical: 1, detailed: 2, all: 3, overkill: 4 };
+
+            let targetLevel = val;
+            if (typeof val === 'string' && val.toLowerCase() in map) {
+                targetLevel = map[val.toLowerCase()];
+            }
+
+            if (typeof targetLevel === 'number' && Object.values(map).includes(targetLevel)) {
+                this._level = targetLevel;
+            } else {
+                console.warn(
+                    `[${this.debugBadgeText}] Invalid level "${val}". Please use 0-4 or: minimal, typical, detailed, all, overkill.`,
+                );
+            }
+        },
+
+        get level() {
+            return this._level;
+        },
+
+        get logMinimal() {
+            return this.enabled && this._level >= 0
+                ? console.log.bind(window.console, `%c[${this.debugBadgeText}][Minimal]`, 'color: #28a745; font-weight: bold;')
+                : () => {};
+        },
+        get logTypical() {
+            return this.enabled && this._level >= 1
+                ? console.log.bind(window.console, `%c[${this.debugBadgeText}][Typical]`, 'color: #007bff; font-weight: bold;')
+                : () => {};
+        },
+        get logDetailed() {
+            return this.enabled && this._level >= 2
+                ? console.log.bind(window.console, `%c[${this.debugBadgeText}][Detailed]`, 'color: #17a2b8; font-weight: bold;')
+                : () => {};
+        },
+        get logAll() {
+            return this.enabled && this._level >= 3
+                ? console.log.bind(window.console, `%c[${this.debugBadgeText}][All]`, 'color: #6c757d; font-weight: bold;')
+                : () => {};
+        },
+        get logOverkill() {
+            return this.enabled && this._level >= 4
+                ? console.log.bind(window.console, `%c[${this.debugBadgeText}][All]`, 'color: #ce00a8ff; font-weight: bold;')
+                : () => {};
+        },
+    };
+    // --- END DEBUG SYSTEM ---
+
+    // --- GM API SHIM ---
+    const gmCapabilities = {
+        isModern: false,
+        isLegacy: false,
+        features: {},
+    };
+
+    (function performGmShim() {
+        const KNOWN_GM_GLOBALS = [
+            'setValue',
+            'getValue',
+            'deleteValue',
+            'listValues',
+            'getResourceText',
+            'getResourceURL',
+            'addStyle',
+            'addElement',
+            'registerMenuCommand',
+            'unregisterMenuCommand',
+            'openInTab',
+            'notification',
+            'setClipboard',
+            'contextMenu',
+            'xmlhttpRequest',
+            'download',
+            'webRequest',
+            'cookie',
+            'saveTab',
+            'getTab',
+            'getTabs',
+            'log',
+            'info',
+            'print',
+        ];
+
+        const realGM = typeof GM !== 'undefined' ? GM : {};
+        const isModernEnv = typeof GM !== 'undefined';
+
+        const checkFeature = (name) => {
+            const legacyName = `GM_${name}`;
+            const legacyExists = typeof window[legacyName] !== 'undefined';
+            const modernExists = isModernEnv && name in realGM;
+
+            return legacyExists || modernExists;
+        };
+
+        gmCapabilities.isModern = isModernEnv;
+
+        gmCapabilities.features = {
+            storage: checkFeature('setValue'),
+            menu: checkFeature('registerMenuCommand'),
+            network: checkFeature('xmlhttpRequest') || (isModernEnv && 'xmlHttpRequest' in realGM),
+            clipboard: checkFeature('setClipboard'),
+            tabs: checkFeature('openInTab'),
+            ui: checkFeature('addStyle'),
+        };
+
+        const GMFallbackAsync = async (...args) => {
+            debug.logAll('GM.* (Async) call shimmed:', args);
+            return undefined;
+        };
+        const GMFallbackSync = (...args) => {
+            debug.logAll('GM_* (Sync) call shimmed:', args);
+            return undefined;
+        };
+
+        const gmProxyHandler = {
+            get: (target, prop, receiver) => {
+                if (Reflect.has(target, prop)) return Reflect.get(target, prop, receiver);
+                if (prop === 'info') return { script: { version: '0.0.0' }, scriptHandler: 'Shim', version: '0.0.0' };
+                return GMFallbackAsync;
+            },
+        };
+
+        try {
+            window.GM = new Proxy(realGM, gmProxyHandler);
+        } catch (error) {
+            console.warn('[YouTube Helper API] Failed to patch window.GM', error);
+        }
+
+        KNOWN_GM_GLOBALS.forEach((name) => {
+            const key = `GM_${name}`;
+            if (typeof window[key] !== 'undefined') {
+                gmCapabilities.isLegacy = true;
+            } else {
+                window[key] = name === 'info' ? { script: { version: '0.0.0' }, scriptHandler: 'Shim' } : GMFallbackSync;
+            }
+        });
+    })();
+    // --- GM API SHIM END ---
 
     const privateEventTarget = new EventTarget();
 
@@ -37,7 +184,71 @@ window.youtubeHelperApi = (function () {
         tiny: { p: 144, label: '144p' },
     });
 
-    const apiProxy = new Proxy(
+
+/**
+ * A Proxy object that provides a safe interface to interact with the YouTube player API.
+ * It handles method calls, checks for API readiness, and provides warnings for undefined methods.
+ * 
+ * @example
+ * // Example usage:
+ * apiProxy.playVideo(); // Calls the underlying YouTube player's playVideo method
+ * apiProxy.pauseVideo(); // Calls pauseVideo if available
+ * 
+ * // Returns undefined and logs a warning if the API isn't ready
+ * const currentTime = apiProxy.getCurrentTime();
+ * 
+ * @type {Proxy<Object, {get: function(target: Object, property: string): function(...*): *}>}
+ * @property {function(): number} getCurrentTime - Returns the current playback time in seconds
+ * @property {function(number): void} seekTo - Seeks to a specified time in the video
+ * @property {function(): void} playVideo - Starts or resumes playback
+ * @property {function(): void} pauseVideo - Pauses the video
+ * @property {function(): Object} getPlayerResponse - Returns the player response object
+ * @property {function(): string} getVideoUrl - Returns the URL of the current video
+ * @property {function(): string} getVideoData - Returns video data including video ID and title
+ * @property {function(): boolean} isMuted - Returns true if the video is muted
+ * @property {function(boolean): void} mute - Mutes or unmutes the video
+ * @property {function(number): void} setVolume - Sets the volume (0-100)
+ * @property {function(): number} getVolume - Gets the current volume (0-100)
+ * @property {function(string, number, string): void} loadVideoById - Loads a video by its ID
+ * @property {function(): string} getPlaylistId - Returns the current playlist ID if any
+ * @property {function(): number} getVideoLoadedFraction - Returns the fraction of the video that has been buffered (0-1)
+ * @property {function(): string} getPlaybackQuality - Returns the current playback quality
+ * @property {function(string): void} setPlaybackQuality - Sets the playback quality
+ * @property {function(): string[]} getAvailableQualityLevels - Returns available quality levels
+ */
+const apiProxy = new Proxy(
+    {},
+    {
+        get(target, property) {
+            return (...args) => {
+                if (!appState.player.api) {
+                    console.warn(`YouTube player API not ready.`);
+                    return;
+                }
+                if (typeof appState.player.api[property] === 'function') {
+                    return appState.player.api[property](...args);
+                } else {
+                    console.warn(`Method "${property}" does not exist on the YouTube player API.`);
+                }
+            };
+        },
+    },
+);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+   /*  const apiProxy = new Proxy(
         {},
         {
             get(target, property) {
@@ -51,7 +262,7 @@ window.youtubeHelperApi = (function () {
                 };
             },
         },
-    );
+    ); */
 
     const _readOnlyHandler = {
         get(target, property) {
@@ -92,6 +303,7 @@ window.youtubeHelperApi = (function () {
             thumbnails: [],
             playingLanguage: null,
             originalLanguage: null,
+            isAutoDubbed: false,
             realCurrentProgress: 0,
             isTimeSpecified: false,
             isInPlaylist: false,
@@ -178,18 +390,21 @@ window.youtubeHelperApi = (function () {
                 listValues: async () => Object.keys(localStorage),
             },
         };
-        const gmType = (() => {
-            if (typeof GM !== 'undefined') {
+        const gmStorageType = (() => {
+            if (!gmCapabilities.features.storage) {
+                return 'none';
+            }
+            if (gmCapabilities.isModern) {
                 return 'modern';
             }
-            if (typeof GM_info !== 'undefined') {
+            if (gmCapabilities.isLegacy) {
                 return 'old';
             }
             return 'none';
         })();
         return {
-            ...STORAGE_IMPLEMENTATIONS[gmType],
-            gmType,
+            ...STORAGE_IMPLEMENTATIONS[gmStorageType],
+            gmType: gmStorageType,
         };
     })();
 
@@ -211,6 +426,7 @@ window.youtubeHelperApi = (function () {
     }
 
     async function saveToStorage(storageKey, data) {
+        debug.logDetailed(`Saving to storage: ${storageKey}`);
         const dataToStore = {
             data: data,
             metadata: {
@@ -226,6 +442,7 @@ window.youtubeHelperApi = (function () {
     }
 
     async function loadFromStorage(storageKey, defaultData) {
+        debug.logDetailed(`Loading from storage: ${storageKey}`);
         try {
             const syncedWrapper = await _getSyncedStorageData(storageKey);
             const storedData = syncedWrapper && !syncedWrapper.metadata ? syncedWrapper : syncedWrapper?.data ?? {};
@@ -237,6 +454,7 @@ window.youtubeHelperApi = (function () {
     }
 
     async function loadAndCleanFromStorage(storageKey, defaultData) {
+        debug.logDetailed(`Loading and cleaning storage: ${storageKey}`);
         try {
             const combinedData = await loadFromStorage(storageKey, defaultData);
             const cleanedData = Object.keys(defaultData).reduce((accumulator, currentKey) => {
@@ -251,6 +469,7 @@ window.youtubeHelperApi = (function () {
     }
 
     async function deleteFromStorage(storageKey) {
+        debug.logDetailed(`Deleting from storage: ${storageKey}`);
         try {
             if (storageApi.gmType !== 'none') await storageApi.deleteValue(storageKey);
             localStorage.removeItem(storageKey);
@@ -274,7 +493,7 @@ window.youtubeHelperApi = (function () {
     }
 
     function fallbackGetPlayerApi() {
-        console.log('Trying to get player api using fallback...');
+        debug.logAll('Fallback Player API Check');
         if (appState.page.isIframe || appState.page.isMobile) return document.querySelector(SELECTORS.watchPlayer);
         if (window.location.pathname.startsWith('/shorts')) return document.querySelector(SELECTORS.shortsPlayer);
         if (window.location.pathname.startsWith('/watch')) return document.querySelector(SELECTORS.watchPlayer);
@@ -287,7 +506,7 @@ window.youtubeHelperApi = (function () {
                 if (!appState?.player?.api) return resolve(null);
                 const playerResponse = apiProxy.getPlayerResponse();
                 if (playerResponse) return resolve(playerResponse);
-                console.warn('Player API exists, but playerResponse is missing. Waiting for metadata event...');
+                debug.logTypical('Player API ready, but missing playerResponse. Waiting for metadata...');
                 appState.player.videoElement.addEventListener('loadedmetadata', check, { once: true });
             }
             check();
@@ -321,18 +540,23 @@ window.youtubeHelperApi = (function () {
     }
 
     function setPlaybackResolution(targetResolution, ignoreAvailable = false, usePremium = true) {
+        debug.logTypical(`Attempting to set resolution: ${targetResolution} (Premium: ${usePremium}, Force: ${ignoreAvailable})`);
         try {
             if (!appState.player.api?.getAvailableQualityData) return;
             if (!usePremium && ignoreAvailable) {
                 apiProxy.setPlaybackQualityRange(targetResolution);
             } else {
                 const optimalQuality = getOptimalResolution(targetResolution, usePremium);
-                if (optimalQuality)
+                if (optimalQuality) {
+                    debug.logDetailed('Found optimal quality format:', optimalQuality);
                     apiProxy.setPlaybackQualityRange(
                         optimalQuality.quality,
                         optimalQuality.quality,
                         usePremium ? optimalQuality.formatId : null,
                     );
+                } else {
+                    debug.logTypical('Could not find a matching quality for:', targetResolution);
+                }
             }
         } catch (error) {
             console.error('Error when setting resolution:', error);
@@ -351,7 +575,10 @@ window.youtubeHelperApi = (function () {
 
         Object.assign(eventDetail, stateSnapshot);
 
-        if (!eventDetail.video.id) return;
+        if (!eventDetail.video.id) return console.warn('Video ID not found in state snapshot.');
+
+        debug.logMinimal(`Video Ready. Title: "${stateSnapshot.video.title}". Id: "${stateSnapshot.video.id}"`);
+        debug.logDetailed('Dispatching Ready Event with state:', stateSnapshot);
 
         const event = new CustomEvent('yt-helper-api-ready', {
             detail: Object.freeze(eventDetail),
@@ -361,12 +588,15 @@ window.youtubeHelperApi = (function () {
     }
 
     function _notifyAdDetected() {
-        if (appState.player.isPlayingAds)
+        debug.logDetailed(`Ad State Change: Is Playing Ad? ${appState.player.isPlayingAds}`);
+        if (appState.player.isPlayingAds) {
+            debug.logTypical('Ad detected!');
             privateEventTarget.dispatchEvent(
                 new CustomEvent('yt-helper-api-ad-detected', {
                     detail: Object.freeze({ isPlayingAds: appState.player.isPlayingAds }),
                 }),
             );
+        }
     }
 
     function checkIsIframe() {
@@ -378,15 +608,47 @@ window.youtubeHelperApi = (function () {
         appState.player.playerObject = event?.target?.playerContainer_?.children[0] ?? fallbackGetPlayerApi();
         appState.player.videoElement = appState.player.playerObject?.querySelector(SELECTORS.videoElement);
         appState.player.response = await getPlayerResponseWhenReady();
+        debug.logDetailed('Player state updated', appState.player);
     }
 
     function updateVideoLanguage() {
         if (!appState.player.api) return;
-        const availableTracks = apiProxy.getAvailableAudioTracks();
+
+        const availableTracks = apiProxy.getAvailableAudioTracks() ?? [];
         const playingAudioTrack = apiProxy.getAudioTrack();
-        const originalAudioTrack = availableTracks?.find((track) => track.S === true);
+
+        const getTrackDetails = (track) => Object.values(track ?? {});
+        const originalAudioTrack = availableTracks?.find((track) => {
+            if (!track || typeof track !== 'object') return false;
+            const values = getTrackDetails(track);
+            const hasMetadata = values.some((val) => val && typeof val === 'object' && 'isAutoDubbed' in val);
+            const hasTrueFlag = values.some((val) => val === true);
+            return hasMetadata && hasTrueFlag;
+        });
+
+        const isAutoDubbed = getTrackDetails(playingAudioTrack).some((val) => val?.isAutoDubbed === true);
+
+        if (appState.video.playingLanguage === playingAudioTrack) return;
+        const isInit =
+            (appState.video.playingLanguage === null && `${playingAudioTrack}` !== 'Default') ||
+            `${appState.video.playingLanguage}` === 'Default';
+
+        debug.logTypical(`Language updated: ${playingAudioTrack} (Auto-Dubbed: ${isAutoDubbed})`);
+
         appState.video.playingLanguage = playingAudioTrack;
         appState.video.originalLanguage = originalAudioTrack;
+        appState.video.isAutoDubbed = isAutoDubbed;
+
+        privateEventTarget.dispatchEvent(
+            new CustomEvent('yt-helper-api-playback-language-updated', {
+                detail: Object.freeze({
+                    isInit,
+                    playingLanguage: appState.video.playingLanguage,
+                    originalLanguage: appState.video.originalLanguage,
+                    isAutoDubbed: appState.video.isAutoDubbed,
+                }),
+            }),
+        );
     }
 
     function updateVideoState() {
@@ -409,24 +671,31 @@ window.youtubeHelperApi = (function () {
         appState.video.isLiveOrVodContent = playerResponseObject?.videoDetails?.isLiveContent;
         appState.video.wasStreamedOrPremiered = !!playerResponseObject?.microformat?.playerMicroformatRenderer?.liveBroadcastDetails;
         appState.video.isFamilySafe = playerResponseObject?.microformat?.playerMicroformatRenderer?.isFamilySafe;
-        appState.video.thumbnails = playerResponseObject?.microformat?.playerMicroformatRenderer?.thumbnail?.thumbnails;
+        appState.video.thumbnails =
+            playerResponseObject?.microformat?.playerMicroformatRenderer?.thumbnail?.thumbnails ??
+            playerResponseObject?.videoDetails?.thumbnail?.thumbnails;
         appState.video.realCurrentProgress = apiProxy.getCurrentTime();
         appState.video.isTimeSpecified = searchParams.has('t');
         appState.video.playlistId = apiProxy.getPlaylistId();
+
+        debug.logDetailed('Video state updated', appState.video);
     }
 
     function updateFullscreenState() {
         appState.player.isFullscreen = !!document.fullscreenElement;
+        debug.logDetailed(`Fullscreen: ${appState.player.isFullscreen}`);
     }
 
     function updateTheaterState(event) {
         appState.player.isTheater = !!event?.detail?.enabled;
+        debug.logDetailed(`Theater Mode: ${appState.player.isTheater}`);
     }
 
     function updateChatStateUpdated(event) {
         appState.chat.iFrame = event?.target ?? document.querySelector(SELECTORS.chatFrame);
         appState.chat.container = appState.chat.iFrame?.parentElement ?? document.querySelector(SELECTORS.chatContainer);
         appState.chat.isCollapsed = event?.detail ?? true;
+        debug.logDetailed('Chat state updated', appState.chat);
         privateEventTarget.dispatchEvent(
             new CustomEvent('yt-helper-api-chat-state-updated', { detail: Object.freeze({ ...appState.chat }) }),
         );
@@ -451,6 +720,7 @@ window.youtubeHelperApi = (function () {
     function fallbackUpdateAdState() {
         if (!appState.player.api) return;
         try {
+            debug.logAll('Fallback Ad State Check');
             const progressState = apiProxy.getProgressState();
             const reportedContentDuration = progressState.duration;
             const realContentDuration = apiProxy.getDuration() ?? -1;
@@ -466,12 +736,14 @@ window.youtubeHelperApi = (function () {
 
     function reloadVideo(targetTime) {
         if (!appState.player.api) return;
+        debug.logTypical(`Reloading video to ${targetTime}s`);
         apiProxy.loadVideoById(appState.video.id, targetTime);
         appState.player.videoElement = appState.player.playerObject?.querySelector(SELECTORS.videoElement);
         trackPlaybackProgress();
     }
 
     function reloadToCurrentProgress() {
+        debug.logDetailed(`Reloading video to current progress`);
         reloadVideo(appState.video.realCurrentProgress);
     }
 
@@ -480,9 +752,11 @@ window.youtubeHelperApi = (function () {
         if (timeUpdateTrackedElements.has(appState.player.videoElement)) return;
         if (!appState.player.videoElement) return;
         const updateProgress = () => {
+            debug.logOverkill(`TimeUpdate: ${appState.player.videoElement.currentTime}`);
             if (!appState.player.isPlayingAds && appState.player.videoElement.currentTime > 0) {
                 appState.video.realCurrentProgress = appState.player.videoElement.currentTime;
             }
+            updateVideoLanguage();
         };
         appState.player.videoElement.addEventListener('timeupdate', updateProgress);
         timeUpdateTrackedElements.set(appState.player.videoElement, true);
@@ -498,36 +772,49 @@ window.youtubeHelperApi = (function () {
     }
 
     let updateLocked = false;
-
     async function _handlePlayerUpdate(event = null) {
         if (updateLocked) return;
+        debug.logAll('Player update triggered. Unlocking...');
         updateLocked = true;
-        const customEvent = new CustomEvent('yt-helper-api-update-started');
-        privateEventTarget.dispatchEvent(customEvent);
-        await updatePlayerState(event);
-        updateAdState();
-        trackAdState();
-        updateVideoState();
-        updateVideoLanguage();
-        trackPlaybackProgress();
-        queueMicrotask(_dispatchHelperApiReadyEvent);
-        updateLocked = false;
+        debug.logDetailed('Player update triggered by:', event?.type || 'manual call');
+        try {
+            const customEvent = new CustomEvent('yt-helper-api-update-started');
+            privateEventTarget.dispatchEvent(customEvent);
+            await updatePlayerState(event);
+            updateAdState();
+            trackAdState();
+            updateVideoState();
+            updateVideoLanguage();
+            trackPlaybackProgress();
+            queueMicrotask(_dispatchHelperApiReadyEvent);
+        } catch (error) {
+            console.error('Error in _handlePlayerUpdate:', error);
+        } finally {
+            debug.logAll('Player update complete. Locking...');
+            updateLocked = false;
+        }
     }
 
     function _handlePageDataUpdate(event) {
         appState.page.type = event.detail?.pageType;
+        debug.logDetailed('Page data updated', appState.page);
     }
 
     function _handlePageTypeChange(event) {
         appState.page.type = event.detail?.newPageSubtype;
+        debug.logDetailed('Page type changed', appState.page);
     }
 
     function _handlePageshowEvent() {
+        debug.logDetailed('Pageshow event triggered');
         const shouldTryEarly =
             window.location.pathname.startsWith('/watch') ||
             window.location.pathname.startsWith('/embed') ||
             window.location.pathname.startsWith('/shorts');
-        if (shouldTryEarly) _handlePlayerUpdate();
+        if (shouldTryEarly) {
+            debug.logDetailed('Trying early player update...');
+            _handlePlayerUpdate();
+        }
     }
 
     function addPageStateListeners() {
@@ -547,6 +834,7 @@ window.youtubeHelperApi = (function () {
     }
 
     function initialize() {
+        debug.logMinimal('Library Initialized. Waiting for player...');
         window.addEventListener('pageshow', _handlePageshowEvent);
         checkIsIframe();
         if (!appState.page.isIframe) {
@@ -583,7 +871,9 @@ window.youtubeHelperApi = (function () {
         listFromStorage,
         reloadVideo,
         reloadToCurrentProgress,
+        gmCapabilities,
         apiProxy,
+        debug,
         eventTarget: privateEventTarget,
     };
 

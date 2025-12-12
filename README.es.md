@@ -1,3 +1,5 @@
+[English version](README.md)
+
 # 🔴 YouTube Playback Plox
 
 Guarda y retoma automáticamente el progreso de videos en YouTube sin necesidad de iniciar sesión.
@@ -122,3 +124,16 @@ Toda la información se almacena localmente en tu navegador. **No se envía ning
 ## 📄 Licencia
 
 Este proyecto está bajo la licencia MIT. Consulta el archivo [LICENSE](./LICENSE) para más detalles.
+
+## Agradecimientos
+
+- [YouTube Helper API](https://greasyfork.org/es/scripts/549881-youtube-helper-api) - [MIT](https://spdx.org/licenses/MIT.html)
+
+## Nota
+
+Este proyecto no está afiliado con Google o YouTube.
+
+## Traducciones
+
+- [English](README.md)
+- [Spanish](README.es.md)

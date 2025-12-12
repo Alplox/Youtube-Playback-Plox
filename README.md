@@ -1,3 +1,5 @@
+[Spanish version](README.es.md)
+
 # 🔴 YouTube Playback Plox
 
 Save and resume automatically video playback progress on YouTube without needing to log in.
@@ -123,3 +125,16 @@ All information is stored locally in your browser. **No data is sent to external
 ## 📄 License
 
 This project is under the MIT license. Consult the file [LICENSE](./LICENSE) for more details.
+
+## Shoutouts
+
+- [YouTube Helper API](https://greasyfork.org/es/scripts/549881-youtube-helper-api) - [MIT](https://spdx.org/licenses/MIT.html)
+
+## Notice
+
+This project is not affiliated with Google or YouTube.
+
+## Translations
+
+- [English](README.md)
+- [Spanish](README.es.md)

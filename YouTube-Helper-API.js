@@ -651,33 +651,80 @@ const apiProxy = new Proxy(
         );
     }
 
+    /**
+     * Actualiza el estado del video con la información más reciente del reproductor de YouTube.
+     * Extrae y formatea los metadatos del video desde el objeto de respuesta del reproductor.
+     * @returns {void}
+     */
     function updateVideoState() {
+        // Verificar si la API del reproductor está disponible
         if (!appState.player.api) return;
+        
+        // Obtener la respuesta actual del reproductor y parámetros de la URL
         const playerResponseObject = appState.player.response;
         const searchParams = new URL(window.location.href).searchParams;
+
+        // --- METADATOS BÁSICOS ---
+        // Información de identificación del video
         appState.video.id = playerResponseObject?.videoDetails?.videoId;
         appState.video.title = playerResponseObject?.videoDetails?.title;
+        
+        // Información del canal
         appState.video.channel = playerResponseObject?.videoDetails?.author;
         appState.video.channelId = playerResponseObject?.videoDetails?.channelId;
+        
+        // Descripción y metadatos de texto
         appState.video.rawDescription = playerResponseObject?.videoDetails?.shortDescription;
+        
+        // --- MANEJO DE FECHAS ---
+        // Fechas en formato crudo (strings)
         appState.video.rawUploadDate = playerResponseObject?.microformat?.playerMicroformatRenderer?.uploadDate;
         appState.video.rawPublishDate = playerResponseObject?.microformat?.playerMicroformatRenderer?.publishDate;
+        
+        // Convertir fechas a objetos Date
         appState.video.uploadDate = appState.video.rawUploadDate ? new Date(appState.video.rawUploadDate) : null;
         appState.video.publishDate = appState.video.rawPublishDate ? new Date(appState.video.rawPublishDate) : null;
+        
+        // --- ESTADÍSTICAS DEL VIDEO ---
+        // Duración en segundos (convertida a entero)
         appState.video.lengthSeconds = parseInt(playerResponseObject?.videoDetails?.lengthSeconds ?? '0', 10);
+        
+        // Contador de vistas (puede no estar disponible en Shorts)
         appState.video.viewCount = parseInt(playerResponseObject?.videoDetails?.viewCount ?? '0', 10);
+        
+        // Contador de me gusta (desde microformatos)
         appState.video.likeCount = parseInt(playerResponseObject?.microformat?.playerMicroformatRenderer?.likeCount ?? '0', 10);
+        
+        // --- ESTADO DE TRANSMISIÓN ---
+        // Verificar si es una transmisión en vivo actual
         appState.video.isCurrentlyLive = apiProxy.getVideoData().isLive;
+        
+        // Verificar si es contenido en vivo o VOD
         appState.video.isLiveOrVodContent = playerResponseObject?.videoDetails?.isLiveContent;
+        
+        // Verificar si fue transmitido en vivo o estrenado
         appState.video.wasStreamedOrPremiered = !!playerResponseObject?.microformat?.playerMicroformatRenderer?.liveBroadcastDetails;
+        
+        // Clasificación de contenido
         appState.video.isFamilySafe = playerResponseObject?.microformat?.playerMicroformatRenderer?.isFamilySafe;
+        
+        // --- MINIATURAS ---
+        // Obtener miniaturas de diferentes fuentes posibles
         appState.video.thumbnails =
             playerResponseObject?.microformat?.playerMicroformatRenderer?.thumbnail?.thumbnails ??
             playerResponseObject?.videoDetails?.thumbnail?.thumbnails;
+        
+        // --- ESTADO DE REPRODUCCIÓN ---
+        // Tiempo actual de reproducción
         appState.video.realCurrentProgress = apiProxy.getCurrentTime();
+        
+        // Verificar si se especificó un tiempo de inicio en la URL (parámetro 't')
         appState.video.isTimeSpecified = searchParams.has('t');
+        
+        // Obtener ID de la lista de reproducción actual
         appState.video.playlistId = apiProxy.getPlaylistId();
 
+        // Registrar cambios en el sistema de depuración
         debug.logDetailed('Video state updated', appState.video);
     }
 

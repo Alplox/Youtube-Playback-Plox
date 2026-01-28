@@ -7857,6 +7857,8 @@ background: var(--ypp-danger);
     // MARK: 📺 Get Playlist Name
     const playlistNameCache = new Map();
     const pendingPlaylistRequests = new Map(); // Track pending HTTP requests
+    const playlistNameFetchCooldowns = new Map();
+    const PLAYLIST_NAME_FETCH_COOLDOWN_MS = 15 * 60 * 1000;
     // Helper para búsqueda profunda en objetos JSON
     const findDeepInObject = (obj, key) => {
         if (!obj || typeof obj !== 'object') return null;
@@ -7884,6 +7886,17 @@ background: var(--ypp-danger);
         }
 
         return null;
+    };
+
+    /**
+     * Determina si se debe evitar una nueva solicitud HTTP del título de playlist.
+     * @param {string} playlistId - ID de la playlist.
+     * @returns {boolean} True si la petición debe ser aplazada.
+     */
+    const shouldThrottlePlaylistNameFetch = (playlistId) => {
+        const lastAttempt = playlistNameFetchCooldowns.get(playlistId);
+        if (!lastAttempt) return false;
+        return (Date.now() - lastAttempt) < PLAYLIST_NAME_FETCH_COOLDOWN_MS;
     };
 
     /**
@@ -7959,8 +7972,13 @@ background: var(--ypp-danger);
             }
 
             // Solo hacer HTTP request si no hay cache válido o si el cache es genérico
+            if (shouldThrottlePlaylistNameFetch(playlistId)) {
+                log('getPlaylistName', `⏳ Cooldown activo para ${playlistId}, evitando nueva solicitud`);
+                return playlistNameCache.get(playlistId) || playlistId;
+            }
             return new Promise((resolve) => {
                 log('getPlaylistName', `🌐 Making HTTP request for playlist ${playlistId}`);
+                playlistNameFetchCooldowns.set(playlistId, Date.now());
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: `https://www.youtube.com/playlist?list=${playlistId}`,

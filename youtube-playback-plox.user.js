@@ -345,6 +345,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "linkCopied": "Link copied to clipboard",
             "selectAtLeastOne": "Select at least one video",
             "tooManyVideos": "Too many videos selected (max 200)",
+            "miniplayerVideos": "Miniplayer videos",
             "inlinePreviews": "Inline previews (Home)",
             "removeFromPlaylist": "Remove from playlist",
             "confirmRemoveFromPlaylist": "Are you sure you want to remove this video from the playlist? It will be kept as an individual video.",
@@ -455,6 +456,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "linkCopied": "Enlace copiado al portapapeles",
             "selectAtLeastOne": "Selecciona al menos un video",
             "tooManyVideos": "Demasiados videos seleccionados (máx 200)",
+            "miniplayerVideos": "Videos en miniplayer",
             "inlinePreviews": "Previsualizaciones en inicio (Home)",
             "removeFromPlaylist": "Quitar de la playlist",
             "confirmRemoveFromPlaylist": "¿Estás seguro de que quieres quitar este video de la playlist? Se mantendrá como video individual.",
@@ -564,6 +566,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "linkCopied": "Lien copié dans le presse-papiers",
             "selectAtLeastOne": "Sélectionnez au moins une vidéo",
             "tooManyVideos": "Trop de vidéos sélectionnées (max 200)",
+            "miniplayerVideos": "Vidéos en miniplayer",
             "inlinePreviews": "Aperçus intégrés (Accueil)",
             "removeFromPlaylist": "Retirer de la playlist",
             "confirmRemoveFromPlaylist": "Êtes-vous sûr de vouloir retirer cette vidéo de la playlist ? Elle sera conservée comme vidéo individuelle.",
@@ -704,6 +707,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             enableProgressBarGradient: true, // Por defecto, habilitar degradado de colores en barra de progreso
             staticFinishPercent: 95, // Porcentaje desde el final para considerar video como completado (95% = 5% antes del final)
             saveInlinePreviews: false, // Guardar previsualizaciones inline (Homepage) desactivado por defecto
+            saveMiniplayerVideos: true, // Guardar videos en miniplayer (default: activo)
         },
 
         /** Clave para guardar filtros del usuario en GM_* */
@@ -4465,22 +4469,25 @@ background: var(--ypp-danger);
          */
         const isEnabled = (type, options = {}) => {
             try {
+                const settingsSnapshot = cachedSettings || CONFIG.defaultSettings;
+                const context = options.context || null;
                 switch (type) {
                     case ContentTypes.VIDEO:
-                        return cachedSettings?.saveRegularVideos !== false;
+                        if (context?.isMiniplayer && settingsSnapshot.saveMiniplayerVideos === false) return false;
+                        return settingsSnapshot.saveRegularVideos !== false;
                     case ContentTypes.SHORTS:
-                        return cachedSettings?.saveShorts !== false;
+                        return settingsSnapshot.saveShorts !== false;
                     case ContentTypes.LIVE:
-                        return cachedSettings?.saveLiveStreams !== false;
+                        return settingsSnapshot.saveLiveStreams !== false;
                     case ContentTypes.PREVIEW:
                         // Previews requieren configuración explícita
-                        if (cachedSettings?.saveInlinePreviews !== true) return false;
+                        if (settingsSnapshot.saveInlinePreviews !== true) return false;
                         // Validar subtipo
                         const subtype = options.previewSubtype || 'preview_watch';
                         if (subtype === 'preview_shorts') {
-                            return cachedSettings?.saveShorts !== false;
+                            return settingsSnapshot.saveShorts !== false;
                         }
-                        return cachedSettings?.saveRegularVideos !== false;
+                        return settingsSnapshot.saveRegularVideos !== false;
                     default:
                         return true;
                 }
@@ -4566,6 +4573,7 @@ background: var(--ypp-danger);
          */
         const save = (type, params) => {
             const { videoId, currentTime, duration, videoInfo, playlistId, previewSubtype, videoElement } = params;
+            const context = videoElement ? getContextInfo(videoElement) : null;
 
             // Validación de contexto para prevenir contaminación
             if (videoElement) {
@@ -4577,7 +4585,7 @@ background: var(--ypp-danger);
             }
 
             // Verificar si está habilitado
-            if (!isEnabled(type, { previewSubtype })) {
+            if (!isEnabled(type, { previewSubtype, context })) {
                 log('VideoTypeHandler', `🛑 Tipo ${type} deshabilitado por configuración`);
                 return { success: false, reason: `${type}_disabled_by_settings` };
             }
@@ -5197,6 +5205,8 @@ background: var(--ypp-danger);
     //   - Prioriza videos que estén reproduciéndose vs simplemente visibles
     //   - Respeta configuración del usuario (saveShorts, saveRegularVideos, etc)
     async function getActiveVideoElement() {
+        const settingsSnapshot = cachedSettings || CONFIG.defaultSettings;
+        const allowMiniplayerSaving = settingsSnapshot.saveMiniplayerVideos !== false && settingsSnapshot.saveRegularVideos !== false;
         // ======================================================================
         // OPCIÓN 1: YOUTUBE HELPER API (Más confiable y rápido)
         // ======================================================================
@@ -5225,7 +5235,7 @@ background: var(--ypp-danger);
                         const miniplayerEl = document.querySelector('#movie_player video.html5-main-video');
                         // Si miniplayer está reproduciendo Y saveShorts está deshabilitado,
                         // forzar búsqueda en DOM para que rejección temprana de updateStatus() lo capture
-                        if (miniplayerEl && !miniplayerEl.paused && cachedSettings?.saveShorts === false) {
+                        if (miniplayerEl && !miniplayerEl.paused && settingsSnapshot.saveShorts === false && allowMiniplayerSaving) {
                             log('getActiveVideoElement', '⏭ Miniplayer activo y saveShorts deshabilitado, buscando en DOM');
                             throw new Error('Force DOM search');
                         }
@@ -5487,17 +5497,20 @@ background: var(--ypp-danger);
         //   - Cualquiera: Fallback si nada de lo anterior
         const pickByPriority = (list) => {
             // Prioridad 1: Miniplayer (usuario lo destacó flotante)
-            const mp = list.find(v =>
-                v.closest('.ytp-miniplayer-ui') ||
-                v.closest('#miniplayer') ||
-                v.closest('ytd-miniplayer')
-            );
-            if (mp) return mp;
+            if (allowMiniplayerSaving) {
+                const mp = list.find(v =>
+                    v.closest('.ytp-miniplayer-ui') ||
+                    v.closest('#miniplayer') ||
+                    v.closest('ytd-miniplayer')
+                );
+                if (mp) return mp;
+            }
 
             // Prioridad 2: Main player (movie_player en página watch)
             const main = list.find(v =>
-                v.closest('#movie_player') ||
-                v.closest('.html5-video-player')
+                (!allowMiniplayerSaving && (v.closest('.ytp-miniplayer-ui') || v.closest('#miniplayer') || v.closest('ytd-miniplayer')))
+                    ? false
+                    : (v.closest('#movie_player') || v.closest('.html5-video-player'))
             );
             if (main) return main;
 
@@ -5509,8 +5522,11 @@ background: var(--ypp-danger);
             );
             if (shorts) return shorts;
 
-            // Fallback: El primero de la lista
-            return list[0];
+            // Fallback: El primero válido (respetando miniplayer deshabilitado)
+            const fallback = allowMiniplayerSaving
+                ? list[0]
+                : list.find(v => !(v.closest('.ytp-miniplayer-ui') || v.closest('#miniplayer') || v.closest('ytd-miniplayer')));
+            return fallback || null;
         };
 
         // ======================================================================
@@ -5524,13 +5540,13 @@ background: var(--ypp-danger);
         // luego vuelve a la página anterior. Queremos grabar el video principal, no el short.
         let preferMiniplayer = false;
         try {
-            preferMiniplayer = (getYouTubePageType() === 'shorts') && (cachedSettings?.saveShorts === false);
+            preferMiniplayer = allowMiniplayerSaving && (getYouTubePageType() === 'shorts') && (settingsSnapshot.saveShorts === false);
         } catch (_) { }
 
         // Opuesto: Si están HABILITADOS los Shorts, preferir Shorts sobre miniplayer
         let preferShorts = false;
         try {
-            preferShorts = (getYouTubePageType() === 'shorts') && (cachedSettings?.saveShorts !== false);
+            preferShorts = (getYouTubePageType() === 'shorts') && (settingsSnapshot.saveShorts !== false);
         } catch (_) { }
 
         // ======================================================================
@@ -5566,8 +5582,10 @@ background: var(--ypp-danger);
 
             // Default: usar la función de prioridad estándar
             const chosen = pickByPriority(playingVideos);
-            log('getActiveVideoElement', 'Seleccionado por reproducción activa');
-            return chosen;
+            if (chosen) {
+                log('getActiveVideoElement', 'Seleccionado por reproducción activa');
+                return chosen;
+            }
         }
 
         // Segunda opción: Si no hay reproducción activa, revisar por VISIBILIDAD
@@ -5601,7 +5619,7 @@ background: var(--ypp-danger);
         // (miniplayer > main > shorts > cualquiera)
         const chosen = pickByPriority(visibleVideos);
         log('getActiveVideoElement', `Seleccionado por prioridad de visibilidad`);
-        return chosen;
+        return chosen || null;
     }
 
     // ------------------------------------------
@@ -5633,11 +5651,14 @@ background: var(--ypp-danger);
         }
 
         try {
+            const settingsSnapshot = cachedSettings || CONFIG.defaultSettings;
+            const allowMiniplayerSaving = settingsSnapshot.saveMiniplayerVideos !== false && settingsSnapshot.saveRegularVideos !== false;
             // Detectar miniplayer
             const miniplayerContainer = videoElement.closest('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer');
             if (miniplayerContainer) {
                 result.type = 'miniplayer';
                 result.container = miniplayerContainer;
+                result.shouldProcess = allowMiniplayerSaving;
                 return result;
             }
 
@@ -5646,7 +5667,7 @@ background: var(--ypp-danger);
             if (shortsContainer) {
                 result.type = 'shorts';
                 result.container = shortsContainer;
-                result.shouldProcess = cachedSettings?.saveShorts !== false;
+                result.shouldProcess = settingsSnapshot.saveShorts !== false;
                 return result;
             }
 
@@ -5655,7 +5676,7 @@ background: var(--ypp-danger);
             if (pageType === 'shorts' && videoElement.src && videoElement.src.includes('blob:')) {
                 result.type = 'shorts';
                 result.container = videoElement.closest('div') || videoElement.parentElement;
-                result.shouldProcess = cachedSettings?.saveShorts !== false;
+                result.shouldProcess = settingsSnapshot.saveShorts !== false;
                 log('determineVideoContext', `🔍 Shorts detectado por URL y reproducción activa: ${videoElement.src.substring(0, 50)}...`);
                 return result;
             }
@@ -8139,6 +8160,7 @@ background: var(--ypp-danger);
         // Obtener el ID desde URL
         const homeVideoCheck = await getActiveVideoElement();
         let url;
+        let urlSource = 'location';
 
 
 
@@ -8173,6 +8195,7 @@ background: var(--ypp-danger);
                             const urlVideoId = extractOrNormalizeVideoId(fullUrl)?.id;
                             if (urlVideoId === expectedVideoId) {
                                 url = fullUrl;
+                                urlSource = 'miniplayer_anchor';
                                 log('updateStatus', `📌 URL verificada del miniplayer usada: ${url}`);
                                 break;
                             }
@@ -8184,6 +8207,7 @@ background: var(--ypp-danger);
                         const lastUrlVideoId = extractOrNormalizeVideoId(lastVideoUrl)?.id;
                         if (lastUrlVideoId === expectedVideoId) {
                             url = lastVideoUrl;
+                            urlSource = 'lastVideoUrl';
                             log('updateStatus', `📌 lastVideoUrl verificada usada: ${url}`);
                         } else {
                             // No usar URL que no pertenece al video actual
@@ -8204,16 +8228,60 @@ background: var(--ypp-danger);
 
         const urlDataNow = extractOrNormalizeVideoId(url);
         const urlIdNow = urlDataNow?.id || null;
+        const currentPlaylistVideoId = expectedVideoId || urlIdNow;
+
+        /**
+         * Verifica si un URL de playlist pertenece al video esperado.
+         * @param {string} href - URL del anchor o candidate
+         * @param {string|null} targetVideoId - Video ID esperado
+         * @returns {boolean} True si el URL apunta al video esperado
+         */
+        const isPlaylistUrlForVideo = (href, targetVideoId) => {
+            if (!href || !targetVideoId) return false;
+            try {
+                const parsed = new URL(href, location.origin);
+                const vParam = parsed.searchParams.get('v') || '';
+                const path = parsed.pathname || '';
+                return vParam === targetVideoId || path.includes(`/shorts/${targetVideoId}`);
+            } catch (_) {
+                return false;
+            }
+        };
+
+        /**
+         * Obtiene el playlistId del último click si corresponde al video actual.
+         * @param {string|null} targetVideoId - Video ID esperado
+         * @returns {string|null} Playlist ID si el click es válido
+         */
+        const getClickedPlaylistIdForVideo = (targetVideoId) => {
+            if (!targetVideoId || lastClickedVideoId !== targetVideoId || !lastClickedVideoLink) return null;
+            try {
+                const clickedUrl = new URL(lastClickedVideoLink, location.origin);
+                const clickedPlaylistId = clickedUrl.searchParams.get('list');
+                if (clickedPlaylistId && isPlaylistUrlForVideo(clickedUrl.href, targetVideoId)) {
+                    return clickedPlaylistId;
+                }
+            } catch (_) { }
+            return null;
+        };
+
+        const clickedPlaylistIdForVideo = getClickedPlaylistIdForVideo(currentPlaylistVideoId);
 
         // Fuente del playlist en este ciclo
         let playlistSource = null; // 'url' | 'anchor' | 'fallback' | null
 
         // Para miniplayer con URL verificada, usar directamente el playlist ID de la URL
         const playerState = PlayerStateCache.getCurrentState();
-        if (playerState.hasMiniPlayer && urlDataNow?.list) {
+        const isUrlPlaylistMatch = !!(currentPlaylistVideoId && urlDataNow?.list && urlDataNow?.id === currentPlaylistVideoId);
+        const canTrustUrlPlaylist = urlSource !== 'lastVideoUrl' && isUrlPlaylistMatch;
+        if (playerState.hasMiniPlayer && canTrustUrlPlaylist) {
             plId = urlDataNow.list;
             playlistSource = 'url';
             log('updateStatus', `📌 Usando playlist ID de URL verificada para miniplayer: ${plId}`);
+        }
+
+        if (clickedPlaylistIdForVideo && plId && !playlistSource && plId === clickedPlaylistIdForVideo) {
+            playlistSource = 'click';
         }
 
         let contId = null; // Identificador del contenedor (movie_player | shorts-player | null)
@@ -8234,12 +8302,18 @@ background: var(--ypp-danger);
                             if (a) {
                                 const ua = new URL(a.href, location.origin);
                                 const la = ua.searchParams.get('list');
-                                if (la) { p = la; pSource = 'mp_anchor'; }
+                                if (la && isPlaylistUrlForVideo(a.href, currentPlaylistVideoId)) {
+                                    p = la;
+                                    pSource = 'mp_anchor';
+                                } else if (la) {
+                                    log('updateStatus', `⚠️ Ignored miniplayer playlist anchor (video mismatch): ${a.href}`);
+                                }
                             }
                         } catch (_) { }
                     }
-                    if (!p) {
-                        try { if (lastPlaylistId) { p = lastPlaylistId; pSource = 'fallback'; } } catch (_) { }
+                    if (!p && clickedPlaylistIdForVideo) {
+                        p = clickedPlaylistIdForVideo;
+                        pSource = 'click';
                     }
                 } else {
                     // Contenido Shorts en su propio contenedor: solo evidencia explícita (URL o UI de Shorts)
@@ -8268,7 +8342,7 @@ background: var(--ypp-danger);
 
                 plId = p || null;
                 // Actualizar lastPlaylistId solo si la fuente es explícita (url o anchor), nunca en fallback
-                try { if ((pSource === 'url' || pSource === 'anchor') && plId) { lastPlaylistId = plId; } } catch (_) { }
+                try { if ((pSource === 'url' || pSource === 'anchor' || pSource === 'click') && plId) { lastPlaylistId = plId; } } catch (_) { }
                 playlistSource = pSource;
             } else {
                 // Si plId ya viene como parámetro (desde processVideo), usarlo
@@ -8296,18 +8370,25 @@ background: var(--ypp-danger);
                             if (a) {
                                 const ua = new URL(a.href, location.origin);
                                 const la = ua.searchParams.get('list');
-                                if (la) { p = la; pSrc = 'anchor'; }
+                                if (la && isPlaylistUrlForVideo(a.href, currentPlaylistVideoId)) {
+                                    p = la;
+                                    pSrc = 'anchor';
+                                } else if (la) {
+                                    log('updateStatus', `⚠️ Ignored playlist anchor (video mismatch): ${a.href}`);
+                                }
                             }
                         } catch (_) { }
                     }
-                    if (!p) {
-                        try { if (lastPlaylistId) p = lastPlaylistId; } catch (_) { }
+                    if (!p && clickedPlaylistIdForVideo) {
+                        p = clickedPlaylistIdForVideo;
+                        pSrc = 'click';
                     }
                     if (p) {
                         plId = p;
                         if (pSrc) playlistSource = pSrc;
                     }
-                    try { if (plId) lastPlaylistId = plId; } catch (_) { }
+                    const isExplicitSource = playlistSource === 'url' || playlistSource === 'anchor' || playlistSource === 'click';
+                    try { if (plId && isExplicitSource) lastPlaylistId = plId; } catch (_) { }
                 } else {
                     // plId ya viene del parámetro, solo actualizar lastPlaylistId si es estable
                     const isStableContext = (pageTypeNow === 'watch' || pageTypeNow === 'embed');
@@ -8318,8 +8399,10 @@ background: var(--ypp-danger);
                 const isHomeishNow = pageTypeNow === 'home' || pageTypeNow === 'search' || pageTypeNow === 'channel';
                 // Solo sobrescribir plId si el actual NO es un Mix automático (RD)
                 // Los Mixes automáticos (RD) deben ser respetados y guardados como playlists válidas
-                if (isHomeishNow && lastPlaylistId && /^RD/.test(lastPlaylistId) && plId && !/^RD/.test(plId)) {
+                const canApplyMixOverride = !!(clickedPlaylistIdForVideo && lastPlaylistId === clickedPlaylistIdForVideo && /^RD/.test(lastPlaylistId));
+                if (isHomeishNow && canApplyMixOverride && plId && !/^RD/.test(plId)) {
                     plId = lastPlaylistId;
+                    if (!playlistSource) playlistSource = 'click';
                 }
             }
         } catch (_) { }
@@ -9744,6 +9827,11 @@ background: var(--ypp-danger);
         saveLiveStreamsLabel.appendChild(saveLiveStreamsCheckbox);
         saveLiveStreamsLabel.appendChild(createElement('span', { text: t('liveStreams') }));
 
+        const saveMiniplayerVideosLabel = createElement('label', { className: 'ypp-label-save-type' });
+        const saveMiniplayerVideosCheckbox = createElement('input', { atribute: { type: 'checkbox', id: 'saveMiniplayerVideos' } });
+        saveMiniplayerVideosLabel.appendChild(saveMiniplayerVideosCheckbox);
+        saveMiniplayerVideosLabel.appendChild(createElement('span', { text: t('miniplayerVideos') }));
+
         const saveInlinePreviewsLabel = createElement('label', { className: 'ypp-label-save-type' });
         const saveInlinePreviewsCheckbox = createElement('input', { atribute: { type: 'checkbox', id: 'saveInlinePreviews' } });
         saveInlinePreviewsLabel.appendChild(saveInlinePreviewsCheckbox);
@@ -9759,6 +9847,7 @@ background: var(--ypp-danger);
         containerSavingOptions.appendChild(saveRegularVideosLabel);
         containerSavingOptions.appendChild(saveShortsLabel);
         containerSavingOptions.appendChild(saveLiveStreamsLabel);
+        containerSavingOptions.appendChild(saveMiniplayerVideosLabel);
         containerSavingOptions.appendChild(saveInlinePreviewsLabel);
 
         savingOptions.appendChild(containerSavingOptions)
@@ -9787,6 +9876,7 @@ background: var(--ypp-danger);
                     saveRegularVideos: document.getElementById('saveRegularVideos').checked,
                     saveShorts: document.getElementById('saveShorts').checked,
                     saveLiveStreams: document.getElementById('saveLiveStreams').checked,
+                    saveMiniplayerVideos: document.getElementById('saveMiniplayerVideos').checked,
                     saveInlinePreviews: document.getElementById('saveInlinePreviews').checked,
                     language: languageSelect.value,
                     alertStyle: alertStyleSelect.value,
@@ -9829,6 +9919,7 @@ background: var(--ypp-danger);
         saveRegularVideosCheckbox.checked = settings.saveRegularVideos;
         saveShortsCheckbox.checked = settings.saveShorts;
         saveLiveStreamsCheckbox.checked = settings.saveLiveStreams;
+        saveMiniplayerVideosCheckbox.checked = settings.saveMiniplayerVideos !== false;
         const inlineEl = document.getElementById('saveInlinePreviews');
         if (inlineEl) inlineEl.checked = settings.saveInlinePreviews === true;
 
@@ -10376,6 +10467,9 @@ background: var(--ypp-danger);
 
         // Determinar contexto del video (miniplayer, shorts, watch, preview, etc.)
         const videoContext = determineVideoContext(videoEl);
+        const settingsSnapshot = cachedSettings || CONFIG.defaultSettings;
+        const isMiniplayerContext = videoContext.type === 'miniplayer';
+        const allowMiniplayerSaving = settingsSnapshot.saveMiniplayerVideos !== false && settingsSnapshot.saveRegularVideos !== false;
         log('processVideo', `📍 Contexto del video: type=${videoContext.type}, container=${videoContext.container?.tagName || 'N/A'}, shouldProcess=${videoContext.shouldProcess}`);
 
         // Validar si el video debe procesarse según su contexto
@@ -10746,6 +10840,9 @@ background: var(--ypp-danger);
                 log('processVideo', `🔄 Tipo cambiado a 'live' porque se detectó video en vivo`);
             }
             try {
+                if (isMiniplayerContext && allowMiniplayerSaving) {
+                    type = 'watch';
+                }
                 const cont2 = activeVideoEl?.closest?.('#movie_player, #shorts-player');
                 const shortsDisabled = (() => { try { return cachedSettings?.saveShorts === false; } catch (_) { return false; } })();
                 const mpPresent = (() => { try { return !!(document.querySelector('#movie_player')); } catch (_) { return false; } })();
@@ -10764,7 +10861,9 @@ background: var(--ypp-danger);
                 const el = (currentVideoEl || videoEl || activeVideoEl);
                 const cont = el?.closest?.('#movie_player, #shorts-player');
                 const isHomeish = (type !== 'watch' && type !== 'shorts' && type !== 'embed' && type !== 'live');
-                if (isHomeish && (cont?.id !== 'movie_player')) {
+                if (isMiniplayerContext && allowMiniplayerSaving) {
+                    logicalType = 'watch';
+                } else if (isHomeish && (cont?.id !== 'movie_player')) {
                     const isShortish = !!(el?.closest?.('ytd-reel-video-renderer, ytd-shorts, #shorts-player'));
                     logicalType = isShortish ? 'preview_shorts' : 'preview_watch';
                 } else if (type === 'home' && (cont?.id === 'movie_player')) {
@@ -10797,7 +10896,7 @@ background: var(--ypp-danger);
                 // Permitir procesamiento si hay un miniplayer presente aun estando en Shorts
                 const cont = activeVideoEl?.closest?.('#movie_player, #shorts-player');
                 const mp = document.querySelector('#movie_player');
-                allowByMiniplayer = (!!cont && (cont.id === 'movie_player')) || !!mp;
+                allowByMiniplayer = allowMiniplayerSaving && ((!!cont && (cont.id === 'movie_player')) || isMiniplayerContext || !!mp);
             } catch (_) { }
             // Usar configuración segura (defaults si aún no carga settings) para prevenir crash en carga inicial
             const safeSettings = cachedSettings || CONFIG.defaultSettings;
@@ -12234,10 +12333,14 @@ background: var(--ypp-danger);
 
         for (const item of filteredItems) {
             if (item.type === 'playlist-video' && item.playlistKey && item.playlistKey !== lastPlaylistKey) {
+                const basePlaylistTitle = item.playlistTitle || item.playlistKey;
+                const headerTitle = (item.playlistKey?.startsWith('RD') && basePlaylistTitle === item.playlistKey)
+                    ? `Mix - ${item.info?.title || 'Playlist automática'}`
+                    : basePlaylistTitle;
                 virtualItems.push({
                     type: 'playlist-header',
                     playlistKey: item.playlistKey,
-                    playlistTitle: item.playlistTitle || item.playlistKey,
+                    playlistTitle: headerTitle,
                     firstVideoId: item.videoId // Guardar ID para enlaces de Mixes
                 });
                 lastPlaylistKey = item.playlistKey;

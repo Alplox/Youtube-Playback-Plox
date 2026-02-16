@@ -137,7 +137,7 @@
 
     // Sistema de niveles: silent(0), error(1), warn(2), info(3), debug(4)
     const LEVELS = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    let currentLevel = LEVELS.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    let currentLevel = LEVELS.warn; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const styleFor = (kind) => {
         switch (kind) {
@@ -6033,9 +6033,10 @@ background: var(--ypp-danger);
                 thumbnail: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
                 duration,
                 views: shortsMeta.views || null,
-                description: null,
+                /* description: null,
                 published: null,
-                isLive: false
+                isLive: false */
+                videoType: 'shorts'
             };
         };
 
@@ -6457,6 +6458,16 @@ background: var(--ypp-danger);
         // En Shorts, NUNCA usar datos de miniplayer o watch.
         // Buscar SOLO en el metapanel del Short ACTIVO.
         if (pageType === 'shorts') {
+            // 5a: Usar extractShortsMetadata() (consolidada, busca dentro del metapanel activo)
+            try {
+                const shortsMeta = extractShortsMetadata();
+                if (shortsMeta.author && shortsMeta.author.length > 0 && !isPlaceholder(shortsMeta.author)) {
+                    log('getVideoAuthor', `Autor Shorts (extractShortsMetadata): ${shortsMeta.author}`);
+                    return shortsMeta.author;
+                }
+            } catch (_) { }
+
+            // 5b: Fallback con selectores DOM adicionales fuera del metapanel
             try {
                 const shortsAuthor =
                     // Metapanel del Short ACTIVO (máxima prioridad)
@@ -6674,7 +6685,7 @@ background: var(--ypp-danger);
      * @returns {Object} { title: string|null, views: string|null, channelId: string|null }
      */
     function extractShortsMetadata() {
-        const result = { title: null, views: null, channelId: null };
+        const result = { title: null, views: null, channelId: null, author: null };
 
         try {
             // PASO 1: Buscar el contenedor raíz del metapanel activo
@@ -6706,6 +6717,21 @@ background: var(--ypp-danger);
                 const text = source.selector?.textContent?.trim();
                 if (text && text.length > 1) {
                     result.title = text;
+                    break;
+                }
+            }
+
+            // PASO 2.5: Extraer AUTOR desde el metapanel
+            const authorSelectors = [
+                { selector: metapanel.querySelector('#channel-name a'), name: '#channel-name a' },
+                { selector: metapanel.querySelector('a[href*="/@"]'), name: 'a[href*="/@"]' },
+                { selector: metapanel.querySelector('a[href*="/channel/"]'), name: 'a[href*="/channel/"]' }
+            ];
+
+            for (const source of authorSelectors) {
+                const text = source.selector?.textContent?.trim();
+                if (text && text.length > 0 && !isPlaceholder(text)) {
+                    result.author = text;
                     break;
                 }
             }
@@ -6823,7 +6849,7 @@ background: var(--ypp-danger);
 
                                 const description = microformat?.description?.simpleText;
                                 if (description) data.description = description.trim();
-                                warn('fetchwatchmeta', data)
+                                log('fetchwatchmeta', data)
                             }
                         } catch {
                             // Ignore JSON parse errors
@@ -7055,6 +7081,24 @@ background: var(--ypp-danger);
             author = getVideoAuthor(player);
         }
 
+        // Enriquecimiento asíncrono: si el autor sigue siendo 'unknown' en Shorts,
+        // intentar obtenerlo desde fetchWatchMeta (YouTube watch page JSON)
+        if (ptV === 'shorts' && (!author || author === t('unknown') || isPlaceholder(author)) && videoId) {
+            try {
+                const watchMeta = await getWatchMetaCached(videoId);
+                if (watchMeta?.author && !isPlaceholder(watchMeta.author)) {
+                    log('getVideoInfo', `🔄 Shorts: Autor enriquecido desde fetchWatchMeta: "${watchMeta.author}"`);
+                    author = watchMeta.author;
+                }
+                // También enriquecer authorId si no lo tenemos
+                if (watchMeta?.authorId) {
+                    log('getVideoInfo', `🔄 Shorts: AuthorId enriquecido desde fetchWatchMeta: "${watchMeta.authorId}"`);
+                }
+            } catch (_) {
+                log('getVideoInfo', `⚠️ Shorts: Error al enriquecer autor desde fetchWatchMeta para ${videoId}`);
+            }
+        }
+
         // Thumbnail
         let thumb = getVideoThumbnail(videoId)
         log('getVideoInfo', ' 📺 Thumbnail= ', thumb)
@@ -7225,11 +7269,28 @@ background: var(--ypp-danger);
                     if (sViews) viewsNumber = sViews;
                 }
             } catch (_) { }
-            // Fallback seguro: usar meta de la página watch del mismo ID SOLO para vistas (no título/autor)
+            // Fallback seguro: usar meta de la página watch del mismo ID para datos faltantes
             try {
-                if (!viewsNumber || viewsNumber === t('notAvailable')) {
+                const needsAuthor = !author || author === t('unknown') || isPlaceholder(author);
+                const needsAuthorId = !authorId || authorId === t('unknown');
+                const needsViews = !viewsNumber || viewsNumber === t('notAvailable');
+
+                if (needsAuthor || needsAuthorId || needsViews) {
                     const metaForShort = await getWatchMetaCached(videoId);
-                    if (metaForShort && metaForShort.viewsNumber) viewsNumber = metaForShort.viewsNumber;
+                    if (metaForShort) {
+                        if (needsViews && metaForShort.viewsNumber) {
+                            viewsNumber = metaForShort.viewsNumber;
+                            log('getVideoInfo', `🔄 Shorts: Vistas enriquecidas desde fetchWatchMeta: "${viewsNumber}"`);
+                        }
+                        if (needsAuthor && metaForShort.author && !isPlaceholder(metaForShort.author)) {
+                            author = metaForShort.author;
+                            log('getVideoInfo', `🔄 Shorts: Autor enriquecido desde fetchWatchMeta (authorId block): "${author}"`);
+                        }
+                        if (needsAuthorId && metaForShort.authorId) {
+                            authorId = metaForShort.authorId;
+                            log('getVideoInfo', `🔄 Shorts: AuthorId enriquecido desde fetchWatchMeta: "${authorId}"`);
+                        }
+                    }
                 }
             } catch (_) { }
         } else {
@@ -8913,6 +8974,7 @@ background: var(--ypp-danger);
                 }
             } else if (isCleanWatch && prevSaved?.lastViewedPlaylistId) {
                 log('updateStatus', `🧼 Cleaning up stale playlist association because current URL has no list.`);
+                playlistToPersist = null;
             }
 
             // LLAMADA AL NUEVO SISTEMA: Detección de tipo + guardado especializado
@@ -9863,9 +9925,9 @@ background: var(--ypp-danger);
 
         containerSavingOptions.appendChild(savingOptionsTitle)
         containerSavingOptions.appendChild(saveRegularVideosLabel);
+        containerSavingOptions.appendChild(saveMiniplayerVideosLabel);
         containerSavingOptions.appendChild(saveShortsLabel);
         containerSavingOptions.appendChild(saveLiveStreamsLabel);
-        containerSavingOptions.appendChild(saveMiniplayerVideosLabel);
         containerSavingOptions.appendChild(saveInlinePreviewsLabel);
 
         savingOptions.appendChild(containerSavingOptions)
@@ -12272,6 +12334,36 @@ background: var(--ypp-danger);
             });
         }
 
+        // Resolver títulos estables para Mix (RD...) usando el video semilla (RD{videoId}) cuando el título es genérico
+        const videoTitleById = new Map();
+        for (const item of allItems) {
+            if (!item?.videoId) continue;
+            const title = item.info?.title;
+            if (typeof title === 'string' && title.trim().length > 0) {
+                videoTitleById.set(item.videoId, title.trim());
+            }
+        }
+
+        // Publicar en cache global del modal para que createVideoEntry pueda usarlo
+        modalVideoTitleById.clear();
+        for (const [id, title] of videoTitleById) {
+            modalVideoTitleById.set(id, title);
+        }
+        for (const item of allItems) {
+            if (item?.type !== 'playlist-video') continue;
+            const playlistKey = item.playlistKey;
+            if (!playlistKey || !playlistKey.startsWith('RD')) continue;
+
+            const currentTitle = item.playlistTitle || playlistKey;
+            if (currentTitle !== playlistKey) continue; // ya hay un título real (o al menos no genérico)
+
+            const seedVideoId = playlistKey.slice(2);
+            const seedTitle = videoTitleById.get(seedVideoId);
+            if (seedTitle) {
+                item.playlistTitle = `Mix - ${seedTitle}`;
+            }
+        }
+
         // Aplicar filtros
         let filteredItems = allItems.filter(item => {
             const vType = item.info.videoType;
@@ -12725,7 +12817,9 @@ background: var(--ypp-danger);
 
         // Manejo especial para playlists mix (RDxxxx)
         if (isPlaylistItem && finalPlaylistTitle === playlistKey && playlistKey?.startsWith('RD')) {
-            finalPlaylistTitle = `Mix - ${info.title || 'Playlist automática'}`;
+            const seedVideoId = playlistKey.slice(2);
+            const seedTitle = modalVideoTitleById.get(seedVideoId);
+            finalPlaylistTitle = `Mix - ${seedTitle || info.title || 'Playlist automática'}`;
         }
 
         // Limpiar undefined del título de playlist

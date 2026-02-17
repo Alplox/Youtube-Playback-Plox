@@ -2312,7 +2312,7 @@ background: var(--ypp-danger);
                         let allKeys = [];
                         try {
                             if (typeof GM_listValues !== 'undefined') {
-                                allKeys = GM_listValues();
+                                allKeys = await GM_listValues();
                             } else if (typeof localStorage !== 'undefined') {
                                 allKeys = Object.keys(localStorage);
                             }
@@ -2325,7 +2325,7 @@ background: var(--ypp-danger);
                             let value = null;
                             try {
                                 if (typeof GM_getValue !== 'undefined') {
-                                    value = GM_getValue(key);
+                                    value = await GM_getValue(key);
                                 } else if (typeof localStorage !== 'undefined') {
                                     const item = localStorage.getItem(key);
                                     if (item) value = JSON.parse(item);
@@ -2509,19 +2509,38 @@ background: var(--ypp-danger);
             return dbPromise;
         }
 
+        /**
+         * Ejecuta una operación en el object store de IndexedDB.
+         * Captura el resultado del IDBRequest vía onsuccess (no tx.oncomplete)
+         * para compatibilidad con Chrome/Edge (Blink limpia IDBRequest.result
+         * después de oncomplete, a diferencia de Firefox/Gecko).
+         * @param {'readonly'|'readwrite'} mode - Modo de la transacción
+         * @param {(store: IDBObjectStore) => IDBRequest} executor - Función que ejecuta la operación
+         * @returns {Promise<any>} Resultado de la operación
+         */
         function runInStore(mode, executor) {
-            return openDatabase().then((db) => new Promise((resolve, reject) => {
-                try {
-                    const tx = db.transaction(STORE_NAME, mode);
-                    const store = tx.objectStore(STORE_NAME);
-                    const result = executor(store);
-                    tx.oncomplete = () => resolve(result?.result ?? undefined);
-                    tx.onerror = () => reject(tx.error);
-                    tx.onabort = () => reject(tx.error);
-                } catch (error) {
-                    reject(error);
-                }
-            }));
+            return openDatabase().then((db) => {
+                return new Promise((resolve, reject) => {
+                    try {
+                        const tx = db.transaction(STORE_NAME, mode);
+                        const store = tx.objectStore(STORE_NAME);
+                        const request = executor(store);
+                        // Capturar resultado en onsuccess del IDBRequest,
+                        // donde .result está garantizado en todos los navegadores
+                        let capturedResult;
+                        if (request && typeof request.addEventListener === 'function') {
+                            request.onsuccess = () => {
+                                capturedResult = request.result;
+                            };
+                        }
+                        tx.oncomplete = () => resolve(capturedResult);
+                        tx.onerror = () => reject(tx.error);
+                        tx.onabort = () => reject(tx.error);
+                    } catch (error) {
+                        reject(error);
+                    }
+                });
+            });
         }
 
         function enqueue(operation) {
@@ -3523,7 +3542,7 @@ background: var(--ypp-danger);
      * Sistema de virtualización para listas grandes.
      * Solo renderiza los items visibles en el viewport más un buffer,
      * reduciendo dramáticamente el número de nodos DOM.
-     * 
+     *
      * @example
      * const scroller = new VirtualScroller({
      *     container: listContainer,
@@ -10779,7 +10798,7 @@ background: var(--ypp-danger);
                 log('processVideo', `🔄 Usando lastPlaylistId como fallback (no miniplayer): ${lastPlaylistId}`);
                 candidate = lastPlaylistId;
             }
- 
+
             if (!candidate && isHomeish && lastVideoUrl) {
                 try {
                     const u3 = new URL(lastVideoUrl, location.origin);
@@ -12177,6 +12196,8 @@ background: var(--ypp-danger);
     let virtualScroller = null;
     /** @type {Array|null} Cache de items preparados para evitar re-procesar en cada render */
     let preparedItemsCache = null;
+    /** @type {Map<string, string>} Cache global de títulos por ID para uso en createVideoEntry */
+    let modalVideoTitleById = new Map();
 
     async function fixThumbnailsInStorage() {
         const keys = (await Storage.keys?.() || []).filter(k => !k.startsWith('userSettings') && !k.startsWith('userFilters') && !k.startsWith('playlist_meta_'));
@@ -12247,6 +12268,12 @@ background: var(--ypp-danger);
     async function updateVideoList() {
         if (!listContainer) return;
 
+        // Destruir scroller anterior si existe
+        if (virtualScroller) {
+            virtualScroller.destroy();
+            virtualScroller = null;
+        }
+
         // Mostrar indicador de carga
         setInnerHTML(listContainer, '');
         const loadingIndicator = createElement('div', {
@@ -12254,12 +12281,6 @@ background: var(--ypp-danger);
             text: `⏳ ${t('loading')}...`
         });
         listContainer.appendChild(loadingIndicator);
-
-        // Destruir scroller anterior si existe
-        if (virtualScroller) {
-            virtualScroller.destroy();
-            virtualScroller = null;
-        }
 
         const keys = (await Storage.keys()).filter(k =>
             !k.startsWith('userSettings') &&
@@ -14210,6 +14231,74 @@ background: var(--ypp-danger);
                         persistent: true
                     });
                 }
+            }
+        }
+
+        /**
+         * Valida de forma conservadora un título de playlist.
+         * No debe usar validateTitle() porque esa función compara contra document.title (video actual).
+         * @param {unknown} candidateTitle
+         * @returns {boolean}
+         */
+        const isValidPlaylistTitle = (candidateTitle) => {
+            if (typeof candidateTitle !== 'string') return false;
+            const title = candidateTitle.trim();
+            if (!title) return false;
+            if (title.length < 2 || title.length > 200) return false;
+            if (typeof isPlaceholder === 'function' && isPlaceholder(title)) return false;
+            const normalized = title.toLowerCase();
+            if (['youtube', 'loading...', 'untitled', 'null', 'undefined'].includes(normalized)) return false;
+            return true;
+        };
+
+        // Migrar metadata legacy de playlists (si existe) y limpiar claves antiguas
+        const legacyPlaylistMetaKeys = oldSystemKeys.filter((k) => k.startsWith('YT_PLAYBACK_PLOX_playlist_meta_'));
+        for (const legacyKey of legacyPlaylistMetaKeys) {
+            let legacyMeta = null;
+            try {
+                if (typeof localStorage !== 'undefined') {
+                    const lsData = localStorage.getItem(legacyKey);
+                    if (lsData) legacyMeta = JSON.parse(lsData);
+                }
+
+                if (!legacyMeta && typeof GM_getValue === 'function') {
+                    legacyMeta = GM_getValue(legacyKey, null);
+                }
+            } catch (e) {
+                warn('migrateToFreeTubeFormat', `Error al leer playlist_meta legacy ${legacyKey}:`, e);
+            }
+
+            const playlistId = legacyMeta?.playlistId || legacyKey.replace('YT_PLAYBACK_PLOX_playlist_meta_', '');
+            if (!playlistId) continue;
+
+            try {
+                const playlistMetaKey = `playlist_meta_${playlistId}`;
+                const existing = await Storage.get(playlistMetaKey);
+
+                const merged = {
+                    playlistId,
+                    title: (isValidPlaylistTitle(existing?.title) ? existing.title : (isValidPlaylistTitle(legacyMeta?.title) ? legacyMeta.title : (existing?.title || legacyMeta?.title || ''))),
+                    lastWatchedVideoId: existing?.lastWatchedVideoId || legacyMeta?.lastWatchedVideoId || null,
+                    lastUpdated: Math.max(
+                        Number(existing?.lastUpdated || 0),
+                        Number(legacyMeta?.lastUpdated || 0),
+                        Date.now()
+                    )
+                };
+
+                await Storage.set(playlistMetaKey, merged);
+
+                // Eliminar del sistema antiguo
+                try {
+                    GM_setValue(legacyKey, null);
+                    if (typeof localStorage !== 'undefined') {
+                        localStorage.removeItem(legacyKey);
+                    }
+                } catch (e) {
+                    warn('migrateToFreeTubeFormat', `Error al eliminar playlist_meta legacy ${legacyKey}:`, e);
+                }
+            } catch (e) {
+                warn('migrateToFreeTubeFormat', `Error al migrar playlist_meta legacy ${legacyKey}:`, e);
             }
         }
 

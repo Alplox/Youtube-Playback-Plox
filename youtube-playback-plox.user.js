@@ -351,7 +351,12 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "confirmRemoveFromPlaylist": "Are you sure you want to remove this video from the playlist? It will be kept as an individual video.",
             "playlistAssociationRemoved": "Playlist association removed",
             "loading": "Loading",
-            "rendered": "rendered"
+            "rendered": "rendered",
+            "previews": "Previews",
+            "migratingData": "Migrating saved data from previous version...",
+            "migratingDataProgress": "Migrating data... {count} items processed",
+            "migrationComplete": "Migration complete: {migrated} videos migrated successfully",
+            "migrationNoData": "No data found to migrate"
         },
         "es-ES": {
             "settings": "Configuración",
@@ -462,7 +467,12 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "confirmRemoveFromPlaylist": "¿Estás seguro de que quieres quitar este video de la playlist? Se mantendrá como video individual.",
             "playlistAssociationRemoved": "Asociación de playlist eliminada",
             "loading": "Cargando",
-            "rendered": "renderizados"
+            "rendered": "renderizados",
+            "previews": "Previsualizaciones",
+            "migratingData": "Migrando datos guardados desde versión anterior...",
+            "migratingDataProgress": "Migrando datos... {count} entradas procesadas",
+            "migrationComplete": "Migración completada: {migrated} videos migrados correctamente",
+            "migrationNoData": "No se encontraron datos para migrar"
         },
         "fr": {
             "settings": "Paramètres",
@@ -572,7 +582,12 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "confirmRemoveFromPlaylist": "Êtes-vous sûr de vouloir retirer cette vidéo de la playlist ? Elle sera conservée comme vidéo individuelle.",
             "playlistAssociationRemoved": "Association de playlist supprimée",
             "loading": "Chargement",
-            "rendered": "rendus"
+            "rendered": "rendus",
+            "previews": "Aperçus",
+            "migratingData": "Migration des données de la version précédente...",
+            "migratingDataProgress": "Migration des données... {count} éléments traités",
+            "migrationComplete": "Migration terminée : {migrated} vidéos migrées avec succès",
+            "migrationNoData": "Aucune donnée trouvée pour migrer"
         }
     };
 
@@ -728,17 +743,36 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
     let currentLanguage = CONFIG.defaultSettings.language; // Idioma predeterminado
 
     // Función para obtener el texto traducido
-    function t(key, params = {}) {
+    function t(key, params = {}, defaultText = null) {
+        let actualDefaultText = defaultText;
+        let actualParams = params;
+
+        // Soporte para valor por defecto como segundo argumento: t('key', 'Default Text')
+        if (typeof params === 'string') {
+            actualDefaultText = params;
+            actualParams = {};
+        }
+
+        // Si params no es objeto, asegurarlo
+        if (typeof actualParams !== 'object' || actualParams === null) {
+            actualParams = {};
+        }
+
+        // Si no se pasó defaultText explícito, usar la key como fallback
+        if (!actualDefaultText) {
+            actualDefaultText = key;
+        }
+
         if (!TRANSLATIONS[currentLanguage] || !TRANSLATIONS[currentLanguage][key]) {
             // Si no hay traducción, intentar con el idioma por defecto (ej: en-US)
             const fallbackLang = CONFIG.defaultSettings.language;
             if (TRANSLATIONS[fallbackLang] && TRANSLATIONS[fallbackLang][key]) {
-                return replaceParams(TRANSLATIONS[fallbackLang][key], params);
+                return replaceParams(TRANSLATIONS[fallbackLang][key], actualParams);
             }
-            // Si no hay ni en el idioma por defecto, devolver la clave
-            return key;
+            // Si no hay ni en el idioma por defecto, devolver el valor por defecto
+            return replaceParams(actualDefaultText, actualParams);
         }
-        return replaceParams(TRANSLATIONS[currentLanguage][key], params);
+        return replaceParams(TRANSLATIONS[currentLanguage][key], actualParams);
     }
 
     // Función para reemplazar parámetros en las traducciones
@@ -1986,7 +2020,7 @@ background: var(--ypp-danger);
     * Aplica degradado de colores a la barra de progreso del reproductor de YouTube usando CSS
     * @param {number} currentTime - Tiempo actual del video en segundos
     * @param {number} duration - Duración total del video en segundos
-    * @param {string} type - Tipo de video ('shorts' o 'watch')
+    * @param {string} type - Tipo de video ('shorts', 'video' o 'watch')
     */
     function updateProgressBarGradient(currentTime, duration, type = 'watch') {
         try {
@@ -2299,6 +2333,39 @@ background: var(--ypp-danger);
         /**
          * Inicializa la capa asíncrona: detecta IndexedDB, migra datos si es necesario y llena caché.
          */
+        /**
+         * Normaliza una clave removiendo el prefijo del script si lo tiene.
+         * Las claves en IndexedDB se almacenan SIN prefijo para coherencia
+         * con el nuevo sistema Storage que no agrega prefijos.
+         * @param {string} key - Clave original (puede tener prefijo o no)
+         * @returns {string} Clave sin prefijo
+         */
+        function stripStoragePrefix(key) {
+            if (typeof key === 'string' && key.startsWith(CONFIG.storagePrefix)) {
+                return key.slice(CONFIG.storagePrefix.length);
+            }
+            return key;
+        }
+
+        /**
+         * Determina si una clave pertenece al script (tiene prefijo o es una clave interna conocida).
+         * Evita migrar claves ajenas de localStorage o GM que no pertenecen al script.
+         * @param {string} key - Clave a verificar
+         * @returns {boolean} true si la clave pertenece al script
+         */
+        function isScriptKey(key) {
+            if (typeof key !== 'string') return false;
+            // Claves con prefijo del script
+            if (key.startsWith(CONFIG.storagePrefix)) return true;
+            // Claves internas de migración/normalización
+            if (key.startsWith('ypp_')) return true;
+            return false;
+        }
+
+        /**
+         * Inicializa la capa asíncrona: detecta IndexedDB, migra datos si es necesario y llena caché.
+         * Solo migra claves con prefijo YT_PLAYBACK_PLOX_ y las almacena en IndexedDB sin prefijo.
+         */
         async function initialize() {
             if (readyPromise) return readyPromise;
             readyPromise = (async () => {
@@ -2308,11 +2375,12 @@ background: var(--ypp-danger);
                     const migrated = localStorage.getItem(STORAGE_MIGRATION_STATE_KEY) === '1';
                     let legacySnapshot = [];
                     if (!migrated && IndexedDBAdapter.isSupported) {
-                        // Recolectar snapshot de localStorage/GM directamente para evitar recursión
+                        // Recolectar snapshot de localStorage/GM filtrando solo claves del script
                         let allKeys = [];
                         try {
                             if (typeof GM_listValues !== 'undefined') {
-                                allKeys = await GM_listValues();
+                                const gmRaw = await GM_listValues();
+                                allKeys = Array.isArray(gmRaw) ? gmRaw : [];
                             } else if (typeof localStorage !== 'undefined') {
                                 allKeys = Object.keys(localStorage);
                             }
@@ -2320,21 +2388,26 @@ background: var(--ypp-danger);
                             logger.warn('Error al obtener claves para migración:', err);
                         }
 
-                        for (const key of allKeys || []) {
-                            if (STORAGE_META_KEYS.has(key)) continue;
+                        // Filtrar: solo claves del script, excluyendo metaclaves
+                        const filteredKeys = (allKeys || []).filter(k => isScriptKey(k) && !STORAGE_META_KEYS.has(k));
+                        logger.info(`Migración: ${filteredKeys.length} claves del script encontradas (de ${allKeys.length} totales)`);
+
+                        for (const rawKey of filteredKeys) {
+                            // Strip prefix para coherencia con nuevo Storage sin prefijos
+                            const normalizedKey = stripStoragePrefix(rawKey);
                             let value = null;
                             try {
                                 if (typeof GM_getValue !== 'undefined') {
-                                    value = await GM_getValue(key);
+                                    value = await GM_getValue(rawKey);
                                 } else if (typeof localStorage !== 'undefined') {
-                                    const item = localStorage.getItem(key);
+                                    const item = localStorage.getItem(rawKey);
                                     if (item) value = JSON.parse(item);
                                 }
                             } catch (err) {
-                                logger.warn(`Error al leer clave ${key}:`, err);
+                                logger.warn(`Error al leer clave ${rawKey}:`, err);
                             }
                             if (value !== null) {
-                                legacySnapshot.push({ key, value: JSON.stringify(value) });
+                                legacySnapshot.push({ key: normalizedKey, value: JSON.stringify(value) });
                             }
                         }
                     }
@@ -2463,7 +2536,7 @@ background: var(--ypp-danger);
 
     const IndexedDBAdapter = (() => {
         const DB_NAME = 'YTPlaybackPloxDB';
-        const STORE_NAME = 'keyvalue';
+        const STORE_NAME = 'savedVideos';
         const DB_VERSION = 1;
         const isSupported = (() => {
             try {
@@ -4295,7 +4368,7 @@ background: var(--ypp-danger);
             duration: freeTubeData.lengthSeconds,
             timestamp: freeTubeData.watchProgress,
             lastUpdated: freeTubeData.timeWatched,
-            videoType: freeTubeData.type === 'short' ? 'shorts' : 'watch',
+            videoType: normalizeVideoType(freeTubeData.type === 'short' ? 'shorts' : 'video'),
             isCompleted: isCompleted,
             published: freeTubeData.published,
             description: freeTubeData.description,
@@ -8937,7 +9010,7 @@ background: var(--ypp-danger);
                         // Si aún no hay playlist, verificar si el plId actual pertenece a este video
                         if (!urlPlaylistId && plId) {
                             // CRÍTICO: Verificar si es un anuncio - los anuncios NO deben heredar playlists
-                            const isAd = isAdBlockedFor('watch') || isAdBlockedFor('shorts');
+                            const isAd = isAdBlockedFor('video') || isAdBlockedFor('shorts');
                             if (isAd) {
                                 log('updateStatus', `🚫 Anuncio detectado, no heredando playlist ${plId}`);
                                 urlPlaylistId = null;
@@ -9229,7 +9302,7 @@ background: var(--ypp-danger);
 
         try {
             const d = getVideoDuration(player, videoEl);
-            const videoType = type === 'short' ? 'shorts' : 'watch';
+            const videoType = type === 'short' ? 'shorts' : 'video';
             updateProgressBarGradient(timeToSeek, d, videoType);
         } catch (_) { }
         /*
@@ -10076,8 +10149,9 @@ background: var(--ypp-danger);
 
         // Bloquear notificación de progreso si hay tiempo fijo o si hay un mensaje seek activo y video está pausado
         if (context === 'progress') {
-            // Opción A: si estamos en Shorts y el guardado proviene del miniplayer (watch), no mostrar notificación
-            if (currentPageType === 'shorts' && options?.videoType === 'watch') {
+            // Opción A: si estamos en Shorts y el guardado proviene del miniplayer (watch/video), no mostrar notificación
+            const vType = options?.videoType;
+            if (currentPageType === 'shorts' && (vType === 'watch' || vType === 'video')) {
                 return;
             }
             const videoId = YTHelper?.video.id || extractOrNormalizeVideoId(location.href)?.id;
@@ -10499,7 +10573,7 @@ background: var(--ypp-danger);
 
         try {
             const pt0 = getYouTubePageType();
-            if (pt0 !== 'shorts' && isAdBlockedFor('watch')) {
+            if (pt0 !== 'shorts' && isAdBlockedFor('video')) {
                 log('processVideo', '⏸️  ABORTANDO processVideo - Anuncio (watch) activo');
                 return;
             }
@@ -11592,7 +11666,7 @@ background: var(--ypp-danger);
                     let mpId3 = null;
                     try { mpId3 = mpC?.getVideoData?.()?.video_id || null; } catch (_) { }
                     const urlIdNow2 = extractOrNormalizeVideoId(window.location.href)?.id || null;
-                    if (mpEl2 && !mpEl2.paused && mpId3 && mpId3 !== boundVideoId && !isAdBlockedFor('watch')) {
+                    if (mpEl2 && !mpEl2.paused && mpId3 && mpId3 !== boundVideoId && !isAdBlockedFor('video')) {
                         const lastSavedMp = (ctx?.lastSaveTimesByVideoId?.[mpId3] ?? lastSaveTimesByVideoId[mpId3] ?? 0);
                         if (nowTs2 - lastSavedMp >= minInterval2) {
                             const mpPlayer2 = mpC && typeof mpC.getDuration === 'function' ? mpC : player;
@@ -11619,7 +11693,7 @@ background: var(--ypp-danger);
                                     } catch (_) { }
                                 } */
                             }
-                            updateStatus(mpPlayer2, mpEl2, 'watch', mpPlId2, mpId3).then(r => {
+                            updateStatus(mpPlayer2, mpEl2, 'video', mpPlId2, mpId3).then(r => {
                                 if (r && r.success) {
                                     const tsOk = Date.now();
                                     try { lastSaveTimesByVideoId[mpId3] = tsOk; } catch (_) { }
@@ -12129,7 +12203,7 @@ background: var(--ypp-danger);
         const select = createElement('select', {
             className: 'ypp-filter-select', id: 'filter-selector', html: `
         <option value="all" ${currentValue === 'all' ? 'selected' : ''}>🔎 ${t('all')}</option>
-        <option value="watch" ${currentValue === 'watch' ? 'selected' : ''}>▶️ ${t('videos')}</option>
+        <option value="video" ${currentValue === 'video' ? 'selected' : ''}>▶️ ${t('videos')}</option>
         <option value="shorts" ${currentValue === 'shorts' ? 'selected' : ''}>📱 ${t('shorts')}</option>
         <option value="preview" ${currentValue === 'preview' ? 'selected' : ''}>👁️ ${t('previews')}</option>
         <option value="live" ${currentValue === 'live' ? 'selected' : ''}>🔴 ${t('liveStreams')}</option>
@@ -12194,6 +12268,7 @@ background: var(--ypp-danger);
     let currentOrderBy, currentFilterBy, currentSearchQuery;
     /** @type {VirtualScroller|null} Instancia del scroller virtual para la lista de videos */
     let virtualScroller = null;
+    let storageUsageRefreshIntervalId = null;
     /** @type {Array|null} Cache de items preparados para evitar re-procesar en cada render */
     let preparedItemsCache = null;
     /** @type {Map<string, string>} Cache global de títulos por ID para uso en createVideoEntry */
@@ -12393,8 +12468,8 @@ background: var(--ypp-danger);
             if (currentFilterBy === 'playlist') return item.type === 'playlist-video';
             if (currentFilterBy === 'preview') return (vType && vType.startsWith('preview'));
 
-            if (currentFilterBy === 'watch') {
-                return vType === 'watch' || vType === 'video' || !vType;
+            if (currentFilterBy === 'video') {
+                return vType === 'video' || vType === 'watch' || !vType; // fallback for watch legacy if any
             }
 
             if (currentFilterBy === 'shorts') return vType === 'shorts';
@@ -12444,8 +12519,11 @@ background: var(--ypp-danger);
         setInnerHTML(statsBar, `
             <span>${filteredItems.length} ${t('videos')}</span>
             <span id="ypp-render-stats"></span>
+            <span id="ypp-storage-usage"></span>
         `);
         listContainer.appendChild(statsBar);
+
+        try { await updateStorageUsageIndicator(); } catch (_) { }
 
         // Crear contenedor para el scroller virtual
         const scrollerContainer = createElement('div', {
@@ -12551,8 +12629,51 @@ background: var(--ypp-danger);
             listContainer.remove();
             listContainer = null;
         }
+
+        if (storageUsageRefreshIntervalId) {
+            clearInterval(storageUsageRefreshIntervalId);
+            storageUsageRefreshIntervalId = null;
+        }
         document.body.style.overflow = '';
     }
+
+    /**
+     * Formatea una cantidad de bytes en unidades humanas.
+     * @param {number} bytes
+     * @returns {string}
+     */
+    const formatBytes = (bytes) => {
+        const value = Number(bytes);
+        if (!Number.isFinite(value) || value <= 0) return '0 B';
+        const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+        const exponent = Math.min(Math.floor(Math.log(value) / Math.log(1024)), units.length - 1);
+        const scaled = value / (1024 ** exponent);
+        const decimals = exponent === 0 ? 0 : (scaled < 10 ? 2 : 1);
+        return `${scaled.toFixed(decimals)} ${units[exponent]}`;
+    };
+
+    /**
+     * Actualiza el indicador de uso/cuota del almacenamiento (origin storage, incluye IndexedDB).
+     * @returns {Promise<void>}
+     */
+    const updateStorageUsageIndicator = async () => {
+        const el = document.getElementById('ypp-storage-usage');
+        if (!el) return;
+
+        const estimateFn = navigator?.storage?.estimate;
+        if (typeof estimateFn !== 'function') {
+            el.textContent = '';
+            return;
+        }
+
+        const { usage, quota } = await estimateFn.call(navigator.storage);
+        if (!Number.isFinite(usage) || !Number.isFinite(quota) || quota <= 0) {
+            el.textContent = '';
+            return;
+        }
+
+        el.textContent = `${formatBytes(usage)} / ${formatBytes(quota)}`;
+    };
 
     // ------------------------------------------
     // MARK: 🔘 Floating Button
@@ -12639,6 +12760,15 @@ background: var(--ypp-danger);
         videosContainer.appendChild(filtersContainer);
 
         videosContainer.appendChild(listContainer);
+
+        try {
+            await updateStorageUsageIndicator();
+            if (!storageUsageRefreshIntervalId) {
+                storageUsageRefreshIntervalId = setInterval(() => {
+                    updateStorageUsageIndicator().catch(() => { });
+                }, 30_000);
+            }
+        } catch (_) { }
 
         const footer = createElement('div', { className: 'ypp-footer' });
 
@@ -14090,11 +14220,42 @@ background: var(--ypp-danger);
     // ------------------------------------------
 
     /**
-     * Migra datos del formato antiguo (playlists anidadas) al nuevo formato FreeTube
-     * Esta función se ejecuta automáticamente una vez al inicio
+     * Normaliza un valor de videoType para corregir inconsistencias entre versiones.
+     * Convierte valores legacy ('watch', 'regular', 'short') al esquema actual.
+     * @param {string|undefined} rawType - Tipo original del video
+     * @returns {string} Tipo normalizado: 'video', 'shorts', 'live', 'preview_watch', 'preview_shorts'
+     */
+    function normalizeVideoType(rawType) {
+        if (!rawType || typeof rawType !== 'string') return 'video';
+        const type = rawType.trim().toLowerCase();
+        // Mapa de conversión de tipos legacy → actuales
+        const LEGACY_TYPE_MAP = {
+            'watch': 'video',
+            'regular': 'video',
+            'normal': 'video',
+            'short': 'shorts',
+        };
+        if (LEGACY_TYPE_MAP[type]) return LEGACY_TYPE_MAP[type];
+        // Tipos válidos actuales: devolver tal cual
+        const VALID_TYPES = new Set(['video', 'shorts', 'live', 'preview_watch', 'preview_shorts']);
+        if (VALID_TYPES.has(type)) return type;
+        // Fallback seguro
+        return 'video';
+    }
+
+    /**
+     * Migra datos del formato antiguo (playlists anidadas) al nuevo formato FreeTube.
+     * Esta función se ejecuta automáticamente una vez al inicio.
+     *
+     * Fase 1: Busca claves legacy remanentes en localStorage/GM que no fueron migradas
+     *         por StorageAsync.initialize() (edge case) y las mueve a Storage (IndexedDB).
+     * Fase 2: Procesa todas las claves ya en IndexedDB/Storage para normalizar su
+     *         esquema: desanidar playlists, agregar campos FreeTube, y normalizar videoType.
+     *
+     * @returns {Promise<{migrated: number, skipped: number}>}
      */
     async function migrateToFreeTubeFormat() {
-        const MIGRATION_VERSION = 4; // Incrementar solo si cambia la lógica/estructura de migración
+        const MIGRATION_VERSION = 5; // Incrementado: normalización de videoType y mejora de coherencia
         const MIGRATION_KEY = 'ypp_migration_freetube_format_version';
 
         // Verificar si la migración ya se realizó para esta versión
@@ -14104,135 +14265,93 @@ background: var(--ypp-danger);
             return { migrated: 0, skipped: 0 };
         }
 
-        log('migrateToFreeTubeFormat', '🔄 Iniciando migración de datos al formato FreeTube...');
+        log('migrateToFreeTubeFormat', `🔄 Iniciando migración v${MIGRATION_VERSION} (última: v${lastMigrationVersion})...`);
 
         // Mostrar alerta al usuario sobre la migración
-        showFloatingToast({
-            message: t('migratingData', 'Migrando datos guardados desde versión anterior...'),
-            type: 'info',
-            duration: 0, // No auto-desaparecer
-            persistent: true // Reutilizar mismo toast
-        });
+        showFloatingToast(
+            t('migratingData', 'Migrando datos guardados desde versión anterior...'),
+            0, // No auto-desaparecer
+            { persistent: true } // Reutilizar mismo toast
+        );
 
         let migrated = 0;
         let skipped = 0;
 
-        // PRIMERO: Buscar datos en el sistema antiguo (localStorage)
-        let oldSystemKeys = [];
+        // ─────────────────────────────────────────────────────────────
+        // FASE 1: Rescatar claves legacy remanentes de localStorage/GM
+        // ─────────────────────────────────────────────────────────────
+        // StorageAsync.initialize() ya migró la mayoría de claves a IndexedDB,
+        // pero puede haber remanentes (e.g. error parcial, claves escritas après).
+        let legacyRescued = 0;
         try {
-            // La versión antigua usaba localStorage directamente
+            let legacyKeys = [];
             if (typeof localStorage !== 'undefined') {
-                oldSystemKeys = Object.keys(localStorage).filter(k => k.startsWith('YT_PLAYBACK_PLOX_'));
+                legacyKeys = Object.keys(localStorage).filter(k => k.startsWith('YT_PLAYBACK_PLOX_'));
+            }
+            if (legacyKeys.length === 0 && typeof GM_listValues === 'function') {
+                const gmKeys = await GM_listValues();
+                legacyKeys = (Array.isArray(gmKeys) ? gmKeys : []).filter(k =>
+                    typeof k === 'string' && k.startsWith('YT_PLAYBACK_PLOX_')
+                );
             }
 
-            // También intentar con GM_listValues si está disponible
-            if (oldSystemKeys.length === 0 && typeof GM_listValues === 'function') {
-                const gmKeys = GM_listValues();
-                oldSystemKeys = Array.isArray(gmKeys) ? gmKeys : [];
-            }
-        } catch (e) {
-            warn('migrateToFreeTubeFormat', 'Error al obtener claves del sistema antiguo:', e);
-        }
+            // Filtrar claves no relevantes
+            const relevantLegacyKeys = legacyKeys.filter(k =>
+                !k.includes('userSettings') &&
+                !k.includes('translations_cache') &&
+                !k.includes('migration_') &&
+                !k.includes('__idb_migrated__') &&
+                !k.includes('__test__')
+            );
 
-        log('migrateToFreeTubeFormat', `📊 GM_listValues disponible: ${typeof GM_listValues === 'function'}`);
-        log('migrateToFreeTubeFormat', `📊 Claves encontradas: ${oldSystemKeys.length}`);
-        if (oldSystemKeys.length > 0) {
-            log('migrateToFreeTubeFormat', `📊 Primeras 5 claves: ${oldSystemKeys.slice(0, 5).join(', ')}`);
-        }
+            log('migrateToFreeTubeFormat', `📊 Claves legacy remanentes: ${relevantLegacyKeys.length}`);
 
-        // Verificar directamente localStorage también
-        let localStorageKeys = [];
-        if (typeof localStorage !== 'undefined') {
-            localStorageKeys = Object.keys(localStorage).filter(k => k.startsWith('YT_PLAYBACK_PLOX_'));
-            log('migrateToFreeTubeFormat', `📊 Claves localStorage: ${localStorageKeys.length}`);
-            if (localStorageKeys.length > 0) {
-                log('migrateToFreeTubeFormat', `📊 Primeras 5 claves localStorage: ${localStorageKeys.slice(0, 5).join(', ')}`);
-            }
-        }
+            for (const rawKey of relevantLegacyKeys) {
+                const cleanKey = rawKey.startsWith('YT_PLAYBACK_PLOX_')
+                    ? rawKey.slice('YT_PLAYBACK_PLOX_'.length)
+                    : rawKey;
 
-        // Filtrar claves relevantes del sistema antiguo
-        const oldKeys = oldSystemKeys.filter(k =>
-            !k.includes('userSettings') &&
-            !k.includes('playlist_meta_') &&
-            !k.includes('translations_cache') &&
-            !k.includes('migration_')
-        );
+                // Solo rescatar si no existe ya en IndexedDB
+                const existing = await Storage.get(cleanKey);
+                if (existing) continue;
 
-        log('migrateToFreeTubeFormat', `📦 Encontradas ${oldKeys.length} claves en sistema antiguo`);
-
-        // Procesar datos del sistema antiguo
-        for (const key of oldKeys) {
-            let data = null;
-            try {
-                // Leer desde localStorage (la versión antigua usaba localStorage)
-                if (typeof localStorage !== 'undefined') {
-                    const lsData = localStorage.getItem(key);
-                    if (lsData) {
-                        data = JSON.parse(lsData);
-                    }
-                }
-
-                // Fallback a GM_getValue si localStorage no tiene datos
-                if (!data && typeof GM_getValue === 'function') {
-                    data = GM_getValue(key, null);
-                }
-            } catch (e) {
-                warn('migrateToFreeTubeFormat', `Error al leer clave antigua ${key}:`, e);
-            }
-
-            if (!data) continue;
-
-            // Migrar datos individuales (formato antiguo)
-            if (data.videoId || data.timestamp !== undefined) {
-                // Convertir al nuevo formato FreeTube
-                const migratedVideo = {
-                    videoId: data.videoId || key.replace('YT_PLAYBACK_PLOX_', ''),
-                    timestamp: data.timestamp,
-                    lastUpdated: data.lastUpdated || data.savedAt || Date.now(),
-                    videoType: data.videoType || 'regular',
-                    isCompleted: data.isCompleted || false,
-                    duration: data.duration,
-                    title: data.title,
-                    author: data.author,
-                    thumb: data.thumb,
-                    viewsNumber: data.viewsNumber,
-                    savedAt: data.savedAt,
-                    authorId: data.authorId,
-                    published: data.published,
-                    description: data.description,
-                    isLive: data.isLive,
-                    lastViewedPlaylistId: data.lastViewedPlaylistId || null,
-                    lastViewedPlaylistType: data.lastViewedPlaylistType || '',
-                    lastViewedPlaylistItemId: data.lastViewedPlaylistItemId || null,
-                    forceResumeTime: data.forceResumeTime
-                };
-
-                await Storage.set(migratedVideo.videoId, migratedVideo);
-
-                // Eliminar del sistema antiguo
+                let data = null;
                 try {
-                    GM_setValue(key, null);
                     if (typeof localStorage !== 'undefined') {
-                        localStorage.removeItem(key); // Usar la clave completa, no modificarla
+                        const lsData = localStorage.getItem(rawKey);
+                        if (lsData) data = JSON.parse(lsData);
+                    }
+                    if (!data && typeof GM_getValue === 'function') {
+                        data = await GM_getValue(rawKey, null);
                     }
                 } catch (e) {
-                    warn('migrateToFreeTubeFormat', `Error al eliminar clave antigua ${key}:`, e);
+                    warn('migrateToFreeTubeFormat', `Error al leer clave legacy ${rawKey}:`, e);
                 }
 
-                migrated++;
-                log('migrateToFreeTubeFormat', `✅ Video ${migratedVideo.videoId} migrado desde sistema antiguo`);
+                if (!data) continue;
 
-                // Actualizar progreso cada 50 videos migrados
-                if (migrated % 50 === 0) {
-                    showFloatingToast({
-                        message: t('migratingDataProgress', `Migrando datos... ${migrated} videos procesados`),
-                        type: 'info',
-                        duration: 2000,
-                        persistent: true
-                    });
+                await Storage.set(cleanKey, data);
+                legacyRescued++;
+
+                // Limpiar la clave legacy del sistema antiguo
+                try {
+                    if (typeof GM_setValue === 'function') GM_setValue(rawKey, null);
+                    if (typeof localStorage !== 'undefined') localStorage.removeItem(rawKey);
+                } catch (e) {
+                    warn('migrateToFreeTubeFormat', `Error al eliminar clave legacy ${rawKey}:`, e);
                 }
             }
+
+            if (legacyRescued > 0) {
+                log('migrateToFreeTubeFormat', `✅ Rescatadas ${legacyRescued} claves legacy remanentes`);
+            }
+        } catch (e) {
+            warn('migrateToFreeTubeFormat', 'Error en fase 1 (rescate legacy):', e);
         }
+
+        // ──────────────────────────────────────────────────────────────────────────
+        // FASE 2: Normalizar esquema de todas las entradas ya en IndexedDB/Storage
+        // ──────────────────────────────────────────────────────────────────────────
 
         /**
          * Valida de forma conservadora un título de playlist.
@@ -14251,61 +14370,28 @@ background: var(--ypp-danger);
             return true;
         };
 
-        // Migrar metadata legacy de playlists (si existe) y limpiar claves antiguas
-        const legacyPlaylistMetaKeys = oldSystemKeys.filter((k) => k.startsWith('YT_PLAYBACK_PLOX_playlist_meta_'));
-        for (const legacyKey of legacyPlaylistMetaKeys) {
-            let legacyMeta = null;
-            try {
-                if (typeof localStorage !== 'undefined') {
-                    const lsData = localStorage.getItem(legacyKey);
-                    if (lsData) legacyMeta = JSON.parse(lsData);
-                }
+        // Obtener todas las claves del sistema actual (ya en IndexedDB)
+        const allKeys = (await Storage.keys()).filter(k =>
+            !k.startsWith('userSettings') &&
+            k !== 'translations_cache_v1'
+        );
 
-                if (!legacyMeta && typeof GM_getValue === 'function') {
-                    legacyMeta = GM_getValue(legacyKey, null);
-                }
-            } catch (e) {
-                warn('migrateToFreeTubeFormat', `Error al leer playlist_meta legacy ${legacyKey}:`, e);
-            }
+        log('migrateToFreeTubeFormat', `📦 Procesando ${allKeys.length} claves en Storage`);
 
-            const playlistId = legacyMeta?.playlistId || legacyKey.replace('YT_PLAYBACK_PLOX_playlist_meta_', '');
-            if (!playlistId) continue;
-
-            try {
-                const playlistMetaKey = `playlist_meta_${playlistId}`;
-                const existing = await Storage.get(playlistMetaKey);
-
-                const merged = {
-                    playlistId,
-                    title: (isValidPlaylistTitle(existing?.title) ? existing.title : (isValidPlaylistTitle(legacyMeta?.title) ? legacyMeta.title : (existing?.title || legacyMeta?.title || ''))),
-                    lastWatchedVideoId: existing?.lastWatchedVideoId || legacyMeta?.lastWatchedVideoId || null,
-                    lastUpdated: Math.max(
-                        Number(existing?.lastUpdated || 0),
-                        Number(legacyMeta?.lastUpdated || 0),
-                        Date.now()
-                    )
-                };
-
-                await Storage.set(playlistMetaKey, merged);
-
-                // Eliminar del sistema antiguo
-                try {
-                    GM_setValue(legacyKey, null);
-                    if (typeof localStorage !== 'undefined') {
-                        localStorage.removeItem(legacyKey);
-                    }
-                } catch (e) {
-                    warn('migrateToFreeTubeFormat', `Error al eliminar playlist_meta legacy ${legacyKey}:`, e);
-                }
-            } catch (e) {
-                warn('migrateToFreeTubeFormat', `Error al migrar playlist_meta legacy ${legacyKey}:`, e);
+        // Separar claves por tipo para procesarlas en orden
+        const playlistMetaKeys = [];
+        const dataKeys = [];
+        for (const key of allKeys) {
+            if (key.startsWith('playlist_meta_')) {
+                playlistMetaKeys.push(key);
+            } else {
+                dataKeys.push(key);
             }
         }
 
-        // SEGUNDO: Procesar datos que ya estén en el nuevo sistema (por si acaso)
-        const newSystemKeys = (await Storage.keys()).filter(k => !k.startsWith('userSettings') && !k.startsWith('playlist_meta_') && k !== 'translations_cache_v1');
-
-        for (const key of newSystemKeys) {
+        // Procesar datos de video
+        let batchCount = 0;
+        for (const key of dataKeys) {
             const data = await Storage.get(key);
             if (!data) continue;
 
@@ -14328,13 +14414,12 @@ background: var(--ypp-danger);
                 // Migrar cada video de la playlist
                 let inner = 0;
                 for (const [videoId, videoData] of Object.entries(data.videos)) {
-                    // Crear entrada de video en formato FreeTube
                     const migratedVideo = {
                         videoId: videoId,
                         timestamp: videoData.timestamp,
-                        lastUpdated: videoData.lastUpdated || videoData.savedAt,
-                        videoType: videoData.videoType,
-                        isCompleted: videoData.isCompleted,
+                        lastUpdated: videoData.lastUpdated || videoData.savedAt || Date.now(),
+                        videoType: normalizeVideoType(videoData.videoType),
+                        isCompleted: videoData.isCompleted || false,
                         duration: videoData.duration,
                         title: videoData.title,
                         author: videoData.author,
@@ -14348,13 +14433,11 @@ background: var(--ypp-danger);
                         lastViewedPlaylistId: playlistId,
                         lastViewedPlaylistType: 'channel',
                         lastViewedPlaylistItemId: null,
-                        // Preservar campos opcionales si existen
                         forceResumeTime: videoData.forceResumeTime
                     };
 
                     await Storage.set(videoId, migratedVideo);
                     migrated++;
-                    log('migrateToFreeTubeFormat', `✅ Video ${videoId} migrado`);
                     if ((++inner % 50) === 0) { await new Promise(r => setTimeout(r, 0)); }
                 }
 
@@ -14362,41 +14445,72 @@ background: var(--ypp-danger);
                 await Storage.del(key);
                 log('migrateToFreeTubeFormat', `✅ Playlist ${playlistId} migrada completamente`);
             } else if (data.videoId || data.timestamp !== undefined) {
-                // Ya está en formato correcto (o cercano), verificar que tenga campos FreeTube
-                if (!data.lastViewedPlaylistId && !data.lastViewedPlaylistType) {
-                    // Agregar campos FreeTube faltantes
+                // Video individual: normalizar videoType y asegurar campos FreeTube
+                const currentType = normalizeVideoType(data.videoType);
+                const needsTypeNormalization = currentType !== data.videoType;
+                const needsFreeTubeFields = !data.lastViewedPlaylistId && !data.lastViewedPlaylistType && data.lastViewedPlaylistId !== null;
+
+                if (needsTypeNormalization || needsFreeTubeFields) {
                     const updated = {
                         ...data,
                         videoId: data.videoId || key,
-                        lastViewedPlaylistId: null,
-                        lastViewedPlaylistType: '',
-                        lastViewedPlaylistItemId: null
+                        videoType: currentType,
+                        lastViewedPlaylistId: data.lastViewedPlaylistId ?? null,
+                        lastViewedPlaylistType: data.lastViewedPlaylistType ?? '',
+                        lastViewedPlaylistItemId: data.lastViewedPlaylistItemId ?? null
                     };
                     await Storage.set(key, updated);
                     migrated++;
+                    log('migrateToFreeTubeFormat', `🔧 Video ${key} normalizado: videoType ${data.videoType || '(none)'} → ${currentType}`);
+                } else {
+                    skipped++;
                 }
-                skipped++;
+            }
+
+            // Progreso cada 50 entradas
+            if ((++batchCount % 50) === 0) {
+                showFloatingToast(
+                    t('migratingDataProgress', { count: batchCount }),
+                    2000,
+                    { persistent: true }
+                );
+                await new Promise(r => setTimeout(r, 0));
+            }
+        }
+
+        // Validar playlist_meta existentes (normalizar títulos inválidos)
+        for (const metaKey of playlistMetaKeys) {
+            try {
+                const meta = await Storage.get(metaKey);
+                if (!meta) continue;
+
+                // Verificar si el título necesita validación
+                if (meta.title && !isValidPlaylistTitle(meta.title)) {
+                    const updated = { ...meta, title: '' };
+                    await Storage.set(metaKey, updated);
+                    log('migrateToFreeTubeFormat', `🔧 Playlist meta ${metaKey}: título inválido limpiado`);
+                }
+            } catch (e) {
+                warn('migrateToFreeTubeFormat', `Error al validar playlist_meta ${metaKey}:`, e);
             }
         }
 
         // Marcar la migración como completada para esta versión
         await GM_setValue(MIGRATION_KEY, MIGRATION_VERSION);
 
-        log('migrateToFreeTubeFormat', `✅ Migración completada: ${migrated} videos migrados, ${skipped} ya estaban en formato correcto`);
+        log('migrateToFreeTubeFormat', `✅ Migración v${MIGRATION_VERSION} completada: ${migrated} migrados, ${skipped} ya correctos, ${legacyRescued} rescatados de legacy`);
 
         // Mostrar mensaje final al usuario
         if (migrated > 0) {
-            showFloatingToast({
-                message: t('migrationComplete', `✅ Migración completada: ${migrated} videos migrados correctamente`),
-                type: 'success',
-                duration: 5000
-            });
+            showFloatingToast(
+                t('migrationComplete', { migrated: migrated }),
+                5000
+            );
         } else {
-            showFloatingToast({
-                message: t('migrationNoData', '✅ No se encontraron datos para migrar'),
-                type: 'info',
-                duration: 3000
-            });
+            showFloatingToast(
+                t('migrationNoData'),
+                3000
+            );
         }
 
         return { migrated, skipped };

@@ -386,7 +386,12 @@
             "confirmRemoveFromPlaylist": "Are you sure you want to remove this video from the playlist? It will remain as an individual video.",
             "playlistAssociationRemoved": "Playlist association removed",
             "loading": "Loading",
-            "rendered": "Rendered"
+            "rendered": "Rendered",
+            "previews": "Previews",
+            "migratingData": "Migrating saved data from previous version...",
+            "migratingDataProgress": "Migrating data... {count} entries processed",
+            "migrationComplete": "Migration completed: {migrated} videos successfully migrated",
+            "migrationNoData": "No data found to migrate"
         },
         "en-US": {
             "settings": "Settings",
@@ -497,7 +502,12 @@
             "confirmRemoveFromPlaylist": "Are you sure you want to remove this video from the playlist? It will remain as an individual video.",
             "playlistAssociationRemoved": "Playlist association removed",
             "loading": "Loading",
-            "rendered": "Rendered"
+            "rendered": "Rendered",
+            "previews": "Previews",
+            "migratingData": "Migrating saved data from previous version...",
+            "migratingDataProgress": "Migrating data... {count} entries processed",
+            "migrationComplete": "Migration completed: {migrated} videos successfully migrated",
+            "migrationNoData": "No data found to migrate"
         },
         "es-ES": {
             "settings": "Configuración",
@@ -608,7 +618,12 @@
             "confirmRemoveFromPlaylist": "¿Estás seguro de que quieres quitar este vídeo de la lista de reproducción? Se mantendrá como vídeo individual.",
             "playlistAssociationRemoved": "Asociación de la lista de reproducción eliminada",
             "loading": "Cargando",
-            "rendered": "Renderizados"
+            "rendered": "Renderizados",
+            "previews": "Previsualizaciones",
+            "migratingData": "Migrando datos guardados desde versión anterior...",
+            "migratingDataProgress": "Migrando datos... {count} entradas procesadas",
+            "migrationComplete": "Migración completada: {migrated} videos migrados correctamente",
+            "migrationNoData": "No se encontraron datos para migrar"
         },
         "es-419": {
             "settings": "Configuración",
@@ -719,7 +734,12 @@
             "confirmRemoveFromPlaylist": "¿Estás seguro de que quieres quitar este video de la playlist?",
             "playlistAssociationRemoved": "Asociación de playlist eliminada",
             "loading": "Cargando",
-            "rendered": "Renderizados"
+            "rendered": "Renderizados",
+            "previews": "Previsualizaciones",
+            "migratingData": "Migrando datos guardados desde versión anterior...",
+            "migratingDataProgress": "Migrando datos... {count} entradas procesadas",
+            "migrationComplete": "Migración completada: {migrated} videos migrados correctamente",
+            "migrationNoData": "No se encontraron datos para migrar"
         },
         "ca": {
             "settings": "Configuració",
@@ -830,7 +850,12 @@
             "confirmRemoveFromPlaylist": "Estàs segur que vols treure aquest vídeo de la llista de reproducció? Es mantindrà com a vídeo individual.",
             "playlistAssociationRemoved": "Associació de la llista de reproducció eliminada",
             "loading": "Carregant",
-            "rendered": "Renderitzats"
+            "rendered": "Renderitzats",
+            "previews": "Previsualitzacions",
+            "migratingData": "Migrant dades desades des de versió anterior...",
+            "migratingDataProgress": "Migrant dades... {count} entrades processades",
+            "migrationComplete": "Migració completada: {migrated} vídeos migrats correctament",
+            "migrationNoData": "No s'han trobat dades per migrar"
         },
         "fr": {
             "settings": "Paramètres",
@@ -941,7 +966,12 @@
             "confirmRemoveFromPlaylist": "Êtes-vous sûr de vouloir retirer cette vidéo de la playlist ? Elle restera comme vidéo individuelle.",
             "playlistAssociationRemoved": "Association à la playlist supprimée",
             "loading": "Chargement",
-            "rendered": "Rendus"
+            "rendered": "Rendus",
+            "previews": "Aperçus",
+            "migratingData": "Migration des données enregistrées depuis la version précédente...",
+            "migratingDataProgress": "Migration des données... {count} éléments traités",
+            "migrationComplete": "Migration terminée : {migrated} vidéos migrées avec succès",
+            "migrationNoData": "Aucune donnée trouvée à migrer"
         },
         "de": {
             "settings": "Einstellungen",
@@ -1052,7 +1082,12 @@
             "confirmRemoveFromPlaylist": "Möchten Sie dieses Video wirklich aus der Playlist entfernen? Es bleibt als einzelnes Video erhalten.",
             "playlistAssociationRemoved": "Playlist-Zuordnung entfernt",
             "loading": "Wird geladen",
-            "rendered": "Gerendert"
+            "rendered": "Gerendert",
+            "previews": "Vorschauen",
+            "migratingData": "Gespeicherte Daten aus der vorherigen Version werden migriert...",
+            "migratingDataProgress": "Daten werden migriert... {count} Einträge verarbeitet",
+            "migrationComplete": "Migration abgeschlossen: {migrated} Videos erfolgreich migriert",
+            "migrationNoData": "Keine Daten zum Migrieren gefunden"
         },
         "it": {
             "settings": "Impostazioni",
@@ -1163,7 +1198,12 @@
             "confirmRemoveFromPlaylist": "Sei sicuro di voler rimuovere questo video dalla playlist? Rimarrà come video singolo.",
             "playlistAssociationRemoved": "Associazione alla playlist rimossa",
             "loading": "Caricamento",
-            "rendered": "Renderizzati"
+            "rendered": "Renderizzati",
+            "previews": "Anteprime",
+            "migratingData": "Migrazione dei dati salvati dalla versione precedente...",
+            "migratingDataProgress": "Migrazione dei dati... {count} elementi elaborati",
+            "migrationComplete": "Migrazione completata: {migrated} video migrati con successo",
+            "migrationNoData": "Nessun dato trovato da migrare"
         },
         "pt": {
             "settings": "Configurações",
@@ -1274,7 +1314,12 @@
             "confirmRemoveFromPlaylist": "Tem certeza de que deseja remover este vídeo da playlist? Ele permanecerá como vídeo individual.",
             "playlistAssociationRemoved": "Associação à playlist removida",
             "loading": "Carregando",
-            "rendered": "Renderizados"
+            "rendered": "Renderizados",
+            "previews": "Pré-visualizações",
+            "migratingData": "Migrando dados salvos da versão anterior...",
+            "migratingDataProgress": "Migrando dados... {count} entradas processadas",
+            "migrationComplete": "Migração concluída: {migrated} vídeos migrados com sucesso",
+            "migrationNoData": "Nenhum dado encontrado para migrar"
         },
         "nl": {
             "settings": "Instellingen",
@@ -1385,7 +1430,12 @@
             "confirmRemoveFromPlaylist": "Weet je zeker dat je deze video uit de afspeellijst wilt verwijderen? Deze blijft als individuele video bestaan.",
             "playlistAssociationRemoved": "Koppeling met afspeellijst verwijderd",
             "loading": "Laden",
-            "rendered": "Gerenderd"
+            "rendered": "Gerenderd",
+            "previews": "Voorbeelden",
+            "migratingData": "Opgeslagen gegevens van vorige versie worden gemigreerd...",
+            "migratingDataProgress": "Gegevens worden gemigreerd... {count} items verwerkt",
+            "migrationComplete": "Migratie voltooid: {migrated} video's succesvol gemigreerd",
+            "migrationNoData": "Geen gegevens gevonden om te migreren"
         },
         "pl": {
             "settings": "Ustawienia",
@@ -1496,7 +1546,12 @@
             "confirmRemoveFromPlaylist": "Czy na pewno chcesz usunąć ten film z playlisty? Pozostanie jako osobny film.",
             "playlistAssociationRemoved": "Powiązanie z playlistą usunięte",
             "loading": "Ładowanie",
-            "rendered": "Wyrenderowane"
+            "rendered": "Wyrenderowane",
+            "previews": "Podglądy",
+            "migratingData": "Migracja zapisanych danych z poprzedniej wersji...",
+            "migratingDataProgress": "Migracja danych... {count} przetworzonych wpisów",
+            "migrationComplete": "Migracja zakończona: {migrated} filmów pomyślnie zmigrowano",
+            "migrationNoData": "Nie znaleziono danych do migracji"
         },
         "sv": {
             "settings": "Inställningar",
@@ -1607,7 +1662,12 @@
             "confirmRemoveFromPlaylist": "Är du säker på att du vill ta bort den här videon från spellistan? Den kommer att finnas kvar som en enskild video.",
             "playlistAssociationRemoved": "Spellistekoppling borttagen",
             "loading": "Laddar",
-            "rendered": "Renderade"
+            "rendered": "Renderade",
+            "previews": "Förhandsvisningar",
+            "migratingData": "Migrerar sparade data från tidigare version...",
+            "migratingDataProgress": "Migrerar data... {count} poster bearbetade",
+            "migrationComplete": "Migrering slutförd: {migrated} videor migrerade",
+            "migrationNoData": "Inga data hittades att migrera"
         },
         "da": {
             "settings": "Indstillinger",
@@ -1718,7 +1778,12 @@
             "confirmRemoveFromPlaylist": "Er du sikker på, at du vil fjerne denne video fra playlisten? Den forbliver som en individuel video.",
             "playlistAssociationRemoved": "Playliste-tilknytning fjernet",
             "loading": "Indlæser",
-            "rendered": "Renderede"
+            "rendered": "Renderede",
+            "previews": "Forhåndsvisninger",
+            "migratingData": "Migrerer gemte data fra tidligere version...",
+            "migratingDataProgress": "Migrerer data... {count} poster behandlet",
+            "migrationComplete": "Migrering fuldført: {migrated} videoer migreret",
+            "migrationNoData": "Ingen data fundet til migrering"
         },
         "no": {
             "settings": "Innstillinger",
@@ -1829,7 +1894,12 @@
             "confirmRemoveFromPlaylist": "Er du sikker på at du vil fjerne denne videoen fra spillelisten? Den vil forbli som en individuell video.",
             "playlistAssociationRemoved": "Spilleliste-tilknytning fjernet",
             "loading": "Laster",
-            "rendered": "Rendret"
+            "rendered": "Rendret",
+            "previews": "Forhåndsvisninger",
+            "migratingData": "Migrerer lagrede data fra tidligere versjon...",
+            "migratingDataProgress": "Migrerer data... {count} oppføringer behandlet",
+            "migrationComplete": "Migrering fullført: {migrated} videoer migrert",
+            "migrationNoData": "Ingen data funnet for migrering"
         },
         "fi": {
             "settings": "Asetukset",
@@ -1940,7 +2010,12 @@
             "confirmRemoveFromPlaylist": "Haluatko varmasti poistaa tämän videon soittolistalta? Se säilyy yksittäisenä videona.",
             "playlistAssociationRemoved": "Soittolistaliitos poistettu",
             "loading": "Ladataan",
-            "rendered": "Renderöidyt"
+            "rendered": "Renderöidyt",
+            "previews": "Esikatselut",
+            "migratingData": "Siirretään tallennettuja tietoja edellisestä versiosta...",
+            "migratingDataProgress": "Siirretään tietoja... {count} merkintää käsitelty",
+            "migrationComplete": "Siirto valmis: {migrated} videota siirretty onnistuneesti",
+            "migrationNoData": "Siirrettäviä tietoja ei löytynyt"
         },
         "cs": {
             "settings": "Nastavení",
@@ -2051,7 +2126,12 @@
             "confirmRemoveFromPlaylist": "Opravdu chcete odebrat toto video z playlistu? Zůstane jako samostatné video.",
             "playlistAssociationRemoved": "Přiřazení k playlistu bylo odstraněno",
             "loading": "Načítání",
-            "rendered": "Vykresleno"
+            "rendered": "Vykresleno",
+            "previews": "Náhledy",
+            "migratingData": "Migrace uložených dat z předchozí verze...",
+            "migratingDataProgress": "Migrace dat... {count} položek zpracováno",
+            "migrationComplete": "Migrace dokončena: {migrated} videí úspěšně migrováno",
+            "migrationNoData": "Nebyla nalezena žádná data k migraci"
         },
         "sk": {
             "settings": "Nastavenia",
@@ -2162,7 +2242,12 @@
             "confirmRemoveFromPlaylist": "Naozaj chcete odstrániť toto video z playlistu? Zostane ako samostatné video.",
             "playlistAssociationRemoved": "Prepojenie s playlistom bolo odstránené",
             "loading": "Načítava sa",
-            "rendered": "Vykreslené"
+            "rendered": "Vykreslené",
+            "previews": "Náhľady",
+            "migratingData": "Migrácia uložených údajov z predchádzajúcej verzie...",
+            "migratingDataProgress": "Migrácia údajov... {count} položiek spracovaných",
+            "migrationComplete": "Migrácia dokončená: {migrated} videí úspešne migrovaných",
+            "migrationNoData": "Nenašli sa žiadne údaje na migráciu"
         },
         "hu": {
             "settings": "Beállítások",
@@ -2273,7 +2358,12 @@
             "confirmRemoveFromPlaylist": "Biztosan el szeretnéd távolítani ezt a videót a lejátszási listáról? Önálló videóként megmarad.",
             "playlistAssociationRemoved": "Lejátszási lista-hozzárendelés eltávolítva",
             "loading": "Betöltés",
-            "rendered": "Renderelve"
+            "rendered": "Renderelve",
+            "previews": "Előnézetek",
+            "migratingData": "Mentett adatok migrálása az előző verzióból...",
+            "migratingDataProgress": "Adatok migrálása... {count} elem feldolgozva",
+            "migrationComplete": "Migráció befejezve: {migrated} videó sikeresen migrálva",
+            "migrationNoData": "Nem találhatók migrálandó adatok"
         },
         "ro": {
             "settings": "Setări",
@@ -2384,7 +2474,12 @@
             "confirmRemoveFromPlaylist": "Sigur doriți să eliminați acest videoclip din playlist? Va rămâne ca videoclip individual.",
             "playlistAssociationRemoved": "Asocierea cu playlistul a fost eliminată",
             "loading": "Se încarcă",
-            "rendered": "Randate"
+            "rendered": "Randate",
+            "previews": "Previzualizări",
+            "migratingData": "Se migrează datele salvate din versiunea anterioară...",
+            "migratingDataProgress": "Se migrează datele... {count} înregistrări procesate",
+            "migrationComplete": "Migrare finalizată: {migrated} videoclipuri migrate cu succes",
+            "migrationNoData": "Nu au fost găsite date pentru migrare"
         },
         "bg": {
             "settings": "Настройки",
@@ -2495,7 +2590,12 @@
             "confirmRemoveFromPlaylist": "Сигурни ли сте, че искате да премахнете това видео от плейлиста? То ще остане като отделно видео.",
             "playlistAssociationRemoved": "Асоциацията с плейлиста е премахната",
             "loading": "Зареждане",
-            "rendered": "Рендерирани"
+            "rendered": "Рендерирани",
+            "previews": "Прегледи",
+            "migratingData": "Мигриране на запазени данни от предишна версия...",
+            "migratingDataProgress": "Мигриране на данни... {count} записа обработени",
+            "migrationComplete": "Миграцията завърши: {migrated} видеоклипа успешно мигрирани",
+            "migrationNoData": "Няма намерени данни за мигриране"
         },
         "el": {
             "settings": "Ρυθμίσεις",
@@ -2606,7 +2706,12 @@
             "confirmRemoveFromPlaylist": "Είστε βέβαιοι ότι θέλετε να αφαιρέσετε αυτό το βίντεο από τη λίστα αναπαραγωγής; Θα παραμείνει ως μεμονωμένο βίντεο.",
             "playlistAssociationRemoved": "Η συσχέτιση με τη λίστα αναπαραγωγής αφαιρέθηκε",
             "loading": "Φόρτωση",
-            "rendered": "Αποδομένα"
+            "rendered": "Αποδομένα",
+            "previews": "Προεπισκοπήσεις",
+            "migratingData": "Μεταφορά αποθηκευμένων δεδομένων από προηγούμενη έκδοση...",
+            "migratingDataProgress": "Μεταφορά δεδομένων... {count} εγγραφές επεξεργάστηκαν",
+            "migrationComplete": "Η μεταφορά ολοκληρώθηκε: {migrated} βίντεο μεταφέρθηκαν με επιτυχία",
+            "migrationNoData": "Δεν βρέθηκαν δεδομένα για μεταφορά"
         },
         "sr": {
             "settings": "Подешавања",
@@ -2717,7 +2822,12 @@
             "confirmRemoveFromPlaylist": "Да ли сте сигурни да желите да уклоните овај видео са плејлисте? Остаће као појединачни видео.",
             "playlistAssociationRemoved": "Повезаност са плејлистом је уклоњена",
             "loading": "Учитавање",
-            "rendered": "Рендеровано"
+            "rendered": "Рендеровано",
+            "previews": "Прегледи",
+            "migratingData": "Миграција сачуваних података из претходне верзије...",
+            "migratingDataProgress": "Миграција података... {count} ставки обрађено",
+            "migrationComplete": "Миграција завршена: {migrated} видео записа успешно мигрирано",
+            "migrationNoData": "Нису пронађени подаци за миграцију"
         },
         "hr": {
             "settings": "Postavke",
@@ -2828,7 +2938,12 @@
             "confirmRemoveFromPlaylist": "Jeste li sigurni da želite ukloniti ovaj video s playliste? Ostat će kao pojedinačni video.",
             "playlistAssociationRemoved": "Povezanost s playlistom je uklonjena",
             "loading": "Učitavanje",
-            "rendered": "Renderirani"
+            "rendered": "Renderirani",
+            "previews": "Pregledi",
+            "migratingData": "Migracija spremljenih podataka iz prethodne verzije...",
+            "migratingDataProgress": "Migracija podataka... {count} stavki obrađeno",
+            "migrationComplete": "Migracija završena: {migrated} videozapisa uspješno migrirano",
+            "migrationNoData": "Nisu pronađeni podaci za migraciju"
         },
         "sl": {
             "settings": "Nastavitve",
@@ -2939,7 +3054,12 @@
             "confirmRemoveFromPlaylist": "Ali ste prepričani, da želite odstraniti ta video s seznama predvajanja? Ostal bo kot posamezen video.",
             "playlistAssociationRemoved": "Povezava s seznamom predvajanja je odstranjena",
             "loading": "Nalaganje",
-            "rendered": "Izrisani"
+            "rendered": "Izrisani",
+            "previews": "Predogledi",
+            "migratingData": "Migracija shranjenih podatkov iz prejšnje različice...",
+            "migratingDataProgress": "Migracija podatkov... {count} vnosov obdelanih",
+            "migrationComplete": "Migracija zaključena: {migrated} videov uspešno migriranih",
+            "migrationNoData": "Ni najdenih podatkov za migracijo"
         },
         "lt": {
             "settings": "Nustatymai",
@@ -3050,7 +3170,12 @@
             "confirmRemoveFromPlaylist": "Ar tikrai norite pašalinti šį vaizdo įrašą iš grojaraščio? Jis liks kaip atskiras vaizdo įrašas.",
             "playlistAssociationRemoved": "Grojaraščio susiejimas pašalintas",
             "loading": "Įkeliama",
-            "rendered": "Sugeneruoti"
+            "rendered": "Sugeneruoti",
+            "previews": "Peržiūros",
+            "migratingData": "Perkeliami išsaugoti duomenys iš ankstesnės versijos...",
+            "migratingDataProgress": "Perkeliami duomenys... {count} įrašų apdorota",
+            "migrationComplete": "Perkėlimas baigtas: {migrated} vaizdo įrašai sėkmingai perkelti",
+            "migrationNoData": "Nerasta duomenų perkėlimui"
         },
         "lv": {
             "settings": "Iestatījumi",
@@ -3161,7 +3286,12 @@
             "confirmRemoveFromPlaylist": "Vai tiešām vēlaties noņemt šo video no atskaņošanas saraksta? Tas paliks kā atsevišķs video.",
             "playlistAssociationRemoved": "Saistība ar atskaņošanas sarakstu noņemta",
             "loading": "Ielāde",
-            "rendered": "Renderēti"
+            "rendered": "Renderēti",
+            "previews": "Priekšskatījumi",
+            "migratingData": "Migrē saglabātos datus no iepriekšējās versijas...",
+            "migratingDataProgress": "Migrē datus... {count} ieraksti apstrādāti",
+            "migrationComplete": "Migrācija pabeigta: {migrated} video veiksmīgi migrēti",
+            "migrationNoData": "Nav atrasti dati migrācijai"
         },
         "uk": {
             "settings": "Налаштування",
@@ -3272,7 +3402,12 @@
             "confirmRemoveFromPlaylist": "Ви впевнені, що хочете видалити це відео з плейлиста? Воно залишиться як окреме відео.",
             "playlistAssociationRemoved": "Зв’язок із плейлистом видалено",
             "loading": "Завантаження",
-            "rendered": "Відрендерено"
+            "rendered": "Відрендерено",
+            "previews": "Попередні перегляди",
+            "migratingData": "Міграція збережених даних з попередньої версії...",
+            "migratingDataProgress": "Міграція даних... {count} записів оброблено",
+            "migrationComplete": "Міграцію завершено: {migrated} відео успішно перенесено",
+            "migrationNoData": "Дані для міграції не знайдено"
         },
         "ru": {
             "settings": "Настройки",
@@ -3383,7 +3518,12 @@
             "confirmRemoveFromPlaylist": "Вы уверены, что хотите удалить это видео из плейлиста? Оно останется как отдельное видео.",
             "playlistAssociationRemoved": "Связь с плейлистом удалена",
             "loading": "Загрузка",
-            "rendered": "Отрендерены"
+            "rendered": "Отрендерены",
+            "previews": "Предпросмотры",
+            "migratingData": "Миграция сохранённых данных из предыдущей версии...",
+            "migratingDataProgress": "Миграция данных... обработано {count} записей",
+            "migrationComplete": "Миграция завершена: {migrated} видео успешно перенесено",
+            "migrationNoData": "Данные для миграции не найдены"
         },
         "tr": {
             "settings": "Ayarlar",
@@ -3494,7 +3634,12 @@
             "confirmRemoveFromPlaylist": "Bu videoyu oynatma listesinden kaldırmak istediğinizden emin misiniz? Bireysel video olarak kalacaktır.",
             "playlistAssociationRemoved": "Oynatma listesi ilişkilendirmesi kaldırıldı",
             "loading": "Yükleniyor",
-            "rendered": "Oluşturuldu"
+            "rendered": "Oluşturuldu",
+            "previews": "Önizlemeler",
+            "migratingData": "Önceki sürümden kaydedilmiş veriler taşınıyor...",
+            "migratingDataProgress": "Veriler taşınıyor... {count} kayıt işlendi",
+            "migrationComplete": "Taşıma tamamlandı: {migrated} video başarıyla taşındı",
+            "migrationNoData": "Taşınacak veri bulunamadı"
         },
         "ar": {
             "settings": "الإعدادات",
@@ -3605,7 +3750,12 @@
             "confirmRemoveFromPlaylist": "هل أنت متأكد أنك تريد إزالة هذا الفيديو من قائمة التشغيل؟ سيبقى كفيديو فردي.",
             "playlistAssociationRemoved": "تمت إزالة ارتباط قائمة التشغيل",
             "loading": "جارٍ التحميل",
-            "rendered": "تم العرض"
+            "rendered": "تم العرض",
+            "previews": "معاينات",
+            "migratingData": "جارٍ ترحيل البيانات المحفوظة من الإصدار السابق...",
+            "migratingDataProgress": "جارٍ ترحيل البيانات... تمت معالجة {count} عنصر",
+            "migrationComplete": "اكتملت عملية الترحيل: تم ترحيل {migrated} فيديو بنجاح",
+            "migrationNoData": "لم يتم العثور على بيانات للترحيل"
         },
         "fa": {
             "settings": "تنظیمات",
@@ -3716,7 +3866,12 @@
             "confirmRemoveFromPlaylist": "آیا مطمئن هستید که می‌خواهید این ویدیو را از فهرست پخش حذف کنید؟ به‌صورت ویدیوی جداگانه باقی می‌ماند.",
             "playlistAssociationRemoved": "ارتباط با فهرست پخش حذف شد",
             "loading": "در حال بارگذاری",
-            "rendered": "رندر شده"
+            "rendered": "رندر شده",
+            "previews": "پیش‌نمایش‌ها",
+            "migratingData": "در حال انتقال داده‌های ذخیره‌شده از نسخه قبلی...",
+            "migratingDataProgress": "در حال انتقال داده‌ها... {count} مورد پردازش شد",
+            "migrationComplete": "انتقال کامل شد: {migrated} ویدیو با موفقیت منتقل شد",
+            "migrationNoData": "داده‌ای برای انتقال یافت نشد"
         },
         "he": {
             "settings": "הגדרות",
@@ -3827,7 +3982,12 @@
             "confirmRemoveFromPlaylist": "האם אתה בטוח שברצונך להסיר סרטון זה מרשימת ההשמעה? הוא יישאר כסרטון בודד.",
             "playlistAssociationRemoved": "הקישור לרשימת ההשמעה הוסר",
             "loading": "טוען",
-            "rendered": "עובדו"
+            "rendered": "עובדו",
+            "previews": "תצוגות מקדימות",
+            "migratingData": "מעביר נתונים שמורים מהגרסה הקודמת...",
+            "migratingDataProgress": "מעביר נתונים... {count} רשומות עובדו",
+            "migrationComplete": "ההעברה הושלמה: {migrated} סרטונים הועברו בהצלחה",
+            "migrationNoData": "לא נמצאו נתונים להעברה"
         },
         "hi": {
             "settings": "सेटिंग्स",
@@ -3938,7 +4098,12 @@
             "confirmRemoveFromPlaylist": "क्या आप वाकई इस वीडियो को प्लेलिस्ट से हटाना चाहते हैं? यह एकल वीडियो के रूप में बना रहेगा।",
             "playlistAssociationRemoved": "प्लेलिस्ट संबंध हटाया गया",
             "loading": "लोड हो रहा है",
-            "rendered": "रेंडर किया गया"
+            "rendered": "रेंडर किया गया",
+            "previews": "पूर्वावलोकन",
+            "migratingData": "पिछले संस्करण से सहेजा गया डेटा माइग्रेट किया जा रहा है...",
+            "migratingDataProgress": "डेटा माइग्रेट किया जा रहा है... {count} प्रविष्टियाँ संसाधित",
+            "migrationComplete": "माइग्रेशन पूर्ण: {migrated} वीडियो सफलतापूर्वक माइग्रेट किए गए",
+            "migrationNoData": "माइग्रेट करने के लिए कोई डेटा नहीं मिला"
         },
         "bn": {
             "settings": "সেটিংস",
@@ -4049,7 +4214,12 @@
             "confirmRemoveFromPlaylist": "আপনি কি নিশ্চিত যে এই ভিডিওটি প্লেলিস্ট থেকে সরাতে চান? এটি পৃথক ভিডিও হিসেবে থাকবে।",
             "playlistAssociationRemoved": "প্লেলিস্ট সংযোগ সরানো হয়েছে",
             "loading": "লোড হচ্ছে",
-            "rendered": "রেন্ডার করা হয়েছে"
+            "rendered": "রেন্ডার করা হয়েছে",
+            "previews": "প্রিভিউসমূহ",
+            "migratingData": "পূর্ববর্তী সংস্করণ থেকে সংরক্ষিত ডেটা স্থানান্তর করা হচ্ছে...",
+            "migratingDataProgress": "ডেটা স্থানান্তর করা হচ্ছে... {count} এন্ট্রি প্রক্রিয়াকৃত",
+            "migrationComplete": "স্থানান্তর সম্পন্ন: {migrated} ভিডিও সফলভাবে স্থানান্তরিত হয়েছে",
+            "migrationNoData": "স্থানান্তরের জন্য কোনো ডেটা পাওয়া যায়নি"
         },
         "te": {
             "settings": "సెట్టింగులు",
@@ -4160,7 +4330,12 @@
             "confirmRemoveFromPlaylist": "ఈ వీడియోను ప్లేలిస్ట్ నుండి తొలగించాలనుకుంటున్నారా? ఇది వ్యక్తిగత వీడియోగా మిగులుతుంది.",
             "playlistAssociationRemoved": "ప్లేలిస్ట్ అనుబంధం తొలగించబడింది",
             "loading": "లోడ్ అవుతోంది",
-            "rendered": "రెండర్ చేయబడింది"
+            "rendered": "రెండర్ చేయబడింది",
+            "previews": "ప్రీవ్యూ‌లు",
+            "migratingData": "మునుపటి సంస్కరణ నుండి సేవ్ చేసిన డేటాను మైగ్రేట్ చేస్తున్నాం...",
+            "migratingDataProgress": "డేటాను మైగ్రేట్ చేస్తున్నాం... {count} ఎంట్రీలు ప్రాసెస్ అయ్యాయి",
+            "migrationComplete": "మైగ్రేషన్ పూర్తైంది: {migrated} వీడియోలు విజయవంతంగా మైగ్రేట్ అయ్యాయి",
+            "migrationNoData": "మైగ్రేట్ చేయడానికి డేటా కనబడలేదు"
         },
         "ta": {
             "settings": "அமைப்புகள்",
@@ -4271,7 +4446,12 @@
             "confirmRemoveFromPlaylist": "இந்த வீடியோவை ப்ளேலிஸ்டில் இருந்து நீக்க விரும்புகிறீர்களா? இது தனி வீடியோவாக இருக்கும்.",
             "playlistAssociationRemoved": "ப்ளேலிஸ்ட் தொடர்பு நீக்கப்பட்டது",
             "loading": "ஏற்றுகிறது",
-            "rendered": "ரெண்டர் செய்யப்பட்டது"
+            "rendered": "ரெண்டர் செய்யப்பட்டது",
+            "previews": "முன்னோட்டங்கள்",
+            "migratingData": "முந்தைய பதிப்பிலிருந்து சேமிக்கப்பட்ட தரவை மாற்றுகிறது...",
+            "migratingDataProgress": "தரவு மாற்றப்படுகிறது... {count} பதிவுகள் செயலாக்கப்பட்டன",
+            "migrationComplete": "மாற்றம் நிறைவு: {migrated} வீடியோக்கள் வெற்றிகரமாக மாற்றப்பட்டன",
+            "migrationNoData": "மாற்றுவதற்கு தரவு எதுவும் கிடைக்கவில்லை"
         },
         "mr": {
             "settings": "सेटिंग्ज",
@@ -4382,7 +4562,12 @@
             "confirmRemoveFromPlaylist": "आपण हा व्हिडिओ प्लेलिस्टमधून काढू इच्छिता का? तो स्वतंत्र व्हिडिओ म्हणून राहील.",
             "playlistAssociationRemoved": "प्लेलिस्ट संबंध काढला गेला",
             "loading": "लोड होत आहे",
-            "rendered": "रेंडर केले"
+            "rendered": "रेंडर केले",
+            "previews": "पूर्वावलोकने",
+            "migratingData": "मागील आवृत्तीतील जतन केलेला डेटा स्थलांतरित केला जात आहे...",
+            "migratingDataProgress": "डेटा स्थलांतरित केला जात आहे... {count} नोंदी प्रक्रिया केल्या",
+            "migrationComplete": "स्थलांतर पूर्ण: {migrated} व्हिडिओ यशस्वीरित्या स्थलांतरित झाले",
+            "migrationNoData": "स्थलांतरासाठी कोणताही डेटा सापडला नाही"
         },
         "zh": {
             "settings": "设置",
@@ -4493,7 +4678,12 @@
             "confirmRemoveFromPlaylist": "确定要将此视频从播放列表中移除吗？它将保留为单个视频。",
             "playlistAssociationRemoved": "播放列表关联已移除",
             "loading": "加载中",
-            "rendered": "已渲染"
+            "rendered": "已渲染",
+            "previews": "预览",
+            "migratingData": "正在从旧版本迁移已保存的数据...",
+            "migratingDataProgress": "正在迁移数据... 已处理 {count} 条记录",
+            "migrationComplete": "迁移完成：已成功迁移 {migrated} 个视频",
+            "migrationNoData": "未找到可迁移的数据"
         },
         "zh-TW": {
             "settings": "設定",
@@ -4604,7 +4794,12 @@
             "confirmRemoveFromPlaylist": "確定要將此影片從播放清單中移除嗎？它將保留為個別影片。",
             "playlistAssociationRemoved": "播放清單關聯已移除",
             "loading": "載入中",
-            "rendered": "已轉譯"
+            "rendered": "已轉譯",
+            "previews": "預覽",
+            "migratingData": "正在從舊版本遷移已儲存的資料...",
+            "migratingDataProgress": "正在遷移資料... 已處理 {count} 筆資料",
+            "migrationComplete": "遷移完成：已成功遷移 {migrated} 部影片",
+            "migrationNoData": "找不到可遷移的資料"
         },
         "yue": {
             "settings": "設定",
@@ -4715,7 +4910,12 @@
             "confirmRemoveFromPlaylist": "確定要將此影片從播放清單中移除嗎？它將保留為個別影片。",
             "playlistAssociationRemoved": "播放清單關聯已移除",
             "loading": "載入中",
-            "rendered": "已轉譯"
+            "rendered": "已轉譯",
+            "previews": "預覽",
+            "migratingData": "正從舊版本遷移已儲存嘅資料...",
+            "migratingDataProgress": "正遷移資料... 已處理 {count} 筆記錄",
+            "migrationComplete": "遷移完成：成功遷移 {migrated} 條影片",
+            "migrationNoData": "搵唔到可遷移嘅資料"
         },
         "zh-HK": {
             "settings": "設定",
@@ -4826,7 +5026,12 @@
             "confirmRemoveFromPlaylist": "確定要將此影片從播放清單中移除嗎？它將保留為個別影片。",
             "playlistAssociationRemoved": "播放清單關聯已移除",
             "loading": "載入中",
-            "rendered": "已轉譯"
+            "rendered": "已轉譯",
+            "previews": "預覽",
+            "migratingData": "正在從舊版本遷移已儲存的資料...",
+            "migratingDataProgress": "正在遷移資料... 已處理 {count} 筆資料",
+            "migrationComplete": "遷移完成：已成功遷移 {migrated} 部影片",
+            "migrationNoData": "找不到可遷移的資料"
         },
         "ja": {
             "settings": "設定",
@@ -4937,7 +5142,12 @@
             "confirmRemoveFromPlaylist": "この動画をプレイリストから削除してもよろしいですか？個別の動画として残ります。",
             "playlistAssociationRemoved": "プレイリストの関連付けが削除されました",
             "loading": "読み込み中",
-            "rendered": "レンダリング済み"
+            "rendered": "レンダリング済み",
+            "previews": "プレビュー",
+            "migratingData": "以前のバージョンから保存されたデータを移行しています...",
+            "migratingDataProgress": "データを移行しています... {count} 件処理済み",
+            "migrationComplete": "移行完了：{migrated} 件の動画を正常に移行しました",
+            "migrationNoData": "移行するデータが見つかりません"
         },
         "ko": {
             "settings": "설정",
@@ -5048,7 +5258,12 @@
             "confirmRemoveFromPlaylist": "이 동영상을 재생목록에서 제거하시겠습니까? 개별 동영상으로 유지됩니다.",
             "playlistAssociationRemoved": "재생목록 연결이 제거되었습니다",
             "loading": "로딩 중",
-            "rendered": "렌더링됨"
+            "rendered": "렌더링됨",
+            "previews": "미리보기",
+            "migratingData": "이전 버전에서 저장된 데이터를 마이그레이션하는 중...",
+            "migratingDataProgress": "데이터를 마이그레이션하는 중... {count}개 항목 처리됨",
+            "migrationComplete": "마이그레이션 완료: {migrated}개 동영상이 성공적으로 마이그레이션됨",
+            "migrationNoData": "마이그레이션할 데이터가 없습니다"
         },
         "th": {
             "settings": "การตั้งค่า",
@@ -5159,7 +5374,12 @@
             "confirmRemoveFromPlaylist": "คุณแน่ใจหรือไม่ว่าต้องการลบวิดีโอนี้ออกจากเพลย์ลิสต์? วิดีโอนี้จะยังคงเป็นวิดีโอเดี่ยว",
             "playlistAssociationRemoved": "การเชื่อมโยงเพลย์ลิสต์ถูกลบแล้ว",
             "loading": "กำลังโหลด",
-            "rendered": "แสดงผลแล้ว"
+            "rendered": "แสดงผลแล้ว",
+            "previews": "ตัวอย่าง",
+            "migratingData": "กำลังย้ายข้อมูลที่บันทึกไว้จากเวอร์ชันก่อนหน้า...",
+            "migratingDataProgress": "กำลังย้ายข้อมูล... ประมวลผลแล้ว {count} รายการ",
+            "migrationComplete": "การย้ายข้อมูลเสร็จสิ้น: ย้ายวิดีโอ {migrated} รายการสำเร็จ",
+            "migrationNoData": "ไม่พบข้อมูลสำหรับการย้าย"
         },
         "vi": {
             "settings": "Cài đặt",
@@ -5270,7 +5490,12 @@
             "confirmRemoveFromPlaylist": "Bạn có chắc chắn muốn xóa video này khỏi danh sách phát không? Video sẽ vẫn là video riêng lẻ.",
             "playlistAssociationRemoved": "Liên kết danh sách phát đã được xóa",
             "loading": "Đang tải",
-            "rendered": "Đã kết xuất"
+            "rendered": "Đã kết xuất",
+            "previews": "Xem trước",
+            "migratingData": "Đang di chuyển dữ liệu đã lưu từ phiên bản trước...",
+            "migratingDataProgress": "Đang di chuyển dữ liệu... đã xử lý {count} mục",
+            "migrationComplete": "Hoàn tất di chuyển: {migrated} video đã được di chuyển thành công",
+            "migrationNoData": "Không tìm thấy dữ liệu để di chuyển"
         },
         "id": {
             "settings": "Pengaturan",
@@ -5381,7 +5606,12 @@
             "confirmRemoveFromPlaylist": "Apakah Anda yakin ingin menghapus video ini dari playlist? Video akan tetap sebagai video individu.",
             "playlistAssociationRemoved": "Asosiasi playlist dihapus",
             "loading": "Memuat",
-            "rendered": "Dirender"
+            "rendered": "Dirender",
+            "previews": "Pratinjau",
+            "migratingData": "Memigrasikan data yang disimpan dari versi sebelumnya...",
+            "migratingDataProgress": "Memigrasikan data... {count} entri diproses",
+            "migrationComplete": "Migrasi selesai: {migrated} video berhasil dimigrasikan",
+            "migrationNoData": "Tidak ditemukan data untuk dimigrasikan"
         },
         "ms": {
             "settings": "Tetapan",
@@ -5492,7 +5722,12 @@
             "confirmRemoveFromPlaylist": "Adakah anda pasti mahu mengalih keluar video ini daripada senarai main? Ia akan kekal sebagai video individu.",
             "playlistAssociationRemoved": "Perkaitan senarai main telah dialih keluar",
             "loading": "Memuatkan",
-            "rendered": "Dirender"
+            "rendered": "Dirender",
+            "previews": "Pratonton",
+            "migratingData": "Memindahkan data yang disimpan dari versi sebelumnya...",
+            "migratingDataProgress": "Memindahkan data... {count} entri diproses",
+            "migrationComplete": "Pemindahan selesai: {migrated} video berjaya dipindahkan",
+            "migrationNoData": "Tiada data ditemui untuk dipindahkan"
         },
         "tl": {
             "settings": "Mga Setting",
@@ -5603,7 +5838,12 @@
             "confirmRemoveFromPlaylist": "Sigurado ka bang gusto mong alisin ang video na ito sa playlist? Mananatili ito bilang hiwalay na video.",
             "playlistAssociationRemoved": "Inalis ang pagkakaugnay sa playlist",
             "loading": "Naglo-load",
-            "rendered": "Na-render"
+            "rendered": "Na-render",
+            "previews": "Mga Preview",
+            "migratingData": "Inililipat ang naka-save na data mula sa nakaraang bersyon...",
+            "migratingDataProgress": "Inililipat ang data... {count} na entry ang naproseso",
+            "migrationComplete": "Kumpleto ang paglipat: {migrated} na video ang matagumpay na nailipat",
+            "migrationNoData": "Walang nahanap na data na ililipat"
         },
         "my": {
             "settings": "ဆက်တင်များ",
@@ -5714,7 +5954,12 @@
             "confirmRemoveFromPlaylist": "ဤဗီဒီယိုကို ပလေယာစာရင်းမှ ဖယ်ရှားလိုသည်မှာ သေချာပါသလား။ ၎င်းသည် သီးခြားဗီဒီယိုအဖြစ် ဆက်လက်ရှိနေမည်ဖြစ်သည်။",
             "playlistAssociationRemoved": "ပလေယာစာရင်း ချိတ်ဆက်မှု ဖယ်ရှားပြီး",
             "loading": "ဖွင့်နေသည်",
-            "rendered": "တင်ဆက်ပြီး"
+            "rendered": "တင်ဆက်ပြီး",
+            "previews": "အစမ်းကြည့်ရှုမှုများ",
+            "migratingData": "ယခင်ဗားရှင်းမှ သိမ်းဆည်းထားသော ဒေတာများကို ပြောင်းရွှေ့နေသည်...",
+            "migratingDataProgress": "ဒေတာများကို ပြောင်းရွှေ့နေသည်... {count} ခုကို လုပ်ဆောင်ပြီး",
+            "migrationComplete": "ပြောင်းရွှေ့မှု ပြီးဆုံးပါပြီ - ဗီဒီယို {migrated} ခု အောင်မြင်စွာ ပြောင်းရွှေ့ပြီး",
+            "migrationNoData": "ပြောင်းရွှေ့ရန် ဒေတာ မတွေ့ရှိပါ"
         },
         "sw": {
             "settings": "Mipangilio",
@@ -5825,7 +6070,12 @@
             "confirmRemoveFromPlaylist": "Je, una uhakika unataka kuondoa video hii kwenye orodha ya kucheza? Itabaki kama video ya pekee.",
             "playlistAssociationRemoved": "Muunganiko wa orodha ya kucheza umeondolewa",
             "loading": "Inapakia",
-            "rendered": "Zimetolewa"
+            "rendered": "Zimetolewa",
+            "previews": "Hakikisho",
+            "migratingData": "Inahamisha data iliyohifadhiwa kutoka toleo la awali...",
+            "migratingDataProgress": "Inahamisha data... {count} maingizo yamechakatwa",
+            "migrationComplete": "Uhamishaji umekamilika: video {migrated} zimehamishwa kwa mafanikio",
+            "migrationNoData": "Hakuna data iliyopatikana kwa ajili ya kuhamisha"
         },
         "am": {
             "settings": "ማስተካከያ",
@@ -5936,7 +6186,12 @@
             "confirmRemoveFromPlaylist": "ይህን ቪዲዮ ከፕሌይሊስት ማስወገድ እርግጠኛ ነዎት? እንደ ብቻ ቪዲዮ ይቀራል።",
             "playlistAssociationRemoved": "የፕሌይሊስት ግንኙነት ተወግዷል",
             "loading": "በመጫን ላይ",
-            "rendered": "ተቀርቧል"
+            "rendered": "ተቀርቧል",
+            "previews": "ቅድመ እይታዎች",
+            "migratingData": "ከቀድሞ ስሪት የተቀመጡ ውሂቦችን በመቀየር ላይ...",
+            "migratingDataProgress": "ውሂብ በመቀየር ላይ... {count} መዝገቦች ተከናውነዋል",
+            "migrationComplete": "መቀየር ተጠናቋል: {migrated} ቪዲዮዎች በተሳካ ሁኔታ ተቀይረዋል",
+            "migrationNoData": "ለመቀየር ውሂብ አልተገኘም"
         },
         "ha": {
             "settings": "Saituna",
@@ -6047,7 +6302,12 @@
             "confirmRemoveFromPlaylist": "Ka tabbata kana son cire wannan bidiyon daga jerin waƙoƙi? Zai kasance a matsayin bidiyo ɗaya.",
             "playlistAssociationRemoved": "An cire haɗin jerin waƙoƙi",
             "loading": "Ana lodawa",
-            "rendered": "An nuna"
+            "rendered": "An nuna",
+            "previews": "Dubawa",
+            "migratingData": "Ana ƙaura da bayanan da aka adana daga sigar da ta gabata...",
+            "migratingDataProgress": "Ana ƙaura da bayanai... an sarrafa shigarwa {count}",
+            "migrationComplete": "An kammala ƙaura: an ƙaura bidiyo {migrated} cikin nasara",
+            "migrationNoData": "Ba a sami bayanan da za a ƙaura ba"
         },
         "ur": {
             "settings": "ترتیبات",
@@ -6158,7 +6418,12 @@
             "confirmRemoveFromPlaylist": "کیا آپ واقعی اس ویڈیو کو پلے لسٹ سے ہٹانا چاہتے ہیں؟ یہ ایک علیحدہ ویڈیو کے طور پر رہے گی۔",
             "playlistAssociationRemoved": "پلے لسٹ کا تعلق ہٹا دیا گیا",
             "loading": "لوڈ ہو رہا ہے",
-            "rendered": "رینڈر کیا گیا"
+            "rendered": "رینڈر کیا گیا",
+            "previews": "پیش نظارے",
+            "migratingData": "پچھلے ورژن سے محفوظ کردہ ڈیٹا منتقل کیا جا رہا ہے...",
+            "migratingDataProgress": "ڈیٹا منتقل کیا جا رہا ہے... {count} اندراجات پر عمل ہو چکا",
+            "migrationComplete": "منتقلی مکمل: {migrated} ویڈیوز کامیابی سے منتقل ہو گئیں",
+            "migrationNoData": "منتقل کرنے کے لیے کوئی ڈیٹا نہیں ملا"
         },
         "zu": {
             "settings": "Izilungiselelo",
@@ -6269,7 +6534,12 @@
             "confirmRemoveFromPlaylist": "Uqinisekile ukuthi ufuna ukususa le vidiyo ku-playlist? Izohlala njengevidiyo eyodwa.",
             "playlistAssociationRemoved": "Ukuhlotshaniswa kwe-playlist kususiwe",
             "loading": "Iyalayisha",
-            "rendered": "Kukhonjisiwe"
+            "rendered": "Kukhonjisiwe",
+            "previews": "Ukubuka kuqala",
+            "migratingData": "Kudluliswa idatha egciniwe kusuka kunguqulo yangaphambilini...",
+            "migratingDataProgress": "Kudluliswa idatha... {count} okufakiwe sekucutshunguliwe",
+            "migrationComplete": "Ukudlulisa kuqediwe: amavidiyo angu-{migrated} adluliselwe ngempumelelo",
+            "migrationNoData": "Ayikho idatha etholakele yokudlulisa"
         }
     }
 }

@@ -118,6 +118,8 @@
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
 // @grant        GM_getValue
 // @grant        GM_setValue
+// @grant        GM_deleteValue
+// @grant        GM_listValues
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
 // @run-at       document-end
@@ -354,8 +356,8 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "rendered": "rendered",
             "previews": "Previews",
             "migratingData": "Migrating saved data from previous version...",
-            "migratingDataProgress": "Migrating data... {count} items processed",
-            "migrationComplete": "Migration complete: {migrated} videos migrated successfully",
+            "migratingDataProgress": "Migrating data... {count} entries processed",
+            "migrationComplete": "Migration completed: {migrated} videos successfully migrated",
             "migrationNoData": "No data found to migrate"
         },
         "es-ES": {
@@ -584,10 +586,10 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             "loading": "Chargement",
             "rendered": "rendus",
             "previews": "Aperçus",
-            "migratingData": "Migration des données de la version précédente...",
+            "migratingData": "Migration des données enregistrées depuis la version précédente...",
             "migratingDataProgress": "Migration des données... {count} éléments traités",
             "migrationComplete": "Migration terminée : {migrated} vidéos migrées avec succès",
-            "migrationNoData": "Aucune donnée trouvée pour migrer"
+            "migrationNoData": "Aucune donnée trouvée à migrer"
         }
     };
 
@@ -2311,10 +2313,10 @@ background: var(--ypp-danger);
     // Metaclaves para control de migración y configuración
     const STORAGE_META_KEYS = new Set([
         'INDEX_v1',
-        '__test__',
-        '__idb_migrated__'
+        '_test_',
+        'idb_migrated'
     ]);
-    const STORAGE_MIGRATION_STATE_KEY = `${CONFIG.storagePrefix}__idb_migrated__`;
+    const STORAGE_MIGRATION_STATE_KEY = `${CONFIG.storagePrefix}idb_migrated`;
     const storageCache = new Map();
 
     // Nueva capa asíncrona de almacenamiento (IndexedDB primario + caché en memoria + fallback)
@@ -5108,7 +5110,7 @@ background: var(--ypp-danger);
     * //  - Crea nuevas claves con el formato correcto y migra los datos
     */
     async function normalizeYouTubeStorageKeys() {
-        const NORMALIZE_VERSION = 1; // Incrementar si cambia la lógica de normalización
+        const NORMALIZE_VERSION = 2; // Incrementar si cambia la lógica de normalización
         const NORMALIZE_KEY = 'ypp_normalize_storage_keys_version';
 
         // Evitar re-ejecución si ya se aplicó esta versión
@@ -12275,16 +12277,45 @@ background: var(--ypp-danger);
     let modalVideoTitleById = new Map();
 
     async function fixThumbnailsInStorage() {
-        const keys = (await Storage.keys?.() || []).filter(k => !k.startsWith('userSettings') && !k.startsWith('userFilters') && !k.startsWith('playlist_meta_'));
+        const keys = (await Storage.keys?.() || []).filter(k =>
+            !k.startsWith('userSettings') &&
+            !k.startsWith('userFilters') &&
+            !k.startsWith('playlist_meta_') &&
+            !k.startsWith('ypp_')
+        );
         for (const key of keys) {
             const data = await Storage.get(key);
             if (!data) continue;
+            if (typeof data !== 'object') {
+                if (key.startsWith('ypp_')) continue;
+                // Entrada corrupta/legacy inesperada (e.g. number/bool/string). Evitar crash al intentar asignar propiedades.
+                try {
+                    const preview = (() => {
+                        try {
+                            if (typeof data === 'string') return data.slice(0, 120);
+                            if (typeof data === 'number' || typeof data === 'boolean') return String(data);
+                            if (data === null) return 'null';
+                            return Object.prototype.toString.call(data);
+                        } catch (_) {
+                            return '[unprintable]';
+                        }
+                    })();
+                    warn('fixThumbnailsInStorage', `Entrada inválida en Storage (se eliminará). key="${key}", type=${typeof data}, preview=${preview}`);
+                } catch (_) { }
+                try {
+                    await Storage.del(key);
+                } catch (_) { }
+                continue;
+            }
             if (data.videos && typeof data.videos === 'object') {
                 let modified = false;
                 for (const [vid, info] of Object.entries(data.videos)) {
                     const vId = info?.videoId || vid;
                     if (!thumbnailHasVideoId(info?.thumb, vId)) {
-                        if (data.videos[vid]) data.videos[vid].thumb = `https://i.ytimg.com/vi/${vId}/maxresdefault.jpg`;
+                        if (data.videos[vid] && typeof data.videos[vid] === 'object') {
+                            data.videos[vid].thumb = `https://i.ytimg.com/vi/${vId}/maxresdefault.jpg`;
+                            modified = true;
+                        }
                         modified = true;
                     }
                 }
@@ -14255,8 +14286,29 @@ background: var(--ypp-danger);
      * @returns {Promise<{migrated: number, skipped: number}>}
      */
     async function migrateToFreeTubeFormat() {
-        const MIGRATION_VERSION = 5; // Incrementado: normalización de videoType y mejora de coherencia
+        const MIGRATION_VERSION = 2; // Incrementar solo si cambia la lógica/estructura de migración
         const MIGRATION_KEY = 'ypp_migration_freetube_format_version';
+
+        /**
+         * Elimina una clave GM de forma compatible entre managers.
+         * En Violentmonkey, GM_setValue(key, null) NO borra la clave; deja el valor null.
+         * @param {string} key
+         * @returns {Promise<void>}
+         */
+        const deleteGMValueSafe = async (key) => {
+            try {
+                if (typeof GM_deleteValue === 'function') {
+                    await GM_deleteValue(key);
+                    return;
+                }
+            } catch (_) { /* noop */ }
+
+            try {
+                if (typeof GM_setValue === 'function') {
+                    await GM_setValue(key, null);
+                }
+            } catch (_) { /* noop */ }
+        };
 
         // Verificar si la migración ya se realizó para esta versión
         const lastMigrationVersion = await GM_getValue(MIGRATION_KEY, 0);
@@ -14300,8 +14352,8 @@ background: var(--ypp-danger);
                 !k.includes('userSettings') &&
                 !k.includes('translations_cache') &&
                 !k.includes('migration_') &&
-                !k.includes('__idb_migrated__') &&
-                !k.includes('__test__')
+                !k.includes('idb_migrated') &&
+                !k.includes('_test_')
             );
 
             log('migrateToFreeTubeFormat', `📊 Claves legacy remanentes: ${relevantLegacyKeys.length}`);
@@ -14335,7 +14387,7 @@ background: var(--ypp-danger);
 
                 // Limpiar la clave legacy del sistema antiguo
                 try {
-                    if (typeof GM_setValue === 'function') GM_setValue(rawKey, null);
+                    await deleteGMValueSafe(rawKey);
                     if (typeof localStorage !== 'undefined') localStorage.removeItem(rawKey);
                 } catch (e) {
                     warn('migrateToFreeTubeFormat', `Error al eliminar clave legacy ${rawKey}:`, e);

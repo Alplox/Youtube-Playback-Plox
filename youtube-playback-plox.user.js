@@ -3916,12 +3916,7 @@ background: var(--ypp-danger);
     const exportDataToFile = async () => {
         try {
             const exportData = {};
-            const keys = (await Storage.keys()).filter(k =>
-                !k.startsWith('userSettings') &&
-                !k.startsWith('userFilters') &&
-                !k.startsWith('playlist_meta_') &&
-                k !== 'translations_cache_v1'
-            );
+            const keys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
 
             for (const k of keys) {
                 const data = await Storage.get(k);
@@ -4387,12 +4382,7 @@ background: var(--ypp-danger);
     * @returns {Array} Array de videos en formato FreeTube
     */
     async function exportToFreeTubeFormat() {
-        const videoKeys = (await Storage.keys()).filter(key =>
-            !key.includes('userSettings') &&
-            !key.includes('userFilters') &&
-            !key.startsWith('playlist_meta_') && // Excluir metadata de playlists
-            key !== 'translations_cache_v1'
-        );
+        const videoKeys = (await Storage.keys()).filter(key => !isNonVideoStorageKey(key));
 
         const freeTubeData = [];
         let videoCount = 0;
@@ -12368,6 +12358,21 @@ background: var(--ypp-danger);
     }
 
     /**
+     * Determina si una clave de Storage corresponde a metadatos/configuración y no a una entrada de video.
+     * @param {string} key
+     * @returns {boolean}
+     */
+    const isNonVideoStorageKey = (key) => {
+        if (typeof key !== 'string') return true;
+        if (key.startsWith('userSettings')) return true;
+        if (key.startsWith('userFilters')) return true;
+        if (key.startsWith('playlist_meta_')) return true;
+        if (key.startsWith('ypp_')) return true;
+        if (key === 'translations_cache_v1') return true;
+        return false;
+    };
+
+    /**
      * Actualiza la lista de videos usando virtualización para rendimiento óptimo.
      * Solo renderiza los items visibles en el viewport, ideal para miles de videos.
      */
@@ -12388,12 +12393,7 @@ background: var(--ypp-danger);
         });
         listContainer.appendChild(loadingIndicator);
 
-        const keys = (await Storage.keys()).filter(k =>
-            !k.startsWith('userSettings') &&
-            !k.startsWith('userFilters') &&
-            !k.startsWith('playlist_meta_') &&
-            k !== 'translations_cache_v1'
-        );
+        const keys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
 
         // Cargar metadata de playlists para referencia
         const playlistMetas = {};
@@ -14425,7 +14425,8 @@ background: var(--ypp-danger);
         // Obtener todas las claves del sistema actual (ya en IndexedDB)
         const allKeys = (await Storage.keys()).filter(k =>
             !k.startsWith('userSettings') &&
-            k !== 'translations_cache_v1'
+            k !== 'translations_cache_v1' &&
+            !k.startsWith('ypp_')
         );
 
         log('migrateToFreeTubeFormat', `📦 Procesando ${allKeys.length} claves en Storage`);

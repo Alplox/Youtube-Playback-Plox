@@ -2772,11 +2772,51 @@ background: var(--ypp-danger);
         async get() {
             try {
                 const raw = await GM_getValue(CONFIG.userSettingsKey, null);
-                const parsed = raw ? JSON.parse(raw) : {};
+                // const parsed = raw ? JSON.parse(raw) : {};
+
+                /** @type {Record<string, any>} **/
+                let parsed = {};
+
+                if (raw && typeof raw === 'object') {
+                    // Algunos managers o migraciones pueden guardar/retornar un objeto directamente.
+                    parsed = raw;
+                } else if (typeof raw === 'string' && raw.trim()) {
+                    parsed = JSON.parse(raw);
+                }  
+
                 return { ...CONFIG.defaultSettings, ...parsed };
             } catch (error) {
                 conError('Settings', 'Error al cargar configuración del usuario:', error);
                 return { ...CONFIG.defaultSettings };
+            }
+        },
+
+        /**
+         * Obtiene la configuración del usuario e incluye metadatos sobre qué claves estaban presentes
+         * en el storage (antes de mezclar defaults).
+         * usar idioma del navegador solo si el usuario nunca eligió idioma.
+         * @returns {Promise<{settings: Object, hadLanguageInStorage: boolean}>}
+         */
+        async getWithMeta() {
+            try {
+                const raw = await GM_getValue(CONFIG.userSettingsKey, null);
+
+                /** @type {Record<string, any>} */
+                let parsed = {};
+
+                if (raw && typeof raw === 'object') {
+                    parsed = raw;
+                } else if (typeof raw === 'string' && raw.trim()) {
+                    parsed = JSON.parse(raw);
+                }
+
+                return {
+                    settings: { ...CONFIG.defaultSettings, ...parsed },
+                    hadLanguageInStorage: Object.prototype.hasOwnProperty.call(parsed || {}, 'language')
+                };
+            } catch (error) {
+                conError('Settings', 'Error al cargar configuración del usuario (meta):', error);
+                return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
             }
         },
 
@@ -10084,8 +10124,7 @@ background: var(--ypp-danger);
         saveShortsCheckbox.checked = settings.saveShorts;
         saveLiveStreamsCheckbox.checked = settings.saveLiveStreams;
         saveMiniplayerVideosCheckbox.checked = settings.saveMiniplayerVideos !== false;
-        const inlineEl = document.getElementById('saveInlinePreviews');
-        if (inlineEl) inlineEl.checked = settings.saveInlinePreviews === true;
+        saveInlinePreviewsCheckbox.checked = settings.saveInlinePreviews === true;
 
         // Añadir al DOM
         document.body.appendChild(overlay);
@@ -14679,16 +14718,19 @@ background: var(--ypp-danger);
 
             // --- Cargar traducciones ---
             try {
-                const [externalTranslations, loadedSettings] = await Promise.all([
+                const [externalTranslations, loadedSettingsMeta] = await Promise.all([
                     loadTranslations().catch((err) => {
                         conError('initializeGlobal', '❌ Error al cargar traducciones:', err);
                         return null;
                     }),
-                    Settings.get().catch((err) => {
+                    Settings.getWithMeta().catch((err) => {
                         conError('initializeGlobal', '❌ Error al cargar settings:', err);
-                        return { ...CONFIG.defaultSettings };
+                        return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
                     })
                 ]);
+
+                const loadedSettings = loadedSettingsMeta?.settings || { ...CONFIG.defaultSettings };
+                hadLanguageInStorage = !!loadedSettingsMeta?.hadLanguageInStorage;
 
                 if (externalTranslations && Object.keys(externalTranslations).length > 0) {
                     info('initializeGlobal', ' Traducciones externas cargadas correctamente');
@@ -14701,7 +14743,6 @@ background: var(--ypp-danger);
                     LANGUAGE_FLAGS = FALLBACK_FLAGS;
                     TRANSLATIONS = FALLBACK_TRANSLATIONS;
                 }
-                hadLanguageInStorage = Object.prototype.hasOwnProperty.call(loadedSettings || {}, 'language');
                 cachedSettings = { ...CONFIG.defaultSettings, ...(loadedSettings || {}) };
                 info('initializeGlobal', 'Settings cargados:', cachedSettings);
             } catch (error) {

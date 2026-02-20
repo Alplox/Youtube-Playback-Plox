@@ -14701,6 +14701,9 @@ background: var(--ypp-danger);
         initializationPromise = (async () => {
             info('initializeGlobal', '🚀 Iniciando inicialización global...');
             let hadLanguageInStorage = false;
+            let loadedSettings = null;
+            let loadedSettingsMeta = null;
+            let externalTranslations = null;
 
             // --- Inicializar YouTube Helper API ---
             try {
@@ -14718,7 +14721,7 @@ background: var(--ypp-danger);
 
             // --- Cargar traducciones ---
             try {
-                const [externalTranslations, loadedSettingsMeta] = await Promise.all([
+                [externalTranslations, loadedSettingsMeta] = await Promise.all([
                     loadTranslations().catch((err) => {
                         conError('initializeGlobal', '❌ Error al cargar traducciones:', err);
                         return null;
@@ -14729,7 +14732,7 @@ background: var(--ypp-danger);
                     })
                 ]);
 
-                const loadedSettings = loadedSettingsMeta?.settings || { ...CONFIG.defaultSettings };
+                loadedSettings = loadedSettingsMeta?.settings || { ...CONFIG.defaultSettings };
                 hadLanguageInStorage = !!loadedSettingsMeta?.hadLanguageInStorage;
 
                 if (externalTranslations && Object.keys(externalTranslations).length > 0) {
@@ -14770,12 +14773,14 @@ background: var(--ypp-danger);
                 await setLanguage(langToUse, { persist: false });
                 info('initializeGlobal', ` Idioma configurado: ${langToUse}`);
 
-                // Guardar preferencia si era primera carga
-                if (!hadLanguageInStorage) {
-                    cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
-                    cachedSettings.language = langToUse;
+                // Actualizar siempre cachedSettings.language con el idioma detectado/seleccionado
+                cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
+                cachedSettings.language = langToUse;
+                
+                // Guardar preferencia si era primera carga o si el idioma cambió
+                if (!hadLanguageInStorage || (loadedSettings?.language !== langToUse)) {
                     await Settings.set(cachedSettings);
-                    info('initializeGlobal', `Idioma guardado en settings: ${langToUse}`);
+                    info('initializeGlobal', `Idioma guardado/actualizado en settings: ${langToUse}`);
                 }
             } catch (error) {
                 conError('initializeGlobal', '❌ Error al establecer idioma:', error);

@@ -218,7 +218,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
     // URL del archivo de traducciones
     const TRANSLATIONS_URL = 'https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/translations.json';
     const TRANSLATIONS_URL_BACKUP = 'https://cdn.jsdelivr.net/gh/Alplox/Youtube-Playback-Plox@refs/heads/main/translations.json';
-    const TRANSLATIONS_EXPECTED_VERSION = '0.0.7-2';
+    const TRANSLATIONS_EXPECTED_VERSION = '0.0.7-3';
 
     // Variables globales para las traducciones
     let TRANSLATIONS = {};

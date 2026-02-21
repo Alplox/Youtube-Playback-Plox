@@ -139,7 +139,7 @@
 
     // Sistema de niveles: silent(0), error(1), warn(2), info(3), debug(4)
     const LEVELS = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    let currentLevel = LEVELS.warn; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    let currentLevel = LEVELS.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const styleFor = (kind) => {
         switch (kind) {
@@ -1045,6 +1045,22 @@ html[dark], body.dark-theme {
     background: var(--ypp-success-dark);
   }
 }
+
+
+/* .ytp-time-current,
+.ytp-time-separator,
+.ytp-time-duration {
+  display: none !important;
+    visibility: hidden !important;
+} */
+
+.ytp-live .ytp-time-current,
+.ytp-live .ytp-time-separator,
+.ytp-live .ytp-time-duration {
+  display: none !important;
+  visibility: visible !important;
+}
+
 
 /* Estilo específico para mensajes en Shorts - integrado en el player */
 .ypp-shorts-time-display {
@@ -2200,10 +2216,117 @@ background: var(--ypp-danger);
             .ytp-scrubber-button {
                 background: var(--ytp-progress-color) !important;
             }
-
-            .ytp-live .ytp-time-contents {
+            /* Soporte para el rediseño Moderno (Delhi) */
+            .ytp-delhi-modern .ytp-time-wrapper:not(.ytp-miniplayer-ui *) {
+                min-width: 0;
+                position: relative;
                 display: flex !important;
+                height: var(--yt-delhi-pill-height, 48px);
+                border-radius: 28px;
+                padding: 0 16px;
+                -webkit-backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override, blur(16px));
+                backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override, blur(16px));
+                background: var(--yt-spec-overlay-background-medium-light, rgba(0,0,0,.3));
+                text-shadow: 0 0 2px #000;
                 align-items: center;
+                gap: 8px;
+                cursor: default;
+                /* No interceptar clicks que no son nuestros */
+                pointer-events: auto;
+            }
+
+            /* Corregir orden en el rediseño Delhi: el botón del script debe ir al final */
+            .ytp-delhi-modern .ytp-time-wrapper .ytp-time-current,
+            .ytp-delhi-modern .ytp-time-wrapper .ytp-time-separator,
+            .ytp-delhi-modern .ytp-time-wrapper .ytp-time-duration {
+                order: 1;
+                /* El tiempo debe estar visible para que YouTube calcule bien los offsets de click */
+                display: inline-block !important;
+            }
+
+            .ytp-delhi-modern .ytp-time-wrapper .ytp-live-badge,
+            .ytp-delhi-modern .ytp-time-wrapper .live-badge {
+                order: 2 !important;
+                margin-left: 4px;
+                /* Asegurar que el badge sea clickeable */
+                pointer-events: auto !important;
+                cursor: pointer !important;
+            }
+
+            /* puede descuadrar "punto rojo" de boton en vivo */
+            /*
+            .ytp-delhi-modern .ytp-time-wrapper .ytp-live-badge.ytp-live-badge-is-livehead,
+            .ytp-delhi-modern .ytp-time-wrapper .live-badge.ytp-live-badge-is-livehead {
+                display: flex !important;
+            } */
+
+            /* Livestream real (clase agregada por el script) */
+            .ypp-is-livestream .ytp-time-contents,
+            .ypp-is-livestream .ytp-time-current,
+            .ypp-is-livestream .ytp-time-separator,
+            .ypp-is-livestream .ytp-time-duration {
+                display: none !important;
+            }
+
+            .ypp-is-livestream .ytp-live-badge.ytp-live-badge-is-livehead {
+                display: inline-flex !important;
+                align-items: center !important;
+            }
+
+            .ypp-is-livestream .ytp-live-badge.ytp-live-badge-is-livehead::before {
+                position: relative !important;
+                top: 0 !important;
+                transform: none !important;
+            }
+
+            .ypp-is-livestream .ytp-live-badge.ytp-live-badge-is-livehead[disabled]::before {
+                display: inline-block !important;
+                vertical-align: middle !important;
+                top: -1px !important;
+            }
+
+            .ypp-is-livestream .ypp-time-display {
+                max-height: 24px !important;
+                line-height: normal !important;
+                padding: 2px 8px !important;
+                border-radius: 12px !important;
+                overflow: visible !important;
+                white-space: nowrap !important;
+            }
+
+            .ytp-delhi-modern .ytp-time-wrapper .ypp-time-display {
+                order: 3 !important;
+                margin-left: 4px !important;
+                white-space: nowrap;
+                pointer-events: auto;
+                align-self: center !important;
+                height: auto !important;
+                min-height: 0 !important;
+                max-height: 24px !important;
+                line-height: 20px !important;
+                padding: 2px 8px !important;
+                border-radius: 999px !important;
+                box-sizing: border-box !important;
+                display: inline-flex !important;
+                align-items: center !important;
+                overflow: hidden !important;
+            }
+
+            /* Estilos generales para el botón del script en la barra */
+            .ypp-time-display {
+                cursor: pointer;
+                font-weight: bold;
+                color: #fff;
+                padding: 2px 6px;
+                border-radius: 4px;
+                background: rgba(255, 255, 255, 0.1);
+                transition: background 0.2s;
+                display: inline-flex;
+                align-items: center;
+                gap: 4px;
+            }
+            .ypp-time-display:hover {
+                background: rgba(255, 255, 255, 0.2);
             }
         `;
 
@@ -2316,7 +2439,7 @@ background: var(--ypp-danger);
         '_test_',
         'idb_migrated'
     ]);
-    const STORAGE_MIGRATION_STATE_KEY = `${CONFIG.storagePrefix}idb_migrated`;
+    const STORAGE_MIGRATION_STATE_KEY = `${CONFIG.storagePrefix} idb_migrated`;
     const storageCache = new Map();
 
     // Nueva capa asíncrona de almacenamiento (IndexedDB primario + caché en memoria + fallback)
@@ -2392,7 +2515,7 @@ background: var(--ypp-danger);
 
                         // Filtrar: solo claves del script, excluyendo metaclaves
                         const filteredKeys = (allKeys || []).filter(k => isScriptKey(k) && !STORAGE_META_KEYS.has(k));
-                        logger.info(`Migración: ${filteredKeys.length} claves del script encontradas (de ${allKeys.length} totales)`);
+                        logger.info(`Migración: ${filteredKeys.length} claves del script encontradas(de ${allKeys.length} totales)`);
 
                         for (const rawKey of filteredKeys) {
                             // Strip prefix para coherencia con nuevo Storage sin prefijos
@@ -2406,7 +2529,7 @@ background: var(--ypp-danger);
                                     if (item) value = JSON.parse(item);
                                 }
                             } catch (err) {
-                                logger.warn(`Error al leer clave ${rawKey}:`, err);
+                                logger.warn(`Error al leer clave ${rawKey}: `, err);
                             }
                             if (value !== null) {
                                 legacySnapshot.push({ key: normalizedKey, value: JSON.stringify(value) });
@@ -2457,7 +2580,7 @@ background: var(--ypp-danger);
                         return JSON.parse(raw);
                     }
                 } catch (err) {
-                    logger.warn(`Error al leer ${key} desde IndexedDB:`, err);
+                    logger.warn(`Error al leer ${key} desde IndexedDB: `, err);
                 }
             }
             return null;
@@ -2474,7 +2597,7 @@ background: var(--ypp-danger);
                 try {
                     await IndexedDBAdapter.put(key, serialized);
                 } catch (err) {
-                    logger.warn(`Error al escribir ${key} en IndexedDB, usando fallback:`, err);
+                    logger.warn(`Error al escribir ${key} en IndexedDB, usando fallback: `, err);
                     // Lanzar el error para que el manejador superior lo capture
                     throw err;
                 }
@@ -2491,7 +2614,7 @@ background: var(--ypp-danger);
                 try {
                     await IndexedDBAdapter.del(key);
                 } catch (err) {
-                    logger.warn(`Error al eliminar ${key} en IndexedDB:`, err);
+                    logger.warn(`Error al eliminar ${key} en IndexedDB: `, err);
                 }
             }
         }
@@ -2782,7 +2905,7 @@ background: var(--ypp-danger);
                     parsed = raw;
                 } else if (typeof raw === 'string' && raw.trim()) {
                     parsed = JSON.parse(raw);
-                }  
+                }
 
                 return { ...CONFIG.defaultSettings, ...parsed };
             } catch (error) {
@@ -3228,15 +3351,15 @@ background: var(--ypp-danger);
 
                 // Logging detallado del estado detectado
                 const coexistenceInfo = PlayerStateManager.getCoexistenceInfo();
-                log('PlayerStateCache', `🔍 Estado actualizado: ${coexistenceInfo}`);
+                log('PlayerStateCache', `🔍 Estado actualizado: ${coexistenceInfo} `);
                 if (cachedState.hasMiniPlayer) {
-                    log('PlayerStateCache', `📱 Miniplayer detectado: ${cachedState.miniPlayerVideoId}`);
+                    log('PlayerStateCache', `📱 Miniplayer detectado: ${cachedState.miniPlayerVideoId} `);
                 }
                 if (cachedState.hasShortsPlayer) {
-                    log('PlayerStateCache', `📹 Shorts detectado: ${cachedState.activeShortsVideoId}`);
+                    log('PlayerStateCache', `📹 Shorts detectado: ${cachedState.activeShortsVideoId} `);
                 }
                 if (cachedState.hasWatchPlayer) {
-                    log('PlayerStateCache', `📺 Watch detectado: ${cachedState.activeWatchVideoId}`);
+                    log('PlayerStateCache', `📺 Watch detectado: ${cachedState.activeWatchVideoId} `);
                 }
             }
             return cachedState;
@@ -3329,8 +3452,8 @@ background: var(--ypp-danger);
         const secs = Math.floor(seconds % 60);
 
         return hours > 0
-            ? `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
-            : `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            ? `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} `
+            : `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} `;
     };
 
     /**
@@ -4440,7 +4563,7 @@ background: var(--ypp-danger);
                     const internal = Object.assign({}, videoObj, { videoId: videoObj.videoId || vidKey });
                     const formatted = toFreeTubeFormat(internal);
                     freeTubeData.push(formatted);
-                    if (internal.videoType === 'short' || internal.videoType === 'preview_shorts') shortCount++;
+                    if (internal.videoType === 'shorts' || internal.videoType === 'preview_shorts') shortCount++;
                     else videoCount++;
                 });
             } else {
@@ -4448,7 +4571,7 @@ background: var(--ypp-danger);
                 const internal = Object.assign({}, data, { videoId: data.videoId || key });
                 const formatted = toFreeTubeFormat(internal);
                 freeTubeData.push(formatted);
-                if (internal.videoType === 'short' || internal.videoType === 'preview_shorts') {
+                if (internal.videoType === 'shorts' || internal.videoType === 'preview_shorts') {
                     shortCount++;
                     log('exportToFreeTubeFormat', `Short detectado: ${formatted.videoId} | videoType: ${internal.videoType}`);
                 } else {
@@ -4799,24 +4922,28 @@ background: var(--ypp-danger);
             }
         } catch (_) { }
 
-        // Prioridad 5: Si estamos en watch page, NUNCA debe ser preview
-        if (pageType === 'watch') {
-            log('detectContentType', `✅ Tipo detectado: VIDEO (watch page)`);
-            return 'video';
-        }
-
-        // Prioridad 6: Si es una preview (inline preview en home/search/channel)
-        // IMPORTANTE: Solo si estamos en un contexto real de preview inline
+        // Prioridad 5: Si es una preview (inline preview en home/search/channel)
+        // IMPORTANTE: Si currentType indica preview_*, debe ganar incluso si el DOM
+        // fue refloweado (sticky fallback) y el video ya no está dentro del contenedor
+        // de preview en este tick.
         if (typeof currentType === 'string' && currentType.startsWith('preview_')) {
             try {
                 const isActualPreview = videoElement?.closest?.('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer');
                 if (isActualPreview) {
                     log('detectContentType', `✅ Tipo detectado: PREVIEW (${currentType})`);
-                    return 'preview';
                 } else {
-                    log('detectContentType', `⚠️ currentType sugiere preview pero no hay contexto DOM de preview. Tratando como video regular.`);
+                    log('detectContentType', `ℹ️ currentType indica preview (${currentType}) pero no hay contexto DOM de preview (posible reflow sticky). Forzando PREVIEW.`);
                 }
-            } catch (_) { }
+            } catch (_) {
+                log('detectContentType', `ℹ️ currentType indica preview (${currentType}) y hubo error de inspección DOM. Forzando PREVIEW.`);
+            }
+            return 'preview';
+        }
+
+        // Prioridad 6: Si estamos en watch page, NUNCA debe ser preview
+        if (pageType === 'watch') {
+            log('detectContentType', `✅ Tipo detectado: VIDEO (watch page)`);
+            return 'video';
         }
 
         // Default: Es un video regular
@@ -4961,13 +5088,19 @@ background: var(--ypp-danger);
         const now = Date.now();
         const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
 
+        const resolvedVideoType = (() => {
+            const previousType = sourceData?.videoType;
+            if (previousType === 'video' || previousType === 'shorts' || previousType === 'live') return previousType;
+            return previewType;
+        })();
+
         // Preservar datos previos para previews
         const videoData = {
             ...(sourceData || {}),
             videoId,
             timestamp: currentTime,
             lastUpdated: now,
-            videoType: previewType,
+            videoType: resolvedVideoType,
             isCompleted: isFinished,
             duration: isFinite(duration) ? duration : (sourceData?.duration || 0),
             ...videoInfo,
@@ -5043,13 +5176,22 @@ background: var(--ypp-danger);
     function saveVideoDataByType(videoId, currentTime, duration, videoInfo, pageType, containerType, videoElement, isLiveType, currentType, playlistId = null) {
         log('saveVideoDataByType', `🎯 Iniciando guardado para video ${videoId} via VideoTypeHandler`);
 
+        // En páginas dedicadas, nunca debemos tratar el contenido como preview aunque
+        // currentType haya quedado "pegado" desde el homepage (sticky/reflow).
+        // Esto asegura reclasificación inmediata: preview_* -> video/shorts al navegar.
+        const normalizedCurrentType = (() => {
+            if (pageType === 'watch' && typeof currentType === 'string' && currentType.startsWith('preview_')) return 'watch';
+            if (pageType === 'shorts' && typeof currentType === 'string' && currentType.startsWith('preview_')) return 'shorts';
+            return currentType;
+        })();
+
         // Detectar el tipo de contenido
-        const contentType = detectContentType(pageType, containerType, videoElement, isLiveType, currentType);
+        const contentType = detectContentType(pageType, containerType, videoElement, isLiveType, normalizedCurrentType);
         log('saveVideoDataByType', `📊 Tipo detectado: ${contentType}`);
 
         // Determinar subtipo para previews
-        const previewSubtype = (typeof currentType === 'string' && currentType.startsWith('preview_'))
-            ? currentType
+        const previewSubtype = (typeof normalizedCurrentType === 'string' && normalizedCurrentType.startsWith('preview_'))
+            ? normalizedCurrentType
             : 'preview_watch';
 
         // Delegar todo al VideoTypeHandler
@@ -9401,8 +9543,36 @@ background: var(--ypp-danger);
 
     // Inicializa la visualización de tiempo en la barra de reproducción
     function initTimeDisplay() {
-        const timeContainer = document.querySelector('.ytp-time-contents');
-        log('initTimeDisplay', 'timeContainer encontrado:', timeContainer);
+        // Intentar encontrar el contenedor de contenidos de tiempo
+        let timeContainer = document.querySelector('.ytp-time-contents');
+
+        // Soporte para el rediseño "Delhi" (2024+): el contenedor es un pill wrapper (.ytp-time-wrapper)
+        // Usamos el wrapper como contenedor directo para que el botón del script sea un hermano
+        // de los elementos internos (tiempo, badge de vivo) y así poder usar flexbox order.
+        const delhiWrapper = document.querySelector('.ytp-delhi-modern .ytp-time-wrapper');
+        if (delhiWrapper) {
+            // En el rediseño Delhi, preferimos inyectar directamente en el wrapper si es posible
+            timeContainer = delhiWrapper;
+        }
+
+        try {
+            const wrapper = delhiWrapper || timeContainer?.closest?.('.ytp-time-wrapper') || timeContainer?.parentElement || document.querySelector('.ytp-time-wrapper');
+            const isLiveHead = !!wrapper?.querySelector?.('.ytp-live-badge-is-livehead');
+            if (wrapper?.classList) wrapper.classList.toggle('ypp-is-livestream', isLiveHead);
+
+            // Limpieza defensiva: si no es livehead, asegurarnos de no dejar clases residuales en wrappers antiguos
+            if (!isLiveHead) {
+                for (const el of document.querySelectorAll('.ytp-time-wrapper.ypp-is-livestream')) {
+                    try {
+                        if (!el.querySelector?.('.ytp-live-badge-is-livehead')) el.classList.remove('ypp-is-livestream');
+                    } catch (_) {
+                    }
+                }
+            }
+        } catch (_) {
+        }
+
+        log('initTimeDisplay', 'timeContainer seleccionado:', timeContainer);
 
         // Verificar si timeDisplay existe pero fue removido del DOM (ej: después de un anuncio)
         if (timeDisplay && !document.contains(timeDisplay)) {
@@ -9411,15 +9581,23 @@ background: var(--ypp-danger);
         }
 
         if (!timeContainer || timeDisplay) return;
+
         timeDisplay = createElement('span', {
+            id: 'ypp-time-display-indicator',
             className: 'ypp-time-display ypp-d-none',
             onClickEvent: showSavedVideosList,
             atribute: { title: `${t('savedVideos')}` }
         });
-        timeContainer.appendChild(timeDisplay);
+
+        // En Delhi UI, asegurarnos de que quede al final (después de badge de vivo)
+        if (delhiWrapper) {
+            delhiWrapper.insertAdjacentElement('beforeend', timeDisplay);
+        } else {
+            timeContainer.appendChild(timeDisplay);
+        }
+
         log('initTimeDisplay', 'Creada visualización de tiempo en la barra de reproducción');
     }
-
     /**
      * Determina si un elemento está visible en el layout (no display:none/visibility:hidden, con tamaño > 0)
      * @param {HTMLElement} el
@@ -14776,7 +14954,7 @@ background: var(--ypp-danger);
                 // Actualizar siempre cachedSettings.language con el idioma detectado/seleccionado
                 cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
                 cachedSettings.language = langToUse;
-                
+
                 // Guardar preferencia si era primera carga o si el idioma cambió
                 if (!hadLanguageInStorage || (loadedSettings?.language !== langToUse)) {
                     await Settings.set(cachedSettings);

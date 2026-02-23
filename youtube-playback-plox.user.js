@@ -3087,6 +3087,47 @@ background: var(--ypp-danger);
 
     const domQueryCache = createDomQueryCache();
 
+    /**
+     * Centraliza los lookups frecuentes del DOM para player y su <video>.
+     * Incluye modo best-effort para contextos `unknown` (ej. miniplayer coexistiendo).
+     *
+     * @param {'watch'|'embed'|'shorts'|'unknown'|string} pageType
+     * @returns {{
+     *  moviePlayer: any|null,
+     *  movieVideo: HTMLVideoElement|null,
+     *  shortsPlayer: any|null,
+     *  shortsVideo: HTMLVideoElement|null
+     * }}
+     */
+    const getPlayerDomRefs = (pageType) => {
+        try {
+            const isWatchLike = pageType === 'watch' || pageType === 'embed';
+            const isShorts = pageType === 'shorts';
+            const isUnknown = pageType === 'unknown' || !pageType;
+
+            const allowMovie = isWatchLike || isUnknown;
+            const allowShorts = isShorts || isUnknown;
+
+            const moviePlayer = allowMovie
+                ? domQueryCache.get('player:movie', () => document.querySelector('#movie_player'), 250)
+                : null;
+            const movieVideo = allowMovie
+                ? domQueryCache.get('player:movieVideo', () => document.querySelector('#movie_player video.html5-main-video'), 250)
+                : null;
+
+            const shortsPlayer = allowShorts
+                ? domQueryCache.get('player:shorts', () => document.querySelector(AdSelectors.shortsContainer), 250)
+                : null;
+            const shortsVideo = allowShorts
+                ? domQueryCache.get('player:shortsVideo', () => document.querySelector('#shorts-player video'), 250)
+                : null;
+
+            return { moviePlayer, movieVideo, shortsPlayer, shortsVideo };
+        } catch (_) {
+            return { moviePlayer: null, movieVideo: null, shortsPlayer: null, shortsVideo: null };
+        }
+    };
+
     const AdDetector = Object.freeze({
         /**
          * @param {Element|null|undefined} node
@@ -12350,68 +12391,56 @@ background: var(--ypp-danger);
         const refreshRefs = async () => {
             try {
                 const pt = getYouTubePageType();
-                if (pt === 'watch') {
-                    const mp = document.querySelector('#movie_player');
+                if (pt === 'watch' || pt === 'embed') {
+                    const { moviePlayer: mp, movieVideo: ve } = getPlayerDomRefs(pt);
                     if (mp?.getDuration) {
                         try {
                             const idOk = typeof mp.getVideoData === 'function' ? (mp.getVideoData()?.video_id === targetVideoId || !targetVideoId) : true;
                             if (idOk) player = mp;
                         } catch (_) { player = mp; }
                     }
-                    const ve = document.querySelector('#movie_player video.html5-main-video');
                     if (ve && document.contains(ve)) {
                         const idOkVe = (() => { try { const id = mp?.getVideoData?.()?.video_id; return !targetVideoId || !id || id === targetVideoId; } catch (_) { return !targetVideoId; } })();
                         if (idOkVe) videoEl = ve;
                     }
                 } else if (pt === 'shorts') {
-                    const sp = document.querySelector('#shorts-player');
+                    const { shortsPlayer: sp, shortsVideo: ve2 } = getPlayerDomRefs(pt);
                     if (sp?.getDuration) {
                         try {
                             const idOk = typeof sp.getVideoData === 'function' ? (sp.getVideoData()?.video_id === targetVideoId || !targetVideoId) : true;
                             if (idOk) player = sp;
                         } catch (_) { player = sp; }
                     }
-                    const ve2 = document.querySelector('#shorts-player video');
                     if (ve2 && document.contains(ve2)) {
                         const idOkVe2 = (() => { try { const id = sp?.getVideoData?.()?.video_id; return !targetVideoId || !id || id === targetVideoId; } catch (_) { return !targetVideoId; } })();
                         if (idOkVe2) videoEl = ve2;
                     }
-                }
-
-                const hp = YTHelper?.player?.playerObject;
-                const hv = YTHelper?.player?.videoElement;
-                if (!player && hp) {
-                    try {
-                        const id = hp?.getVideoData?.()?.video_id;
-                        if (!targetVideoId || !id || id === targetVideoId) player = hp;
-                    } catch (_) { player = hp; }
-                }
-                if (!(videoEl && document.contains(videoEl))) {
-                    if (hv && document.contains(hv)) {
-                        try {
-                            const c = getContainerForEl(hv);
-                            const id = c?.getVideoData?.()?.video_id;
-                            if (!targetVideoId || !id || id === targetVideoId) videoEl = hv;
-                        } catch (_) { }
-                    } else {
-                        try {
-                            const newEl = await getActiveVideoElement();
-                            if (newEl) {
-                                const c2 = getContainerForEl(newEl);
-                                const id2 = c2?.getVideoData?.()?.video_id;
-                                if (!targetVideoId || !id2 || id2 === targetVideoId) videoEl = newEl;
-                            }
-                        } catch (_) { }
+                } else {
+                    // Best-effort: cuando la página es "unknown" o YouTube cambia el routing,
+                    // intentar refrescar refs principales (útil si el miniplayer está activo).
+                    const { moviePlayer: mp2, movieVideo: ve3, shortsPlayer: sp2, shortsVideo: ve4 } = getPlayerDomRefs('unknown');
+                    if (!player) {
+                        const candidate = mp2?.getDuration ? mp2 : (sp2?.getDuration ? sp2 : null);
+                        if (candidate) {
+                            try {
+                                const id = candidate?.getVideoData?.()?.video_id;
+                                if (!targetVideoId || !id || id === targetVideoId) player = candidate;
+                            } catch (_) { player = candidate; }
+                        }
+                    }
+                    if (!(videoEl && document.contains(videoEl))) {
+                        const candidateVideo = (ve3 && document.contains(ve3)) ? ve3 : ((ve4 && document.contains(ve4)) ? ve4 : null);
+                        if (candidateVideo) {
+                            try {
+                                const c = getContainerForEl(candidateVideo);
+                                const id = c?.getVideoData?.()?.video_id;
+                                if (!targetVideoId || !id || id === targetVideoId) videoEl = candidateVideo;
+                            } catch (_) { videoEl = candidateVideo; }
+                        }
                     }
                 }
             } catch (_) { }
         };
-        try {
-            const hp = YTHelper?.player?.playerObject;
-            const hv = YTHelper?.player?.videoElement;
-            if (hp) player = hp;
-            if (hv) videoEl = hv;
-        } catch (_) { }
         if (videoEl && !document.contains(videoEl)) {
             try {
                 const newEl = await getActiveVideoElement();

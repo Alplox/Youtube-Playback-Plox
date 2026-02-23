@@ -3238,9 +3238,7 @@ background: var(--ypp-danger);
                 logicalType: null,
                 playlistId: null,
                 timeupdateHandler: null,
-                timeupdateRebindIntervalId: null,
-                progressPollIntervalId: null,
-                secondaryProgressPollIntervalId: null,
+
                 lastTimeUpdateTick: 0,
                 lastSaveTime: 0,
                 lastSaveTimesByVideoId: Object.create(null),
@@ -3268,12 +3266,7 @@ background: var(--ypp-danger);
         const cleanup = (containerId, opts = {}) => {
             const ctx = contexts.get(containerId);
             if (!ctx) return;
-            try { if (ctx.timeupdateRebindIntervalId) clearInterval(ctx.timeupdateRebindIntervalId); } catch (_) { }
-            try { if (ctx.progressPollIntervalId) clearInterval(ctx.progressPollIntervalId); } catch (_) { }
-            try { if (ctx.secondaryProgressPollIntervalId) clearInterval(ctx.secondaryProgressPollIntervalId); } catch (_) { }
-            ctx.timeupdateRebindIntervalId = null;
-            ctx.progressPollIntervalId = null;
-            ctx.secondaryProgressPollIntervalId = null;
+
             ctx.lastTimeUpdateTick = 0;
             ctx.lastSaveTime = 0;
             ctx.videoId = null;
@@ -9821,9 +9814,7 @@ background: var(--ypp-danger);
     let lastAdCheckLog = 0;
     let lastAdStateLog = 0;
     let lastDurationLog = 0;
-    let timeupdateRebindIntervalId = null;
-    let progressPollIntervalId = null;
-    let secondaryProgressPollIntervalId = null;
+
     let lastTimeUpdateTick = 0;
 
     /**
@@ -12067,214 +12058,7 @@ background: var(--ypp-danger);
             currentlyProcessingVideos.delete(videoIdDetected);
             log('processVideo', `🔓 Video ${videoIdDetected} liberado del Set de procesamiento`);
 
-            if (ctx?.timeupdateRebindIntervalId) {
-                try { clearInterval(ctx.timeupdateRebindIntervalId); } catch (_) { }
-            } else if (timeupdateRebindIntervalId) {
-                try { clearInterval(timeupdateRebindIntervalId); } catch (_) { }
-            }
-            const observedHandler = handler;
-            const observedVideoId = boundVideoId;
-            const observedUrl = window.location.href;
-            const rebindInterval = setInterval(async () => {
-                try {
-                    // NUEVO: Detectar cambio de URL/video que no dispara yt-navigate-finish
-                    const currentUrlNow = window.location.href;
-                    const currentVideoIdFromUrl = extractOrNormalizeVideoId(currentUrlNow)?.id;
-                    if (currentVideoIdFromUrl && currentVideoIdFromUrl !== observedVideoId && !isNavigating) {
-                        log('rebindInterval', `🔄 CAMBIO DE VIDEO DETECTADO POR POLLING: ${observedVideoId} -> ${currentVideoIdFromUrl}`);
-                        try { activeEl?.removeEventListener?.('timeupdate', observedHandler); } catch (_) { }
-                        setTimeout(() => {
-                            try {
-                                cleanupAll();
-                                handleNavigation();
-                            } catch (_) { }
-                        }, 0);
-                        return; // Salir del interval, se recibirá un nuevo boundVideoId
-                    }
 
-                    let activeEl = null;
-                    const pt = getYouTubePageType();
-
-                    if (pt === 'watch' || pt === 'embed') {
-                        try { activeEl = document.querySelector('#movie_player video.html5-main-video') || YTHelper?.player?.videoElement || await getActiveVideoElement(); } catch (_) { }
-                    } else if (pt === 'shorts') {
-                        try {
-                            const mpVid = (() => { try { return document.querySelector('#movie_player') || null } catch (_) { return null; } })();
-                            const preferMp = (observedVideoId && mpVid && observedVideoId === mpVid) || (cachedSettings?.saveShorts === false);
-                            const preferSp = (observedVideoId && mpVid && observedVideoId !== mpVid) || (cachedSettings?.saveShorts !== false);
-                            if (preferMp) {
-                                activeEl = document.querySelector('#movie_player video.html5-main-video');
-                            } else if (preferSp) {
-                                activeEl = document.querySelector('#shorts-player video');
-                            }
-                            if (!activeEl) {
-                                // Fallbacks en orden: Shorts explícito -> helper -> cualquier activo
-                                activeEl = document.querySelector('#shorts-player video') || document.querySelector('ytd-shorts video.html5-main-video') || YTHelper?.player?.videoElement || await getActiveVideoElement();
-                            }
-                        } catch (_) { }
-                    } else {
-                        try { activeEl = await getActiveVideoElement(); if (!activeEl) { activeEl = YTHelper?.player?.videoElement; } } catch (_) { }
-                    }
-                    const ctxEl = ctx?.videoEl || currentVideoEl;
-                    if ((activeEl !== ctxEl || !document.contains(ctxEl)) && observedVideoId) {
-                        try { ctxEl?.removeEventListener('timeupdate', (ctx?.timeupdateHandler || currentTimeUpdateHandler || observedHandler)); } catch (_) { }
-                        try { if (ctx) ctx.videoEl = activeEl; } catch (_) { }
-                        try { if (ctx) ctx.timeupdateHandler = observedHandler; } catch (_) { }
-                        // Back-compat con globals
-                        currentVideoEl = activeEl;
-                        currentTimeUpdateHandler = observedHandler;
-                        try { activeEl.addEventListener('timeupdate', observedHandler); } catch (_) { }
-                    }
-                } catch (_) { }
-            }, 500);
-            try { ctx.timeupdateRebindIntervalId = rebindInterval; } catch (_) { }
-            timeupdateRebindIntervalId = rebindInterval;
-
-            if (ctx?.progressPollIntervalId) {
-                try { clearInterval(ctx.progressPollIntervalId); } catch (_) { }
-            } else if (progressPollIntervalId) {
-                try { clearInterval(progressPollIntervalId); } catch (_) { }
-            }
-            const pollInterval = setInterval(async () => {
-                try {
-                    const nowTs = Date.now();
-                    const lastTick = (ctx?.lastTimeUpdateTick ?? lastTimeUpdateTick);
-                    if (nowTs - lastTick <= 2500) return; // timeupdate activo, no hace falta fallback
-                    if (isNavigating || isAdBlockedFor(boundType)) return;
-
-                    let activeEl = null;
-                    try { activeEl = YTHelper?.player?.videoElement || await getActiveVideoElement(); } catch (_) { }
-                    if (!activeEl || !document.contains(activeEl)) return;
-                    if (activeEl.paused) return; // Evitar polling cuando está pausado
-
-                    let effPlayer = player;
-                    try { const hp = YTHelper?.player?.playerObject; if (hp) effPlayer = hp; } catch (_) { }
-                    let pageTypeNow = getYouTubePageType();
-                    const urlIdNow = extractOrNormalizeVideoId(window.location.href)?.id || null;
-                    let currentId = null;
-                    try { currentId = YTHelper?.video?.id || effPlayer?.getVideoData?.()?.video_id || null; } catch (_) { }
-                    let mpId2 = null;
-                    try { const mp2 = document.querySelector('#movie_player'); mpId2 = mp2?.getVideoData?.()?.video_id || null; } catch (_) { }
-                    const effectiveIdNow = (pageTypeNow === 'watch' || pageTypeNow === 'embed')
-                        ? (urlIdNow || currentId)
-                        : (pageTypeNow === 'shorts')
-                            ? ((boundType === 'watch' || (cachedSettings?.saveShorts === false)) ? (mpId2 || currentId || urlIdNow || boundVideoId) : (urlIdNow || currentId))
-                            : (mpId2 || currentId || urlIdNow || boundVideoId);
-                    if (effectiveIdNow && effectiveIdNow !== boundVideoId) return;
-
-                    const minInterval = (cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves) * 1000;
-                    const ctxLastSave = (ctx?.lastSaveTime ?? lastSaveTime);
-                    if (nowTs - ctxLastSave < minInterval) return;
-
-                    updateStatus(effPlayer, activeEl, boundType, ((boundType === 'shorts' || pageTypeNow === 'shorts') ? null : boundPlId), boundVideoId).then(saveResult => {
-                        if (saveResult?.success) {
-                            log('processVideo', `✅ Progreso guardado exitosamente para ${boundVideoId}`);
-                            const currentTime = effPlayer.getCurrentTime ? effPlayer.getCurrentTime() : (activeEl?.currentTime || 0);
-                            notifySeekOrProgress(saveResult?.timestamp ?? currentTime, 'progress', { saveResult, videoType: boundType });
-                        } else {
-                            log('processVideo', `⚠️ No se guardó progreso para ${boundVideoId}:`, saveResult?.reason);
-
-                            // Mostrar notificación de error de almacenamiento
-                            if (saveResult?.reason === 'storage_full') {
-                                showFloatingToast(`${SVG_ICONS.error} ${t('storageFull')}`, 0, { persistent: true });
-                            }
-                        }
-                        try { ctx.lastSaveTime = nowTs; } catch (_) { }
-                        lastSaveTime = nowTs;
-                    }).catch(err => {
-                        conError('processVideo', 'Error al guardar progreso (poller):', err);
-                    });
-                } catch (_) { }
-            }, 500);
-            try { ctx.progressPollIntervalId = pollInterval; } catch (_) { }
-            progressPollIntervalId = pollInterval;
-
-            if (ctx?.secondaryProgressPollIntervalId) {
-                try { clearInterval(ctx.secondaryProgressPollIntervalId); } catch (_) { }
-            } else if (secondaryProgressPollIntervalId) {
-                try { clearInterval(secondaryProgressPollIntervalId); } catch (_) { }
-            }
-            const secondaryInterval = setInterval(async () => {
-                try {
-                    if (isNavigating) return;
-                    const pageTypeNow2 = getYouTubePageType();
-                    if (pageTypeNow2 !== 'shorts') return;
-
-                    const mpC = document.querySelector('#movie_player');
-                    const spC = document.querySelector('#shorts-player');
-                    if (!mpC && !spC) return;
-                    const mpEl2 = document.querySelector('#movie_player video.html5-main-video');
-                    const spEl2 = document.querySelector('#shorts-player video');
-                    const nowTs2 = Date.now();
-                    const minInterval2 = (cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves) * 1000;
-                    let mpId3 = null;
-                    try { mpId3 = mpC?.getVideoData?.()?.video_id || null; } catch (_) { }
-                    const urlIdNow2 = extractOrNormalizeVideoId(window.location.href)?.id || null;
-                    if (mpEl2 && !mpEl2.paused && mpId3 && mpId3 !== boundVideoId && !isAdBlockedFor('video')) {
-                        const lastSavedMp = (ctx?.lastSaveTimesByVideoId?.[mpId3] ?? lastSaveTimesByVideoId[mpId3] ?? 0);
-                        if (nowTs2 - lastSavedMp >= minInterval2) {
-                            const mpPlayer2 = mpC && typeof mpC.getDuration === 'function' ? mpC : player;
-                            try { clearVideoInfoCache(mpId3); } catch (_) { }
-
-                            // Derivar playlistId del miniplayer desde lastVideoUrl o anclado
-                            let mpPlId2 = boundPlId;
-                            if (!mpPlId2) {
-                                try {
-                                    if (lastVideoUrl) {
-                                        const u = new URL(lastVideoUrl, location.origin);
-                                        const l = u.searchParams.get('list');
-                                        if (l) mpPlId2 = l;
-                                    }
-                                } catch (_) { }
-                                /* if (!mpPlId2) {
-                                    try {
-                                        const a = document.querySelector('#anchored-panel a[href*="list="]') || document.querySelector('#movie_player a[href*="list="]');
-                                        if (a) {
-                                            const u2 = new URL(a.href, location.origin);
-                                            const l2 = u2.searchParams.get('list');
-                                            if (l2) mpPlId2 = l2;
-                                        }
-                                    } catch (_) { }
-                                } */
-                            }
-                            updateStatus(mpPlayer2, mpEl2, 'video', mpPlId2, mpId3).then(r => {
-                                if (r && r.success) {
-                                    const tsOk = Date.now();
-                                    try { lastSaveTimesByVideoId[mpId3] = tsOk; } catch (_) { }
-                                    try { if (ctx?.lastSaveTimesByVideoId) ctx.lastSaveTimesByVideoId[mpId3] = tsOk; } catch (_) { }
-                                }
-                            }).catch(() => { });
-                        }
-                    }
-
-                    if (spEl2 && !spEl2.paused && urlIdNow2 && urlIdNow2 !== boundVideoId && !isAdBlockedFor('shorts')) {
-                        // Respetar configuración: no guardar shorts si está deshabilitado
-                        try { if (cachedSettings?.saveShorts === false) return; } catch (_) { }
-                        const lastSavedSp = (ctx?.lastSaveTimesByVideoId?.[urlIdNow2] ?? lastSaveTimesByVideoId[urlIdNow2] ?? 0);
-                        if (nowTs2 - lastSavedSp >= minInterval2) {
-                            const spPlayer2 = {
-                                getVideoData: () => ({ video_id: urlIdNow2, title: getVideoTittle(null) || null, author: getVideoAuthor(null) || null }),
-                                getCurrentTime: () => { try { return spEl2.currentTime || 0; } catch (_) { return 0; } },
-                                getDuration: () => { try { return spEl2.duration || 0; } catch (_) { return 0; } }
-                            };
-                            try { clearVideoInfoCache(urlIdNow2); } catch (_) { }
-                            updateStatus(spPlayer2, spEl2, 'shorts', null, urlIdNow2).then(r => {
-                                if (r && r.success) {
-                                    const tsOk2 = Date.now();
-                                    try { lastSaveTimesByVideoId[urlIdNow2] = tsOk2; } catch (_) { }
-                                    try { if (ctx?.lastSaveTimesByVideoId) ctx.lastSaveTimesByVideoId[urlIdNow2] = tsOk2; } catch (_) { }
-                                    try {
-                                        const currentTime2 = spPlayer2.getCurrentTime ? spPlayer2.getCurrentTime() : (spEl2?.currentTime || 0);
-                                        notifySeekOrProgress(r.timestamp ?? currentTime2, 'progress', { saveResult: r, videoType: 'shorts' });
-                                    } catch (_) { }
-                                }
-                            }).catch(() => { });
-                        }
-                    }
-                } catch (_) { }
-            }, 500);
-            try { ctx.secondaryProgressPollIntervalId = secondaryInterval; } catch (_) { }
-            secondaryProgressPollIntervalId = secondaryInterval;
 
             try {
                 const ptEnd = getYouTubePageType();
@@ -12591,7 +12375,6 @@ background: var(--ypp-danger);
             };
 
             const cleanup = () => {
-                clearInterval(checkInterval);
                 clearTimeout(timeoutId);
                 videoEl?.removeEventListener('seeked', onSeeked);
                 videoEl?.removeEventListener('timeupdate', onTimeUpdate);
@@ -12615,19 +12398,7 @@ background: var(--ypp-danger);
                 }
             };
 
-            // Intervalo de verificación como respaldo
-            const checkInterval = setInterval(() => {
-                try {
-                    try { const hvNow = YTHelper?.player?.videoElement; if (hvNow) videoEl = hvNow; } catch (_) { }
-                    const currentTime = videoEl?.currentTime ?? player?.getCurrentTime?.();
-                    if (Math.abs(currentTime - time) <= NEAR_THRESHOLD) {
-                        log('applySeek', `Seek detectado por intervalo. Diferencia: ${Math.abs(currentTime - time)}s`);
-                        completeSeek();
-                    }
-                } catch (e) {
-                    // ignorar
-                }
-            }, 200);
+
 
             // Timeout final con lógica mejorada
             const timeoutId = setTimeout(() => {
@@ -14368,24 +14139,10 @@ background: var(--ypp-danger);
                 subtree: true
             });
 
-            // Log periódico para verificar que el monitor está activo (solo durante anuncios de watch)
-            const periodicCheck = setInterval(() => {
-                try {
-                    if (isAdWatchPlaying) {
-                        log('adStateMonitor', `🔄 Monitor activo (watch), anuncio aún presente (ytHelper: ${YTHelper?.player?.isPlayingAds})`);
-                    }
-                } catch (_) { }
-            }, 15000);
-
-            // Guardar referencia para limpiarlo después
-            observer._periodicCheck = periodicCheck;
         };
 
         const stop = () => {
             if (observer) {
-                if (observer._periodicCheck) {
-                    clearInterval(observer._periodicCheck);
-                }
                 observer.disconnect();
                 observer = null;
                 log('adStateMonitor', 'Monitor de anuncios detenido');
@@ -14694,9 +14451,6 @@ background: var(--ypp-danger);
         // Limpiar timers/intervals
         const timers = [
             { ref: navigationDebounceTimeout, fn: clearTimeout, name: 'navigationDebounceTimeout' },
-            { ref: timeupdateRebindIntervalId, fn: clearInterval, name: 'timeupdateRebindIntervalId' },
-            { ref: progressPollIntervalId, fn: clearInterval, name: 'progressPollIntervalId' },
-            { ref: secondaryProgressPollIntervalId, fn: clearInterval, name: 'secondaryProgressPollIntervalId' },
         ];
 
         timers.forEach(({ ref, fn, name }) => {
@@ -14721,9 +14475,6 @@ background: var(--ypp-danger);
 
         // Resetear estados (NO resetear isAdPlaying aquí, lo maneja el monitor)
         navigationDebounceTimeout = null;
-        timeupdateRebindIntervalId = null;
-        progressPollIntervalId = null;
-        secondaryProgressPollIntervalId = null;
         currentlyProcessingVideoId = null;
         lastPlaylistId = null;
         isResuming = false;

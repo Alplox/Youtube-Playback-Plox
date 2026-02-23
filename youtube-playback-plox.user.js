@@ -2998,6 +2998,156 @@ background: var(--ypp-danger);
     let isAdShortsPlaying = false; // Anuncio activo en Shorts
     let isAdWatchPlaying = false;  // Anuncio activo en reproductor principal (watch/embed/miniplayer)
 
+    // ------------------------------------------
+    // MARK: 📢 Ad Selectors / Ad Detector (centralizado)
+    // ------------------------------------------
+
+    const AdSelectors = Object.freeze({
+        playerContainer: '#movie_player, .html5-video-player', // Contenedor principal del reproductor (Watch/Embed/Miniplayer)
+        playerAdClasses: ['ad-showing', 'ad-interrupting'], // Clases confiables del player cuando hay anuncio reproduciéndose
+        shortsContainer: '#shorts-player', // Contenedor de Shorts (página /shorts)
+        shortsAdClasses: ['ad-created'], // Señal de Shorts: clase típica cuando se crea un anuncio en Shorts
+        inPlayerAdContainers: [
+            '.ytp-ad-module', // Módulo de anuncio dentro del player
+            '.ytp-ad-player-overlay', // Overlay del anuncio (video/imagen) sobre el player
+            '.video-ads', // Contenedor de ads del reproductor (estructura legacy)
+            '#player-ads', // Contenedor externo de ads del player (YouTube layout)
+        ],
+        inFeedAdContainers: [
+            'ytd-in-feed-ad-layout-renderer', // Ads dentro del feed (Home/Search)
+            'ytd-ad-slot-renderer', // Slot genérico de anuncio (feed/sidebar)
+            'ytd-display-ad-renderer', // Display ad (paneles laterales / feed)
+            'ytd-promoted-sparkles-web-renderer', // Promoted / “sparkles” (cards patrocinadas)
+            'ytd-video-masthead-ad-v3-renderer', // Masthead ad (homepage autoplay)
+            'ytd-page-top-ad-layout-renderer', // Ad superior de página (homepage/top)
+        ],
+        clickableAdBadgesWithinRichItem: [
+            '.yt-badge-shape--ad', // Badge “Ad” moderno
+            '[aria-label*="Ad"]', // Badge accesible (inglés)
+            '[aria-label*="Patrocinado"]', // Badge accesible (español)
+            '[aria-label*="Sponsored"]', // Badge accesible (inglés alternativo)
+        ],
+        activeAdUi: [
+            '.ytp-ad-player-overlay:not([hidden]):not([style*="display: none"])', // Overlay visible de anuncio
+            '.ytp-ad-module:not([hidden]):not([style*="display: none"])', // Módulo visible de anuncio
+            '.ytp-ad-text:not([hidden]):not([style*="display: none"])', // Texto “Ad” visible
+            '.ytp-ad-preview:not([hidden]):not([style*="display: none"])', // Preview de anuncio visible
+            '.ytp-ad-skip-button-container:not([hidden]):not([style*="display: none"])', // Botón “Skip” visible
+            '.ytp-ad-preview-container:not([hidden]):not([style*="display: none"])', // Contenedor de preview visible
+            '.ytp-ad-image-overlay:not([hidden]):not([style*="display: none"])', // Overlay de imagen visible
+            '.ytp-ad-overlay-container:not([hidden]):not([style*="display: none"])', // Contenedor overlay visible
+            '.video-ads:not([hidden]):not([style*="display: none"])', // Contenedor legacy visible
+            'ytd-in-feed-ad-layout-renderer', // Feed ad (no depende del player)
+        ],
+        shortDurationAdUi: [
+            '.ytp-ad-text', // Señales rápidas: texto/badge de ad
+            '.ytp-ad-skip-button-container', // Señales rápidas: skip visible/habilitable
+            '.ytp-ad-preview', // Señales rápidas: preview
+        ],
+    });
+
+    const AdSelectorText = Object.freeze({
+        inPlayerAdContainers: AdSelectors.inPlayerAdContainers.join(', '),
+        inFeedAdContainers: AdSelectors.inFeedAdContainers.join(', '),
+        inAnyAdContainers: [...AdSelectors.inPlayerAdContainers, ...AdSelectors.inFeedAdContainers].join(', '),
+        activeAdUi: AdSelectors.activeAdUi.join(','),
+        shortDurationAdUi: AdSelectors.shortDurationAdUi.join(', '),
+        clickableAdBadgesWithinRichItem: AdSelectors.clickableAdBadgesWithinRichItem.join(', '),
+    });
+
+    const createDomQueryCache = () => {
+        /** @type {Map<string, {ts: number, value: any}>} */
+        const cache = new Map();
+        const DEFAULT_TTL_MS = 125;
+
+        /**
+         * @template T
+         * @param {string} key
+         * @param {() => T} getter
+         * @param {number} [ttlMs]
+         * @returns {T}
+         */
+        const get = (key, getter, ttlMs = DEFAULT_TTL_MS) => {
+            const now = Date.now();
+            const entry = cache.get(key);
+            if (entry && (now - entry.ts) <= ttlMs) return entry.value;
+            const value = getter();
+            cache.set(key, { ts: now, value });
+            return value;
+        };
+
+        /** @param {string} [prefix] */
+        const clear = (prefix) => {
+            if (!prefix) { cache.clear(); return; }
+            for (const k of cache.keys()) { if (k.startsWith(prefix)) cache.delete(k); }
+        };
+
+        return { get, clear };
+    };
+
+    const domQueryCache = createDomQueryCache();
+
+    const AdDetector = Object.freeze({
+        /**
+         * @param {Element|null|undefined} node
+         * @returns {boolean}
+         */
+        isNodeWithinAdContainer(node) {
+            try {
+                if (!node || typeof node.closest !== 'function') return false;
+                if (node.closest(AdSelectorText.inAnyAdContainers)) return true;
+                const playerContainer = node.closest(AdSelectors.playerContainer);
+                if (!playerContainer?.classList) return false;
+                return AdSelectors.playerAdClasses.some((c) => playerContainer.classList.contains(c));
+            } catch (_) {
+                return false;
+            }
+        },
+
+        /**
+         * @param {Element|null|undefined} root
+         * @returns {Element|null}
+         */
+        findVisibleAdUi(root) {
+            try {
+                if (!root?.querySelector) return null;
+                return domQueryCache.get('ad:activeUi', () => root.querySelector(AdSelectorText.activeAdUi), 100);
+            } catch (_) {
+                return null;
+            }
+        },
+
+        /**
+         * @returns {boolean}
+         */
+        hasShortDurationAdUi() {
+            try {
+                return !!domQueryCache.get('ad:shortUi', () => document.querySelector(AdSelectorText.shortDurationAdUi), 125);
+            } catch (_) {
+                return false;
+            }
+        },
+
+        /**
+         * @param {Element|null|undefined} linkEl
+         * @returns {{adContainer: Element|null, hasAdBadge: boolean}}
+         */
+        classifyClickedLink(linkEl) {
+            try {
+                if (!linkEl) return { adContainer: null, hasAdBadge: false };
+                const adContainer = linkEl.closest(AdSelectorText.inFeedAdContainers);
+                let hasAdBadge = false;
+                try {
+                    const richItem = linkEl.closest('ytd-rich-item-renderer');
+                    hasAdBadge = !!richItem?.querySelector?.(AdSelectorText.clickableAdBadgesWithinRichItem);
+                } catch (_) { hasAdBadge = false; }
+                return { adContainer: adContainer || null, hasAdBadge };
+            } catch (_) {
+                return { adContainer: null, hasAdBadge: false };
+            }
+        },
+    });
+
     // Helper para decidir bloqueo por anuncios según tipo
     const isAdBlockedFor = (type) => {
         try {
@@ -5684,29 +5834,7 @@ background: var(--ypp-danger);
         // no queremos grabar (violación de Copyright y mala experiencia)
         const isAdContextNode = (node) => {
             try {
-                if (!node || !node.closest) return false;
-
-                // Buscar contenedores explícitos de anuncios
-                const adNode = node.closest(
-                    '.ytp-ad-module, .ytp-ad-player-overlay, .video-ads, ' +
-                    'ytd-in-feed-ad-layout-renderer, ytd-ad-slot-renderer, ' +
-                    'ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer, #player-ads'
-                );
-                if (adNode) return true;
-
-                // También revisar si el player tiene la clase ad-showing
-                // (indica que está reproduciendo un anuncio actualmente)
-                try {
-                    const playerContainer = node.closest('#movie_player, .html5-video-player');
-                    if (playerContainer && (
-                        playerContainer.classList?.contains('ad-showing') ||
-                        playerContainer.classList?.contains('ad-interrupting')
-                    )) {
-                        return true;
-                    }
-                } catch (_) { }
-
-                return false;
+                return AdDetector.isNodeWithinAdContainer(node);
             } catch (_) { return false; }
         };
 
@@ -6088,16 +6216,8 @@ background: var(--ypp-danger);
         };
 
         const isAdContext = (node) => {
-            try {
-                if (!node || !node.closest) return false;
-                const adNode = node.closest('.ytp-ad-module, .ytp-ad-player-overlay, .video-ads, ytd-in-feed-ad-layout-renderer, ytd-ad-slot-renderer, ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer, #player-ads');
-                if (adNode) return true;
-                try {
-                    const po = YTHelper?.player?.playerObject;
-                    if (po && (po.classList?.contains('ad-showing') || po.classList?.contains('ad-interrupting'))) return true;
-                } catch (_) { }
-                return false;
-            } catch (_) { return false; }
+            try { return AdDetector.isNodeWithinAdContainer(node); }
+            catch (_) { return false; }
         };
 
         const isInlinePreviewContext = (node) => {
@@ -9060,10 +9180,11 @@ background: var(--ypp-danger);
                 const container = videoEl?.closest?.('#movie_player, #shorts-player');
                 let hasAdSignals = false;
                 if (container?.id === 'movie_player') {
-                    if (container.classList?.contains('ad-showing') || container.classList?.contains('ad-interrupting')) {
+                    const hasAdClass = AdSelectors.playerAdClasses.some((c) => container.classList?.contains?.(c));
+                    if (hasAdClass) {
                         hasAdSignals = true;
                     } else {
-                        const adNode = container.querySelector?.('#player-ads, .ytp-ad-module, .ytp-ad-player-overlay, .video-ads');
+                        const adNode = domQueryCache.get('ad:localContainerNode', () => container.querySelector?.(AdSelectorText.inPlayerAdContainers), 100);
                         if (adNode) {
                             let isVisible = false;
                             try {
@@ -9163,7 +9284,7 @@ background: var(--ypp-danger);
                     const isInlineCtx = !!(videoEl?.closest?.('#inline-preview-player') ||
                         videoEl?.closest?.('.ytp-inline-preview-ui') ||
                         videoEl?.closest?.('ytd-thumbnail-overlay-inline-playback-renderer'));
-                    const isAdInline = !!(videoEl?.closest?.('.ytp-ad-module, .ytp-ad-player-overlay, .video-ads, ytd-in-feed-ad-layout-renderer, ytd-ad-slot-renderer, ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer, #player-ads'));
+                    const isAdInline = AdDetector.isNodeWithinAdContainer(videoEl);
                     if (isInlineCtx) {
                         if (isAdInline) {
                             log('updateStatus', '⏸ Inline detectada pero es un contexto de anuncio. No guardar.');
@@ -9206,20 +9327,40 @@ background: var(--ypp-danger);
                 const isHomeLike2 = (pageTypeNow === 'home' || pageTypeNow === 'search' || pageTypeNow === 'channel' || pageTypeNow === 'unknown');
                 const isPreviewType2 = typeof type === 'string' && type.startsWith('preview');
                 if (isHomeLike2 && isPreviewType2 && video_id) {
-                    const anchors = Array.from(document.querySelectorAll(`a[href*="/watch?v=${video_id}"]`));
-                    const hasAnchors = anchors.length > 0;
-                    if (!hasAnchors) {
+                    const cached = domQueryCache.get(`ad:anchorGuard:${video_id}`, () => {
+                        /** @type {Element|null} */
+                        const scopeRoot =
+                            document.querySelector('ytd-rich-grid-renderer') ||
+                            document.querySelector('ytd-section-list-renderer') ||
+                            document.querySelector('#contents') ||
+                            document.body;
+
+                        const scopedAnchors = Array.from(scopeRoot.querySelectorAll(`a[href*="/watch?v=${video_id}"]`));
+                        const hasAnchors = scopedAnchors.length > 0;
+                        if (!hasAnchors) return { hasAnchors: false, adLinked: false };
+
+                        for (const a of scopedAnchors) {
+                            if (!a) continue;
+                            // Solo considerar anchors que realmente pertenezcan al feed/card (evita header/sidebar)
+                            const isFeedItem = !!a.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-reel-item-renderer, ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer');
+                            if (!isFeedItem) continue;
+
+                            const inAdContainer = !!a.closest(AdSelectorText.inFeedAdContainers);
+                            const { hasAdBadge } = AdDetector.classifyClickedLink(a);
+                            const hasAdBadgeNearby = hasAdBadge || !!(a.closest('ytd-rich-item-renderer, ytd-ad-slot-renderer')?.querySelector?.('[data-ad-impressions], .ytwAdBadgeViewModelHostIsClickableAdComponent'));
+                            if (inAdContainer || hasAdBadgeNearby) {
+                                return { hasAnchors: true, adLinked: true };
+                            }
+                        }
+
+                        return { hasAnchors: true, adLinked: false };
+                    }, 1000);
+
+                    if (!cached?.hasAnchors) {
                         log('updateStatus', '⏸ Inline preview en Home sin enlaces watch para este video; tratada como anuncio. No guardar.');
                         return { success: false, reason: 'inline_no_watch_link' };
                     }
-                    let adLinked = false;
-                    for (const a of anchors) {
-                        if (!a) continue;
-                        const inAdContainer = !!a.closest('ytd-in-feed-ad-layout-renderer, ytd-ad-slot-renderer, ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer');
-                        const hasAdBadgeNearby = !!(a.closest('ytd-rich-item-renderer, ytd-ad-slot-renderer')?.querySelector?.('.yt-badge-shape--ad, .ytwAdBadgeViewModelHostIsClickableAdComponent, [aria-label="Ad"], [aria-label="Sponsored"], [data-ad-impressions]'));
-                        if (inAdContainer || hasAdBadgeNearby) { adLinked = true; break; }
-                    }
-                    if (adLinked) {
+                    if (cached?.adLinked) {
                         log('updateStatus', '⏸ Enlace asociado al video dentro de un contexto de anuncio (ID-based). No guardar.');
                         return { success: false, reason: 'ad_link_context_inline' };
                     }
@@ -9491,7 +9632,7 @@ background: var(--ypp-danger);
         }
 
         const container = YTHelper?.player?.playerObject || player?.playerContainer_?.children?.[0] || null;
-        const hasAdClasses = () => !!(container?.classList?.contains('ad-showing') || container?.classList?.contains('ad-interrupting'));
+        const hasAdClasses = () => !!AdSelectors.playerAdClasses.some((c) => container?.classList?.contains?.(c));
         const isReadyNoAds = () => !isAdPlaying && !isScriptPaused && !hasAdClasses();
 
         const waitForNoAds = () => new Promise((resolve) => {
@@ -10823,9 +10964,7 @@ background: var(--ypp-danger);
                     const clickedVideoId = extractOrNormalizeVideoId(videoLink.href)?.id;
                     if (clickedVideoId) {
                         // CRÍTICO: Detectar si el click es en un anuncio ANTES de procesarlo
-                        const adContainer = videoLink.closest('ytd-ad-slot-renderer, ytd-in-feed-ad-layout-renderer, ytd-display-ad-renderer, ytd-promoted-sparkles-web-renderer');
-                        const hasAdBadge = !!videoLink.closest('ytd-rich-item-renderer')?.querySelector('.yt-badge-shape--ad, [aria-label*="Ad"], [aria-label*="Patrocinado"], [aria-label*="Sponsored"]');
-
+                        const { adContainer, hasAdBadge } = AdDetector.classifyClickedLink(videoLink);
                         if (adContainer || hasAdBadge) {
                             log('UserClick', `🚫 Click en anuncio detectado y bloqueado: videoId=${clickedVideoId}`);
                             blockedAdVideoIds.add(clickedVideoId); // Track this ad as blocked
@@ -13868,20 +14007,6 @@ background: var(--ypp-danger);
         }
         log('createAdStateMonitor', '✅ Container activo obtenido:', target.nodeName, target.className?.substring(0, 50));
 
-        // Selectores específicos de anuncios activos
-        const adSelectors = [
-            // Selectores comunes para videos regulares
-            '.ytp-ad-player-overlay:not([hidden]):not([style*="display: none"])',
-            '.ytp-ad-module:not([hidden]):not([style*="display: none"])',
-            '.ytp-ad-text:not([hidden]):not([style*="display: none"])', // Texto del anuncio
-            '.ytp-ad-preview:not([hidden]):not([style*="display: none"])', // Preview del anuncio
-            '.ytp-ad-skip-button-container:not([hidden]):not([style*="display: none"])',
-            '.ytp-ad-preview-container:not([hidden]):not([style*="display: none"])',
-            '.ytp-ad-image-overlay:not([hidden]):not([style*="display: none"])',
-            '.ytp-ad-overlay-container:not([hidden]):not([style*="display: none"])', // Contenedor overlay
-            '.video-ads:not([hidden]):not([style*="display: none"])', // Contenedor general de anuncios
-            'ytd-in-feed-ad-layout-renderer' // Anuncios en feed
-        ].join(',');
         log('createAdStateMonitor', '📋 Selectores de anuncios configurados');
 
         let observer = null;
@@ -13942,8 +14067,8 @@ background: var(--ypp-danger);
                 if (!isAdPlaying && ((ve && ve.paused) || !isVisible)) {
                     const ytHelperAdQuick = !!YTHelper?.player?.isPlayingAds;
                     const po = YTHelper?.player?.playerObject;
-                    const hasAdClassQuick = po?.classList?.contains('ad-showing') || po?.classList?.contains('ad-interrupting');
-                    const overlayQuick = target?.querySelector?.('.ytp-ad-module, .ytp-ad-player-overlay, .video-ads');
+                    const hasAdClassQuick = !!AdSelectors.playerAdClasses.some((c) => po?.classList?.contains?.(c));
+                    const overlayQuick = !!domQueryCache.get('ad:quickOverlay', () => target?.querySelector?.(AdSelectorText.inPlayerAdContainers), 100);
                     if (!ytHelperAdQuick && !hasAdClassQuick && !overlayQuick) {
                         return false;
                     }
@@ -13964,10 +14089,7 @@ background: var(--ypp-danger);
             // 2. Verificación de clases en el playerObject (método del Helper API)
             const playerObject = YTHelper?.player?.playerObject;
             const shouldAvoidUnstarted = playerObject?.classList.contains('unstarted-mode');
-            const hasAdClassOnPlayer = !shouldAvoidUnstarted && (
-                playerObject?.classList.contains('ad-showing') ||
-                playerObject?.classList.contains('ad-interrupting')
-            );
+            const hasAdClassOnPlayer = !shouldAvoidUnstarted && AdSelectors.playerAdClasses.some((c) => playerObject?.classList?.contains?.(c));
 
             if (canLog) log('checkAdState', '✅ Verificación de clases en el playerObject', hasAdClassOnPlayer);
 
@@ -13976,7 +14098,7 @@ background: var(--ypp-danger);
             }
 
             // 3. Verificación de elementos visuales DOM
-            const adElement = target.querySelector(adSelectors);
+            const adElement = AdDetector.findVisibleAdUi(target);
             let adVisible = false;
 
             if (adElement) {
@@ -14010,8 +14132,8 @@ background: var(--ypp-danger);
                 const duration = videoEl?.duration || 0;
 
                 // 0. Detectar clase 'ad-created' (método más confiable)
-                const shortsPlayer = document.querySelector('#shorts-player');
-                const hasAdCreatedClass = shortsPlayer?.classList.contains('ad-created');
+                const shortsPlayer = domQueryCache.get('ad:shortsPlayerEl', () => document.querySelector(AdSelectors.shortsContainer), 250);
+                const hasAdCreatedClass = shortsPlayer?.classList.contains?.(AdSelectors.shortsAdClasses[0]);
                 if (canLog) log('checkAdState', `🎯 Clase ad-created detectada: ${hasAdCreatedClass}`);
 
                 // Patrones de autores de anuncios
@@ -14064,8 +14186,7 @@ background: var(--ypp-danger);
             let shortDurationWithAdElements = false;
             const videoEl = YTHelper?.player?.videoElement;
             if (videoEl && videoEl.duration > 0 && videoEl.duration <= 90) {
-                const hasAdElements = document.querySelector('.ytp-ad-text, .ytp-ad-skip-button-container, .ytp-ad-preview');
-                shortDurationWithAdElements = !!hasAdElements;
+                shortDurationWithAdElements = AdDetector.hasShortDurationAdUi();
                 if (canLog) log('checkAdState', `⏱️  Duración corta con elementos de anuncio | duration: ${videoEl.duration}, hasElements: ${shortDurationWithAdElements}`);
             }
 
@@ -14210,7 +14331,7 @@ background: var(--ypp-danger);
 
             observer = new MutationObserver(optimizedCallback);
             // Observar un subárbol más específico si existe para reducir ruido
-            const adRoot = target.querySelector('.video-ads, .ytp-ad-module, .ytp-ad-player-overlay') || target;
+            const adRoot = domQueryCache.get('ad:monitorRoot', () => target.querySelector(AdSelectorText.inPlayerAdContainers), 250) || target;
             observer.observe(adRoot, {
                 attributes: true,
                 attributeFilter: ['class', 'hidden'],

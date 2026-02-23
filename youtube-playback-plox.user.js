@@ -3613,6 +3613,21 @@ background: var(--ypp-danger);
     // MARK: 🔧 Utils
     // ------------------------------------------
 
+    /**
+     * Sanitiza strings para insertarlos de forma segura en el HTML
+     * @param {string|number|undefined|null} str
+     * @returns {string}
+     */
+    const escapeHTML = (str) => {
+        if (!str && str !== 0) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+
     // MARK: 🔧 Formateo de Tiempo
     /**
     * Formatea un valor de tiempo (en segundos o string) a un string en formato "MM:SS" o "HH:MM:SS".
@@ -3800,12 +3815,32 @@ background: var(--ypp-danger);
     }
 
     function setInnerHTML(element, html) {
-        const policy = getTrustedTypesPolicy();
-        if (policy) {
-            element.innerHTML = policy.createHTML(html);
-        } else {
-            // Fallback para navegadores sin Trusted Types o si falló la creación
-            element.innerHTML = html;
+        if (!element) return;
+        try {
+            const policy = getTrustedTypesPolicy();
+            if (policy) {
+                const trustedHtml = policy.createHTML(html);
+                element.innerHTML = trustedHtml;
+            } else {
+                // Fallback para navegadores sin Trusted Types o si falló la creación
+                element.innerHTML = html;
+            }
+        } catch (e) {
+            // Error de CSP / Trusted Types (p.ej. en Firefox con strict mode o YouTube/Chrome con TT)
+            try {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                // Limpiar de forma segura sin usar innerHTML = ''
+                while (element.firstChild) {
+                    element.removeChild(element.firstChild);
+                }
+                while (doc.body.firstChild) {
+                    element.appendChild(doc.body.firstChild);
+                }
+            } catch (err) {
+                log('setInnerHTML', '❌ Falló fallback de DOMParser:', err);
+                element.textContent = html; // Al menos mostramos el texto si todo falla
+            }
         }
     }
 
@@ -4194,9 +4229,15 @@ background: var(--ypp-danger);
 
             try {
                 const item = this.items[index];
-                const el = await this.renderItem(item, index);
+                let el = await this.renderItem(item, index);
 
                 if (this.destroyed) return;
+
+                if (typeof el === 'string') {
+                    const temp = document.createElement('div');
+                    setInnerHTML(temp, el.trim());
+                    el = temp.firstElementChild || temp;
+                }
 
                 // Posicionamiento absoluto usando offset pre-calculado
                 el.classList.add('ypp-virtual-item');
@@ -13084,6 +13125,7 @@ background: var(--ypp-danger);
         // Aplicar tema dinámico
 
         listContainer = createElement('div', { id: 'video-list-container' });
+        setupModalEventDelegation(listContainer);
 
         const header = createElement('div', { className: 'ypp-header' });
         const title = createElement('h2', { text: t('youtubePlaybackPlox') });
@@ -13298,19 +13340,174 @@ background: var(--ypp-danger);
         return `hsl(${hue}, 60%, 70%)`; // Color más intenso para el borde
     }
 
-    async function createVideoEntry(videoId, info, playlistKey = null, playlistTitle = null) {
+    async function handleForceTimeAction(videoId, playlistKey) {
+        const itemData = playlistKey ? await Storage.get(playlistKey) : await Storage.get(videoId);
+        let info = itemData;
 
-        const isCompleted =
-            info.isCompleted ||
-            // Verificar si el video está completado (más de 95% reproducido)
-            (info.timestamp && info.duration && normalizeSeconds(info.timestamp) >= normalizeSeconds(info.duration) - 1) ||
-            false;
+        let isOldFormat = itemData?.videos && typeof itemData.videos === 'object';
+        if (playlistKey && isOldFormat) {
+            info = itemData.videos[videoId];
+        }
+
+        if (!info) return;
+
+        let duration = normalizeSeconds(info.duration) || 0;
+
+        let promptText = info.forceResumeTime
+            ? `${t('enterStartTimeOrEmpty')}:`
+            : `${t('enterStartTime')}:`;
+
+        if (duration > 0) {
+            promptText += `\n[0 - ${formatTime(duration)}]`;
+        }
+
+        const timeStr = prompt(promptText, info.forceResumeTime ? formatTime(normalizeSeconds(info.forceResumeTime)) : '');
+        if (timeStr === null) return;
+
+        const timeSec = parseTimeToSeconds(timeStr);
+        if (timeSec > 0 && duration > 0 && timeSec >= duration) {
+            showFloatingToast(`${SVG_ICONS.warning} ${t('invalidFormat')}`);
+            return;
+        }
+
+        if (timeSec > 0) {
+            info.forceResumeTime = timeSec;
+            showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds(timeSec))}`);
+        } else {
+            delete info.forceResumeTime;
+            showFloatingToast(`${SVG_ICONS.unlocked} ${t('fixedTimeRemoved')}`);
+        }
+
+        if (playlistKey && isOldFormat) {
+            itemData.videos[videoId] = info;
+            await Storage.set(playlistKey, itemData);
+        } else {
+            await Storage.set(videoId, info);
+        }
+        await updateVideoList();
+    }
+
+    async function handleUnlinkPlaylistAction(videoId) {
+        if (!confirm(t('confirmRemoveFromPlaylist'))) return;
+        const data = await Storage.get(videoId);
+        if (data) {
+            data.lastViewedPlaylistId = null;
+            data.lastViewedPlaylistType = null;
+            data.lastViewedPlaylistItemId = null;
+            await Storage.set(videoId, data);
+            showFloatingToast(`${SVG_ICONS.check} ${t('playlistAssociationRemoved')}`);
+            await updateVideoList();
+        }
+    }
+
+    async function handleDeleteEntryAction(videoId, playlistKey, titleCache) {
+        const title = titleCache || videoId;
+
+        // Cargar info original por si deshace
+        let itemInfo = null;
+        if (playlistKey) {
+            const playlist = await Storage.get(playlistKey);
+            if (playlist?.videos && playlist.videos[videoId]) {
+                itemInfo = playlist.videos[videoId];
+            } else {
+                itemInfo = await Storage.get(videoId);
+            }
+        } else {
+            itemInfo = await Storage.get(videoId);
+        }
+
+        const deleteFromStorage = async () => {
+            if (playlistKey) {
+                const playlist = await Storage.get(playlistKey);
+                if (playlist?.videos && typeof playlist.videos === 'object') {
+                    if (playlist.videos[videoId]) {
+                        delete playlist.videos[videoId];
+                        Object.keys(playlist.videos).length
+                            ? await Storage.set(playlistKey, playlist)
+                            : await Storage.del(playlistKey);
+                    }
+                } else {
+                    await Storage.del(videoId);
+                }
+            } else {
+                await Storage.del(videoId);
+            }
+        };
+
+        const undoDelete = async () => {
+            if (!itemInfo) return;
+            if (playlistKey) {
+                const playlist = await Storage.get(playlistKey);
+                if (playlist && playlist.videos && typeof playlist.videos === 'object') {
+                    playlist.videos[videoId] = itemInfo;
+                    await Storage.set(playlistKey, playlist);
+                } else {
+                    await Storage.set(videoId, itemInfo);
+                }
+            } else {
+                await Storage.set(videoId, itemInfo);
+            }
+            await updateVideoList();
+        };
+
+        await deleteFromStorage();
+        await updateVideoList();
+
+        showFloatingToast(`${SVG_ICONS.trash} "${escapeHTML(title)}" ${t('itemDeleted')}`, 5000, {
+            action: {
+                label: t('undo'),
+                callback: undoDelete
+            }
+        });
+    }
+
+    const setupModalEventDelegation = (container) => {
+        container.addEventListener('click', async (e) => {
+            if (e.target.matches('.ypp-video-checkbox')) {
+                e.stopPropagation();
+                const videoId = e.target.dataset.videoId;
+                if (videoId) toggleVideoSelection(videoId);
+                return;
+            }
+
+            const btn = e.target.closest('[data-action]');
+            if (!btn) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+
+            const action = btn.dataset.action;
+            const item = e.target.closest('.ypp-video-item');
+            if (!item) return;
+
+            const videoId = item.dataset.videoId;
+            const playlistKey = item.dataset.playlistKey || null;
+
+            switch (action) {
+                case 'force-time':
+                    await handleForceTimeAction(videoId, playlistKey);
+                    break;
+                case 'unlink-playlist':
+                    await handleUnlinkPlaylistAction(videoId);
+                    break;
+                case 'delete-entry':
+                    const title = btn.dataset.title;
+                    await handleDeleteEntryAction(videoId, playlistKey, title);
+                    break;
+            }
+        });
+    };
+
+    async function createVideoEntry(videoId, info, playlistKey = null, playlistTitle = null) {
+        let isCompleted = info.isCompleted || false;
+        if (info.timestamp && info.duration) {
+            isCompleted = isCompleted || (normalizeSeconds(info.timestamp) >= normalizeSeconds(info.duration) - 1);
+        }
+
         const videoTime = formatTime(normalizeSeconds(info.timestamp));
         const rawDuration = info.duration;
-        let duration = normalizeSeconds(info.duration);
+        const duration = normalizeSeconds(info.duration);
 
-        // Si duracion es 0, el video fue guardado sin duración (antiguo)
-        // Los videos nuevos siempre guardan duración gracias a los fallbacks mejorados
         if (duration === 0 && rawDuration === 0) {
             log('createVideoEntry', `⚠️ Video ${videoId} sin duración guardada (formato antiguo)`);
         }
@@ -13319,388 +13516,99 @@ background: var(--ypp-danger);
         const remaining = Math.max(duration - watched, 0);
         const percent = duration ? Math.min(100, Math.round((watched / duration) * 100)) : null;
 
-        // Aplicar estilos únicos por playlist
         const isPlaylistItem = !!playlistKey;
         let finalPlaylistTitle = isPlaylistItem ? (playlistTitle || info.playlistTitle || playlistKey) : null;
-
-        // Manejo especial para playlists mix (RDxxxx)
         if (isPlaylistItem && finalPlaylistTitle === playlistKey && playlistKey?.startsWith('RD')) {
             const seedVideoId = playlistKey.slice(2);
-            const seedTitle = modalVideoTitleById.get(seedVideoId);
-            finalPlaylistTitle = `Mix - ${seedTitle || info.title || 'Playlist automática'}`;
+            finalPlaylistTitle = `Mix - ${modalVideoTitleById.get(seedVideoId) || escapeHTML(info.title) || 'Playlist automática'}`;
         }
-
-        // Limpiar undefined del título de playlist
         if (finalPlaylistTitle && finalPlaylistTitle.includes('undefined')) {
             finalPlaylistTitle = finalPlaylistTitle.replace(/undefined/g, '').trim();
         }
 
         const isLiveEntry = (info.videoType === 'live') || info.isLive === true;
 
-        const wrapper = createElement('div', {
-            className: `ypp-videoWrapper ${isPlaylistItem ? 'playlist-item' : 'regular-item'}${isSelectionMode ? ' selection-mode' : ''}`
-        });
+        const defaultThumbUrl = `https://i.ytimg.com/vi/${escapeHTML(videoId)}/hqdefault.jpg`;
+        const thumbUrl = (info.thumb && info.thumb !== 'undefined' && info.thumb !== null) ? escapeHTML(info.thumb) : defaultThumbUrl;
 
-        // Agregar checkbox si está en modo de selección
-        if (isSelectionMode) {
-            const checkbox = createElement('input', {
-                atribute: {
-                    type: 'checkbox',
-                    'data-video-id': videoId
-                },
-                className: 'ypp-video-checkbox',
-                props: {
-                    checked: selectedVideos.has(videoId)
-                },
-                onClickEvent: (e) => {
-                    e.stopPropagation();
-                    toggleVideoSelection(videoId);
-                }
-            });
-            wrapper.appendChild(checkbox);
-        }
+        const titleText = escapeHTML(info.title || videoId);
+        const authorText = escapeHTML(info.author || t('unknown'));
+        const viewsText = escapeHTML(`${info.viewsNumber || info.views || 0} ${t('views')}`);
+        const playlistUrl = escapeHTML(playlistKey?.startsWith('RD') ? `https://www.youtube.com/watch?v=${videoId}&list=${playlistKey}` : `https://www.youtube.com/playlist?list=${playlistKey}`);
 
-        // Aplicar colores únicos por playlist
+        const hasFixedTime = info.forceResumeTime > 0;
+        const fixedTimeStr = hasFixedTime ? `${SVG_ICONS.timer} ${escapeHTML(t('alwaysStartFrom'))}: ${formatTime(normalizeSeconds(info.forceResumeTime))} ${SVG_ICONS.locked}` : '';
+
+        const progressPrefix = escapeHTML(t('progress'));
+        let timestampClass = isCompleted ? 'completed' : (hasFixedTime ? 'forced' : 'progress');
+        let timestampText = isCompleted ? (hasFixedTime ? `${fixedTimeStr} ${SVG_ICONS.check}` : `${SVG_ICONS.check} ${escapeHTML(t('completed'))}`) : (hasFixedTime ? fixedTimeStr : `${progressPrefix} ${escapeHTML(videoTime)}`);
+
+        let wrapperStyle = '';
         if (isPlaylistItem) {
             const bgColor = generatePlaylistColor(playlistKey);
             const borderColor = generatePlaylistBorderColor(playlistKey);
-            wrapper.style.backgroundColor = bgColor;
-            wrapper.style.borderLeft = `4px solid ${borderColor}`;
-            wrapper.style.position = 'relative';
-        }
-        const defaultThumbUrl = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-        const thumb = createElement('img', {
-            className: 'ypp-thumb',
-            atribute: {
-                title: info.title || videoId,
-                loading: 'lazy',
-                alt: info.title || 'Miniatura',
-                src: defaultThumbUrl,
-                width: 320,
-                height: 180
-            },
-            props: { draggable: false }
-        });
-        wrapper.prepend(thumb);
-        if (!thumbnailHasVideoId(info.thumb, videoId)) {
-            try {
-                if (playlistKey) {
-                    const playlistData = await Storage.get(playlistKey);
-                    const isOld = playlistData?.videos && typeof playlistData.videos === 'object';
-                    if (isOld && playlistData.videos[videoId]) {
-                        playlistData.videos[videoId].thumb = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-                        await Storage.set(playlistKey, playlistData);
-                    } else {
-                        const data = await Storage.get(videoId);
-                        if (data) {
-                            data.thumb = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-                            await Storage.set(videoId, data);
-                        }
-                    }
-                } else {
-                    const data = await Storage.get(videoId);
-                    if (data) {
-                        data.thumb = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-                        await Storage.set(videoId, data);
-                    }
-                }
-            } catch (_) { }
-        }
-        loadYouTubeThumbnail(videoId).then((thumbnailUrl) => {
-            if (thumbnailUrl && thumbnailUrl !== defaultThumbUrl) {
-                thumb.src = thumbnailUrl;
-            }
-        });
-
-        const infoDiv = createElement('div', { className: 'ypp-infoDiv' });
-        const titleLink = createElement('a', {
-            className: 'ypp-titleLink', text: info.title || videoId,
-            atribute: {
-                title: info.title || videoId,
-                href: `https://www.youtube.com/watch?v=${videoId}${playlistKey ? '&list=' + playlistKey : ''}`
-            },
-            props: { target: '_blank', rel: 'noopener noreferrer' }
-        });
-
-        // Autor: hacer clickeable si hay authorId disponible
-        const authorText = info.author || t('unknown');
-        const author = info.authorId
-            ? createElement('a', {
-                className: 'ypp-author ypp-author-link',
-                text: authorText,
-                atribute: {
-                    title: `${t('openChannel')}: ${authorText}`,
-                    href: `https://www.youtube.com/channel/${info.authorId}`
-                },
-                props: { target: '_blank', rel: 'noopener noreferrer' }
-            })
-            : createElement('div', { className: 'ypp-author', text: authorText });
-
-        const views = createElement('div', { className: 'ypp-views', text: `${info.viewsNumber} ${t('views')}` || `${info.views} ${t('views')}` || t('notAvailable') });
-
-        // Determinar texto y clase del timestamp
-        const hasFixedTime = info.forceResumeTime > 0;
-        const fixedTimeStr = hasFixedTime
-            ? `${SVG_ICONS.timer} ${t('alwaysStartFrom')}: ${formatTime(normalizeSeconds(info.forceResumeTime))} ${SVG_ICONS.locked}`
-            : null;
-
-        let timestampText;
-        let timestampClass;
-
-        if (isCompleted) {
-            timestampClass = 'completed';
-            timestampText = hasFixedTime
-                ? `${fixedTimeStr} ${SVG_ICONS.check}`
-                : `${SVG_ICONS.check} ${t('completed')}`;
-        } else if (hasFixedTime) {
-            timestampClass = 'forced';
-            timestampText = fixedTimeStr;
-        } else {
-            timestampClass = 'progress';
-            timestampText = `${t('progress')} ${videoTime}`;
+            wrapperStyle = `background-color: ${escapeHTML(bgColor)}; border-left: 4px solid ${escapeHTML(borderColor)}; position: relative;`;
         }
 
-        const timestamp = createElement('div', {
-            className: `ypp-timestamp ${timestampClass}`,
-            html: timestampText
-        });
+        const liveHtml = `<div class="ypp-progressInfo" style="font-weight: bold;">${SVG_ICONS.chart} ${escapeHTML(t('live'))}</div>`;
+        const percentHtml = `<div class="ypp-progressInfo" style="color: ${escapeHTML(getProgressColor(percent))}; font-weight: bold;">${SVG_ICONS.chart} ${escapeHTML(percent)} ${escapeHTML(t('percentWatched'))} (${formatTime(normalizeSeconds(remaining))} ${escapeHTML(t('remaining'))})</div>`;
 
-        infoDiv.appendChild(titleLink);
-
-        // Agregar indicador de playlist si es parte de una
-        if (isPlaylistItem && finalPlaylistTitle) {
-            const playlistIndicator = createElement('div', {
-                className: 'ypp-playlist-indicator',
-                html: `${SVG_ICONS.folder} ${finalPlaylistTitle}`,
-                atribute: {
-                    title: `${t('playlist')}: ${finalPlaylistTitle} (${playlistKey})`
-                }
-            });
-
-            // Aplicar color del borde como color de texto
-            const borderColor = generatePlaylistBorderColor(playlistKey);
-            playlistIndicator.style.color = borderColor;
-            playlistIndicator.style.fontWeight = 'bold';
-            playlistIndicator.style.fontSize = '0.85em';
-            playlistIndicator.style.marginTop = '2px';
-
-            // Agregar botón de acceso directo a la playlist
-            // Para playlists mix (RDxxxx), usar URL del video con el parámetro list
-            // Para playlists regulares, usar URL de playlist estándar
-            const playlistUrl = playlistKey?.startsWith('RD')
-                ? `https://www.youtube.com/watch?v=${videoId}&list=${playlistKey}`
-                : `https://www.youtube.com/playlist?list=${playlistKey}`;
-
-            const playlistLink = createElement('a', {
-                className: 'ypp-playlist-link',
-                html: `${SVG_ICONS.externalLink}`,
-                atribute: {
-                    title: `${t('openPlaylist')}: ${finalPlaylistTitle}`,
-                    href: playlistUrl
-                },
-                props: { target: '_blank', rel: 'noopener noreferrer' },
-                styles: {
-                    marginLeft: '8px',
-                    color: borderColor,
-                    textDecoration: 'none',
-                    fontSize: '0.9em'
-                }
-            });
-
-            playlistIndicator.appendChild(playlistLink);
-            infoDiv.appendChild(playlistIndicator);
-        }
-
-        infoDiv.appendChild(author);
-        infoDiv.appendChild(views);
-        infoDiv.appendChild(timestamp);
-
-        // Línea de progreso: para lives mostramos solo la etiqueta LIVE, para el resto % visto y tiempo restante
+        let progressHtml = '';
         if (!isCompleted) {
-            if (isLiveEntry) {
-                const liveInfo = createElement('div', {
-                    className: 'ypp-progressInfo',
-                    html: `${SVG_ICONS.chart} ${t('live')}`,
-                    styles: { fontWeight: 'bold' }
-                });
-                infoDiv.appendChild(liveInfo);
-            } else if (percent !== null) {
-                const progressColor = getProgressColor(percent);
-                const progressInfo = createElement('div', {
-                    className: 'ypp-progressInfo',
-                    html: `${SVG_ICONS.chart} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds(remaining))} ${t('remaining')})`,
-                    styles: { color: progressColor, fontWeight: 'bold' }
-                });
-                infoDiv.appendChild(progressInfo);
-            }
+            if (isLiveEntry) progressHtml = liveHtml;
+            else if (percent !== null) progressHtml = percentHtml;
         }
 
-        wrapper.appendChild(infoDiv);
+        const html = `
+            <div class="ypp-videoWrapper ${isPlaylistItem ? 'playlist-item' : 'regular-item'}${isSelectionMode ? ' selection-mode' : ''} ypp-video-item" data-video-id="${escapeHTML(videoId)}" data-playlist-key="${escapeHTML(playlistKey || '')}" style="${wrapperStyle}">
+                ${isSelectionMode ? `<input type="checkbox" data-action="toggle-selection" class="ypp-video-checkbox" data-video-id="${escapeHTML(videoId)}" ${selectedVideos.has(videoId) ? 'checked' : ''}>` : ''}
+                <img class="ypp-thumb" title="${titleText}" alt="${titleText}" src="${thumbUrl}" loading="lazy" width="320" height="180" draggable="false">
+                
+                <div class="ypp-infoDiv">
+                    <a class="ypp-titleLink" title="${titleText}" href="https://www.youtube.com/watch?v=${escapeHTML(videoId)}${playlistKey ? '&list=' + escapeHTML(playlistKey) : ''}" target="_blank" rel="noopener noreferrer">${titleText}</a>
+                    
+                    ${isPlaylistItem && finalPlaylistTitle ? `
+                        <div class="ypp-playlist-indicator" title="${escapeHTML(t('playlist'))}: ${escapeHTML(finalPlaylistTitle)} (${escapeHTML(playlistKey)})" style="color: ${escapeHTML(generatePlaylistBorderColor(playlistKey))}; font-weight: bold; font-size: 0.85em; margin-top: 2px;">
+                            ${SVG_ICONS.folder} ${escapeHTML(finalPlaylistTitle)}
+                            <a class="ypp-playlist-link" title="${escapeHTML(t('openPlaylist'))}: ${escapeHTML(finalPlaylistTitle)}" href="${playlistUrl}" target="_blank" rel="noopener noreferrer" style="margin-left: 8px; color: ${escapeHTML(generatePlaylistBorderColor(playlistKey))}; text-decoration: none; font-size: 0.9em;">
+                                ${SVG_ICONS.externalLink}
+                            </a>
+                        </div>
+                    ` : ''}
 
-        // Botones de tiempo fijo y eliminar
-        const buttonContainer = createElement('div', { className: 'ypp-containerButtonsTime' });
+                    ${info.authorId ? `
+                        <a class="ypp-author ypp-author-link" title="${escapeHTML(t('openChannel'))}: ${authorText}" href="https://www.youtube.com/channel/${escapeHTML(info.authorId)}" target="_blank" rel="noopener noreferrer">${authorText}</a>
+                    ` : `<div class="ypp-author">${authorText}</div>`}
+                    
+                    <div class="ypp-views">${viewsText}</div>
+                    <div class="ypp-timestamp ${timestampClass}">${timestampText}</div>
+                    
+                    ${progressHtml}
+                </div>
 
-        if (!isLiveEntry) {
-            const btnForceTime = createElement('button', {
-                className: 'ypp-btn ypp-btn-small',
-                html: SVG_ICONS.timer,
-                atribute: {
-                    title: info.forceResumeTime
-                        ? t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(info.forceResumeTime)) })
-                        : t('setStartTime')
-                },
-                onClickEvent: async () => {
-                    let promptText = info.forceResumeTime
-                        ? `${t('enterStartTimeOrEmpty')}:`
-                        : `${t('enterStartTime')}:`;
-
-                    // Añadir pista del rango máximo permitido cuando se conoce la duración
-                    try {
-                        if (duration > 0) {
-                            const maxLabel = formatTime(duration);
-                            promptText += `\n[0 - ${maxLabel}]`;
-                        }
-                    } catch (_) { }
-
-                    const timeStr = prompt(
-                        promptText,
-                        info.forceResumeTime ? formatTime(normalizeSeconds(info.forceResumeTime)) : ''
-                    );
-
-                    if (timeStr === null) { // Usuario canceló
-                        return;
-                    }
-
-                    const timeSecRaw = parseTimeToSeconds(timeStr);
-                    let timeSec = timeSecRaw;
-
-                    // Validar que el tiempo fijo no exceda la duración conocida del video
-                    if (timeSec > 0 && duration > 0 && timeSec >= duration) {
-                        showFloatingToast(`${SVG_ICONS.warning} ${t('invalidFormat')}`);
-                        return;
-                    }
-
-                    // Determinar si es formato antiguo (playlist anidada) o nuevo (video individual)
-                    const playlistData = await Storage.get(playlistKey);
-                    const isOldFormat = playlistData?.videos && typeof playlistData.videos === 'object';
-
-                    if (isOldFormat && playlistKey) {
-                        // Formato antiguo: video está dentro de playlist.videos
-                        if (playlistData?.videos?.[videoId]) {
-                            if (timeSec > 0) {
-                                playlistData.videos[videoId].forceResumeTime = timeSec;
-                                showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds(timeSec))}`);
-                            } else {
-                                delete playlistData.videos[videoId].forceResumeTime;
-                                showFloatingToast(`${SVG_ICONS.unlocked} ${t('fixedTimeRemoved')}`);
-                            }
-                            await Storage.set(playlistKey, playlistData);
-                        }
-                    } else {
-                        // Formato nuevo: video es entrada individual (con o sin playlistId)
-                        const data = await Storage.get(videoId);
-                        if (data) {
-                            if (timeSec > 0) {
-                                data.forceResumeTime = timeSec;
-                                showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds(timeSec))}`);
-                            } else {
-                                delete data.forceResumeTime;
-                                showFloatingToast(`${SVG_ICONS.unlocked} ${t('fixedTimeRemoved')}`);
-                            }
-                            await Storage.set(videoId, data);
-                        }
-                    }
-                    await updateVideoList();
-                }
-            });
-            buttonContainer.appendChild(btnForceTime);
-        }
-
-        if (info.lastViewedPlaylistId) {
-            const btnUnlink = createElement('button', {
-                className: 'ypp-btn ypp-btn-small',
-                atribute: {
-                    title: t('removeFromPlaylist')
-                },
-                html: `<div style="position:relative; display:flex; align-items:center;">${SVG_ICONS.folder}<span style="position:absolute; bottom:-4px; right:-4px; color:#ffdddd; background:rgba(255,0,0,0.8); border-radius:50%; width:12px; height:12px; font-size:9px; display:flex; align-items:center; justify-content:center; font-weight:bold;">✕</span></div>`,
-                onClickEvent: async () => {
-                    if (!confirm(t('confirmRemoveFromPlaylist'))) return;
-
-                    const data = await Storage.get(videoId);
-                    if (data) {
-                        data.lastViewedPlaylistId = null;
-                        data.lastViewedPlaylistType = null;
-                        data.lastViewedPlaylistItemId = null;
-                        await Storage.set(videoId, data);
-                        showFloatingToast(`${SVG_ICONS.check} ${t('playlistAssociationRemoved')}`);
-                        await updateVideoList();
-                    }
-                }
-            });
-            buttonContainer.appendChild(btnUnlink);
-        }
-
-        const btnDelete = createElement('button', {
-            className: 'ypp-btn ypp-btn-delete ypp-btn-small',
-            atribute: { title: t('deleteEntry') },
-            html: SVG_ICONS.trash,
-            onClickEvent: async () => {
-                const title = info.title || videoId;
-                const itemData = { videoId, info, playlistKey };
-
-                const performDelete = async () => {
-                    if (playlistKey) {
-                        const playlist = await Storage.get(playlistKey);
-                        if (playlist?.videos && typeof playlist.videos === 'object') {
-                            // Formato antiguo: borrar dentro de la playlist
-                            if (playlist.videos[videoId]) {
-                                delete playlist.videos[videoId];
-                                Object.keys(playlist.videos).length
-                                    ? await Storage.set(playlistKey, playlist)
-                                    : await Storage.del(playlistKey);
-                            }
-                        } else {
-                            // Formato FreeTube: entrada individual por videoId
-                            await Storage.del(videoId);
-                        }
-                    } else {
-                        await Storage.del(videoId);
-                    }
-                    await updateVideoList();
-                };
-
-                const undoDelete = async () => {
-                    if (playlistKey) {
-                        const playlist = await Storage.get(playlistKey);
-                        if (playlist?.videos && typeof playlist.videos === 'object') {
-                            // Restaurar en formato antiguo
-                            const pl = playlist || { lastWatchedVideoId: '', videos: {}, title: '' };
-                            pl.videos[videoId] = itemData.info;
-                            await Storage.set(playlistKey, pl);
-                        } else {
-                            // Restaurar entrada individual (FreeTube)
-                            await Storage.set(videoId, itemData.info);
-                        }
-                    } else {
-                        await Storage.set(videoId, itemData.info);
-                    }
-                    await updateVideoList();
-                };
-
-                await performDelete();
-                showFloatingToast(`${SVG_ICONS.trash} "${title}" ${t('itemDeleted')}`, 5000, {
-                    action: {
-                        label: t('undo'),
-                        callback: undoDelete
-                    }
-                });
-            }
-        });
-
-        buttonContainer.appendChild(btnDelete);
-        wrapper.appendChild(buttonContainer);
-
-        return wrapper;
+                <div class="ypp-containerButtonsTime">
+                    ${!isLiveEntry ? `
+                        <button class="ypp-btn ypp-btn-small" data-action="force-time" title="${hasFixedTime ? escapeHTML(t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(info.forceResumeTime)) })) : escapeHTML(t('setStartTime'))}">
+                            ${SVG_ICONS.timer}
+                        </button>
+                    ` : ''}
+                    
+                    ${info.lastViewedPlaylistId ? `
+                        <button class="ypp-btn ypp-btn-small" data-action="unlink-playlist" title="${escapeHTML(t('removeFromPlaylist'))}">
+                            <div style="position:relative; display:flex; align-items:center;">
+                                ${SVG_ICONS.folder}
+                                <span style="position:absolute; bottom:-4px; right:-4px; color:#ffdddd; background:rgba(255,0,0,0.8); border-radius:50%; width:12px; height:12px; font-size:9px; display:flex; align-items:center; justify-content:center; font-weight:bold;">✕</span>
+                            </div>
+                        </button>
+                    ` : ''}
+                    
+                    <button class="ypp-btn ypp-btn-delete ypp-btn-small" data-action="delete-entry" title="${escapeHTML(t('deleteEntry'))}" data-title="${titleText}">
+                        ${SVG_ICONS.trash}
+                    </button>
+                </div>
+            </div>
+        `;
+        return html;
     }
 
     // ------------------------------------------

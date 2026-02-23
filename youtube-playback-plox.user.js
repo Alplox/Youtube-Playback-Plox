@@ -139,7 +139,7 @@
 
     // Sistema de niveles: silent(0), error(1), warn(2), info(3), debug(4)
     const LEVELS = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    let currentLevel = LEVELS.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    let currentLevel = LEVELS.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const styleFor = (kind) => {
         switch (kind) {
@@ -10462,10 +10462,11 @@ background: var(--ypp-danger);
             // )
 
             // Usar el playlistId del saveResult si está disponible
+            const urlListParam = new URLSearchParams(location.search).get('list');
             const playlistId = options.saveResult?.playlistId ||
-                new URLSearchParams(location.search).get('list') ||
+                urlListParam ||
                 null;
-            log('notifySeekOrProgress', 'Playlist ID desde saveResult:', options.saveResult?.playlistId, 'Playlist ID desde URL:', new URLSearchParams(location.search).get('list'));
+            log('notifySeekOrProgress', 'Playlist ID desde saveResult:', options.saveResult?.playlistId, 'Playlist ID desde URL:', urlListParam);
 
             // Pequeño retraso para permitir que el mensaje seek se establezca
             await new Promise(resolve => setTimeout(resolve, 100));
@@ -11523,17 +11524,15 @@ background: var(--ypp-danger);
                     // Si el handler se ató como 'preview' (inline) pero ahora estamos en una página Watch
                     // y el video vive dentro de movie_player, entonces este handler es un remanente
                     // de la navegación anterior y debe ser ignorado.
-                    const currentPageTypeForCheck = getYouTubePageType();
-                    const containerForCheck = (currentVideoEl || videoEl)?.closest?.('#movie_player, #shorts-player');
+                    const currentPageType = getYouTubePageType();
+                    const contNow = (currentVideoEl || videoEl)?.closest?.('#movie_player, #shorts-player');
 
-                    if (boundType.startsWith('preview') && currentPageTypeForCheck === 'watch' && containerForCheck?.id === 'movie_player') {
+                    if (boundType.startsWith('preview') && currentPageType === 'watch' && contNow?.id === 'movie_player') {
                         if (!window._staleLog) { log('handler', '🛑 Handler preview obsoleto detectado en página Watch (movie_player). Abortando.'); window._staleLog = Date.now(); }
                         return;
                     }
 
                     // Verificar visibilidad del video para previews en páginas de inicio/búsqueda
-                    const currentPageType = getYouTubePageType();
-                    const contNow = (currentVideoEl || videoEl)?.closest?.('#movie_player, #shorts-player');
                     const isPreviewOnHomeLike = (currentPageType === 'home' || currentPageType === 'search' || currentPageType === 'channel') &&
                         contNow?.id !== 'movie_player';
 
@@ -12354,7 +12353,7 @@ background: var(--ypp-danger);
         await new Promise(resolve => {
             let seekCompleted = false;
 
-            const completeSeek = () => {
+            let completeSeek = () => {
                 if (!seekCompleted) {
                     seekCompleted = true;
                     log('applySeek', 'Seek completado.');

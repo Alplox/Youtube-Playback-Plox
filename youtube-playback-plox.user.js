@@ -11873,7 +11873,7 @@ background: var(--ypp-danger);
                         try { activeEl.addEventListener('timeupdate', observedHandler); } catch (_) { }
                     }
                 } catch (_) { }
-            }, 1000);
+            }, 500);
             try { ctx.timeupdateRebindIntervalId = rebindInterval; } catch (_) { }
             timeupdateRebindIntervalId = rebindInterval;
 
@@ -11932,7 +11932,7 @@ background: var(--ypp-danger);
                         conError('processVideo', 'Error al guardar progreso (poller):', err);
                     });
                 } catch (_) { }
-            }, 1000);
+            }, 500);
             try { ctx.progressPollIntervalId = pollInterval; } catch (_) { }
             progressPollIntervalId = pollInterval;
 
@@ -12019,7 +12019,7 @@ background: var(--ypp-danger);
                         }
                     }
                 } catch (_) { }
-            }, 1000);
+            }, 500);
             try { ctx.secondaryProgressPollIntervalId = secondaryInterval; } catch (_) { }
             secondaryProgressPollIntervalId = secondaryInterval;
 
@@ -13109,7 +13109,7 @@ background: var(--ypp-danger);
             if (!storageUsageRefreshIntervalId) {
                 storageUsageRefreshIntervalId = setInterval(() => {
                     updateStorageUsageIndicator().catch(() => { });
-                }, 30_000);
+                }, 60_000);
             }
         } catch (_) { }
 

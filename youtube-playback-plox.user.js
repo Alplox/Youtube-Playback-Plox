@@ -2061,7 +2061,7 @@ background: var(--ypp-danger);
                     let cache = null;
                     let cacheTime = 0;
                     const CACHE_DURATION = 50; // 50ms de cache para elementos UI
-                    
+
                     return () => {
                         const now = Date.now();
                         if (!cache || (now - cacheTime) > CACHE_DURATION) {
@@ -2076,7 +2076,7 @@ background: var(--ypp-danger);
                         return cache;
                     };
                 })();
-                
+
                 const { progressHost: shortsProgressHost, playedBar: shortsPlayedBar, hoveredBar: shortsHoveredBar, playheadDot: shortsPlayheadDot } = getShortsElements();
 
                 if (shortsProgressHost) {
@@ -2106,7 +2106,7 @@ background: var(--ypp-danger);
                     let cache = null;
                     let cacheTime = 0;
                     const CACHE_DURATION = 50; // 50ms de cache para elementos UI
-                    
+
                     return () => {
                         const now = Date.now();
                         if (!cache || (now - cacheTime) > CACHE_DURATION) {
@@ -2120,7 +2120,7 @@ background: var(--ypp-danger);
                         return cache;
                     };
                 })();
-                
+
                 const { progressContainer, playProgress, hoverProgress } = getVideoElements();
 
                 if (progressContainer) {
@@ -2382,81 +2382,69 @@ background: var(--ypp-danger);
     * @param {number} percent - Porcentaje de progreso (0-100)
     * @returns {string} Color en formato hexadecimal
     */
+    // Cache pre-computado de colores para optimizar rendimiento
+    const COLOR_CACHE = {
+        light: {
+            // Pre-computed key points and factors
+            keyPoints: [
+                { percent: 0, r: 204, g: 0, b: 0 },
+                { percent: 33, r: 221, g: 102, b: 0 },
+                { percent: 66, r: 204, g: 153, b: 0 },
+                { percent: 95, r: 0, g: 204, b: 0 }
+            ],
+            factors: {
+                // Pre-computed differences for linear interpolation
+                '0-33': { dr: 17, dg: 102, db: 0 },
+                '33-66': { dr: -17, dg: 51, db: 0 },
+                '66-95': { dr: -204, dg: -17, db: 0 }
+            }
+        },
+        dark: {
+            keyPoints: [
+                { percent: 0, r: 221, g: 68, b: 68 },
+                { percent: 33, r: 255, g: 136, b: 68 },
+                { percent: 66, r: 255, g: 204, b: 68 },
+                { percent: 95, r: 0, g: 204, b: 68 }
+            ],
+            factors: {
+                '0-33': { dr: 34, dg: 68, db: 0 },
+                '33-66': { dr: 0, dg: 68, db: 0 },
+                '66-95': { dr: -255, dg: 0, db: 0 }
+            }
+        }
+    };
+
     function getProgressColor(percent) {
-        if (percent === null || percent === undefined) return '#666666';
+        if (percent <= 0) return COLOR_CACHE.dark.keyPoints[0];
+        if (percent >= 100) return '#008800';
 
-        // Detectar si estamos en tema claro
-        const isLightTheme = !isYouTubeDarkTheme();
+        const theme = isYouTubeDarkTheme() ? COLOR_CACHE.dark : COLOR_CACHE.light;
 
-        // Rangos de color para tema oscuro (colores oscuros para mejor contraste en playlists):
-        // 0-33%: Rojo oscuro (#dd4444 -> #ff8844)
-        // 34-66%: Naranja oscuro (#ff8844 -> #ffcc44)
-        // 67-100%: Verde oscuro (#ffcc44 -> #00cc00)
-
-        // Rangos de color para tema claro (colores oscuros con mejor contraste):
-        // 0-33%: Rojo oscuro (#cc0000 -> #dd6600)
-        // 34-66%: Naranja oscuro (#dd6600 -> #cc9900)
-        // 67-100%: Verde oscuro (#cc9900 -> #008800)
-
-        let color;
-        if (isLightTheme) {
-            // Colores para tema claro (más oscuros para mejor contraste)
-            if (percent <= 33) {
-                // Rojo oscuro a naranja oscuro
-                const ratio = percent / 33;
-                const r = Math.round(204 - (204 - 221) * ratio); // 204 -> 221
-                const g = Math.round(0 + (102 - 0) * ratio); // 0 -> 102
-                const b = 0;
-                color = `rgb(${r}, ${g}, ${b})`;
-            } else if (percent <= 66) {
-                // Naranja oscuro a amarillo oscuro
-                const ratio = (percent - 33) / 33;
-                const r = Math.round(221 - (221 - 204) * ratio); // 221 -> 204
-                const g = Math.round(102 + (153 - 102) * ratio); // 102 -> 153
-                const b = 0;
-                color = `rgb(${r}, ${g}, ${b})`;
-            } else if (percent <= 95) {
-                // Amarillo oscuro a verde oscuro
-                const ratio = (percent - 66) / 29;
-                const r = Math.round(204 - (204 - 0) * ratio); // 204 -> 0
-                const g = Math.round(153 + (136 - 153) * ratio); // 153 -> 136
-                const b = 0;
-                color = `rgb(${r}, ${g}, ${b})`;
-            } else {
-                // Verde oscuro (casi completado o completado)
-                color = '#008800';
+        // Fast path for exact key points
+        for (const point of theme.keyPoints) {
+            if (Math.abs(percent - point.percent) < 0.5) {
+                return `rgb(${point.r}, ${point.g}, ${point.b})`;
             }
-        } else {
-            // Colores mejorados para tema oscuro (más oscuros para contraste en playlists)
-            if (percent <= 33) {
-                // Rojo oscuro a naranja
-                const ratio = percent / 33;
-                const r = Math.round(221 - (221 - 255) * ratio); // 221 -> 255
-                const g = Math.round(68 + (136 - 68) * ratio); // 68 -> 136
-                const b = 68;
-                color = `rgb(${r}, ${g}, ${b})`;
-            } else if (percent <= 66) {
-                // Naranja a amarillo
-                const ratio = (percent - 33) / 33;
-                const r = 255;
-                const g = Math.round(136 + (204 - 136) * ratio); // 136 -> 204
-                const b = Math.round(68 + (68 - 68) * ratio); // 68 -> 68
-                color = `rgb(${r}, ${g}, ${b})`;
-            } else if (percent <= 95) {
-                // Amarillo a verde oscuro
-                const ratio = (percent - 66) / 29;
-                const r = Math.round(255 - (255 - 0) * ratio); // 255 -> 0
-                const g = Math.round(204 + (204 - 204) * ratio); // 204 -> 204
-                const b = Math.round(68 + (68 - 68) * ratio); // 68 -> 68
-                color = `rgb(${r}, ${g}, ${b})`;
-            } else {
-                // Verde oscuro (casi completado o completado) - mejor contraste en fondos celestes
-                color = '#00cc00';
-            }
-
         }
 
-        return color;
+        // Optimized interpolation
+        let range;
+        if (percent <= 33) range = '0-33';
+        else if (percent <= 66) range = '33-66';
+        else range = '66-95';
+
+        const factor = theme.factors[range];
+        const startPoint = range === '0-33' ? theme.keyPoints[0] :
+            range === '33-66' ? theme.keyPoints[1] : theme.keyPoints[2];
+
+        const rangeStart = range === '0-33' ? 0 : range === '33-66' ? 33 : 66;
+        const ratio = (percent - rangeStart) / (range === '0-33' ? 33 : range === '33-66' ? 33 : 29);
+
+        const r = Math.round(startPoint.r + factor.dr * ratio);
+        const g = Math.round(startPoint.g + factor.dg * ratio);
+        const b = startPoint.b + factor.db * ratio;
+
+        return `rgb(${r}, ${g}, ${b})`;
     }
 
     // ------------------------------------------
@@ -4174,8 +4162,8 @@ background: var(--ypp-danger);
                 let skipped = 0;
 
                 // Early filtering para evitar procesar claves inválidas
-                const validKeys = Object.keys(data).filter(key => 
-                    !key.startsWith('userSettings') && 
+                const validKeys = Object.keys(data).filter(key =>
+                    !key.startsWith('userSettings') &&
                     !key.startsWith('userFilters')
                 );
 
@@ -4187,7 +4175,7 @@ background: var(--ypp-danger);
 
                 for (const key of validKeys) {
                     const value = data[key];
-                    
+
                     // Validar que el valor tenga estructura mínima de video
                     if (value && typeof value === 'object' && (value.videoId || value.timestamp !== undefined)) {
                         await Storage.set(key, value);
@@ -5643,11 +5631,11 @@ background: var(--ypp-danger);
             let cacheTime = 0;
             let lastVideoCount = 0;
             const CACHE_DURATION = 100; // 100ms de cache
-            
+
             return () => {
                 const now = Date.now();
                 const currentVideoCount = document.getElementsByTagName('video').length;
-                
+
                 // Invalidar cache si expiró o cambió el número de videos
                 if (!cache || (now - cacheTime) > CACHE_DURATION || currentVideoCount !== lastVideoCount) {
                     cache = Array.from(document.querySelectorAll('video'));
@@ -5655,11 +5643,11 @@ background: var(--ypp-danger);
                     lastVideoCount = currentVideoCount;
                     log('getActiveVideoElement', `🔄 Cache actualizado: ${cache.length} videos`);
                 }
-                
+
                 return cache;
             };
         })();
-        
+
         const allVideos = getVideoElements();
         const candidates = [];
 
@@ -6985,26 +6973,54 @@ background: var(--ypp-danger);
      * @param {string} label - Texto o aria-label que contiene la cantidad de vistas
      * @returns {string|null} String con separadores de miles o null si no se puede determinar
      */
+    // Cache de Date.now() para optimizar rendimiento
+    const DATE_CACHE = {
+        lastTime: 0,
+        lastValue: 0,
+        CACHE_DURATION: 50 // 50ms de cache
+
+    };
+
+    function getCachedTimestamp() {
+        const now = Date.now();
+        if (now - DATE_CACHE.lastTime > DATE_CACHE.CACHE_DURATION) {
+            DATE_CACHE.lastTime = now;
+            DATE_CACHE.lastValue = now;
+        }
+        return DATE_CACHE.lastValue;
+    }
+
+    // Cache de expresiones regulares y multiplicadores para optimización
+    const VIEWS_REGEX_CACHE = {
+        kRegex: /\b(k|mil)\b/,
+        mRegex: /\b(m|mill|millón|millones)\b/,
+        bRegex: /\b(b)\b/,
+        numRegex: /(\d+[\.,]?\d*)/,
+        commaRegex: /,/g
+    };
+
+    const VIEWS_MULTIPLIERS = { k: 1e3, m: 1e6, b: 1e9 };
+
     function formatViewsFromLabel(label) {
         if (!label || typeof label !== 'string') return null;
         const lower = label.toLowerCase();
-        // Detectar multiplicadores comunes
-        let mult = 1;
-        if (/\b(k|mil)\b/.test(lower)) mult = 1e3;
-        else if (/\b(m|mill|millón|millones)\b/.test(lower)) mult = 1e6;
-        else if (/\b(b)\b/.test(lower)) mult = 1e9;
 
-        // Extraer número (con posible decimal)
-        const numMatch = lower.match(/(\d+[\.,]?\d*)/);
+        // Detectar multiplicadores usando cache
+        let mult = 1;
+        if (VIEWS_REGEX_CACHE.kRegex.test(lower)) mult = VIEWS_MULTIPLIERS.k;
+        else if (VIEWS_REGEX_CACHE.mRegex.test(lower)) mult = VIEWS_MULTIPLIERS.m;
+        else if (VIEWS_REGEX_CACHE.bRegex.test(lower)) mult = VIEWS_MULTIPLIERS.b;
+
+        // Extraer número usando cache
+        const numMatch = lower.match(VIEWS_REGEX_CACHE.numRegex);
         if (!numMatch) return null;
-        let numStr = numMatch[1].replace(/\s/g, '');
+        let numStr = numMatch[1].replace(VIEWS_REGEX_CACHE.commaRegex, '');
+
         // Normalizar decimal: si hay coma y no hay punto, tratar coma como punto
         if (numStr.includes(',') && !numStr.includes('.')) {
             numStr = numStr.replace(',', '.');
-        } else {
-            // Eliminar separadores de miles comunes
-            numStr = numStr.replace(/,/g, '');
         }
+
         const base = parseFloat(numStr);
         if (isNaN(base)) return null;
         const value = Math.round(base * mult);

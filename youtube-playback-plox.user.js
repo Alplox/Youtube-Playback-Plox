@@ -3211,11 +3211,14 @@ background: var(--ypp-danger);
             const pageType = getYouTubePageType();
 
             try {
-                // Detectar miniplayer - SOLO cuando esté realmente minimizado
-                const miniPlayerEl = document.querySelector('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer[miniplayer-active]');
+                // Detectar miniplayer - SOLO cuando esté realmente minimizado y NO estemos en página watch
+                const isWatchEmbed = pageType === 'watch' || pageType === 'embed';
+                const miniPlayerEl = !isWatchEmbed ? document.querySelector('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer[miniplayer-active]') : null;
+
                 if (miniPlayerEl) {
                     const moviePlayer = document.querySelector('#movie_player');
-                    if (moviePlayer) {
+                    // Verificar que el elemento miniplayer realmente contiene o es parte del movie_player activo
+                    if (moviePlayer && (miniPlayerEl.contains(moviePlayer) || moviePlayer.contains(miniPlayerEl) || miniPlayerEl.id === 'movie_player')) {
                         const videoData = moviePlayer.getVideoData?.();
                         if (videoData?.video_id) {
                             result.hasMiniPlayer = true;
@@ -3243,7 +3246,9 @@ background: var(--ypp-danger);
                 // Detectar watch player principal (solo en páginas watch/embed)
                 if (pageType === 'watch' || pageType === 'embed') {
                     const moviePlayer = document.querySelector('#movie_player');
-                    if (moviePlayer && !result.hasMiniPlayer) { // No contar como watch si ya es miniplayer
+                    if (moviePlayer) {
+                        // En página watch, el movie_player es SIEMPRE el watch player, 
+                        // incluso si YouTube dejó clases de miniplayer residuales.
                         const videoData = moviePlayer.getVideoData?.();
                         if (videoData?.video_id) {
                             result.hasWatchPlayer = true;
@@ -3320,9 +3325,18 @@ background: var(--ypp-danger);
         const isVideoInMiniPlayer = (videoId) => {
             if (!videoId) return false;
             try {
+                const pageType = getYouTubePageType();
+                // Si estamos en watch o embed, el video principal NO es miniplayer
+                if (pageType === 'watch' || pageType === 'embed') return false;
+
                 const moviePlayer = document.querySelector('#movie_player');
                 const videoData = moviePlayer?.getVideoData?.();
-                return videoData?.video_id === videoId;
+                const isMatchingVideo = videoData?.video_id === videoId;
+
+                if (!isMatchingVideo) return false;
+
+                // Verificar si el contenedor tiene señales de miniplayer activo
+                return !!document.querySelector('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer[miniplayer-active]');
             } catch (error) {
                 return false;
             }
@@ -7475,26 +7489,17 @@ background: var(--ypp-danger);
         // Views (evitar contaminación en Shorts cuando no es miniplayer)
         let viewsNumber;
         try {
-            // Usar PlayerStateCache para determinar si el video está en miniplayer
-            const isVideoInMiniPlayer = PlayerStateManager.isVideoInMiniPlayer(videoId);
+            const ytHelperViews = YTHelper?.video?.viewCount;
+            const initialPlayerViews = window.ytInitialPlayerResponse?.videoDetails?.viewCount;
 
-            log('viewsnumber ptV', ptV)
-
-            log('viewsnumber isVideoInMiniPlayer', isVideoInMiniPlayer)
-            log('viewsnumber YTHelper.video', YTHelper.video.viewCount)
-            log('viewsnumber ytInitialData', ytDataCache)
-
-           /*  if (ptV === 'shorts' && !isVideoInMiniPlayer) {
-                viewsNumber = null;
-                log('viewsnumber !isMiniOnShortsV', viewsNumber)
-            } else */ if (YTHelper?.video?.viewCount) {
-                // No se usa en Shorts cuando no es miniplayer, porque regresa 0 en shorts
-                log('viewsnumber YTHelper', YTHelper.video.viewCount)
-                viewsNumber = Number(YTHelper.video.viewCount).toLocaleString();
-            } else if (window.ytInitialPlayerResponse?.videoDetails?.viewCount != null) {
-                log('viewsnumber ytInitialPlayerRespons', Number(window.ytInitialPlayerResponse.videoDetails.viewCount).toLocaleString())
-                viewsNumber = Number(window.ytInitialPlayerResponse.videoDetails.viewCount).toLocaleString();
+            if (ytHelperViews) {
+                viewsNumber = Number(ytHelperViews).toLocaleString();
+                log('getVideoInfo', `📊 viewsNumber (YTHelper): ${viewsNumber}`);
+            } else if (initialPlayerViews != null) {
+                viewsNumber = Number(initialPlayerViews).toLocaleString();
+                log('getVideoInfo', `📊 viewsNumber (InitialResponse): ${viewsNumber}`);
             } else {
+                // Último recurso: Selectores del DOM
                 viewsNumber =
                     document.querySelector('.view-count')?.textContent?.match(/[\d.,\s]+/)?.[0].trim() ||
                     // funciona en shorts
@@ -7502,18 +7507,12 @@ background: var(--ypp-danger);
                     document.querySelector('ytd-watch-info-text div#tooltip.tp-yt-paper-tooltip')?.textContent?.match(/[\d.,\s]+/)?.[0].trim() ||
                     document.querySelector('yt-formatted-string.view-count')?.textContent?.match(/[\d.,\s]+/)?.[0].trim() ||
                     t('notAvailable');
-
-
-                log('viewsnumber .view-count', document.querySelector('.view-count')?.textContent?.match(/[\d.,\s]+/)?.[0].trim())
-                log('viewsnumber view-count-factoid-renderer', document.querySelector('view-count-factoid-renderer .ytwFactoidRendererFactoid[role="text"]')?.getAttribute('aria-label')?.match(/[\d.,\s]+/)?.[0].trim())
-                log('viewsnumber ytd-watch-info-text', document.querySelector('ytd-watch-info-text div#tooltip.tp-yt-paper-tooltip')?.textContent?.match(/[\d.,\s]+/)?.[0].trim())
-                log('viewsnumber yt-formatted-string', document.querySelector('yt-formatted-string.view-count')?.textContent?.match(/[\d.,\s]+/)?.[0].trim())
-
-
-                log('viewsnumber ultimo', viewsNumber)
+                log('getVideoInfo', `📊 viewsNumber (DOM): ${viewsNumber}`);
             }
-        } catch (_) {
-            viewsNumber = t('notAvailable');
+        } catch (e) {
+            log('getVideoInfo', '⚠️ Error extrayendo vistas:', e);
+            // Mantener el valor previo si existe
+            if (!viewsNumber) viewsNumber = t('notAvailable');
         }
 
 
@@ -7564,7 +7563,10 @@ background: var(--ypp-danger);
                 let appliedFields = [];
                 if (metaFromMiniplayer.authorId) { authorId = metaFromMiniplayer.authorId; appliedFields.push('authorId'); }
                 if (metaFromMiniplayer.author) { author = metaFromMiniplayer.author; appliedFields.push('author'); }
-                if (metaFromMiniplayer.viewsNumber) { viewsNumber = metaFromMiniplayer.viewsNumber; appliedFields.push('viewsNumber'); }
+                const _newViews = metaFromMiniplayer.viewsNumber;
+                const _hasValidNew = _newViews && typeof _newViews === 'string' && _newViews !== t('notAvailable') && _newViews.trim() !== '';
+                const _hasValidCur = viewsNumber && typeof viewsNumber === 'string' && viewsNumber !== t('notAvailable') && viewsNumber.trim() !== '';
+                if (_hasValidNew && !_hasValidCur) { viewsNumber = _newViews; appliedFields.push('viewsNumber'); }
                 if (metaFromMiniplayer.title) { title = metaFromMiniplayer.title; appliedFields.push('title'); }
                 if (metaFromMiniplayer.description) { description = metaFromMiniplayer.description; appliedFields.push('description'); }
                 log('getVideoInfo', `✅ Miniplayer: Campos aplicados: ${appliedFields.join(', ')}`);
@@ -8995,6 +8997,14 @@ background: var(--ypp-danger);
             log('updateStatus', '⚠️ Error en validación temprana:', e);
         }
 
+        // GUARDIA: Rechazar videos previamente bloqueados como anuncios
+        try {
+            if (blockedAdVideoIds.has(video_id)) {
+                log('updateStatus', `🚫 Video ${video_id} está en blockedAdVideoIds. No guardando.`);
+                return { success: false, reason: 'blocked_ad_video' };
+            }
+        } catch (_) { }
+
         return getCachedVideoInfo(player, video_id).then(async ({ duration, ...videoInfo }) => {
             log('updateStatus', `then duration: ${duration} = ${formatTime(duration)} | current time: ${currentTime} | video_id: ${video_id}`);
             const infoIsLive = videoInfo?.isLive === true;
@@ -9013,6 +9023,14 @@ background: var(--ypp-danger);
                 try {
                     warn('updateStatus', `⚠️ currentTime (${currentTime}) > duration (${duration}) para ${video_id}. Ajustando a duración.`);
                 } catch (_) { }
+                // GUARDIA: Discrepancia extrema sugiere anuncio de homepage contaminando al player
+                // Si currentTime > 3x duración en una página home-like y sin click del usuario → anuncio probable
+                const isHomeLike = pageTypeNow === 'home' || pageTypeNow === 'search' || pageTypeNow === 'channel' || pageTypeNow === 'unknown';
+                if (isHomeLike && currentTime > duration * 3 && lastClickedVideoId !== video_id) {
+                    log('updateStatus', `🚫 Discrepancia extrema ${currentTime.toFixed(1)}s vs ${duration.toFixed(1)}s en home sin click. Probable ad: ${video_id}`);
+                    try { blockedAdVideoIds.add(video_id); } catch (_) { }
+                    return { success: false, reason: 'probable_homepage_ad' };
+                }
                 currentTime = Math.max(0, Math.min(currentTime, Math.max(0, duration - 0.05)));
             }
             if (isLiveType) {
@@ -9451,8 +9469,15 @@ background: var(--ypp-danger);
             log('resumePlayback', '⏸ Navegación en curso, posponiendo reanudación...');
             const cb = async () => {
                 try {
-                    const newEl = await getActiveVideoElement();
                     const newPlayer = YTHelper?.player?.playerObject || player;
+                    const newEl = await getActiveVideoElement();
+                    // Verificar que el player aún corresponde al video original
+                    // Si el miniplayer avanzó a otro video, no reintentar
+                    const currentPlayerId = newPlayer?.getVideoData?.()?.video_id;
+                    if (currentPlayerId && currentPlayerId !== vid) {
+                        log('resumePlayback', `⏭ Video cambió durante navegación (${vid} → ${currentPlayerId}), cancelando reanudación`);
+                        return;
+                    }
                     setTimeout(() => { try { resumePlayback(newPlayer, vid, newEl || videoEl, savedData, type); } catch (_) { } }, 0);
                 } catch (_) { }
             };
@@ -11034,9 +11059,8 @@ background: var(--ypp-danger);
             const contextElement = currentVideoEl || videoEl || activeVideoEl;
 
             // Para miniplayer, buscar playlist ID directamente desde la URL del miniplayer
-            const miniPlayerState = PlayerStateCache.getCurrentState();
-            if (miniPlayerState.hasMiniPlayer) {
-                log('resolvePlaylist', `ℹ️ Miniplayer detectado activo. Buscando en DOM...`);
+            if (isMiniplayerContext) {
+                log('resolvePlaylist', `ℹ️ Miniplayer detectado (contexto real). Buscando en DOM...`);
                 try {
                     // Intentar obtener la URL completa del miniplayer desde elementos que la contengan
                     const miniPlayerUrlSelectors = [
@@ -11201,7 +11225,7 @@ background: var(--ypp-danger);
             }
 
             // Para miniplayer, usar la URL completa que obtuvimos del miniplayer
-            if (miniPlayerState.hasMiniPlayer && videoIdDetected) {
+            if (isMiniplayerContext && videoIdDetected) {
                 try {
                     // Si ya tenemos una URL completa del miniplayer verificada, usarla
                     if (urlForVideoId && urlForVideoId.includes('watch?v=') && urlForVideoId.includes('list=') &&
@@ -11240,7 +11264,7 @@ background: var(--ypp-danger);
             }
         }
         // PRIORIDAD 2: Usar lastVideoUrl para miniplayer
-        else if (miniPlayerUrlState.hasMiniPlayer && lastVideoUrl) {
+        else if (isMiniplayerContext && lastVideoUrl) {
             // En miniplayer, extraer playlist de lastVideoUrl si no se encontró por otros medios
             try {
                 const lastUrlParams = new URL(lastVideoUrl, location.origin).searchParams;
@@ -11679,6 +11703,40 @@ background: var(--ypp-danger);
                             return; // No procesar videos bloqueados como anuncios
                         }
 
+                        // CRÍTICO: Detectar anuncios de auto-reproducción en la homepage (masthead ads)
+                        // Cuando el miniplayer está activo en home-like, YouTube puede cargar un anuncio
+                        // en el mismo #movie_player, reportando un video_id distinto con duración corta.
+                        // Señales: solo el player reporta cambio (no URL), duración ≤30s, sin click del usuario.
+                        if (playerReportsChange && !urlReportsChange) {
+                            const isHomeLikePage = currentPageType === 'home' || currentPageType === 'search' || currentPageType === 'channel' || currentPageType === 'unknown';
+                            if (isHomeLikePage) {
+                                const userClickedThis = lastClickedVideoId === newVideoId;
+                                if (!userClickedThis) {
+                                    let newVideoDuration = 0;
+                                    try {
+                                        const mp = document.querySelector('#movie_player');
+                                        newVideoDuration = mp?.getDuration?.() || 0;
+                                    } catch (_) { }
+                                    // Anuncios de homepage suelen ser ≤30s y no coinciden con click del usuario
+                                    if (newVideoDuration > 0 && newVideoDuration <= 30) {
+                                        log('handler', `🚫 Posible anuncio de homepage detectado: ${newVideoId} (${newVideoDuration.toFixed(1)}s), sin click del usuario. Ignorando cambio.`);
+                                        blockedAdVideoIds.add(newVideoId);
+                                        isProcessingVideoChange = false;
+                                        return;
+                                    }
+                                    // También verificar si la duración no coincide con el currentTime del video
+                                    // (indicador de que #movie_player cargó contenido diferente al miniplayer real)
+                                    const videoCurrentTime = (currentVideoEl || videoEl)?.currentTime || 0;
+                                    if (newVideoDuration > 0 && videoCurrentTime > newVideoDuration * 2) {
+                                        log('handler', `🚫 Discrepancia de duración: currentTime=${videoCurrentTime.toFixed(1)}s > 2x duración=${newVideoDuration.toFixed(1)}s para ${newVideoId}. Ignorando como posible ad.`);
+                                        blockedAdVideoIds.add(newVideoId);
+                                        isProcessingVideoChange = false;
+                                        return;
+                                    }
+                                }
+                            }
+                        }
+
                         // Limpiar el período de gracia post-anuncio cuando se detecta un cambio de video
                         // Esto asegura que el nuevo video no herede el período de gracia del anterior
                         lastAdEndTime = 0;
@@ -11916,7 +11974,7 @@ background: var(--ypp-danger);
                     let currentId = null;
                     try { currentId = YTHelper?.video?.id || effPlayer?.getVideoData?.()?.video_id || null; } catch (_) { }
                     let mpId2 = null;
-                    try { if (pageTypeNow !== 'shorts') { const mp2 = document.querySelector('#movie_player'); mpId2 = mp2?.getVideoData?.()?.video_id || null; } else { const mp2s = document.querySelector('#movie_player'); mpId2 = mp2s?.getVideoData?.()?.video_id || null; } } catch (_) { }
+                    try { const mp2 = document.querySelector('#movie_player'); mpId2 = mp2?.getVideoData?.()?.video_id || null; } catch (_) { }
                     const effectiveIdNow = (pageTypeNow === 'watch' || pageTypeNow === 'embed')
                         ? (urlIdNow || currentId)
                         : (pageTypeNow === 'shorts')
@@ -12310,12 +12368,14 @@ background: var(--ypp-danger);
             const currentPageType = getYouTubePageType();
             if (currentPageType !== startedPageType) {
                 warn('applySeek', `Página cambió de ${startedPageType} a ${currentPageType} durante seek. Abortando para evitar cruce.`);
-                try { if (retryOnFail && typeof resumeCallback === 'function') resumeCallback(); } catch (_) { }
+                // NO llamar resumeCallback: cambio de página es definitivo, no transitorio.
+                // El video sigue reproduciéndose en miniplayer y su handler de timeupdate se encarga.
                 return;
             }
             if (!matchesTargetPlayer() && !matchesTargetVideoEl()) {
                 warn('applySeek', 'Player/Video no corresponde al targetVideoId, abortando para evitar cruce');
-                try { if (retryOnFail && typeof resumeCallback === 'function') resumeCallback(); } catch (_) { }
+                // NO llamar resumeCallback: el player ya está en otro video, reintentar
+                // causaría un loop infinito de applySeek → abort → resumePlayback → applySeek.
                 return;
             }
             try {

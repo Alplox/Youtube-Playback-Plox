@@ -2056,11 +2056,28 @@ background: var(--ypp-danger);
             const isShorts = type === 'shorts' || window.location.pathname.includes('/shorts/');
 
             if (isShorts) {
-                // Selectores específicos para shorts con estructura correcta
-                const shortsProgressHost = document.querySelector('.desktopShortsPlayerControlsHost .ytPlayerProgressBarHost, .ytPlayerProgressBarHost');
-                const shortsPlayedBar = document.querySelector('.ytProgressBarLineProgressBarPlayed');
-                const shortsHoveredBar = document.querySelector('.ytProgressBarLineProgressBarHovered');
-                const shortsPlayheadDot = document.querySelector('.ytProgressBarPlayheadProgressBarPlayheadDot');
+                // Cache de selectores para shorts
+                const getShortsElements = (() => {
+                    let cache = null;
+                    let cacheTime = 0;
+                    const CACHE_DURATION = 50; // 50ms de cache para elementos UI
+                    
+                    return () => {
+                        const now = Date.now();
+                        if (!cache || (now - cacheTime) > CACHE_DURATION) {
+                            cache = {
+                                progressHost: document.querySelector('.desktopShortsPlayerControlsHost .ytPlayerProgressBarHost, .ytPlayerProgressBarHost'),
+                                playedBar: document.querySelector('.ytProgressBarLineProgressBarPlayed'),
+                                hoveredBar: document.querySelector('.ytProgressBarLineProgressBarHovered'),
+                                playheadDot: document.querySelector('.ytProgressBarPlayheadProgressBarPlayheadDot')
+                            };
+                            cacheTime = now;
+                        }
+                        return cache;
+                    };
+                })();
+                
+                const { progressHost: shortsProgressHost, playedBar: shortsPlayedBar, hoveredBar: shortsHoveredBar, playheadDot: shortsPlayheadDot } = getShortsElements();
 
                 if (shortsProgressHost) {
                     // Aplicar variables CSS para el degradado en shorts
@@ -2084,10 +2101,27 @@ background: var(--ypp-danger);
                     }
                 }
             } else {
-                // Selectores para videos regulares
-                const progressContainer = document.querySelector('.ytp-progress-bar');
-                const playProgress = document.querySelector('.ytp-play-progress');
-                const hoverProgress = document.querySelector('.ytp-hover-progress');
+                // Cache de selectores para videos regulares
+                const getVideoElements = (() => {
+                    let cache = null;
+                    let cacheTime = 0;
+                    const CACHE_DURATION = 50; // 50ms de cache para elementos UI
+                    
+                    return () => {
+                        const now = Date.now();
+                        if (!cache || (now - cacheTime) > CACHE_DURATION) {
+                            cache = {
+                                progressContainer: document.querySelector('.ytp-progress-bar'),
+                                playProgress: document.querySelector('.ytp-play-progress'),
+                                hoverProgress: document.querySelector('.ytp-hover-progress')
+                            };
+                            cacheTime = now;
+                        }
+                        return cache;
+                    };
+                })();
+                
+                const { progressContainer, playProgress, hoverProgress } = getVideoElements();
 
                 if (progressContainer) {
                     // Aplicar variables CSS para el degradado
@@ -4081,6 +4115,12 @@ background: var(--ypp-danger);
             const exportData = {};
             const keys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
 
+            // Early exit si no hay datos que exportar
+            if (keys.length === 0) {
+                log('exportDataToFile', 'No hay datos para exportar');
+                return;
+            }
+
             for (const k of keys) {
                 const data = await Storage.get(k);
                 if (data) exportData[k] = data;
@@ -4133,13 +4173,21 @@ background: var(--ypp-danger);
                 let importCount = 0;
                 let skipped = 0;
 
-                for (const [key, value] of Object.entries(data)) {
-                    // Evitar importar configuraciones
-                    if (key.startsWith('userSettings') || key.startsWith('userFilters')) {
-                        skipped++;
-                        continue;
-                    }
+                // Early filtering para evitar procesar claves inválidas
+                const validKeys = Object.keys(data).filter(key => 
+                    !key.startsWith('userSettings') && 
+                    !key.startsWith('userFilters')
+                );
 
+                if (validKeys.length === 0) {
+                    log('importDataFromFile', 'No hay datos válidos para importar');
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
+                    return;
+                }
+
+                for (const key of validKeys) {
+                    const value = data[key];
+                    
                     // Validar que el valor tenga estructura mínima de video
                     if (value && typeof value === 'object' && (value.videoId || value.timestamp !== undefined)) {
                         await Storage.set(key, value);
@@ -5588,8 +5636,31 @@ background: var(--ypp-danger);
         // ======================================================================
         // PASO 1: Recopilar todos los candidatos posibles
         // ======================================================================
-        // Buscamos todas las etiquetas <video> una sola vez y verificamos el match en memoria.
-        const allVideos = Array.from(document.querySelectorAll('video'));
+        // Cache de videos para evitar escaneos repetidos del DOM
+        // Se invalida cuando el DOM cambia significativamente
+        const getVideoElements = (() => {
+            let cache = null;
+            let cacheTime = 0;
+            let lastVideoCount = 0;
+            const CACHE_DURATION = 100; // 100ms de cache
+            
+            return () => {
+                const now = Date.now();
+                const currentVideoCount = document.getElementsByTagName('video').length;
+                
+                // Invalidar cache si expiró o cambió el número de videos
+                if (!cache || (now - cacheTime) > CACHE_DURATION || currentVideoCount !== lastVideoCount) {
+                    cache = Array.from(document.querySelectorAll('video'));
+                    cacheTime = now;
+                    lastVideoCount = currentVideoCount;
+                    log('getActiveVideoElement', `🔄 Cache actualizado: ${cache.length} videos`);
+                }
+                
+                return cache;
+            };
+        })();
+        
+        const allVideos = getVideoElements();
         const candidates = [];
 
         for (const selector of selectors) {
@@ -9513,7 +9584,7 @@ background: var(--ypp-danger);
          } catch (_) { } */
 
         // Ensure flag is cleared when resume logic completes
-        setTimeout(() => { isResuming = false; }, 1000);
+        setTimeout(() => { isResuming = false; }, 200);
     };
 
     let timeDisplay;
@@ -11575,7 +11646,7 @@ background: var(--ypp-danger);
                             // Asegurar que liberamos el video ANTERIOR del set (boundVideoId)
                             setTimeout(() => {
                                 currentlyProcessingVideos.delete(boundVideoId);
-                            }, 1000);
+                            }, 200);
 
                             return;
                         }
@@ -11603,7 +11674,7 @@ background: var(--ypp-danger);
                             // Limpiar el estado de procesamiento con un pequeño retraso
                             setTimeout(() => {
                                 currentlyProcessingVideos.delete(boundVideoId);
-                            }, 1000);
+                            }, 200);
                         }
                         try { clearVideoInfoCache(boundVideoId); } catch (_) { }
                         try { clearVideoInfoCache(newVideoId); } catch (_) { }
@@ -12346,9 +12417,20 @@ background: var(--ypp-danger);
                 completeSeek();
             }, TIMEOUT_MS);
 
-            // Listeners de eventos
-            videoEl?.addEventListener('seeked', onSeeked, { once: true });
-            videoEl?.addEventListener('timeupdate', onTimeUpdate);
+            // Usar AbortController para limpieza automática de eventos
+            const abortController = new AbortController();
+            const { signal } = abortController;
+
+            // Listeners de eventos con limpieza automática
+            videoEl?.addEventListener('seeked', onSeeked, { once: true, signal });
+            videoEl?.addEventListener('timeupdate', onTimeUpdate, { signal });
+
+            // Reemplazar completeSeek para limpiar eventos
+            const savedCompleteSeek = completeSeek;
+            completeSeek = () => {
+                abortController.abort(); // Limpia todos los listeners automáticamente
+                savedCompleteSeek();
+            };
         });
 
         // Notificación final
@@ -12527,7 +12609,9 @@ background: var(--ypp-danger);
             }
             if (data.videos && typeof data.videos === 'object') {
                 let modified = false;
-                for (const [vid, info] of Object.entries(data.videos)) {
+                // Usar Object.keys para evitar crear arrays intermedios
+                for (const vid of Object.keys(data.videos)) {
+                    const info = data.videos[vid];
                     const vId = info?.videoId || vid;
                     if (!thumbnailHasVideoId(info?.thumb, vId)) {
                         if (data.videos[vid] && typeof data.videos[vid] === 'object') {

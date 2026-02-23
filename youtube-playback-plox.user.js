@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.8
+// @version      0.0.8-1
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -127,7 +127,7 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1708128/YouTube%20Helper%20API.js
+// @require      https://update.greasyfork.org/scripts/549881/1733676/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 // ------------------------------------------
@@ -218,7 +218,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
     // URL del archivo de traducciones
     const TRANSLATIONS_URL = 'https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/translations.json';
     const TRANSLATIONS_URL_BACKUP = 'https://cdn.jsdelivr.net/gh/Alplox/Youtube-Playback-Plox@refs/heads/main/translations.json';
-    const TRANSLATIONS_EXPECTED_VERSION = '0.0.8';
+    const TRANSLATIONS_EXPECTED_VERSION = '0.0.8-1';
 
     // Variables globales para las traducciones
     let TRANSLATIONS = {};
@@ -5588,14 +5588,18 @@ background: var(--ypp-danger);
         // ======================================================================
         // PASO 1: Recopilar todos los candidatos posibles
         // ======================================================================
-        // flatMap busca con CADA selector y devuelve todos los matches
-        // Esto puede retornar duplicados (el mismo video matched por múltiples selectores),
-        // pero eso está bien - los filtros posteriores los eliminarán
-        const candidates = selectors.flatMap(selector => {
-            const elements = Array.from(document.querySelectorAll(selector));
-            info('getActiveVideoElement', `Selector "${selector}": ${elements.length} elementos`);
-            return elements;
-        });
+        // Buscamos todas las etiquetas <video> una sola vez y verificamos el match en memoria.
+        const allVideos = Array.from(document.querySelectorAll('video'));
+        const candidates = [];
+
+        for (const selector of selectors) {
+            const matchedVideos = allVideos.filter(v => typeof v.matches === 'function' && v.matches(selector));
+            if (matchedVideos.length > 0) {
+                candidates.push(...matchedVideos);
+                info('getActiveVideoElement', `Selector "${selector}": ${matchedVideos.length} elementos`);
+            }
+        }
+
         log('getActiveVideoElement', `Total de candidatos: ${candidates.length}`);
 
         // ======================================================================
@@ -11407,8 +11411,15 @@ background: var(--ypp-danger);
 
             // Handler para guardar progreso
             let lastAdBlockedHandlerLogTs = 0; // throttle para logs repetitivos del handler
+            let lastHandlerExecTime = 0; // Throttle para el handler de timeupdate
             const handler = () => {
                 try {
+                    // CRÍTICO: Performance - Throttle de 250ms para evitar sobrecargar el hilo principal
+                    // El evento timeupdate puede dispararse hasta 60 veces por segundo en algunos navegadores
+                    const nowMs = Date.now();
+                    if (nowMs - lastHandlerExecTime < 250) return;
+                    lastHandlerExecTime = nowMs;
+
                     if (isNavigating) return;
 
                     // Verificar si hay anuncios activos usando el estado por tipo

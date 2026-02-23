@@ -2,160 +2,185 @@
 // @name            YouTube Helper API
 // @author          ElectroKnight22
 // @namespace       electroknight22_helper_api_namespace
-// @version         0.9.4
+// @version         0.9.7.3
 // @license         MIT
 // @description     A helper api for YouTube scripts that provides easy and consistent access for commonly needed functions, objects, and values.
 // ==/UserScript==
 
 /*jshint esversion: 11 */
 
-'use strict';
-
 // eslint-disable-next-line no-unused-vars
 const youtubeHelperApi = (function () {
+    'use strict';
+
+    const instance = {
+        id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null,
+        get shortId() {
+            return this.id ? this.id.split('-')[0] : 'anonymous';
+        },
+        root: typeof unsafeWindow !== 'undefined' ? unsafeWindow : globalThis ?? window,
+    };
+
     // --- DEBUG SYSTEM ---
+
+    /**
+     * @typedef {Object} Debugger
+     * @property {boolean} enabled - Master switch
+     * @property {number} level - Current threshold (0-4)
+     * @property {Function} logMinimal - Level 0 (Green)
+     * @property {Function} logTypical - Level 1 (Blue)
+     * @property {Function} logDetailed - Level 2 (Cyan)
+     * @property {Function} logAll - Level 3 (Gray)
+     * @property {Function} logOverkill - Level 4 (Magenta)
+     * @property {Function[]} log - Numeric access [0-4]
+     */
+
+    /** @type {Debugger} */
     const debug = {
-        enabled: false,
-        _level: 1,
-        debugBadgeText: 'YT-Helper-API-Debug',
+        state: {
+            enabled: false,
+            level: 1,
+            badge: `YT-Helper-API [${instance.shortId}]`,
+            levels: {
+                Minimal: { val: 0, color: '#28a745' },
+                Typical: { val: 1, color: '#007bff' },
+                Detailed: { val: 2, color: '#17a2b8' },
+                All: { val: 3, color: '#6c757d' },
+                Overkill: { val: 4, color: '#ce00a8' },
+            },
+        },
 
-        set level(val) {
-            const map = { minimal: 0, typical: 1, detailed: 2, all: 3, overkill: 4 };
+        log: [],
 
-            let targetLevel = val;
-            if (typeof val === 'string' && val.toLowerCase() in map) {
-                targetLevel = map[val.toLowerCase()];
-            }
-
-            if (typeof targetLevel === 'number' && Object.values(map).includes(targetLevel)) {
-                this._level = targetLevel;
-            } else {
-                console.warn(
-                    `[${this.debugBadgeText}] Invalid level "${val}". Please use 0-4 or: minimal, typical, detailed, all, overkill.`,
-                );
-            }
+        get enabled() {
+            return this.state.enabled;
+        },
+        set enabled(v) {
+            this.state.enabled = !!v;
+            this.rebuild();
         },
 
         get level() {
-            return this._level;
+            return this.state.level;
+        },
+        set level(v) {
+            if (typeof v === 'string') {
+                const match = Object.entries(this.state.levels).find(([k]) => k.toLowerCase() === v.toLowerCase());
+                this.state.level = match ? match[1].val : 1;
+            } else {
+                this.state.level = v;
+            }
+            this.rebuild();
         },
 
-        get logMinimal() {
-            return this.enabled && this._level >= 0
-                ? console.log.bind(window.console, `%c[${this.debugBadgeText}][Minimal]`, 'color: #28a745; font-weight: bold;')
-                : () => {};
-        },
-        get logTypical() {
-            return this.enabled && this._level >= 1
-                ? console.log.bind(window.console, `%c[${this.debugBadgeText}][Typical]`, 'color: #007bff; font-weight: bold;')
-                : () => {};
-        },
-        get logDetailed() {
-            return this.enabled && this._level >= 2
-                ? console.log.bind(window.console, `%c[${this.debugBadgeText}][Detailed]`, 'color: #17a2b8; font-weight: bold;')
-                : () => {};
-        },
-        get logAll() {
-            return this.enabled && this._level >= 3
-                ? console.log.bind(window.console, `%c[${this.debugBadgeText}][All]`, 'color: #6c757d; font-weight: bold;')
-                : () => {};
-        },
-        get logOverkill() {
-            return this.enabled && this._level >= 4
-                ? console.log.bind(window.console, `%c[${this.debugBadgeText}][All]`, 'color: #ce00a8ff; font-weight: bold;')
-                : () => {};
+        rebuild() {
+            const levelLoggers = {};
+            Object.entries(this.state.levels).forEach(([name, config]) => {
+                const isActive = this.state.enabled && this.state.level >= config.val;
+                const func = isActive
+                    ? console.log.bind(window.console, `%c[${this.state.badge}][${name}]`, `color: ${config.color}; font-weight: bold;`)
+                    : () => { };
+
+                this[`log${name}`] = func;
+                levelLoggers[config.val] = func;
+            });
+            this.log = (...args) => levelLoggers[1](...args);
+            Object.entries(levelLoggers).forEach(([level, func]) => {
+                this.log[level] = func;
+            });
         },
     };
+
+    debug.rebuild(); // Immediately initialize debug.
     // --- END DEBUG SYSTEM ---
 
     // --- GM API SHIM ---
-    const gmCapabilities = {
-        isModern: false,
-        isLegacy: false,
-        features: {},
-    };
+    const gmCapabilities = { isModern: false, isLegacy: false, features: {} };
 
     (function performGmShim() {
-        const KNOWN_GM_GLOBALS = [
-            'setValue',
-            'getValue',
-            'deleteValue',
-            'listValues',
-            'getResourceText',
-            'getResourceURL',
-            'addStyle',
-            'addElement',
-            'registerMenuCommand',
-            'unregisterMenuCommand',
-            'openInTab',
-            'notification',
-            'setClipboard',
-            'contextMenu',
-            'xmlhttpRequest',
-            'download',
-            'webRequest',
-            'cookie',
-            'saveTab',
-            'getTab',
-            'getTabs',
-            'log',
-            'info',
-            'print',
-        ];
+        const API_MAP = {
+            setValue: ['setValue', 'GM_setValue'],
+            getValue: ['getValue', 'GM_getValue'],
+            deleteValue: ['deleteValue', 'GM_deleteValue'],
+            listValues: ['listValues', 'GM_listValues'],
+            getResourceText: ['getResourceText', 'GM_getResourceText'],
+            getResourceURL: ['getResourceURL', 'GM_getResourceURL'],
+            addStyle: ['addStyle', 'GM_addStyle'],
+            addElement: ['addElement', 'GM_addElement'],
+            registerMenuCommand: ['registerMenuCommand', 'GM_registerMenuCommand'],
+            unregisterMenuCommand: ['unregisterMenuCommand', 'GM_unregisterMenuCommand'],
+            openInTab: ['openInTab', 'GM_openInTab'],
+            notification: ['notification', 'GM_notification'],
+            setClipboard: ['setClipboard', 'GM_setClipboard'],
+            contextMenu: ['contextMenu', 'GM_contextMenu'],
+            xmlhttpRequest: ['xmlHttpRequest', 'GM_xmlhttpRequest'],
+            download: ['download', 'GM_download'],
+            webRequest: ['webRequest', 'GM_webRequest'],
+            cookie: ['cookie', 'GM_cookie'],
+            saveTab: ['saveTab', 'GM_saveTab'],
+            getTab: ['getTab', 'GM_getTab'],
+            getTabs: ['getTabs', 'GM_getTabs'],
+            log: ['log', 'GM_log'],
+            info: ['info', 'GM_info'],
+            print: ['print', 'GM_print'],
+        };
 
         const realGM = typeof GM !== 'undefined' ? GM : {};
-        const isModernEnv = typeof GM !== 'undefined';
+        gmCapabilities.isModern = typeof GM !== 'undefined';
 
-        const checkFeature = (name) => {
-            const legacyName = `GM_${name}`;
-            const legacyExists = typeof window[legacyName] !== 'undefined';
-            const modernExists = isModernEnv && name in realGM;
+        Object.entries(API_MAP).forEach(([stdName, [modernProp, legacyGlobal]]) => {
+            const hasModern = gmCapabilities.isModern && (Reflect.has(realGM, modernProp) || Reflect.has(realGM, stdName));
+            const hasLegacy = typeof window[legacyGlobal] !== 'undefined';
 
-            return legacyExists || modernExists;
-        };
+            gmCapabilities.features[stdName] = hasModern || hasLegacy;
 
-        gmCapabilities.isModern = isModernEnv;
-
-        gmCapabilities.features = {
-            storage: checkFeature('setValue'),
-            menu: checkFeature('registerMenuCommand'),
-            network: checkFeature('xmlhttpRequest') || (isModernEnv && 'xmlHttpRequest' in realGM),
-            clipboard: checkFeature('setClipboard'),
-            tabs: checkFeature('openInTab'),
-            ui: checkFeature('addStyle'),
-        };
-
-        const GMFallbackAsync = async (...args) => {
-            debug.logAll('GM.* (Async) call shimmed:', args);
-            return undefined;
-        };
-        const GMFallbackSync = (...args) => {
-            debug.logAll('GM_* (Sync) call shimmed:', args);
-            return undefined;
-        };
-
-        const gmProxyHandler = {
-            get: (target, prop, receiver) => {
-                if (Reflect.has(target, prop)) return Reflect.get(target, prop, receiver);
-                if (prop === 'info') return { script: { version: '0.0.0' }, scriptHandler: 'Shim', version: '0.0.0' };
-                return GMFallbackAsync;
-            },
-        };
-
-        try {
-            window.GM = new Proxy(realGM, gmProxyHandler);
-        } catch (error) {
-            console.warn('[YouTube Helper API] Failed to patch window.GM', error);
-        }
-
-        KNOWN_GM_GLOBALS.forEach((name) => {
-            const key = `GM_${name}`;
-            if (typeof window[key] !== 'undefined') {
-                gmCapabilities.isLegacy = true;
-            } else {
-                window[key] = name === 'info' ? { script: { version: '0.0.0' }, scriptHandler: 'Shim' } : GMFallbackSync;
+            if (hasLegacy) gmCapabilities.isLegacy = true;
+            if (!hasLegacy) {
+                window[legacyGlobal] = stdName === 'info' ? { script: { version: '0.0.0' }, scriptHandler: 'Shim' } : () => undefined;
             }
         });
+
+        try {
+            const proxyHandler = {
+                get(target, property) {
+                    if (property === 'info') return target.info ?? { script: { version: '0.0.0' } };
+
+                    let realProperty = property;
+                    if (API_MAP[property]) realProperty = API_MAP[property][0];
+
+                    if (Reflect.has(target, realProperty)) {
+                        const value = target[realProperty];
+                        return typeof value === 'function' ? value.bind(target) : value;
+                    }
+
+                    return () => {
+                        const dummyPromise = Promise.resolve({ responseText: '', status: 200, statusText: 'OK' });
+                        dummyPromise.abort = () => {
+                            console.warn('[YouTube Helper API] Abort called on missing GM shim');
+                        };
+                        return dummyPromise;
+                    };
+                },
+            };
+
+            try {
+                Object.defineProperty(window, 'GM', {
+                    value: new Proxy(realGM, proxyHandler),
+                    writable: true,
+                    enumerable: true,
+                    configurable: true,
+                });
+            } catch (definePropertyError) {
+                try {
+                    delete window.GM;
+                    window.GM = new Proxy(realGM, proxyHandler);
+                } catch (assignmentError) {
+                    console.warn('[YouTube Helper API] Completely failed to patch window.GM', assignmentError);
+                }
+            }
+        } catch (error) {
+            console.warn('[YouTube Helper API] Critical shim error', error);
+        }
     })();
     // --- GM API SHIM END ---
 
@@ -184,85 +209,30 @@ const youtubeHelperApi = (function () {
         tiny: { p: 144, label: '144p' },
     });
 
-
-/**
- * A Proxy object that provides a safe interface to interact with the YouTube player API.
- * It handles method calls, checks for API readiness, and provides warnings for undefined methods.
- * 
- * @example
- * // Example usage:
- * apiProxy.playVideo(); // Calls the underlying YouTube player's playVideo method
- * apiProxy.pauseVideo(); // Calls pauseVideo if available
- * 
- * // Returns undefined and logs a warning if the API isn't ready
- * const currentTime = apiProxy.getCurrentTime();
- * 
- * @type {Proxy<Object, {get: function(target: Object, property: string): function(...*): *}>}
- * @property {function(): number} getCurrentTime - Returns the current playback time in seconds
- * @property {function(number): void} seekTo - Seeks to a specified time in the video
- * @property {function(): void} playVideo - Starts or resumes playback
- * @property {function(): void} pauseVideo - Pauses the video
- * @property {function(): Object} getPlayerResponse - Returns the player response object
- * @property {function(): string} getVideoUrl - Returns the URL of the current video
- * @property {function(): string} getVideoData - Returns video data including video ID and title
- * @property {function(): boolean} isMuted - Returns true if the video is muted
- * @property {function(boolean): void} mute - Mutes or unmutes the video
- * @property {function(number): void} setVolume - Sets the volume (0-100)
- * @property {function(): number} getVolume - Gets the current volume (0-100)
- * @property {function(string, number, string): void} loadVideoById - Loads a video by its ID
- * @property {function(): string} getPlaylistId - Returns the current playlist ID if any
- * @property {function(): number} getVideoLoadedFraction - Returns the fraction of the video that has been buffered (0-1)
- * @property {function(): string} getPlaybackQuality - Returns the current playback quality
- * @property {function(string): void} setPlaybackQuality - Sets the playback quality
- * @property {function(): string[]} getAvailableQualityLevels - Returns available quality levels
- */
-const apiProxy = new Proxy(
-    {},
-    {
-        get(target, property) {
-            return (...args) => {
-                if (!appState.player.api) {
-                    console.warn(`YouTube player API not ready.`);
-                    return;
-                }
-                if (typeof appState.player.api[property] === 'function') {
-                    return appState.player.api[property](...args);
-                } else {
-                    console.warn(`Method "${property}" does not exist on the YouTube player API.`);
-                }
-            };
-        },
-    },
-);
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-   /*  const apiProxy = new Proxy(
+    const apiProxy = new Proxy(
         {},
         {
             get(target, property) {
-                return (...args) => {
-                    if (!appState.player.api) return console.warn(`YouTube player API not ready.`);
-                    if (typeof appState.player.api[property] === 'function') {
-                        return appState.player.api[property](...args);
-                    } else {
-                        console.warn(`Method "${property}" does not exist on the YouTube player API.`);
-                    }
-                };
+                if (!appState.player.api) {
+                    console.warn(`YouTube Helper API not ready.`);
+                    return undefined;
+                }
+                const value = appState.player.api[property];
+
+                if (typeof value === 'function') {
+                    return (...args) => {
+                        try {
+                            return value.apply(appState.player.api, args);
+                        } catch (e) {
+                            console.error(`API Call Error [${String(property)}]:`, e);
+                        }
+                    };
+                }
+
+                return value;
             },
         },
-    ); */
+    );
 
     const _readOnlyHandler = {
         get(target, property) {
@@ -270,7 +240,7 @@ const apiProxy = new Proxy(
         },
         set(target, property) {
             console.warn(`[YouTube Helper API] Tried to set "${property}" on a read-only object.`);
-            return false;
+            return true;
         },
     };
 
@@ -348,6 +318,7 @@ const apiProxy = new Proxy(
         };
     })();
 
+    const readOnlyInstance = new Proxy(instance, _readOnlyHandler);
     const readOnlyPlayer = new Proxy(appState.player, _readOnlyHandler);
     const readOnlyVideo = new Proxy(appState.video, _readOnlyHandler);
     const readOnlyChat = new Proxy(appState.chat, _readOnlyHandler);
@@ -407,6 +378,40 @@ const apiProxy = new Proxy(
             gmType: gmStorageType,
         };
     })();
+
+    const publicApi = {
+        get instance() {
+            return readOnlyInstance;
+        },
+        get player() {
+            return readOnlyPlayer;
+        },
+        get video() {
+            return readOnlyVideo;
+        },
+        get chat() {
+            return readOnlyChat;
+        },
+        get page() {
+            return readOnlyPage;
+        },
+        POSSIBLE_RESOLUTIONS,
+        updateAdState,
+        fallbackUpdateAdState,
+        getOptimalResolution,
+        setPlaybackResolution,
+        saveToStorage,
+        loadFromStorage,
+        loadAndCleanFromStorage,
+        deleteFromStorage,
+        listFromStorage,
+        reloadVideo,
+        reloadToCurrentProgress,
+        gmCapabilities,
+        apiProxy,
+        debug,
+        eventTarget: privateEventTarget,
+    };
 
     async function _getSyncedStorageData(storageKey) {
         if (storageApi.gmType === 'none') return await storageApi.getValue(storageKey, null);
@@ -651,80 +656,33 @@ const apiProxy = new Proxy(
         );
     }
 
-    /**
-     * Actualiza el estado del video con la información más reciente del reproductor de YouTube.
-     * Extrae y formatea los metadatos del video desde el objeto de respuesta del reproductor.
-     * @returns {void}
-     */
     function updateVideoState() {
-        // Verificar si la API del reproductor está disponible
         if (!appState.player.api) return;
-        
-        // Obtener la respuesta actual del reproductor y parámetros de la URL
         const playerResponseObject = appState.player.response;
         const searchParams = new URL(window.location.href).searchParams;
-
-        // --- METADATOS BÁSICOS ---
-        // Información de identificación del video
         appState.video.id = playerResponseObject?.videoDetails?.videoId;
         appState.video.title = playerResponseObject?.videoDetails?.title;
-        
-        // Información del canal
         appState.video.channel = playerResponseObject?.videoDetails?.author;
         appState.video.channelId = playerResponseObject?.videoDetails?.channelId;
-        
-        // Descripción y metadatos de texto
         appState.video.rawDescription = playerResponseObject?.videoDetails?.shortDescription;
-        
-        // --- MANEJO DE FECHAS ---
-        // Fechas en formato crudo (strings)
         appState.video.rawUploadDate = playerResponseObject?.microformat?.playerMicroformatRenderer?.uploadDate;
         appState.video.rawPublishDate = playerResponseObject?.microformat?.playerMicroformatRenderer?.publishDate;
-        
-        // Convertir fechas a objetos Date
         appState.video.uploadDate = appState.video.rawUploadDate ? new Date(appState.video.rawUploadDate) : null;
         appState.video.publishDate = appState.video.rawPublishDate ? new Date(appState.video.rawPublishDate) : null;
-        
-        // --- ESTADÍSTICAS DEL VIDEO ---
-        // Duración en segundos (convertida a entero)
         appState.video.lengthSeconds = parseInt(playerResponseObject?.videoDetails?.lengthSeconds ?? '0', 10);
-        
-        // Contador de vistas (puede no estar disponible en Shorts)
         appState.video.viewCount = parseInt(playerResponseObject?.videoDetails?.viewCount ?? '0', 10);
-        
-        // Contador de me gusta (desde microformatos)
         appState.video.likeCount = parseInt(playerResponseObject?.microformat?.playerMicroformatRenderer?.likeCount ?? '0', 10);
-        
-        // --- ESTADO DE TRANSMISIÓN ---
-        // Verificar si es una transmisión en vivo actual
         appState.video.isCurrentlyLive = apiProxy.getVideoData().isLive;
-        
-        // Verificar si es contenido en vivo o VOD
         appState.video.isLiveOrVodContent = playerResponseObject?.videoDetails?.isLiveContent;
-        
-        // Verificar si fue transmitido en vivo o estrenado
         appState.video.wasStreamedOrPremiered = !!playerResponseObject?.microformat?.playerMicroformatRenderer?.liveBroadcastDetails;
-        
-        // Clasificación de contenido
         appState.video.isFamilySafe = playerResponseObject?.microformat?.playerMicroformatRenderer?.isFamilySafe;
-        
-        // --- MINIATURAS ---
-        // Obtener miniaturas de diferentes fuentes posibles
         appState.video.thumbnails =
             playerResponseObject?.microformat?.playerMicroformatRenderer?.thumbnail?.thumbnails ??
             playerResponseObject?.videoDetails?.thumbnail?.thumbnails;
-        
-        // --- ESTADO DE REPRODUCCIÓN ---
-        // Tiempo actual de reproducción
         appState.video.realCurrentProgress = apiProxy.getCurrentTime();
-        
-        // Verificar si se especificó un tiempo de inicio en la URL (parámetro 't')
         appState.video.isTimeSpecified = searchParams.has('t');
-        
-        // Obtener ID de la lista de reproducción actual
         appState.video.playlistId = apiProxy.getPlaylistId();
 
-        // Registrar cambios en el sistema de depuración
         debug.logDetailed('Video state updated', appState.video);
     }
 
@@ -796,8 +754,8 @@ const apiProxy = new Proxy(
 
     const timeUpdateTrackedElements = new WeakMap();
     function trackPlaybackProgress() {
-        if (timeUpdateTrackedElements.has(appState.player.videoElement)) return;
         if (!appState.player.videoElement) return;
+        if (timeUpdateTrackedElements.has(appState.player.videoElement)) return;
         const updateProgress = () => {
             debug.logOverkill(`TimeUpdate: ${appState.player.videoElement.currentTime}`);
             if (!appState.player.isPlayingAds && appState.player.videoElement.currentTime > 0) {
@@ -880,8 +838,43 @@ const apiProxy = new Proxy(
         document.addEventListener('yt-chat-collapsed-changed', updateChatStateUpdated);
     }
 
-    function initialize() {
-        debug.logMinimal('Library Initialized. Waiting for player...');
+    function registerInstance(apiObject) {
+        debug.log('Registering YouTube Helper API instance...', instance);
+        instance.root.youtubeHelperRegistry = instance.root.youtubeHelperRegistry ?? {
+            instances: new Map(),
+            list: () => {
+                console.table(
+                    Array.from(instance.root.youtubeHelperRegistry.instances.values()).map((currentInstance) => ({
+                        ID: currentInstance.instance.id,
+                        Title: currentInstance.video.title,
+                        Page: currentInstance.page.type,
+                    })),
+                );
+            },
+            toggleAllDebug: () => {
+                instance.root.youtubeHelperRegistry.instances.forEach((currentInstance) => {
+                    currentInstance.debug.enabled = !currentInstance.debug.enabled;
+                });
+                console.log(`[YouTube Helper API] Toggled debug mode for all active instances.`);
+            },
+            setAllDebug: (state) => {
+                instance.root.youtubeHelperRegistry.instances.forEach((currentInstance) => {
+                    currentInstance.debug.enabled = state;
+                });
+                console.log(`[YouTube Helper API] Set debug mode for all active instances to "${state}".`);
+            },
+            setAllDebugLevel: (level) => {
+                instance.root.youtubeHelperRegistry.instances.forEach((currentInstance) => {
+                    currentInstance.debug.level = level;
+                });
+                console.log(`[YouTube Helper API] Set debug level for all active instances to "${level}".`);
+            },
+        };
+        instance.root.youtubeHelperRegistry.instances.set(instance.id, apiObject);
+    }
+
+    function initializeApiState() {
+        debug.log[0]('[YouTube Helper API] Library Initialized. Waiting for player...');
         window.addEventListener('pageshow', _handlePageshowEvent);
         checkIsIframe();
         if (!appState.page.isIframe) {
@@ -891,38 +884,25 @@ const apiProxy = new Proxy(
         }
     }
 
-    initialize();
+    function initializePublicApi() {
+        try {
+            const initFlags = { supportsCryptography: true };
 
-    const publicApi = {
-        get player() {
-            return readOnlyPlayer;
-        },
-        get video() {
-            return readOnlyVideo;
-        },
-        get chat() {
-            return readOnlyChat;
-        },
-        get page() {
-            return readOnlyPage;
-        },
-        POSSIBLE_RESOLUTIONS,
-        updateAdState,
-        fallbackUpdateAdState,
-        getOptimalResolution,
-        setPlaybackResolution,
-        saveToStorage,
-        loadFromStorage,
-        loadAndCleanFromStorage,
-        deleteFromStorage,
-        listFromStorage,
-        reloadVideo,
-        reloadToCurrentProgress,
-        gmCapabilities,
-        apiProxy,
-        debug,
-        eventTarget: privateEventTarget,
-    };
+            if (!crypto?.randomUUID) {
+                initFlags.supportsCryptography = false;
+                console.warn('[YouTube Helper API] Browser missing cryptography features.');
+            }
 
-    return publicApi;
+            initializeApiState();
+
+            if (initFlags.supportsCryptography) registerInstance(publicApi);
+
+            return publicApi;
+        } catch (error) {
+            console.error('[YouTube Helper API] Error initializing:', error);
+            return null;
+        }
+    }
+
+    return initializePublicApi();
 })();

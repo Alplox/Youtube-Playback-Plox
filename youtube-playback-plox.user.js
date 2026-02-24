@@ -3218,7 +3218,19 @@ background: var(--ypp-danger);
         isNodeWithinAdContainer(node) {
             try {
                 if (!node || typeof node.closest !== 'function') return false;
+                
+                // PASO 1 (MÁXIMA PRIORIDAD): Si está en inline preview EXPLÍCITO,
+                // NUNCA es un anuncio, sin excepciones. Los inline previews se protegen
+                // incluso si están dentro de contenedores similares a ads.
+                const inlinePreviewSelectors = '#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer';
+                if (node.closest(inlinePreviewSelectors)) {
+                    return false; // ✅ Contenido legítimo, NO es anuncio
+                }
+                
+                // PASO 2: Chequear si está dentro de ad containers explícitos
                 if (node.closest(AdSelectorText.inAnyAdContainers)) return true;
+                
+                // PASO 3: Chequear clases de ad en el player container
                 const playerContainer = node.closest(AdSelectors.playerContainer);
                 if (!playerContainer?.classList) return false;
                 return AdSelectors.playerAdClasses.some((c) => playerContainer.classList.contains(c));
@@ -3290,9 +3302,9 @@ background: var(--ypp-danger);
      */
     const getPlayerContainerId = (el) => {
         try {
-            const cont = el?.closest?.('#movie_player, #shorts-player');
+            const cont = el?.closest?.('#movie_player, #shorts-player, #inline-preview-player');
             const id = cont?.id || null;
-            return (id === 'movie_player' || id === 'shorts-player') ? id : null;
+            return (id === 'movie_player' || id === 'shorts-player' || id === 'inline-preview-player') ? id : null;
         } catch (_) {
             return null;
         }
@@ -3643,6 +3655,43 @@ background: var(--ypp-danger);
     };
 
     const PlayerStateManager = createPlayerStateManager();
+
+    // MARK: 📱 Miniplayer Data Extractor
+    /**
+     * Extrae datos directamente del miniplayer aislado de otros entornos (como Shorts).
+     * Siempre busca internamente en el nodo ytd-miniplayer[active]
+     */
+    const MiniplayerDataExtractor = (() => {
+        const isActive = () => !!document.querySelector('ytd-miniplayer[active]') && !!document.querySelector('ytd-miniplayer[active] #movie_player');
+        const getPlayer = () => document.querySelector('ytd-miniplayer[active] #movie_player') || document.querySelector('ytd-miniplayer #movie_player');
+
+        log('MiniplayerDataExtractor', 'isActive', isActive());
+        log('MiniplayerDataExtractor', 'getPlayer', getPlayer());
+        log('MiniplayerDataExtractor', `Selector('ytd-miniplayer[active]') ${document.querySelector('ytd-miniplayer[active]')}`);
+        log('MiniplayerDataExtractor', `Selector('ytd-miniplayer[active] #movie_player') ${document.querySelector('ytd-miniplayer[active] #movie_player')}`);
+        log('MiniplayerDataExtractor', 'Selector', document.querySelector('ytd-miniplayer #movie_player'));
+
+        // funciona document.querySelector('ytd-miniplayer #movie_player')
+
+        const getData = () => {
+            const player = getPlayer();
+            if (!player) return null;
+            try {
+                const data = player.getVideoData?.();
+                return {
+                    videoId: data?.video_id,
+                    title: data?.title,
+                    author: data?.author,
+                    queue: player.getPlaylist?.(),
+                    index: player.getPlaylistIndex?.()
+                };
+            } catch (e) {
+                return null;
+            }
+        };
+
+        return { isActive, getPlayer, getData };
+    })();
 
     // MARK: 📊 Caché de Estado de Players
     /**
@@ -5948,6 +5997,12 @@ background: var(--ypp-danger);
             'ytd-miniplayer video',
             '.html5-video-container video', // Más genérico, pero útil como fallback
 
+            // === INLINE PREVIEWS (Homepage/Search - Hover en thumbnails) ===
+            // Detectar explícitamente videos en previews inline (importante para homepage)
+            '#inline-preview-player video',
+            '.ytp-inline-preview-ui video',
+            'ytd-thumbnail-overlay-inline-playback-renderer video',
+
             // === FALLBACKS GENÉRICOS (último recurso) ===
             // Evitar [data-no-fullscreen] que indica previews inline que no queremos
             'video:not([data-no-fullscreen])',
@@ -6220,6 +6275,17 @@ background: var(--ypp-danger);
                 }
             }
 
+            // Prioridad especial para inline previews: si hay video reproduciendo DENTRO de
+            // un contenedor inline-preview explícito, ese tiene máxima prioridad sobre otros
+            const inlinePreviewContainer = document.querySelector('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer');
+            if (inlinePreviewContainer) {
+                const inlinePlayingVideo = playingVideos.find(v => inlinePreviewContainer.contains(v));
+                if (inlinePlayingVideo) {
+                    log('getActiveVideoElement', 'Seleccionado video en inline preview container (máxima prioridad)');
+                    return inlinePlayingVideo;
+                }
+            }
+
             // Default: usar la función de prioridad estándar
             const chosen = pickByPriority(playingVideos);
             if (chosen) {
@@ -6327,7 +6393,11 @@ background: var(--ypp-danger);
                 result.type = 'preview';
                 result.container = inlineContainer;
                 result.isInline = true;
-                result.shouldProcess = cachedSettings?.saveInlinePreviews === true;
+                // Permitir procesamiento si:
+                // 1. Usuario habilitó saveInlinePreviews, O
+                // 2. El video está actualmente reproduciendo/ha progresado (contenido activo que el usuario ve)
+                const isActive = !videoElement.paused || (videoElement.currentTime > 0);
+                result.shouldProcess = cachedSettings?.saveInlinePreviews === true || isActive;
                 return result;
             }
 
@@ -7842,9 +7912,10 @@ background: var(--ypp-danger);
         // Lógica unificada: si es miniplayer, usar datos del miniplayer independientemente de la página
         if (isMiniOnShorts) {
             // Miniplayer: usar datos específicos del miniplayer para evitar contaminación
+            const mpElement = MiniplayerDataExtractor.getPlayer() || document.querySelector('#movie_player');
             authorId =
-                document.querySelector('#movie_player a.ytp-ce-channel-title.ytp-ce-link[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                document.querySelector('#movie_player a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
+                mpElement.querySelector('a.ytp-ce-channel-title.ytp-ce-link[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
+                mpElement.querySelector('a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
                 '';
             // Fusionar con metadata de la página watch del miniplayer para asegurar datos correctos
             if (metaFromMiniplayer) {
@@ -9153,7 +9224,7 @@ background: var(--ypp-danger);
 
             if (targetContainerId === 'movie_player' || playerInfo.playerType === 'miniplayer') {
                 // Miniplayer activo - usar el ID del miniplayer
-                const mp = document.querySelector('#movie_player');
+                const mp = playerInfo.playerType === 'miniplayer' ? (MiniplayerDataExtractor.getPlayer() || document.querySelector('#movie_player')) : document.querySelector('#movie_player');
                 video_id = mp?.getVideoData?.()?.video_id || expectedVideoId || urlIdNow || YTHelper?.video?.id || player?.getVideoData?.()?.video_id || null;
             } else if (targetContainerId === 'shorts-player' || playerInfo.playerType === 'shorts') {
                 // Shorts player - priorizar URL para evitar contaminación del miniplayer
@@ -9193,9 +9264,11 @@ background: var(--ypp-danger);
 
             // Configurar player y videoEl según el contenedor destino
             if (containerToUse === 'movie_player') {
-                const mp = document.querySelector('#movie_player');
+                const mp = playerInfo.playerType === 'miniplayer'
+                    ? (MiniplayerDataExtractor.getPlayer() || document.querySelector('#movie_player'))
+                    : document.querySelector('#movie_player');
                 if (mp) player = mp;
-                const veMp = document.querySelector('#movie_player video.html5-main-video');
+                const veMp = mp?.querySelector('video.html5-main-video') || document.querySelector('#movie_player video.html5-main-video');
                 if (veMp) videoEl = veMp;
             } else if (containerToUse === 'shorts-player') {
                 const veSp = document.querySelector('#shorts-player video') || document.querySelector('ytd-shorts video.html5-main-video');
@@ -9255,7 +9328,7 @@ background: var(--ypp-danger);
         // 3) Solo como último recurso en videos NO-Shorts, usar #movie_player
         if ((!currentTime || currentTime <= 0) && type !== 'shorts' && contId !== 'shorts-player') {
             try {
-                const mp = document.querySelector('#movie_player');
+                const mp = playerInfoV.playerType === 'miniplayer' ? (MiniplayerDataExtractor.getPlayer() || document.querySelector('#movie_player')) : document.querySelector('#movie_player');
                 const t2 = mp?.getCurrentTime?.();
                 if (typeof t2 === 'number' && isFinite(t2) && t2 > 0) currentTime = t2;
             } catch (_) { }
@@ -9278,7 +9351,12 @@ background: var(--ypp-danger);
                 tentativeType = 'watch';
             }
             log('updateStatus', `🎯 tentativeType determinado: ${tentativeType} (basado en type='${type}')`);
-            log('updateStatus', `⚙️ cachedSettings.saveShorts=${cachedSettings?.saveShorts}, saveRegularVideos=${cachedSettings?.saveRegularVideos}, saveLiveStreams=${cachedSettings?.saveLiveStreams}`);
+            log('updateStatus', `⚙️ cachedSettings: ${JSON.stringify(cachedSettings)}`);
+            /* log('updateStatus', `saveRegularVideos=${cachedSettings?.saveRegularVideos}, 
+                saveShorts=${cachedSettings?.saveShorts}, 
+                saveMiniplayerVideos=${cachedSettings?.saveMiniplayerVideos},
+                saveLiveStreams=${cachedSettings?.saveLiveStreams},
+                saveInlinePreviews=${cachedSettings?.saveInlinePreviews}`); */
 
             // Validación de configuración temprana - RECHAZA TEMPRANO si está deshabilitado
             if (tentativeType === 'shorts' && cachedSettings?.saveShorts === false) {
@@ -11234,9 +11312,10 @@ background: var(--ypp-danger);
                     warn('processVideo', 'No se encontró videoEl. Abortando.');
                     return;
                 }
-                // En home, forzar el uso de movie_player/miniplayer y su <video> asociado
+                // En home, forzar el uso de movie_player/miniplayer y su <video> asociado solo si NO es un inline preview
                 try {
-                    if (getYouTubePageType() === 'home') {
+                    const isInline = !!videoEl?.closest?.('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer');
+                    if (!isInline && getYouTubePageType() === 'home') {
                         const mp = document.querySelector('#movie_player');
                         if (mp?.getDuration) player = mp;
                         const ve = document.querySelector('#movie_player video.html5-main-video') || videoEl;

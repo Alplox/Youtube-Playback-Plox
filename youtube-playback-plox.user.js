@@ -738,6 +738,66 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
         }
     };
 
+    // Selectores reutilizables (optimización: evitar strings duplicadas)
+    // Patrón: Selectores ATÓMICOS (cada uno único, sin duplicación)
+    // Composición lógica en helpers, no en selectores
+    const SELECTORS = {
+        // === CONTENEDORES PRINCIPALES (selectores atómicos, específicos) ===
+        WATCH_PLAYER: '#movie_player',
+        HTML5_VIDEO_PLAYER: '.html5-video-player',
+        SHORTS_PLAYER: '#shorts-player',
+        INLINE_PREVIEW_PLAYER: '#inline-preview-player',
+
+        // === MINIPLAYER (componentes individuales) ===
+        MINIPLAYER_UI: '.ytp-miniplayer-ui',
+        MINIPLAYER_ID: '#miniplayer',
+        MINIPLAYER_ELEMENT: 'ytd-miniplayer',
+
+        // === INLINE PREVIEW (componentes individuales) ===
+        INLINE_PREVIEW_UI: '.ytp-inline-preview-ui',
+        INLINE_PREVIEW_OVERLAY: 'ytd-thumbnail-overlay-inline-playback-renderer',
+
+        // === SHORTS (componentes individuales) ===
+        REEL_VIDEO_RENDERER: 'ytd-reel-video-renderer',
+        SHORTS_WEB: 'ytd-shorts',
+
+        // === ATRIBUTOS (para selectores con estado) ===
+        MINIPLAYER_ACTIVE: '[miniplayer-active]',
+    };
+
+    // === COMBINACIONES COMPUESTAS (construidas dinámicamente desde atómicas - CERO DUPLICACIÓN) ===
+    // Cada string selector aparece exactamente UNA VEZ en todo el código
+    Object.assign(SELECTORS, {
+        MINIPLAYER: `${SELECTORS.MINIPLAYER_UI}, ${SELECTORS.MINIPLAYER_ID}, ${SELECTORS.MINIPLAYER_ELEMENT}`,
+        INLINE_PREVIEW: `${SELECTORS.INLINE_PREVIEW_PLAYER}, ${SELECTORS.INLINE_PREVIEW_UI}, ${SELECTORS.INLINE_PREVIEW_OVERLAY}`,
+        SHORTS: `${SELECTORS.REEL_VIDEO_RENDERER}, ${SELECTORS.SHORTS_WEB}, ${SELECTORS.SHORTS_PLAYER}`,
+        WATCH: `${SELECTORS.WATCH_PLAYER}, ${SELECTORS.HTML5_VIDEO_PLAYER}`,
+        MAIN_CONTAINERS: `${SELECTORS.WATCH_PLAYER}, ${SELECTORS.SHORTS_PLAYER}, ${SELECTORS.INLINE_PREVIEW_PLAYER}`
+    });
+
+    // === HELPERS INDIVIDUALES (verificación de contenedores específicos) ===
+    const isInWatchPlayer = v => v.closest(SELECTORS.WATCH_PLAYER);
+    const isInShortsPlayer = v => v.closest(SELECTORS.SHORTS_PLAYER);
+    const isInInlinePreviewPlayer = v => v.closest(SELECTORS.INLINE_PREVIEW_PLAYER);
+
+    // === HELPERS COMPUESTOS (combinación lógica sin duplicación de selectores) ===
+    // Cada helper combina sus componentes atómicos usando lógica OR
+    const isInMiniplayer = v => v.closest(SELECTORS.MINIPLAYER_UI) || v.closest(SELECTORS.MINIPLAYER_ID) || v.closest(SELECTORS.MINIPLAYER_ELEMENT);
+    const isInMiniplayerActive = v => (v.closest(SELECTORS.MINIPLAYER_UI + SELECTORS.MINIPLAYER_ACTIVE) ||
+                                         v.closest(SELECTORS.MINIPLAYER_ID + SELECTORS.MINIPLAYER_ACTIVE) ||
+                                         v.closest(SELECTORS.MINIPLAYER_ELEMENT + SELECTORS.MINIPLAYER_ACTIVE));
+    const isNotInMiniplayer = v => !isInMiniplayer(v);
+
+    const isInShorts = v => isInShortsPlayer(v) || v.closest(SELECTORS.REEL_VIDEO_RENDERER) || v.closest(SELECTORS.SHORTS_WEB);
+    const isInWatch = v => isInWatchPlayer(v) || v.closest(SELECTORS.HTML5_VIDEO_PLAYER);
+    const isInInlinePreview = v => isInInlinePreviewPlayer(v) || v.closest(SELECTORS.INLINE_PREVIEW_UI) || v.closest(SELECTORS.INLINE_PREVIEW_OVERLAY);
+
+    // === HELPERS COMBINADOS (composición de composiciones) ===
+    // Utiliza combinación de helpers sin crear nuevos selectores
+    const isInAnyMainContainer = v => isInWatchPlayer(v) || isInShortsPlayer(v) || isInInlinePreviewPlayer(v);
+    const isInWatchOrShorts = v => isInWatch(v) || isInShorts(v);
+    const isInWatchOrInline = v => isInWatch(v) || isInInlinePreview(v);
+
     // ------------------------------------------
     // MARK: 🌐 Funciones de traducción
     // ------------------------------------------
@@ -1098,6 +1158,35 @@ html[dark], body.dark-theme {
   transform: translateX(-50%);
   bottom: 64px; /* por encima de botones de acción */
   z-index: var(--ypp-z-toast, 10001);
+}
+
+
+/* Estilo específico para mensajes en Miniplayer */
+.ypp-miniplayer-time-display {
+  background: hsla(109.7, 56.1%, 22.4%, 0.7);
+  color: #fff;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  pointer-events: auto;
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  position: relative;
+  z-index: var(--ypp-z-toast, 10001);
+  border-radius: var(--ypp-spacing-md);
+  margin-left: auto; /* alinear a la derecha en el control bar */
+  margin-right: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  &:hover {
+    background: var(--ypp-success-dark, #15803d);
+    transform: scale(1.05);
+  }
 }
 
 
@@ -3015,7 +3104,7 @@ background: var(--ypp-danger);
         ],
         inFeedAdContainers: [
             'ytd-in-feed-ad-layout-renderer', // Ads dentro del feed (Home/Search)
-            'ytd-ad-slot-renderer', // Slot genérico de anuncio (feed/sidebar)
+            'ytd-ad-slot-renderer', // Slot genérico de anuncio (Home/feed/sidebar)
             'ytd-display-ad-renderer', // Display ad (paneles laterales / feed)
             'ytd-promoted-sparkles-web-renderer', // Promoted / “sparkles” (cards patrocinadas)
             'ytd-video-masthead-ad-v3-renderer', // Masthead ad (homepage autoplay)
@@ -3185,7 +3274,7 @@ background: var(--ypp-danger);
 
             if (type === 'unknown') {
                 videoElement = Array.from(document.querySelectorAll('video')).find(v => {
-                    return !v.paused && v.offsetWidth > 0 && !v.closest('#movie_player, #shorts-player');
+                    return !v.paused && v.offsetWidth > 0 && !isInAnyMainContainer(v);
                 }) || null;
                 if (videoElement) playerObject = videoElement.closest('ytd-player, .html5-video-player');
             }
@@ -3218,18 +3307,46 @@ background: var(--ypp-danger);
         isNodeWithinAdContainer(node) {
             try {
                 if (!node || typeof node.closest !== 'function') return false;
-                
-                // PASO 1 (MÁXIMA PRIORIDAD): Si está en inline preview EXPLÍCITO,
-                // NUNCA es un anuncio, sin excepciones. Los inline previews se protegen
-                // incluso si están dentro de contenedores similares a ads.
-                const inlinePreviewSelectors = '#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer';
+
+                // PASO 1 (MÁXIMA PRIORIDAD): Verificar si está dentro de selectores de feed ads
+                // (agnóstico del idioma, basado en estructura DOM - reutilizando AdSelectors)
+                if (node.closest(AdSelectorText.inFeedAdContainers)) {
+                    return true; // ✗ Está dentro de componente de anuncio de feed (ytd-ad-slot-renderer, etc.)
+                }
+
+                // PASO 1b: Protección de inline previews legítimos
+                // Si está en inline preview EXPLÍCITO (verificado estructuralmente), puede ser legítimo
+                const inlinePreviewSelectors = SELECTORS.INLINE_PREVIEW;
                 if (node.closest(inlinePreviewSelectors)) {
                     return false; // ✅ Contenido legítimo, NO es anuncio
                 }
-                
-                // PASO 2: Chequear si está dentro de ad containers explícitos
-                if (node.closest(AdSelectorText.inAnyAdContainers)) return true;
-                
+
+                // PASO 1c: Protección adicional - Si está dentro de un contenedor de thumbnail
+                // o se detecta que es parte de una preview interactiva, no es un anuncio
+                try {
+                    const inlineContainer = node.closest('ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, .video-renderer');
+                    const inlinePreviewOverlay = node.closest(SELECTORS.INLINE_PREVIEW);
+
+                    if (inlinePreviewOverlay) {
+                        return false; // ✅ Dentro de preview elegido, NO es anuncio
+                    }
+
+                    // Si está dentro de video renderer sin ad slot explícito y sin badges de ad, es legítimo
+                    if (inlineContainer && !inlineContainer.closest(AdSelectorText.inFeedAdContainers)) {
+                        // No tiene badge explícito de ad (reutilizando AdSelectors)
+                        const hasBadge = !!inlineContainer.querySelector?.(AdSelectors.clickableAdBadgesWithinRichItem.join(', '));
+                        if (!hasBadge) {
+                            // Si está reproduciéndose y es parte de grid, es probablemente legítimo
+                            if (!node.paused && inlineContainer.offsetWidth > 100 && inlineContainer.offsetHeight > 60) {
+                                return false; // ✅ Probablemente preview legítimo en reproducción
+                            }
+                        }
+                    }
+                } catch (_) { }
+
+                // PASO 2: Chequear si está dentro de ad containers del player (fallback, normalmente ya capturado en PASO 1)
+                if (node.closest(AdSelectorText.inPlayerAdContainers)) return true;
+
                 // PASO 3: Chequear clases de ad en el player container
                 const playerContainer = node.closest(AdSelectors.playerContainer);
                 if (!playerContainer?.classList) return false;
@@ -3302,7 +3419,7 @@ background: var(--ypp-danger);
      */
     const getPlayerContainerId = (el) => {
         try {
-            const cont = el?.closest?.('#movie_player, #shorts-player, #inline-preview-player');
+            const cont = el?.closest?.(SELECTORS.MAIN_CONTAINERS);
             const id = cont?.id || null;
             return (id === 'movie_player' || id === 'shorts-player' || id === 'inline-preview-player') ? id : null;
         } catch (_) {
@@ -3503,7 +3620,11 @@ background: var(--ypp-danger);
             try {
                 // Detectar miniplayer - SOLO cuando esté realmente minimizado y NO estemos en página watch
                 const isWatchEmbed = pageType === 'watch' || pageType === 'embed';
-                const miniPlayerEl = !isWatchEmbed ? document.querySelector('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer[miniplayer-active]') : null;
+                const miniPlayerEl = !isWatchEmbed ? document.querySelector(
+                    SELECTORS.MINIPLAYER_UI + SELECTORS.MINIPLAYER_ACTIVE + ', ' +
+                    SELECTORS.MINIPLAYER_ID + SELECTORS.MINIPLAYER_ACTIVE + ', ' +
+                    SELECTORS.MINIPLAYER_ELEMENT + SELECTORS.MINIPLAYER_ACTIVE
+                ) : null;
 
                 if (miniPlayerEl) {
                     const moviePlayer = document.querySelector('#movie_player');
@@ -3537,7 +3658,7 @@ background: var(--ypp-danger);
                 if (pageType === 'watch' || pageType === 'embed') {
                     const moviePlayer = document.querySelector('#movie_player');
                     if (moviePlayer) {
-                        // En página watch, el movie_player es SIEMPRE el watch player, 
+                        // En página watch, el movie_player es SIEMPRE el watch player,
                         // incluso si YouTube dejó clases de miniplayer residuales.
                         const videoData = moviePlayer.getVideoData?.();
                         if (videoData?.video_id) {
@@ -3626,7 +3747,11 @@ background: var(--ypp-danger);
                 if (!isMatchingVideo) return false;
 
                 // Verificar si el contenedor tiene señales de miniplayer activo
-                return !!document.querySelector('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer[miniplayer-active]');
+                return !!document.querySelector(
+                    SELECTORS.MINIPLAYER_UI + SELECTORS.MINIPLAYER_ACTIVE + ', ' +
+                    SELECTORS.MINIPLAYER_ID + SELECTORS.MINIPLAYER_ACTIVE + ', ' +
+                    SELECTORS.MINIPLAYER_ELEMENT + SELECTORS.MINIPLAYER_ACTIVE
+                );
             } catch (error) {
                 return false;
             }
@@ -5906,7 +6031,7 @@ background: var(--ypp-danger);
 
                 // Validar que el elemento esté en el contexto correcto (movie_player o shorts-player)
                 // Esto previene retornar elementos de tests o contextos inesperados
-                const container = helperElement.closest('#movie_player, #shorts-player');
+                const container = helperElement.closest(SELECTORS.MAIN_CONTAINERS);
                 const isShortsElement = container?.id === 'shorts-player';
                 const isWatchElement = container?.id === 'movie_player';
 
@@ -6083,11 +6208,7 @@ background: var(--ypp-danger);
             // Si está dentro de un inline preview (thumbnail con hover), considerar su contenedor
             let inlineContainerEl = null;
             try {
-                inlineContainerEl = video.closest(
-                    '#inline-preview-player, ' +
-                    '.ytp-inline-preview-ui, ' +
-                    'ytd-thumbnail-overlay-inline-playback-renderer'
-                );
+                inlineContainerEl = video.closest(SELECTORS.INLINE_PREVIEW);
             } catch (_) { inlineContainerEl = null; }
 
             const contRect = (() => {
@@ -6129,7 +6250,7 @@ background: var(--ypp-danger);
             // Aceptar por inline preview: casos especiales para home-like pages
             let acceptByInline = false;
             try {
-                const inlineEl = inlineContainerEl || video.closest('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer');
+                const inlineEl = inlineContainerEl || video.closest(SELECTORS.INLINE_PREVIEW);
                 if (inlineEl) {
                     const pageType = getYouTubePageType();
                     const isHomeLike = (pageType === 'home' || pageType === 'search' || pageType === 'channel' || pageType === 'unknown');
@@ -6193,34 +6314,20 @@ background: var(--ypp-danger);
         const pickByPriority = (list) => {
             // Prioridad 1: Miniplayer (usuario lo destacó flotante)
             if (allowMiniplayerSaving) {
-                const mp = list.find(v =>
-                    v.closest('.ytp-miniplayer-ui') ||
-                    v.closest('#miniplayer') ||
-                    v.closest('ytd-miniplayer')
-                );
+                const mp = list.find(isInMiniplayer);
                 if (mp) return mp;
             }
 
             // Prioridad 2: Main player (movie_player en página watch)
-            const main = list.find(v =>
-                (!allowMiniplayerSaving && (v.closest('.ytp-miniplayer-ui') || v.closest('#miniplayer') || v.closest('ytd-miniplayer')))
-                    ? false
-                    : (v.closest('#movie_player') || v.closest('.html5-video-player'))
-            );
+            const main = list.find(v => !allowMiniplayerSaving && isInMiniplayer(v) ? false : isInWatch(v));
             if (main) return main;
 
             // Prioridad 3: Shorts feed
-            const shorts = list.find(v =>
-                v.closest('ytd-reel-video-renderer') ||
-                v.closest('ytd-shorts') ||
-                v.closest('#shorts-player')
-            );
+            const shorts = list.find(isInShorts);
             if (shorts) return shorts;
 
             // Fallback: El primero válido (respetando miniplayer deshabilitado)
-            const fallback = allowMiniplayerSaving
-                ? list[0]
-                : list.find(v => !(v.closest('.ytp-miniplayer-ui') || v.closest('#miniplayer') || v.closest('ytd-miniplayer')));
+            const fallback = allowMiniplayerSaving ? list[0] : list.find(isNotInMiniplayer);
             return fallback || null;
         };
 
@@ -6251,11 +6358,7 @@ background: var(--ypp-danger);
         if (playingVideos.length > 0) {
             // Sub-opción A: preferimos miniplayer (saveShorts=false en Shorts)
             if (preferMiniplayer) {
-                const mpPlaying = playingVideos.find(v =>
-                    v.closest('.ytp-miniplayer-ui') ||
-                    v.closest('#miniplayer') ||
-                    v.closest('ytd-miniplayer')
-                );
+                const mpPlaying = playingVideos.find(isInMiniplayer);
                 if (mpPlaying) {
                     log('getActiveVideoElement', 'Seleccionado miniplayer (preferido) por reproducción activa en Shorts con guardado desactivado');
                     return mpPlaying;
@@ -6264,11 +6367,7 @@ background: var(--ypp-danger);
 
             // Sub-opción B: preferimos Shorts (saveShorts=true en Shorts)
             if (preferShorts) {
-                const spPlaying = playingVideos.find(v =>
-                    v.closest('ytd-reel-video-renderer') ||
-                    v.closest('ytd-shorts') ||
-                    v.closest('#shorts-player')
-                );
+                const spPlaying = playingVideos.find(isInShorts);
                 if (spPlaying) {
                     log('getActiveVideoElement', 'Seleccionado Shorts (preferido) por reproducción activa en Shorts con guardado habilitado');
                     return spPlaying;
@@ -6277,7 +6376,7 @@ background: var(--ypp-danger);
 
             // Prioridad especial para inline previews: si hay video reproduciendo DENTRO de
             // un contenedor inline-preview explícito, ese tiene máxima prioridad sobre otros
-            const inlinePreviewContainer = document.querySelector('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer');
+            const inlinePreviewContainer = document.querySelector(SELECTORS.INLINE_PREVIEW);
             if (inlinePreviewContainer) {
                 const inlinePlayingVideo = playingVideos.find(v => inlinePreviewContainer.contains(v));
                 if (inlinePlayingVideo) {
@@ -6310,11 +6409,7 @@ background: var(--ypp-danger);
 
         // Similar para Shorts: si preferimos Shorts, escogerlo si es visible
         if (preferShorts) {
-            const spVisible = visibleVideos.find(v =>
-                v.closest('ytd-reel-video-renderer') ||
-                v.closest('ytd-shorts') ||
-                v.closest('#shorts-player')
-            );
+            const spVisible = visibleVideos.find(isInShorts);
             if (spVisible) {
                 log('getActiveVideoElement', 'Seleccionado Shorts (preferido) por visibilidad en Shorts con guardado habilitado');
                 return spVisible;
@@ -6325,6 +6420,19 @@ background: var(--ypp-danger);
         // (miniplayer > main > shorts > cualquiera)
         const chosen = pickByPriority(visibleVideos);
         log('getActiveVideoElement', `Seleccionado por prioridad de visibilidad`);
+
+        // FALLBACK CRÍTICO: Si no hay videos detectados en el DOM pero YTHelper está disponible,
+        // confiar en su elemento de video como último recurso (previene "Videos visibles: 0")
+        if (!chosen && YTHelper?.player?.videoElement) {
+            try {
+                const ytHelperEl = YTHelper.player.videoElement;
+                if (ytHelperEl && document.contains(ytHelperEl) && !isAdContextNode(ytHelperEl)) {
+                    log('getActiveVideoElement', '🆘 Fallback YTHelper: usando videoElement del Helper API (detector de DOM falló)');
+                    return ytHelperEl;
+                }
+            } catch (_) { }
+        }
+
         return chosen || null;
     }
 
@@ -6360,7 +6468,7 @@ background: var(--ypp-danger);
             const settingsSnapshot = cachedSettings || CONFIG.defaultSettings;
             const allowMiniplayerSaving = settingsSnapshot.saveMiniplayerVideos !== false && settingsSnapshot.saveRegularVideos !== false;
             // Detectar miniplayer
-            const miniplayerContainer = videoElement.closest('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer');
+            const miniplayerContainer = videoElement.closest(SELECTORS.MINIPLAYER);
             if (miniplayerContainer) {
                 result.type = 'miniplayer';
                 result.container = miniplayerContainer;
@@ -6369,7 +6477,7 @@ background: var(--ypp-danger);
             }
 
             // Detectar shorts
-            const shortsContainer = videoElement.closest('ytd-reel-video-renderer, ytd-shorts, #shorts-player, #short-video-container');
+            const shortsContainer = videoElement.closest(SELECTORS.SHORTS + ', #short-video-container');
             if (shortsContainer) {
                 result.type = 'shorts';
                 result.container = shortsContainer;
@@ -6388,7 +6496,7 @@ background: var(--ypp-danger);
             }
 
             // Detectar inline preview
-            const inlineContainer = videoElement.closest('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer');
+            const inlineContainer = videoElement.closest(SELECTORS.INLINE_PREVIEW);
             if (inlineContainer) {
                 result.type = 'preview';
                 result.container = inlineContainer;
@@ -6402,7 +6510,7 @@ background: var(--ypp-danger);
             }
 
             // Detectar watch/main player
-            const watchContainer = videoElement.closest('#movie_player, .html5-video-player');
+            const watchContainer = videoElement.closest(SELECTORS.WATCH);
             if (watchContainer) {
                 result.type = 'watch';
                 result.container = watchContainer;
@@ -6461,7 +6569,7 @@ background: var(--ypp-danger);
 
         const isInlinePreviewContext = (node) => {
             try {
-                const el = node && node.closest && node.closest('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer');
+                const el = node && node.closest && node.closest(SELECTORS.INLINE_PREVIEW);
                 return !!(el && !isAdContext(node));
             } catch (_) { return false; }
         };
@@ -6663,7 +6771,7 @@ background: var(--ypp-danger);
          */
         const resolveContext = (videoElement, pageType) => {
             const pt = pageType || getYouTubePageType();
-            const containerId = videoElement?.closest?.('#movie_player, #shorts-player')?.id || null;
+            const containerId = videoElement?.closest?.(SELECTORS.MAIN_CONTAINERS)?.id || null;
 
             // Detectar miniplayer activo
             const isMiniplayer = !!(
@@ -8204,7 +8312,7 @@ background: var(--ypp-danger);
         let containerType = null;
         try {
             pageType = getYouTubePageType();
-            containerType = videoEl?.closest?.('#movie_player, #shorts-player')?.id || null;
+            containerType = videoEl?.closest?.(SELECTORS.MAIN_CONTAINERS)?.id || null;
             const isShortsContext = pageType === 'shorts' || containerType === 'shorts-player';
             if (canLog && isShortsContext) {
                 log('getVideoDuration', '⏭ Contexto Shorts detectado, evitando YTHelper/meta tags');
@@ -8967,7 +9075,7 @@ background: var(--ypp-danger);
 
         if (pageTypeNow === 'home' && homeVideoCheck && location.pathname !== '/watch') {
             let containerId = null;
-            try { containerId = homeVideoCheck.closest('#movie_player, #shorts-player')?.id || null; } catch (_) { }
+            try { containerId = homeVideoCheck.closest(SELECTORS.MAIN_CONTAINERS)?.id || null; } catch (_) { }
 
             if (containerId === 'movie_player') {
                 // Para miniplayer, obtener URL correcta verificando que pertenezca al video actual
@@ -9085,7 +9193,7 @@ background: var(--ypp-danger);
         }
 
         let contId = null; // Identificador del contenedor (movie_player | shorts-player | null)
-        try { contId = videoEl?.closest?.('#movie_player, #shorts-player')?.id || null; } catch (_) { }
+        try { contId = videoEl?.closest?.(SELECTORS.MAIN_CONTAINERS)?.id || null; } catch (_) { }
 
         try {
             if (pageTypeNow === 'shorts') {
@@ -9352,8 +9460,8 @@ background: var(--ypp-danger);
             }
             log('updateStatus', `🎯 tentativeType determinado: ${tentativeType} (basado en type='${type}')`);
             log('updateStatus', `⚙️ cachedSettings: ${JSON.stringify(cachedSettings)}`);
-            /* log('updateStatus', `saveRegularVideos=${cachedSettings?.saveRegularVideos}, 
-                saveShorts=${cachedSettings?.saveShorts}, 
+            /* log('updateStatus', `saveRegularVideos=${cachedSettings?.saveRegularVideos},
+                saveShorts=${cachedSettings?.saveShorts},
                 saveMiniplayerVideos=${cachedSettings?.saveMiniplayerVideos},
                 saveLiveStreams=${cachedSettings?.saveLiveStreams},
                 saveInlinePreviews=${cachedSettings?.saveInlinePreviews}`); */
@@ -10042,6 +10150,10 @@ background: var(--ypp-danger);
     let lastShortsMessageHtml = '';
     let shortsPanelObserver = null;
     let lastShortsReattachTs = 0;
+    let miniplayerTimeDisplay;
+    let clearMiniplayerMessageTimeout = null;
+    let lastMiniplayerMessageHtml = '';
+    let miniplayerObserver = null;
     let lastHandlerPerfLog = 0;
     let lastAdCheckLog = 0;
     let lastAdStateLog = 0;
@@ -10280,6 +10392,155 @@ background: var(--ypp-danger);
     function stopShortsPanelObserver() {
         try { shortsPanelObserver?.disconnect?.(); } catch (_) { }
         shortsPanelObserver = null;
+    }
+
+    // ------------------------------------------
+    // MARK: 🎬 Miniplayer Messages
+    // ------------------------------------------
+    /**
+     * Inicializa la visualización de tiempo para el miniplayer
+     */
+    function initMiniplayerTimeDisplay() {
+        // Buscar el control bar del miniplayer
+        const miniplayerControl = document.querySelector('.ytp-miniplayer-ui .ytp-chrome-bottom') ||
+            document.querySelector('#miniplayer .ytp-chrome-bottom') ||
+            document.querySelector('ytd-miniplayer .ytp-chrome-bottom');
+
+        log('initMiniplayerTimeDisplay', 'miniplayerControl encontrado:', !!miniplayerControl);
+
+        if (!miniplayerControl) return;
+
+        // Si ya existe el display, asegurar que esté en el contenedor correcto
+        if (miniplayerTimeDisplay && miniplayerTimeDisplay.parentElement !== miniplayerControl) {
+            try { miniplayerControl.appendChild(miniplayerTimeDisplay); } catch (_) { }
+        }
+
+        // Crear elemento si no existe
+        if (!miniplayerTimeDisplay) {
+            miniplayerTimeDisplay = createElement('div', {
+                className: 'ypp-miniplayer-time-display ypp-d-none',
+                onClickEvent: showSavedVideosList,
+                atribute: {
+                    title: `${t('savedVideos')}`,
+                }
+            });
+        }
+
+        // Agregar al control bar si aún no está conectado
+        if (!miniplayerTimeDisplay.isConnected) {
+            miniplayerControl.appendChild(miniplayerTimeDisplay);
+        }
+
+        log('initMiniplayerTimeDisplay', 'Creada visualización de tiempo para miniplayer');
+
+        // Iniciar observador para detectar cambios en el miniplayer
+        startMiniplayerObserver();
+    }
+
+    /**
+     * Inicia un MutationObserver para detectar cambios en el miniplayer
+     */
+    function startMiniplayerObserver() {
+        try { if (miniplayerObserver) return; } catch (_) { }
+        const target = document.querySelector('.ytp-miniplayer-ui') ||
+            document.querySelector('#miniplayer') ||
+            document.querySelector('ytd-miniplayer') ||
+            document.body;
+        if (!target) return;
+
+        miniplayerObserver = new MutationObserver((mutations) => {
+            let shouldReattach = false;
+            for (const m of mutations) {
+                if (m.type === 'childList' || m.type === 'attributes') {
+                    shouldReattach = true;
+                    break;
+                }
+            }
+            if (!shouldReattach) return;
+
+            try {
+                const control = document.querySelector('.ytp-miniplayer-ui .ytp-chrome-bottom') ||
+                    document.querySelector('#miniplayer .ytp-chrome-bottom') ||
+                    document.querySelector('ytd-miniplayer .ytp-chrome-bottom');
+                if (control && miniplayerTimeDisplay && miniplayerTimeDisplay.parentElement !== control) {
+                    control.appendChild(miniplayerTimeDisplay);
+                }
+                if (miniplayerTimeDisplay && lastMiniplayerMessageHtml) {
+                    setInnerHTML(miniplayerTimeDisplay, lastMiniplayerMessageHtml);
+                    miniplayerTimeDisplay.classList.remove('ypp-d-none');
+                }
+            } catch (_) { }
+        });
+
+        try {
+            miniplayerObserver.observe(target, {
+                subtree: true,
+                childList: true,
+                attributes: true,
+                attributeFilter: ['class', 'hidden']
+            });
+        } catch (_) { miniplayerObserver = null; }
+    }
+
+    /**
+     * Detiene el observer del miniplayer si está activo
+     */
+    function stopMiniplayerObserver() {
+        try { miniplayerObserver?.disconnect?.(); } catch (_) { }
+        miniplayerObserver = null;
+    }
+
+    /**
+     * Actualiza el mensaje en el miniplayer
+     * @param {string} message - Mensaje a mostrar en el miniplayer
+     */
+    function updateMiniplayerMessage(message) {
+        // Verificar si miniplayerTimeDisplay existe y está en el DOM, si no, reinicializar
+        if (!miniplayerTimeDisplay || !document.contains(miniplayerTimeDisplay)) {
+            initMiniplayerTimeDisplay();
+        }
+
+        if (!miniplayerTimeDisplay) {
+            warn('updateMiniplayerMessage', '⚠️ No se pudo inicializar el display del miniplayer');
+            return;
+        }
+
+        lastMiniplayerMessageHtml = message;
+        setInnerHTML(miniplayerTimeDisplay, message);
+        miniplayerTimeDisplay.classList.remove('ypp-d-none');
+
+        // Limpiar timeout anterior si existe
+        if (clearMiniplayerMessageTimeout) {
+            clearTimeout(clearMiniplayerMessageTimeout);
+        }
+
+        // No programar limpieza automática para mensajes seek si el video está pausado
+        const isSeekMessage = !!message.includes('svgPlayOrPauseIcon');
+        const activeVideoEl = currentVideoEl || getActiveVideoElement();
+        const isVideoPaused = activeVideoEl?.paused || false;
+        log('updateMiniplayerMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}`);
+
+        if (isSeekMessage && isVideoPaused) return;
+
+        // Programar limpieza automática del mensaje
+        try {
+            clearMiniplayerMessageTimeout = setTimeout(() => {
+                try { clearMiniplayerMessage(); } catch (_) { }
+            }, 1600);
+        } catch (_) { }
+    }
+
+    function clearMiniplayerMessage() {
+        if (miniplayerTimeDisplay) {
+            setInnerHTML(miniplayerTimeDisplay, '');
+            miniplayerTimeDisplay.classList.add('ypp-d-none');
+        }
+
+        // Limpiar timeout si existe
+        if (clearMiniplayerMessageTimeout) {
+            clearTimeout(clearMiniplayerMessageTimeout);
+            clearMiniplayerMessageTimeout = null;
+        }
     }
 
     // ------------------------------------------
@@ -10924,12 +11185,27 @@ background: var(--ypp-danger);
         // Mostrar en el contexto visible: para progreso, priorizar el tipo de página actual (evita perder el mensaje en Shorts con miniplayer activo)
         const videoCtx = resolveVideoContext();
         const targetType = context === 'progress' ? videoCtx.type : (options.videoType || videoCtx.type);
+
+        // Mostrar en el contexto detectado
         if (targetType === 'shorts') {
             updateShortsMessage(message);
+        } else if (targetType === 'miniplayer') {
+            updateMiniplayerMessage(message);
         } else {
             // watch/embed/home con miniplayer -> usar barra de reproducción
             updatePlaybackBarMessage(message);
         }
+
+        // Si hay miniplayer activo además del tipo de video detectado, mostrar también allí
+        try {
+            const miniplayerEl = document.querySelector('.ytp-miniplayer-ui') ||
+                                 document.querySelector('#miniplayer') ||
+                                 document.querySelector('ytd-miniplayer');
+            if (miniplayerEl && isVisiblyDisplayed(miniplayerEl) && targetType !== 'miniplayer') {
+                // Mostrar también en miniplayer si está visible
+                updateMiniplayerMessage(message);
+            }
+        } catch (_) { }
     }
 
 
@@ -11346,7 +11622,7 @@ background: var(--ypp-danger);
             // Usar PlayerStateCache para detectar el video ID correcto según el contexto
             const playerState = PlayerStateCache.getCurrentState();
 
-            // PRIORIDAD CRÍTICA: Si estamos en contexto miniplayer (detectado por DOM/Elemento), 
+            // PRIORIDAD CRÍTICA: Si estamos en contexto miniplayer (detectado por DOM/Elemento),
             // confiar PRIMERO en lo que el PlayerStateCache detectó del 'movie_player' real.
             // Esto evita el bug donde la URL de fondo (Shorts) sobreescribe al miniplayer.
             if (isMiniplayerContext && playerState.miniPlayerVideoId) {
@@ -11574,7 +11850,7 @@ background: var(--ypp-danger);
                     log('processVideo', `🔄 Usando lastPlaylistId como fallback (no miniplayer): ${lastPlaylistId}`);
                     candidate = lastPlaylistId;
                 }
-         
+
                 if (!candidate && isHomeish && lastVideoUrl) {
                     try {
                         const u3 = new URL(lastVideoUrl, location.origin);
@@ -12042,8 +12318,8 @@ background: var(--ypp-danger);
                         // Lógica de detección via URL protegida por contexto
                         let urlReportsChange = !!(videoIdFromUrl && isValidNewId(videoIdFromUrl) && videoIdFromUrl !== boundVideoId);
 
-                        // PROTECCIÓN COEXISTENCIA: 
-                        // Si el handler es del miniplayer (movie_player) y la página actual es Shorts, 
+                        // PROTECCIÓN COEXISTENCIA:
+                        // Si el handler es del miniplayer (movie_player) y la página actual es Shorts,
                         // ignoramos el cambio de URL (que apunta al Short) para no "suicidar" el handler del miniplayer.
                         if (boundContainerId === 'movie_player' && currentPageType === 'shorts' && urlReportsChange && !playerReportsChange) {
                             urlReportsChange = false;
@@ -12192,8 +12468,10 @@ background: var(--ypp-danger);
                                         log('processVideo', `✅ Progreso guardado exitosamente para ${videoIdDetected}`);
 
                                         // Notificar solo si realmente se guardó
+                                        // CRITICAL: Video actual puede no coincidir con saveResult (ej: miniplayer+Shorts)
+                                        // Usar currentTime del elemento actual para evitar contaminación de datos
                                         const currentTime = player.getCurrentTime ? player.getCurrentTime() : ((currentVideoEl || videoEl)?.currentTime || 0);
-                                        notifySeekOrProgress(saveResult?.timestamp ?? currentTime, 'progress', { saveResult, videoType: boundType });
+                                        notifySeekOrProgress(currentTime, 'progress', { saveResult, videoType: boundType });
                                         const savedTs = Date.now();
                                         try { lastSaveTimesByVideoId[boundVideoId] = savedTs; } catch (_) { }
                                         try { if (ctx?.lastSaveTimesByVideoId) ctx.lastSaveTimesByVideoId[boundVideoId] = savedTs; } catch (_) { }
@@ -13725,10 +14003,10 @@ background: var(--ypp-danger);
             <div class="ypp-videoWrapper ${isPlaylistItem ? 'playlist-item' : 'regular-item'}${isSelectionMode ? ' selection-mode' : ''} ypp-video-item" data-video-id="${escapeHTML(videoId)}" data-playlist-key="${escapeHTML(playlistKey || '')}" style="${wrapperStyle}">
                 ${isSelectionMode ? `<input type="checkbox" data-action="toggle-selection" class="ypp-video-checkbox" data-video-id="${escapeHTML(videoId)}" ${selectedVideos.has(videoId) ? 'checked' : ''}>` : ''}
                 <img class="ypp-thumb" title="${titleText}" alt="${titleText}" src="${thumbUrl}" loading="lazy" width="320" height="180" draggable="false">
-                
+
                 <div class="ypp-infoDiv">
                     <a class="ypp-titleLink" title="${titleText}" href="https://www.youtube.com/watch?v=${escapeHTML(videoId)}${playlistKey ? '&list=' + escapeHTML(playlistKey) : ''}" target="_blank" rel="noopener noreferrer">${titleText}</a>
-                    
+
                     ${isPlaylistItem && finalPlaylistTitle ? `
                         <div class="ypp-playlist-indicator" title="${escapeHTML(t('playlist'))}: ${escapeHTML(finalPlaylistTitle)} (${escapeHTML(playlistKey)})" style="color: ${escapeHTML(generatePlaylistBorderColor(playlistKey))}; font-weight: bold; font-size: 0.85em; margin-top: 2px;">
                             ${SVG_ICONS.folder} ${escapeHTML(finalPlaylistTitle)}
@@ -13741,10 +14019,10 @@ background: var(--ypp-danger);
                     ${info.authorId ? `
                         <a class="ypp-author ypp-author-link" title="${escapeHTML(t('openChannel'))}: ${authorText}" href="https://www.youtube.com/channel/${escapeHTML(info.authorId)}" target="_blank" rel="noopener noreferrer">${authorText}</a>
                     ` : `<div class="ypp-author">${authorText}</div>`}
-                    
+
                     <div class="ypp-views">${viewsText}</div>
                     <div class="ypp-timestamp ${timestampClass}">${timestampText}</div>
-                    
+
                     ${progressHtml}
                 </div>
 
@@ -13754,7 +14032,7 @@ background: var(--ypp-danger);
                             ${SVG_ICONS.timer}
                         </button>
                     ` : ''}
-                    
+
                     ${info.lastViewedPlaylistId ? `
                         <button class="ypp-btn ypp-btn-small" data-action="unlink-playlist" title="${escapeHTML(t('removeFromPlaylist'))}">
                             <div style="position:relative; display:flex; align-items:center;">
@@ -13763,7 +14041,7 @@ background: var(--ypp-danger);
                             </div>
                         </button>
                     ` : ''}
-                    
+
                     <button class="ypp-btn ypp-btn-delete ypp-btn-small" data-action="delete-entry" title="${escapeHTML(t('deleteEntry'))}" data-title="${titleText}">
                         ${SVG_ICONS.trash}
                     </button>

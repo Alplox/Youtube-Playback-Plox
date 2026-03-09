@@ -1021,7 +1021,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             getMiniplayerPlayer: () =>
                 get('miniplayerPlayer', () =>
                     document.querySelector(
-                        `${S.ELEMENTS.MINIPLAYER_ELEMENT} ${S.CLASSES.MINIPLAYER_ACTIVE_CLASS}`
+                        `${S.ELEMENTS.MINIPLAYER_ELEMENT} ${S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE}`
                     )),
 
             /**
@@ -1036,6 +1036,14 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
              * @returns {Element|null} Elemento validado con atributos en activo, o null de no encontrarse.
              */
             getMiniplayerActive: () => get('miniplayerActive', () => document.querySelector(SELECTORS.MINIPLAYER_ACTIVE)),
+
+
+
+            /**
+             * Obtiene el elemento reproductor interno alojado en el Inline Preview.
+             * @returns {Element|null} Player en el inline preview.
+             */
+            getInlinePreviewPlayer: () => get('inlinePreviewPlayer', () => document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER)),
 
             /**
              * Metodo para poder realizar consultas libres desde el exterior aprovechando el cache (Ej: Anuncios).
@@ -3373,16 +3381,8 @@ background: var(--ypp-danger);
 
     // Variables para controlar el estado de inicialización
     let YTHelper = null; // YouTube Helper API, Redeclarada en waitForHelper
-    let isNavigating = false; // Variable global para registrar navegación
-    let navigationDebounceTimeout = null; // Timeout para evitar múltiples navegaciones
     let currentPageType = null; // Tipo de página actual (home, watch, playlist, etc.)
     // Ad Monitor
-    let isAdPlaying = false;    // Estado global de anuncios (para compartir entre módulos)
-    let isScriptPaused = false; // Variable global para controlar pausa total del script
-    let lastAdEndTime = 0; // Timestamp de cuando terminó el último anuncio
-    // Estados de anuncios por tipo
-    let isAdShortsPlaying = false; // Anuncio activo en Shorts
-    let isAdWatchPlaying = false;  // Anuncio activo en reproductor principal (watch/embed/miniplayer)
 
 
     // ------------------------------------------
@@ -3444,101 +3444,6 @@ background: var(--ypp-danger);
         clickableAdBadgesWithinRichItem: AdSelectors.clickableAdBadgesWithinRichItem.join(', '),
     });
 
-    /**
-     * Fuente Única de Verdad para el contexto del video en YouTube.
-     * Función pura que inspecciona el DOM y retorna el estado actual.
-     * @returns {{type: string, videoElement: HTMLVideoElement|null, videoId: string|null, playerObject: HTMLElement|null, isAd: boolean}}
-     */
-    const resolveVideoContext = () => {
-        const pageType = getYouTubePageType();
-        let type = 'unknown';
-        let videoElement = null;
-        let videoId = null;
-        let playerObject = null;
-        let isAd = false;
-
-        try {
-            const isWatchLike = pageType === 'watch' || pageType === 'embed';
-            const isShorts = pageType === 'shorts';
-            const isUnknown = pageType === 'unknown' || !pageType;
-
-            const allowMovie = isWatchLike || isUnknown || isShorts;
-            const allowShorts = isShorts || isUnknown || isWatchLike;
-
-            const moviePlayer = allowMovie ? DOMHelpers.getWatchPlayer() : null;
-            const movieVideo = allowMovie ? DOMHelpers.getWatchPlayerVideo() : null;
-            const shortsPlayer = allowShorts ? DOMHelpers.getShortsPlayer() : null;
-            const shortsVideo = allowShorts ? DOMHelpers.getShortsPlayerVideo() : null;
-
-            if (pageType === 'shorts') {
-                type = 'shorts';
-                playerObject = shortsPlayer;
-                videoElement = shortsVideo;
-
-                if (!videoElement) {
-                    videoElement = document.querySelector('ytd-reel-video-renderer[is-active] video.reel-video-player-element') ||
-                        document.querySelector('ytd-reel-video-renderer[is-active] #short-video-container video');
-                }
-            } else if (pageType === 'watch' || pageType === 'embed') {
-                type = 'watch';
-                playerObject = moviePlayer;
-                videoElement = movieVideo;
-            }
-
-            // Detección de Miniplayer (puede coexistir con Shorts o estar en Home/Search)
-            if (type === 'unknown' || pageType === 'shorts' || pageType === 'home' || pageType === 'search' || pageType === 'channel') {
-                const isMiniActive = movieVideo && !movieVideo.paused && movieVideo.offsetWidth > 0;
-
-                if (isMiniActive) {
-                    if (pageType !== 'shorts') {
-                        type = 'miniplayer';
-                        playerObject = moviePlayer;
-                        videoElement = movieVideo;
-                    } else {
-                        if (!videoElement || (videoElement.paused && !movieVideo.paused)) {
-                            type = 'miniplayer';
-                            playerObject = moviePlayer;
-                            videoElement = movieVideo;
-                        }
-                    }
-                }
-            }
-
-            if (type === 'unknown') {
-
-
-                // Paso 2: ¿Inline preview activo? (solo si no encontramos miniplayer)
-                if (!videoElement) {
-                    const previewEl = DOMHelpers.get('player:inlinePreview',
-                        () => document.querySelector(SELECTORS.INLINE_PREVIEW_PLAYER), 250);
-                    const previewVideo = previewEl?.querySelector('video');
-                    if (previewVideo && !previewVideo.paused) {
-                        type = 'preview';
-                        videoElement = previewVideo;
-                        playerObject = previewEl;
-                    }
-                }
-            }
-
-            if (videoElement && YTHelper?.player?.videoElement === videoElement) {
-                videoId = YTHelper.video.id;
-            }
-
-            if (!videoId) {
-                if (type === 'watch' || type === 'shorts') {
-                    videoId = extractOrNormalizeVideoId(location.href)?.id;
-                } else if (videoElement) {
-                    const container = videoElement.closest('ytd-rich-grid-media, ytd-video-renderer, ytd-grid-video-renderer, ytd-reel-video-renderer');
-                    const link = container?.querySelector('a[href*="v="], a[href*="/shorts/"]');
-                    if (link) videoId = extractOrNormalizeVideoId(link.href)?.id;
-                }
-            }
-
-            isAd = !!(YTHelper?.player?.isPlayingAds || AdDetector.isNodeWithinAdContainer(videoElement));
-        } catch (_) { }
-
-        return { type, videoElement, videoId: videoId || null, playerObject, isAd };
-    };
 
     const AdDetector = Object.freeze({
         /**
@@ -3549,49 +3454,43 @@ background: var(--ypp-danger);
             try {
                 if (!node || typeof node.closest !== 'function') return false;
 
-                // PASO 1 (MÁXIMA PRIORIDAD): Verificar si está dentro de selectores de feed ads
-                // (agnóstico del idioma, basado en estructura DOM - reutilizando AdSelectors)
-                if (node.closest(AdSelectorText.inFeedAdContainers)) {
-                    return true; // ✗ Está dentro de componente de anuncio de feed (ytd-ad-slot-renderer, etc.)
+                // --- 1. Jerarquía de Reproductores (Videos Regulares / Shorts / Mini) ---
+                // Prioridad máxima: detectar si el reproductor contenedor tiene clases de anuncio activas.
+
+                // Reproductor Principal (Watch / Miniplayer)
+                const moviePlayer = node.closest(`#${IDs.MOVIE_PLAYER}`);
+                if (moviePlayer?.classList) {
+                    if (AdSelectors.playerAdClasses.some(c => moviePlayer.classList.contains(c))) return true;
                 }
 
-                // PASO 1b: Protección de inline previews legítimos
-                // Si está en inline preview EXPLÍCITO (verificado estructuralmente), puede ser legítimo
-                const inlinePreviewSelectors = SELECTORS.INLINE_PREVIEW;
-                if (node.closest(inlinePreviewSelectors)) {
-                    return false; // ✅ Contenido legítimo, NO es anuncio
+                // Reproductor de Shorts (ID e identificación explícita)
+                const shortsPlayer = node.closest(`#${IDs.SHORTS_PLAYER}`) || node.closest(IDs.SHORTS_PLAYER);
+                if (shortsPlayer?.classList) {
+                    if (AdSelectors.shortsAdClasses.some(c => shortsPlayer.classList.contains(c))) return true;
                 }
 
-                // PASO 1c: Protección adicional - Si está dentro de un contenedor de thumbnail
-                // o se detecta que es parte de una preview interactiva, no es un anuncio
+                // --- 2. Contenedores de Anuncios (Ads Internos y del Feed) ---
+                // Chequear si está dentro de contenedores específicos de anuncios del player
+                if (node.closest(AdSelectorText.inPlayerAdContainers)) return true;
+
+                // Chequear si está dentro de anuncios del feed (Home/Search)
+                if (node.closest(AdSelectorText.inFeedAdContainers)) return true;
+
+                // --- 3. Protección de Previews e Inline (Contenido Legítimo) ---
+                // Si está en un inline preview verificado, NO es anuncio bloqueable por este monitor.
+                if (node.closest(SELECTORS.INLINE_PREVIEW)) return false;
+
+                // --- 4. Validación de Contenido Legítimo en Feed ---
+                // Si está dentro de un renderizador de video estándar sin badges de anuncio
                 try {
-                    const inlineContainer = node.closest('ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, .video-renderer');
-                    const inlinePreviewOverlay = node.closest(SELECTORS.INLINE_PREVIEW);
-
-                    if (inlinePreviewOverlay) {
-                        return false; // ✅ Dentro de preview elegido, NO es anuncio
-                    }
-
-                    // Si está dentro de video renderer sin ad slot explícito y sin badges de ad, es legítimo
-                    if (inlineContainer && !inlineContainer.closest(AdSelectorText.inFeedAdContainers)) {
-                        // No tiene badge explícito de ad (reutilizando AdSelectors)
-                        const hasBadge = !!inlineContainer.querySelector?.(AdSelectors.clickableAdBadgesWithinRichItem.join(', '));
-                        if (!hasBadge) {
-                            // Si está reproduciéndose y es parte de grid, es probablemente legítimo
-                            if (!node.paused && inlineContainer.offsetWidth > 100 && inlineContainer.offsetHeight > 60) {
-                                return false; // ✅ Probablemente preview legítimo en reproducción
-                            }
-                        }
+                    const videoItem = node.closest('ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, .video-renderer');
+                    if (videoItem && !videoItem.closest(AdSelectorText.inFeedAdContainers)) {
+                        const hasAdBadge = !!videoItem.querySelector?.(AdSelectorText.clickableAdBadgesWithinRichItem);
+                        if (!hasAdBadge) return false;
                     }
                 } catch (_) { }
 
-                // PASO 2: Chequear si está dentro de ad containers del player o del feed
-                if (node.closest(AdSelectorText.inAnyAdContainers)) return true;
-
-                // PASO 3: Chequear clases de ad en el player container
-                const playerContainer = node.closest(`#${IDs.MOVIE_PLAYER}`);
-                if (!playerContainer?.classList) return false;
-                return AdSelectors.playerAdClasses.some((c) => playerContainer.classList.contains(c));
+                return false;
             } catch (_) {
                 return false;
             }
@@ -3645,17 +3544,6 @@ background: var(--ypp-danger);
         },
     });
 
-    // Helper para decidir bloqueo por anuncios según tipo
-    const isAdBlockedFor = (type) => {
-        try {
-            const t = (type || '').toLowerCase();
-            if (t === 'shorts') return !!isAdShortsPlaying || !!isScriptPaused;
-            // watch/embed/home/miniplayer/preview
-            return !!isAdWatchPlaying || !!isScriptPaused;
-        } catch (_) {
-            return !!isAdPlaying || !!isScriptPaused;
-        }
-    };
 
 
 
@@ -4021,49 +3909,6 @@ background: var(--ypp-danger);
         });
     }
 
-    // MARK: 🔧 YouTube Thumbnail Loading
-    /**
-     * Devuelve la URL de la miniatura de un video de YouTube.
-     * Utiliza un enfoque progresivo para obtener la miniatura más alta disponible.
-     * @param {string} videoId - ID del video de YouTube
-     * @returns {Promise<string>} - URL de la miniatura o placeholder
-     */
-    function loadYouTubeThumbnail(videoId) {
-        const base = `https://i.ytimg.com/vi/${videoId}`;
-        const levels = ['maxresdefault', 'hqdefault', 'mqdefault']; // fallback progresivo
-        const placeholder = 'data:image/svg+xml;base64,CjxzdmcgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIiB3aWR0aD0iMTI4IiBoZWlnaHQ9IjcyIiB2aWV3Qm94PSIwIDAgMTI4IDcyIj4KICA8cmVjdCB3aWR0aD0iMTI4IiBoZWlnaHQ9IjcyIiBmaWxsPSIjMjAyMDIwIi8+CiAgPHBvbHlnb24gcG9pbnRzPSI1MCwyMiA1MCw1MCA3OCwzNiIgZmlsbD0iI2ZmZiIvPgo8L3N2Zz4=';
-
-        return new Promise((resolve) => {
-            let index = 0;
-
-            function tryNext() {
-                if (index >= levels.length) {
-                    resolve(placeholder); // no se encontró ninguna válida
-                    return;
-                }
-
-                const url = `${base}/${levels[index]}.jpg`;
-                const img = new Image();
-                img.onload = () => {
-                    // YouTube placeholder de maxresdefault suele tener tamaño 120x90
-                    if (img.naturalWidth <= 120 || img.naturalHeight <= 90) {
-                        index++;
-                        tryNext();
-                    } else {
-                        resolve(url); // imagen válida encontrada
-                    }
-                };
-                img.onerror = () => {
-                    index++;
-                    tryNext(); // intentar siguiente nivel
-                };
-                img.src = url;
-            }
-
-            tryNext();
-        });
-    }
-
     // MARK: 🔧 Debounce
     /**
     * Crea una función "debounceada" que retrasa la ejecución de la función original
@@ -4087,6 +3932,18 @@ background: var(--ypp-danger);
             timer = setTimeout(() => fn(...args), delay);
         };
     };
+
+    // MARK: 🔧 Thumbnail Has Video ID
+    function thumbnailHasVideoId(url, vid) {
+        if (!url || !vid) return false;
+        try {
+            const m = url.match(/https:\/\/i\.ytimg\.com\/vi(?:_webp)?\/([A-Za-z0-9_-]+)\//);
+            if (m && m[1]) return m[1] === vid;
+            return url.includes(vid);
+        } catch (e) {
+            return false;
+        }
+    }
 
     // MARK: 🎯 VirtualScroller
     /**
@@ -5007,280 +4864,8 @@ background: var(--ypp-danger);
         return { imported, failed, total: freeTubeData.length };
     }
 
-    // ------------------------------------------
-    // MARK: 📺 Content Type Detection & Specialized Saving
-    // ------------------------------------------
-    /**
-     * Módulo para detectar y manejar distintos tipos de contenido de forma especializada.
-     * Detecta el tipo una sola vez al inicio y luego ejecuta la función específica.
-     */
 
-    // ------------------------------------------
-    // MARK: 📺 VideoTypeHandler - Strategy Pattern
-    // ------------------------------------------
-    /**
-     * Módulo estratégico para manejar operaciones por tipo de video.
-     * Centraliza la validación de configuración y delegación de guardado.
-     *
-     * IMPORTANTE: Mantiene aislamiento de contexto entre miniplayer y shorts
-     * para evitar contaminación de datos cuando ambos coexisten.
-     *
-     * @namespace VideoTypeHandler
-     */
-    const VideoTypeHandler = (() => {
-        /**
-         * Tipos de contenido soportados
-         * @readonly
-         * @enum {string}
-         */
-        const ContentTypes = Object.freeze({
-            VIDEO: 'video',
-            SHORTS: 'shorts',
-            PREVIEW: 'preview',
-            LIVE: 'live'
-        });
 
-        /**
-         * Verifica si el guardado está habilitado para un tipo específico.
-         * @param {string} type - Tipo de contenido (video, shorts, preview, live)
-         * @param {Object} [options] - Opciones adicionales
-         * @param {string} [options.previewSubtype] - Subtipo para previews (preview_watch, preview_shorts)
-         * @returns {boolean} true si el tipo está habilitado para guardar
-         */
-        const isEnabled = (type, options = {}) => {
-            try {
-                const settingsSnapshot = cachedSettings || CONFIG.defaultSettings;
-                const context = options.context || null;
-                switch (type) {
-                    case ContentTypes.VIDEO:
-                        if (context?.isMiniplayer && settingsSnapshot.saveMiniplayerVideos === false) return false;
-                        return settingsSnapshot.saveRegularVideos !== false;
-                    case ContentTypes.SHORTS:
-                        return settingsSnapshot.saveShorts !== false;
-                    case ContentTypes.LIVE:
-                        return settingsSnapshot.saveLiveStreams !== false;
-                    case ContentTypes.PREVIEW:
-                        // Previews requieren configuración explícita
-                        if (settingsSnapshot.saveInlinePreviews !== true) return false;
-                        // Validar subtipo
-                        const subtype = options.previewSubtype || 'preview_watch';
-                        if (subtype === 'preview_shorts') {
-                            return settingsSnapshot.saveShorts !== false;
-                        }
-                        return settingsSnapshot.saveRegularVideos !== false;
-                    default:
-                        return true;
-                }
-            } catch (_) {
-                return true; // En caso de error, permitir el guardado
-            }
-        };
-
-        /**
-         * Obtiene información del contexto actual para evitar contaminación.
-         * Crucial cuando miniplayer y shorts coexisten.
-         * @param {HTMLElement} videoElement - Elemento de video
-         * @returns {Object} Información del contexto
-         */
-        const getContextInfo = (videoElement) => {
-            try {
-                const container = videoElement?.closest?.('#movie_player, #shorts-player');
-                const containerId = container?.id || null;
-
-                return {
-                    containerId,
-                    isShortContext: containerId === 'shorts-player',
-                    isWatchContext: containerId === 'movie_player',
-                    isInlinePreview: !!(
-                        videoElement?.closest?.('#inline-preview-player') ||
-                        videoElement?.closest?.('.ytp-inline-preview-ui') ||
-                        videoElement?.closest?.('ytd-thumbnail-overlay-inline-playback-renderer')
-                    ),
-                    isMiniplayer: !!(
-                        videoElement?.closest?.(SELECTORS.MINIPLAYER_ELEMENT)
-                    )
-                };
-            } catch (_) {
-                return {
-                    containerId: null,
-                    isShortContext: false,
-                    isWatchContext: false,
-                    isInlinePreview: false,
-                    isMiniplayer: false
-                };
-            }
-        };
-
-        /**
-         * Valida que el tipo detectado coincida con el contexto del elemento.
-         * Previene guardar con tipo incorrecto cuando hay coexistencia.
-         * @param {string} detectedType - Tipo detectado
-         * @param {HTMLElement} videoElement - Elemento de video
-         * @returns {Object} Resultado de validación
-         */
-        const validateContext = (detectedType, videoElement) => {
-            const context = getContextInfo(videoElement);
-
-            // Si es shorts-player, el tipo DEBE ser shorts
-            if (context.isShortContext && detectedType !== ContentTypes.SHORTS) {
-                log('VideoTypeHandler', `⚠️ Contexto shorts-player pero tipo=${detectedType}. Corrigiendo a shorts.`);
-                return { valid: true, correctedType: ContentTypes.SHORTS, context };
-            }
-
-            // Si es miniplayer en movie_player, el tipo NO debe ser shorts
-            if (context.isMiniplayer && detectedType === ContentTypes.SHORTS) {
-                log('VideoTypeHandler', `⚠️ Contexto miniplayer pero tipo=shorts. Corrigiendo a video.`);
-                return { valid: true, correctedType: ContentTypes.VIDEO, context };
-            }
-
-            return { valid: true, correctedType: detectedType, context };
-        };
-
-        /**
-         * Guarda el progreso delegando a la función especializada correspondiente.
-         * @param {string} type - Tipo de contenido
-         * @param {Object} params - Parámetros de guardado
-         * @param {string} params.videoId - ID del video
-         * @param {number} params.currentTime - Tiempo actual en segundos
-         * @param {number} params.duration - Duración total del video
-         * @param {Object} params.videoInfo - Información del video
-         * @param {string} [params.playlistId] - ID de playlist (solo para videos regulares)
-         * @param {string} [params.previewSubtype] - Subtipo para previews
-         * @param {HTMLElement} [params.videoElement] - Elemento de video para validación de contexto
-         * @returns {Object} Resultado de la operación { success, reason?, videoId?, timestamp?, type? }
-         */
-        const save = (type, params) => {
-            const { videoId, currentTime, duration, videoInfo, playlistId, previewSubtype, videoElement } = params;
-            const context = videoElement ? getContextInfo(videoElement) : null;
-
-            // Validación de contexto para prevenir contaminación
-            if (videoElement) {
-                const validation = validateContext(type, videoElement);
-                if (validation.correctedType !== type) {
-                    log('VideoTypeHandler', `🔄 Tipo corregido: ${type} → ${validation.correctedType}`);
-                    type = validation.correctedType;
-                }
-            }
-
-            // Verificar si está habilitado
-            if (!isEnabled(type, { previewSubtype, context })) {
-                log('VideoTypeHandler', `🛑 Tipo ${type} deshabilitado por configuración`);
-                return { success: false, reason: `${type}_disabled_by_settings` };
-            }
-
-            // Delegar al guardado especializado
-            log('VideoTypeHandler', `📼 Delegando guardado: tipo=${type}, videoId=${videoId}`);
-
-            switch (type) {
-                case ContentTypes.VIDEO:
-                    return saveRegularVideo(videoId, currentTime, duration, videoInfo, playlistId);
-                case ContentTypes.SHORTS:
-                    return saveShortsVideo(videoId, currentTime, duration, videoInfo);
-                case ContentTypes.PREVIEW:
-                    return savePreview(videoId, currentTime, duration, videoInfo, previewSubtype || 'preview_watch');
-                case ContentTypes.LIVE:
-                    return saveLivestream(videoId, currentTime, duration, videoInfo);
-                default:
-                    log('VideoTypeHandler', `⚠️ Tipo desconocido: ${type}, usando video por defecto`);
-                    return saveRegularVideo(videoId, currentTime, duration, videoInfo, playlistId);
-            }
-        };
-
-        /**
-         * Determina el tipo de contenido desde parámetros simples.
-         * Wrapper simplificado de detectContentType para uso interno.
-         * @param {Object} params
-         * @param {string} params.pageType - Tipo de página
-         * @param {string} params.containerType - ID del contenedor
-         * @param {HTMLElement} params.videoElement - Elemento de video
-         * @param {boolean} params.isLive - Si es livestream
-         * @param {string} params.currentType - Tipo actual (preview_*, etc)
-         * @returns {string} Tipo de contenido normalizado
-         */
-        const detectType = ({ pageType, containerType, videoElement, isLive, currentType }) => {
-            // Delegamos a detectContentType existente para no duplicar lógica
-            return detectContentType(pageType, containerType, videoElement, isLive, currentType);
-        };
-
-        // API pública
-        return Object.freeze({
-            ContentTypes,
-            isEnabled,
-            getContextInfo,
-            validateContext,
-            save,
-            detectType
-        });
-    })();
-
-    /**
-     * Detecta el tipo de contenido basado en el contexto de reproducción
-     * @param {string} pageType - Tipo de página (home, watch, shorts, etc.)
-     * @param {string} containerType - ID del contenedor (movie_player, shorts-player, etc.)
-     * @param {HTMLElement} videoElement - Elemento de video
-     * @param {boolean} isLiveType - Si es contenido en vivo
-     * @param {string} currentType - Tipo actual detectado (puede ser 'preview_watch', 'preview_shorts', etc.)
-     * @returns {string} Tipo de contenido normalizado: 'video', 'shorts', 'preview', 'live'
-     */
-    function detectContentType(pageType, containerType, videoElement, isLiveType, currentType) {
-        // Prioridad 1: Si es explícitamente un livestream
-        if (isLiveType) {
-            log('detectContentType', `✅ Tipo detectado: LIVE (livestream)`);
-            return 'live';
-        }
-
-        // Prioridad 2: Si estamos en la página de Shorts
-        if (pageType === 'shorts' && containerType === 'shorts-player') {
-            log('detectContentType', `✅ Tipo detectado: SHORTS (página de Shorts)`);
-            return 'shorts';
-        }
-
-        // Prioridad 3: Si el video está dentro de un contenedor de Shorts (aunque la página no sea Shorts)
-        try {
-            const inShortsContext = videoElement?.closest?.('ytd-reel-video-renderer, ytd-shorts, #shorts-player');
-            if (inShortsContext) {
-                log('detectContentType', `✅ Tipo detectado: SHORTS (contexto de Shorts detectado)`);
-                return 'shorts';
-            }
-        } catch (_) { }
-
-        // Prioridad 4: Si es un miniplayer reproduciendo (ANTES de verificar preview)
-        try {
-            const isMiniplayer = videoElement?.closest?.(`${SELECTORS.MINIPLAYER_ELEMENT}`);
-            if (isMiniplayer) {
-                log('detectContentType', `✅ Tipo detectado: VIDEO (miniplayer)`);
-                return 'video';
-            }
-        } catch (_) { }
-
-        // Prioridad 5: Si es una preview (inline preview en home/search/channel)
-        // IMPORTANTE: Si currentType indica preview_*, debe ganar incluso si el DOM
-        // fue refloweado (sticky fallback) y el video ya no está dentro del contenedor
-        // de preview en este tick.
-        if (typeof currentType === 'string' && currentType.startsWith('preview_')) {
-            try {
-                const isActualPreview = videoElement?.closest?.('#inline-preview-player, .ytp-inline-preview-ui, ytd-thumbnail-overlay-inline-playback-renderer');
-                if (isActualPreview) {
-                    log('detectContentType', `✅ Tipo detectado: PREVIEW (${currentType})`);
-                } else {
-                    log('detectContentType', `ℹ️ currentType indica preview (${currentType}) pero no hay contexto DOM de preview (posible reflow sticky). Forzando PREVIEW.`);
-                }
-            } catch (_) {
-                log('detectContentType', `ℹ️ currentType indica preview (${currentType}) y hubo error de inspección DOM. Forzando PREVIEW.`);
-            }
-            return 'preview';
-        }
-
-        // Prioridad 6: Si estamos en watch page, NUNCA debe ser preview
-        if (pageType === 'watch') {
-            log('detectContentType', `✅ Tipo detectado: VIDEO (watch page)`);
-            return 'video';
-        }
-
-        // Default: Es un video regular
-        log('detectContentType', `✅ Tipo detectado: VIDEO (default)`);
-        return 'video';
-    }
 
     /**
      * Guarda progreso para un video regular (watch page)
@@ -5320,17 +4905,21 @@ background: var(--ypp-danger);
         }
 
         const videoData = {
+            ...safeVideoInfo,
             videoId,
             timestamp: currentTime,
             lastUpdated: now,
+            savedAt: now, // Campo para ordenamiento
             videoType: 'video',
             isCompleted: isFinished,
             duration,
-            ...safeVideoInfo,
             thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
             lastViewedPlaylistId: playlistId || (sourceData?.lastViewedPlaylistId || null),
             lastViewedPlaylistType: playlistId ? 'channel' : (sourceData?.lastViewedPlaylistType || ''),
-            lastViewedPlaylistItemId: null
+            lastViewedPlaylistItemId: null,
+            // FreeTube compatibility
+            watchProgress: currentTime,
+            timeWatched: now
         };
 
         const storageResult = await Storage.set(videoId, videoData);
@@ -5371,25 +4960,29 @@ background: var(--ypp-danger);
      * @param {Object} videoInfo - Información del short
      * @returns {Object} Resultado de la operación
      */
-    async function saveShortsVideo(videoId, currentTime, duration, videoInfo) {
+    async function saveShortsVideo(videoId, currentTime, duration, videoInfo, playlistId = null) {
         log('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
 
-        const sourceData = await getSavedVideoData(videoId);
+        const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
         const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
 
         const videoData = {
+            ...videoInfo,
             videoId,
             timestamp: currentTime,
             lastUpdated: now,
+            savedAt: now,
             videoType: 'shorts',
             isCompleted: isFinished,
             duration,
-            ...videoInfo,
             thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-            lastViewedPlaylistId: null,
+            lastViewedPlaylistId: playlistId,
             lastViewedPlaylistType: '',
-            lastViewedPlaylistItemId: null
+            lastViewedPlaylistItemId: null,
+            // FreeTube compatibility
+            watchProgress: currentTime,
+            timeWatched: now
         };
 
         const storageResult = await Storage.set(videoId, videoData);
@@ -5410,12 +5003,13 @@ background: var(--ypp-danger);
      * @param {number} duration - Duración total
      * @param {Object} videoInfo - Información del video
      * @param {string} previewType - 'preview_watch' o 'preview_shorts'
+     * @param {string|null} playlistId - ID de la playlist (opcional)
      * @returns {Object} Resultado de la operación
      */
-    async function savePreview(videoId, currentTime, duration, videoInfo, previewType) {
+    async function savePreview(videoId, currentTime, duration, videoInfo, previewType, playlistId = null) {
         log('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
 
-        const sourceData = await getSavedVideoData(videoId);
+        const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
         const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
 
@@ -5428,14 +5022,19 @@ background: var(--ypp-danger);
         // Preservar datos previos para previews
         const videoData = {
             ...(sourceData || {}),
+            ...videoInfo,
             videoId,
             timestamp: currentTime,
             lastUpdated: now,
+            savedAt: now,
             videoType: resolvedVideoType,
             isCompleted: isFinished,
             duration: isFinite(duration) ? duration : (sourceData?.duration || 0),
-            ...videoInfo,
-            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`
+            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+            lastViewedPlaylistId: playlistId,
+            // FreeTube compatibility
+            watchProgress: currentTime,
+            timeWatched: now
         };
 
         const storageResult = await Storage.set(videoId, videoData);
@@ -5455,18 +5054,20 @@ background: var(--ypp-danger);
      * @param {number} currentTime - Tiempo actual
      * @param {number} duration - Duración (0 para en vivo)
      * @param {Object} videoInfo - Información del livestream
+     * @param {string|null} playlistId - ID de la playlist (opcional)
      * @returns {Object} Resultado de la operación
      */
-    async function saveLivestream(videoId, currentTime, duration, videoInfo) {
+    async function saveLivestream(videoId, currentTime, duration, videoInfo, playlistId = null) {
         log('saveLivestream', `Guardando livestream ${videoId} en ${currentTime}s`);
 
-        const sourceData = await getSavedVideoData(videoId);
+        const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
 
         const videoData = {
             videoId,
             timestamp: currentTime,
             lastUpdated: now,
+            savedAt: now,
             videoType: 'live',
             isCompleted: false,
             duration: isFinite(duration) && duration > 0 ? duration : 0,
@@ -5474,7 +5075,10 @@ background: var(--ypp-danger);
             thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
             lastViewedPlaylistId: null,
             lastViewedPlaylistType: '',
-            lastViewedPlaylistItemId: null
+            lastViewedPlaylistItemId: null,
+            // FreeTube compatibility
+            watchProgress: currentTime,
+            timeWatched: now
         };
 
         const storageResult = await Storage.set(videoId, videoData);
@@ -5488,59 +5092,20 @@ background: var(--ypp-danger);
         return { success: true, videoId, timestamp: videoData.timestamp, type: 'live' };
     }
 
-    /**
-     * Dispatcher principal: detecta el tipo y delega al VideoTypeHandler.
-     * Esta función simplifica el proceso de guardado usando el patrón Strategy.
-     *
-     * @param {string} videoId - ID del video
-     * @param {number} currentTime - Tiempo actual en segundos
-     * @param {number} duration - Duración total del video
-     * @param {Object} videoInfo - Información del video (title, author, etc.)
-     * @param {string} pageType - Tipo de página (home, watch, shorts, etc.)
-     * @param {string} containerType - ID del contenedor (movie_player, shorts-player)
-     * @param {HTMLElement} videoElement - Elemento de video
-     * @param {boolean} isLiveType - true si es un livestream
-     * @param {string} currentType - Tipo actual (puede ser preview_watch, preview_shorts, etc.)
-     * @param {string|null} [playlistId=null] - ID de playlist si aplica
-     * @returns {Object} Resultado de la operación { success, reason?, videoId?, timestamp?, type? }
-     */
-    function saveVideoDataByType(videoId, currentTime, duration, videoInfo, pageType, containerType, videoElement, isLiveType, currentType, playlistId = null) {
-        log('saveVideoDataByType', `🎯 Iniciando guardado para video ${videoId} via VideoTypeHandler`);
 
-        // En páginas dedicadas, nunca debemos tratar el contenido como preview aunque
-        // currentType haya quedado "pegado" desde el homepage (sticky/reflow).
-        // Esto asegura reclasificación inmediata: preview_* -> video/shorts al navegar.
-        const normalizedCurrentType = (() => {
-            if (pageType === 'watch' && typeof currentType === 'string' && currentType.startsWith('preview_')) return 'watch';
-            if (pageType === 'shorts' && typeof currentType === 'string' && currentType.startsWith('preview_')) return 'shorts';
-            return currentType;
-        })();
 
-        // Detectar el tipo de contenido
-        const contentType = detectContentType(pageType, containerType, videoElement, isLiveType, normalizedCurrentType);
-        log('saveVideoDataByType', `📊 Tipo detectado: ${contentType}`);
-
-        // Determinar subtipo para previews
-        const previewSubtype = (typeof normalizedCurrentType === 'string' && normalizedCurrentType.startsWith('preview_'))
-            ? normalizedCurrentType
-            : 'preview_watch';
-
-        // Delegar todo al VideoTypeHandler
-        return VideoTypeHandler.save(contentType, {
-            videoId,
-            currentTime,
-            duration,
-            videoInfo,
-            playlistId,
-            previewSubtype,
-            videoElement
-        });
-    }
 
 
     // ------------------------------------------
     // MARK: 📺 Helpers
     // ------------------------------------------
+
+
+
+
+
+
+
     // MARK: 📺 Obtiene datos guardados de un video
     /**
     * Obtiene datos guardados de un video, intentando todas las combinaciones posibles.
@@ -5678,124 +5243,11 @@ background: var(--ypp-danger);
     }
 
 
+
+
+
+
     // MARK: 📺 Get YouTube Page Type
-    /**
-    * Determina el tipo de página actual en YouTube según la URL.
-    *
-    * Analiza la ruta (`window.location.pathname`) y devuelve un identificador
-    * descriptivo del tipo de página (por ejemplo: "home", "shorts", "watch", "channel", etc.).
-    *
-    * @returns {string} - Tipo de página detectada. Puede ser uno de:
-    *   - `'home'` — Página principal de YouTube
-    *   - `'shorts'` — Página de YouTube Shorts
-    *   - `'watch'` — Página de reproducción de un video
-    *   - `'embed'` — Página de video embebido
-    *   - `'playlist'` — Página de una lista de reproducción
-    *   - `'search'` — Página de resultados de búsqueda
-    *   - `'music'` — Página de YouTube Music (canal oficial)
-    *   - `'gaming'` — Página de YouTube Gaming
-    *   - `'news'` — Página de noticias
-    *   - `'sports'` — Página de deportes
-    *   - `'learning'` — Página de aprendizaje
-    *   - `'you'` — Página "Tu espacio" (feed personal)
-    *   - `'history'` — Página del historial de reproducciones
-    *   - `'subscriptions'` — Página de suscripciones
-    *   - `'live'` — Transmisión en vivo o enlace directo a live
-    *   - `'channel'` — Página de canal (personalizada, por ID o nombre)
-    *   - `'unknown'` — Si no coincide con ninguno de los anteriores
-    */
-    /*  let _cachedPageType = null;
-     let _lastPageTypeUrl = null;
- 
-     function getYouTubePageType() {
-         // Retornar caché si la URL no cambió (optimización: evitar evaluaciones repetidas)
-         if (_lastPageTypeUrl === window.location.href && _cachedPageType !== null) {
-             return _cachedPageType;
-         }
- 
-         // Obtener la ruta actual de la URL (sin dominio)
-         const path = window.location.pathname;
- 
-         let pageType = 'unknown';
- 
-         // Comprobaciones directas de ruta (ordenadas por frecuencia esperada)
-         if (path === '/') {
-             pageType = 'home';
-         } else if (path.startsWith('/shorts')) {
-             pageType = 'shorts';
-         } else if (path.startsWith('/watch')) {
-             pageType = 'watch';
-         } else if (path.startsWith('/embed')) {
-             pageType = 'embed';
-         } else if (path.startsWith('/playlist')) {
-             pageType = 'playlist';
-         } else if (path.startsWith('/results')) {
-             pageType = 'search';
-         }
-         // Detección de videos en vivo o enlaces con "/live"
-         // Ejemplo: https://www.youtube.com/@NASA/live
-         // Para raros casos, ya que Youtube usa "/watch" igual para directos.
-         else if (path.includes('/live')) {
-             pageType = 'live';
-         }
-         // Sección de Gaming
-         else if (path.startsWith('/gaming')) {
-             pageType = 'gaming';
-         }
-         // Comprobaciones por canal o categoría especial (IDs fijos de YouTube)
-         else if (path.endsWith('/UC-9-kyTW8ZkZNDHQJ6FgpwQ')) {
-             pageType = 'music'; // Canal oficial de YouTube Music
-         } else if (path.endsWith('/UCYfdidRxbB8Qhf0Nx7ioOYw')) {
-             pageType = 'news'; // Canal de Noticias
-         } else if (path.endsWith('/UCEgdi0XIXXZ-qJOFPf4JSKw')) {
-             pageType = 'sports'; // Canal de Deportes
-         } else if (path.endsWith('/UCtFRv9O2AHqOZjjynzrv-xg')) {
-             pageType = 'learning'; // Canal de Aprendizaje
-         }
-         // Feeds personales del usuario
-         else if (path.endsWith('/feed/you')) {
-             pageType = 'you';
-         } else if (path.endsWith('/feed/history')) {
-             pageType = 'history';
-         } else if (path.endsWith('/feed/subscriptions')) {
-             pageType = 'subscriptions';
-         }
-         // Posibles rutas de canales de usuario
-         // Canal personalizado (nuevo formato: /@nombre)
-         else if (path.startsWith('/@')) {
-             pageType = 'channel';
-         }
-         // Canal por ID (formato: /channel/UCxxxx)
-         else if (path.startsWith('/channel')) {
-             pageType = 'channel';
-         }
-         // Canal personalizado (antiguo: /c/nombre)
-         else if (path.startsWith('/c')) {
-             pageType = 'channel';
-         }
-         // Canal de usuario clásico (muy antiguo)
-         else if (path.startsWith('/user')) {
-             pageType = 'channel';
-         }
-         // Canal directo por ID (raro)
-         else if (path.startsWith('/UC')) {
-             pageType = 'channel';
-         }
- 
-         // Guardar en caché
-         _lastPageTypeUrl = window.location.href;
-         _cachedPageType = pageType;
-         return pageType;
-     } */
-
-
-
-
-
-
-
-
-
     let _cachedPageType = null;
     let _lastPath = null;
 
@@ -5888,6 +5340,9 @@ background: var(--ypp-danger);
                 }
         }
 
+        // Detección de videos en vivo o enlaces con "/live"
+        // Ejemplo: https://www.youtube.com/@NASA/live
+        // Para raros casos, ya que Youtube usa "/watch" igual para directos.
         if (path.includes('/live')) return 'live';
 
         return 'unknown';
@@ -5945,2245 +5400,108 @@ background: var(--ypp-danger);
 
 
 
-    // ------------------------------------------
-    // MARK: 📺 Get Video Element
-    // ------------------------------------------
-    // Encuentra el elemento <video> actualmente reproducido o visible en la página.
-    // Estrategia de dos capas:
-    //   1. YouTube Helper API (YTHelper) - PREFERIDO cuando disponible, más rápido y confiable
-    //   2. Búsqueda DOM (Fallback) - Cuando YTHelper no está disponible o se necesita más control
-    //
-    // Características:
-    //   - Evita elementos de anuncios e inline previews no deseados
-    //   - Maneja casos especiales: miniplayer, Shorts, embeds, home-like pages
-    //   - Prioriza videos que estén reproduciéndose vs simplemente visibles
-    //   - Respeta configuración del usuario (saveShorts, saveRegularVideos, etc)
-    async function getActiveVideoElement() {
-        const settingsSnapshot = cachedSettings || CONFIG.defaultSettings;
-        const allowMiniplayerSaving = settingsSnapshot.saveMiniplayerVideos !== false && settingsSnapshot.saveRegularVideos !== false;
-        // ======================================================================
-        // OPCIÓN 1: YOUTUBE HELPER API (Más confiable y rápido)
-        // ======================================================================
-        // YouTube Helper proporciona acceso directo al elemento <video> del player
-        // principal, evitando la necesidad de buscar en el DOM. Esto es:
-        //   - Más rápido (1 acceso vs múltiples querySelectorAll)
-        //   - Más confiable (YouTube lo actualiza en tiempo real)
-        //   - Menos propenso a conflictos con otras extensiones
-        try {
-            if (YTHelper?.player?.videoElement) {
-                const helperElement = YTHelper.player.videoElement;
-                const pageType = getYouTubePageType();
-
-                // Validar que el elemento esté en el contexto correcto (movie_player o shorts-player)
-                // Esto previene retornar elementos de tests o contextos inesperados
-                const container = helperElement.closest(SELECTORS.MAIN_CONTAINERS);
-                const isShortsElement = container?.id === 'shorts-player';
-                const isWatchElement = container?.id === 'movie_player';
-
-                // === CASO: SHORTS ===
-                // En páginas de Shorts, YTHelper proporciona el video del shorts-player
-                // PERO: Si el usuario deshabilitó saveShorts y hay miniplayer reproduciéndose,
-                // preferir el miniplayer (video principal) del DOM para respetar la config del usuario
-                if (pageType === 'shorts' && isShortsElement) {
-                    try {
-                        const miniplayerEl = document.querySelector('#movie_player video.html5-main-video');
-                        // Si miniplayer está reproduciendo Y saveShorts está deshabilitado,
-                        // forzar búsqueda en DOM para que rejección temprana de updateStatus() lo capture
-                        if (miniplayerEl && !miniplayerEl.paused && settingsSnapshot.saveShorts === false && allowMiniplayerSaving) {
-                            log('getActiveVideoElement', '⏭ Miniplayer activo y saveShorts deshabilitado, buscando en DOM');
-                            throw new Error('Force DOM search');
-                        }
-                    } catch (_) { }
-
-                    log('getActiveVideoElement', '✅ YTHelper: Usando elemento de Shorts');
-                    return helperElement;
-                }
-
-                // === CASO: WATCH / EMBED ===
-                // En página de reproducción normal o embeds, usar YTHelper directamente
-                if ((pageType === 'watch' || pageType === 'embed') && isWatchElement) {
-                    log('getActiveVideoElement', '✅ YTHelper: Usando elemento de Watch');
-                    return helperElement;
-                }
-
-                // === CASO: HOME-LIKE (Home, Search, Channel, etc) ===
-                // En páginas tipo home, el YTHelper puede existir pero apunta a un player
-                // invisible (background). Para inline previews, necesitamos la búsqueda DOM
-                // que detecta específicamente qué video está visible Y reproduciendo
-                if (['home', 'search', 'channel', 'unknown'].includes(pageType)) {
-                    log('getActiveVideoElement', 'ℹ️ YTHelper disponible pero en home-like; buscando en DOM para previews reales');
-                    throw new Error('Skip helper for home-like');
-                }
-            }
-        } catch (e) {
-            if (e.message !== 'Skip helper for home-like' && e.message !== 'Force DOM search') {
-                log('getActiveVideoElement', '⚠️ YTHelper falló o no disponible, usando búsqueda DOM');
-            }
-        }
-
-        // ======================================================================
-        // OPCIÓN 2: BÚSQUEDA DOM (Fallback)
-        // ======================================================================
-        // Cuando YTHelper no disponible o no apropiado (home, search, etc),
-        // buscamos el elemento <video> usando selectores DOM con prioridad:
-        //   1. SHORTS activos: Prioridad máxima en páginas de Shorts
-        //   2. Videos regulares: En páginas watch
-        //   3. Miniplayer: Para videos que continúan en background
-        //   4. Fallbacks genéricos: Como último recurso
-        //
-        // El orden importa: querySelectorAll sigue el orden de los selectores,
-        // así que colocamos primero los más específicos/confiables
-        log('getActiveVideoElement', '🔍 Buscando video en DOM...');
-
-        const selectors = [
-            // === SHORTS (activo primero, máxima especificidad) ===
-            // ytd-reel-video-renderer[is-active]: Solo el reel ACTUALMENTE mostrado
-            // Necesita la estructura completa porque YouTube cambia esto según la vista
-            'ytd-reel-video-renderer[is-active] #short-video-container ytd-player div.html5-video-container video',
-            'ytd-reel-video-renderer[is-active] video.reel-video-player-element',
-
-            // Overlay de shorts (cuando aparece el selector de siguientes)
-            'ytd-reel-player-overlay-renderer #shorts-player video',
-            'ytd-reel-player-overlay-renderer video.html5-main-video',
-
-            // Fallbacks para Shorts (menos específicos pero útiles en algunos layouts)
-            'ytd-reel-video-renderer #short-video-container ytd-player div.html5-video-container video',
-            'ytd-reel-video-renderer video.reel-video-player-element',
-            'ytd-shorts video.html5-main-video',
-            '#shorts-player video',
-
-            // === VIDEOS REGULARES (página de reproducción normal) ===
-            // Estos son para cuando el usuario está viendo un video completo en watch.youtube.com
-            '#movie_player video.html5-main-video',
-            '.html5-video-player video.html5-main-video',
-
-            // === MINIPLAYER FLOTANTE (Picture-in-Picture / Floating Player) ===
-            // Muy importante: cuando el usuario navega a home o cambia a shorts,
-            // el video principal sigue reproduciéndose en miniplayer.
-            // Este es el caso donde necesitamos detectarlo para saveShorts=false
-            '#movie_player',
-            '.ytp-miniplayer-ui video.html5-main-video',
-            '#miniplayer video.html5-main-video',
-            'ytd-miniplayer video',
-            '.html5-video-container video', // Más genérico, pero útil como fallback
-
-            // === INLINE PREVIEWS (Homepage/Search - Hover en thumbnails) ===
-            // Detectar explícitamente videos en previews inline (importante para homepage)
-            '#inline-preview-player video',
-            '.ytp-inline-preview-ui video',
-            'ytd-thumbnail-overlay-inline-playback-renderer video',
-
-            // === FALLBACKS GENÉRICOS (último recurso) ===
-            // Evitar [data-no-fullscreen] que indica previews inline que no queremos
-            'video:not([data-no-fullscreen])',
-            'video'
-        ];
-
-        // ======================================================================
-        // PASO 1: Recopilar todos los candidatos posibles
-        // ======================================================================
-        // Cache de videos para evitar escaneos repetidos del DOM
-        // Se invalida cuando el DOM cambia significativamente
-        const getVideoElements = (() => {
-            let cache = null;
-            let cacheTime = 0;
-            let lastVideoCount = 0;
-            const CACHE_DURATION = 100; // 100ms de cache
-
-            return () => {
-                const now = Date.now();
-                const currentVideoCount = document.getElementsByTagName('video').length;
-
-                // Invalidar cache si expiró o cambió el número de videos
-                if (!cache || (now - cacheTime) > CACHE_DURATION || currentVideoCount !== lastVideoCount) {
-                    cache = Array.from(document.querySelectorAll('video'));
-                    cacheTime = now;
-                    lastVideoCount = currentVideoCount;
-                    log('getActiveVideoElement', `🔄 Cache actualizado: ${cache.length} videos`);
-                }
-
-                return cache;
-            };
-        })();
-
-        const allVideos = getVideoElements();
-        const candidates = [];
-
-        for (const selector of selectors) {
-            const matchedVideos = allVideos.filter(v => typeof v.matches === 'function' && v.matches(selector));
-            if (matchedVideos.length > 0) {
-                candidates.push(...matchedVideos);
-                info('getActiveVideoElement', `Selector "${selector}": ${matchedVideos.length} elementos`);
-            }
-        }
-
-        log('getActiveVideoElement', `Total de candidatos: ${candidates.length}`);
-
-        // ======================================================================
-        // PASO 2: Filtrar candidatos (visibilidad, tipo de nodo, contexto)
-        // ======================================================================
-
-        // Función auxiliar: detectar si un elemento está dentro de un anuncio
-        // Esto es crucial porque YouTube inyecta <video> fake en anuncios que
-        // no queremos grabar (violación de Copyright y mala experiencia)
-        const isAdContextNode = (node) => {
-            try {
-                return AdDetector.isNodeWithinAdContainer(node);
-            } catch (_) { return false; }
-        };
-
-        // Filtrar candidatos: quedarse solo con videos VISIBLES y REPRODUCIBLES
-        const visibleVideos = candidates.filter(video => {
-            if (!video) return false;
-
-            // Sanity check: tiene que ser un <video> real
-            if (((video.tagName || '').toUpperCase()) !== 'VIDEO') return false;
-
-            // CRÍTICO: Excluir anuncios
-            if (isAdContextNode(video)) {
-                info('getActiveVideoElement', 'Descartado por contexto de anuncio');
-                return false;
-            }
-
-            // ================================================================
-            // Análisis de visibilidad: ¿puede el usuario ver este video?
-            // ================================================================
-            const rect = video.getBoundingClientRect();
-
-            // Si está dentro de un inline preview (thumbnail con hover), considerar su contenedor
-            let inlineContainerEl = null;
-            try {
-                inlineContainerEl = video.closest(SELECTORS.INLINE_PREVIEW);
-            } catch (_) { inlineContainerEl = null; }
-
-            const contRect = (() => {
-                try { return inlineContainerEl?.getBoundingClientRect?.(); }
-                catch (_) { return null; }
-            })();
-
-            // Visibilidad por tamaño: tiene que ser lo suficientemente grande para ver
-            const visByVideoRect = rect.width > 50 && rect.height > 50 &&
-                rect.bottom > 0 && rect.top < (window.innerHeight || 99999);
-            const visByContRect = !!(contRect && contRect.width > 50 && contRect.height > 50 &&
-                contRect.bottom > 0 && contRect.top < (window.innerHeight || 99999));
-
-            // Visibilidad por estilo CSS: el contenedor debe estar visible (no hidden/opacity 0)
-            let visByStyle = true;
-            try {
-                const styleNode = inlineContainerEl || video;
-                const cs = window.getComputedStyle(styleNode);
-                const opacity = parseFloat(cs.opacity || '1');
-                visByStyle = cs.display !== 'none' && cs.visibility !== 'hidden' && opacity > 0.05;
-            } catch (_) {
-                visByStyle = true;
-            }
-
-            const isVisible = (visByVideoRect || visByContRect) && visByStyle;
-
-            // ================================================================
-            // Análisis de reproducibilidad: ¿puede este video reproducirse?
-            // ================================================================
-            const hasSource = !!(video.currentSrc || video.src || video.querySelector('source'));
-            const isPlaying = (() => { try { return !video.paused; } catch (_) { return false; } })();
-            const hasDuration = Number.isFinite(video.duration) && video.duration > 0;
-            const ready = (video.readyState || 0) >= 2; // HAVE_CURRENT_DATA (puede empezar a reproducir)
-            const progressed = (Number.isFinite(video.currentTime) && video.currentTime > 0);
-            const playable = ready || progressed || hasDuration || isPlaying;
-
-            log('getActiveVideoElement', `Video: ${video.currentSrc?.substring(0, 50)}... | Visible: ${isVisible} | Tamaño: ${rect.width}x${rect.height} | Reproduciendo: ${isPlaying}`);
-
-            // Aceptar por inline preview: casos especiales para home-like pages
-            let acceptByInline = false;
-            try {
-                const inlineEl = inlineContainerEl || video.closest(SELECTORS.INLINE_PREVIEW);
-                if (inlineEl) {
-                    const pageType = getYouTubePageType();
-                    const isHomeLike = (pageType === 'home' || pageType === 'search' || pageType === 'channel' || pageType === 'unknown');
-                    const allowInline = !!(cachedSettings && cachedSettings.saveInlinePreviews === true);
-
-                    // Permitir selección si:
-                    // - El usuario habilitó guardar previews inline, o
-                    // - Ya está reproduciendo o avanzó (detección no intrusiva, incluso si guardado está deshabilitado)
-                    acceptByInline = isHomeLike && (allowInline || isPlaying || progressed);
-
-                    // Sticky: recordar último inline playing para tolerar reflows rápidos
-                    // Si el usuario scrollea rápido, queremos recordar qué estaba reproduciendo
-                    try {
-                        if (acceptByInline && (isPlaying || progressed) && isVisible) {
-                            window.__ypp_lastInlinePreview__ = { el: video, ts: Date.now() };
-                        }
-                    } catch (_) { }
-                }
-            } catch (_) {
-                acceptByInline = false;
-            }
-
-            // Retornar true solo si: está visible Y (tiene contenido reproducible OR es inline preview aceptado)
-            return isVisible && ((hasSource && playable) || acceptByInline);
-        });
-
-        log('getActiveVideoElement', `Videos visibles y reproducibles: ${visibleVideos.length}`);
-
-        // ======================================================================
-        // PASO 3: Si no hay videos visibles, intentar fallback sticky
-        // ======================================================================
-        // Si el usuario está scrolleando rápido o hay un reflow que ocultó momentáneamente
-        // el preview, recordamos el último que estaba reproduciendo (<1500ms)
-        if (visibleVideos.length === 0) {
-            try {
-                const last = window.__ypp_lastInlinePreview__;
-                if (last && last.el && (Date.now() - (last.ts || 0) <= 1500) && document.contains(last.el) && !isAdContextNode(last.el)) {
-                    log('getActiveVideoElement', '↩️ Usando inline preview reciente (sticky) tras reflow');
-                    return last.el;
-                }
-            } catch (_) { }
-            return null;
-        }
-
-        // ======================================================================
-        // PASO 4: Seleccionar entre videos visibles por PRIORIDAD
-        // ======================================================================
-        // Extraer solo los videos que ESTÁN REPRODUCIÉNDOSE en este momento
-        // (Estos tienen máxima prioridad porque indican intención del usuario)
-        const playingVideos = visibleVideos.filter(v => {
-            try { return !v.paused; } catch (_) { return false; }
-        });
-
-        // Función helper: dentro de una lista de videos, seleccionar por prioridad
-        // LÓGICA: Miniplayer > Main Player (movie_player) > Shorts > Cualquiera
-        // POR QUÉ este orden:
-        //   - Miniplayer: Cuando el usuario lo hizo flotante, tiene intención clara
-        //   - Main Player: El video principal en la página (no flotante)
-        //   - Shorts: Video actual en el feed de Shorts
-        //   - Cualquiera: Fallback si nada de lo anterior
-        const pickByPriority = (list) => {
-            // Prioridad 1: Miniplayer (usuario lo destacó flotante)
-            if (allowMiniplayerSaving) {
-                const mp = list.find(isInMiniplayer);
-                if (mp) return mp;
-            }
-
-            // Prioridad 2: Main player (movie_player en página watch)
-            const main = list.find(v => !allowMiniplayerSaving && isInMiniplayer(v) ? false : isInWatch(v));
-            if (main) return main;
-
-            // Prioridad 3: Shorts feed
-            const shorts = list.find(isInShorts);
-            if (shorts) return shorts;
-
-            // Fallback: El primero válido (respetando miniplayer deshabilitado)
-            const fallback = allowMiniplayerSaving ? list[0] : list.find(isNotInMiniplayer);
-            return fallback || null;
-        };
-
-        // ======================================================================
-        // PASO 5: Preferencias especiales para Shorts
-        // ======================================================================
-        // Cuando el usuario DESHABILITA el guardado de Shorts (saveShorts=false)
-        // pero está navegando desde una página Shorts, y el video principal (miniplayer)
-        // sigue reproduciéndose, preferimos capturar el miniplayer en lugar del shorts.
-        //
-        // CASO COMÚN: Usuario está en Shorts, video principal se reproducía en fondo,
-        // luego vuelve a la página anterior. Queremos grabar el video principal, no el short.
-        let preferMiniplayer = false;
-        try {
-            preferMiniplayer = allowMiniplayerSaving && (getYouTubePageType() === 'shorts') && (settingsSnapshot.saveShorts === false);
-        } catch (_) { }
-
-        // Opuesto: Si están HABILITADOS los Shorts, preferir Shorts sobre miniplayer
-        let preferShorts = false;
-        try {
-            preferShorts = (getYouTubePageType() === 'shorts') && (settingsSnapshot.saveShorts !== false);
-        } catch (_) { }
-
-        // ======================================================================
-        // PASO 6: Seleccionar video final
-        // ======================================================================
-        // Primera opción: Si hay videos REPRODUCIÉNDOSE, ellos ganan
-        if (playingVideos.length > 0) {
-            // Sub-opción A: preferimos miniplayer (saveShorts=false en Shorts)
-            if (preferMiniplayer) {
-                const mpPlaying = playingVideos.find(isInMiniplayer);
-                if (mpPlaying) {
-                    log('getActiveVideoElement', 'Seleccionado miniplayer (preferido) por reproducción activa en Shorts con guardado desactivado');
-                    return mpPlaying;
-                }
-            }
-
-            // Sub-opción B: preferimos Shorts (saveShorts=true en Shorts)
-            if (preferShorts) {
-                const spPlaying = playingVideos.find(isInShorts);
-                if (spPlaying) {
-                    log('getActiveVideoElement', 'Seleccionado Shorts (preferido) por reproducción activa en Shorts con guardado habilitado');
-                    return spPlaying;
-                }
-            }
-
-            // Prioridad especial para inline previews: si hay video reproduciendo DENTRO de
-            // un contenedor inline-preview explícito, ese tiene máxima prioridad sobre otros
-            const inlinePreviewContainer = document.querySelector(SELECTORS.INLINE_PREVIEW);
-            if (inlinePreviewContainer) {
-                const inlinePlayingVideo = playingVideos.find(v => inlinePreviewContainer.contains(v));
-                if (inlinePlayingVideo) {
-                    log('getActiveVideoElement', 'Seleccionado video en inline preview container (máxima prioridad)');
-                    return inlinePlayingVideo;
-                }
-            }
-
-            // Default: usar la función de prioridad estándar
-            const chosen = pickByPriority(playingVideos);
-            if (chosen) {
-                log('getActiveVideoElement', 'Seleccionado por reproducción activa');
-                return chosen;
-            }
-        }
-
-        // Segunda opción: Si no hay reproducción activa, revisar por VISIBILIDAD
-        // pero respetando preferencias (miniplayer vs shorts)
-        if (preferMiniplayer) {
-            const mpVisible = visibleVideos.find(v =>
-                v.closest('.ytp-miniplayer-ui') ||
-                v.closest('#miniplayer') ||
-                v.closest('ytd-miniplayer')
-            );
-            if (mpVisible) {
-                log('getActiveVideoElement', 'Seleccionado miniplayer (preferido) por visibilidad en Shorts con guardado desactivado');
-                return mpVisible;
-            }
-        }
-
-        // Similar para Shorts: si preferimos Shorts, escogerlo si es visible
-        if (preferShorts) {
-            const spVisible = visibleVideos.find(isInShorts);
-            if (spVisible) {
-                log('getActiveVideoElement', 'Seleccionado Shorts (preferido) por visibilidad en Shorts con guardado habilitado');
-                return spVisible;
-            }
-        }
-
-        // Fallback final: usar la función de prioridad estándar
-        // (miniplayer > main > shorts > cualquiera)
-        const chosen = pickByPriority(visibleVideos);
-        log('getActiveVideoElement', `Seleccionado por prioridad de visibilidad`);
-
-        // FALLBACK CRÍTICO: Si no hay videos detectados en el DOM pero YTHelper está disponible,
-        // confiar en su elemento de video como último recurso (previene "Videos visibles: 0")
-        if (!chosen && YTHelper?.player?.videoElement) {
-            try {
-                const ytHelperEl = YTHelper.player.videoElement;
-                if (ytHelperEl && document.contains(ytHelperEl) && !isAdContextNode(ytHelperEl)) {
-                    log('getActiveVideoElement', '🆘 Fallback YTHelper: usando videoElement del Helper API (detector de DOM falló)');
-                    return ytHelperEl;
-                }
-            } catch (_) { }
-        }
-
-        return chosen || null;
-    }
-
-    // ------------------------------------------
-    // MARK: 📺 Determine Video Context
-    // ------------------------------------------
-
-    /**
-     * Determina el contexto/tipo de un elemento <video> basado en su ubicación en el DOM.
-     * Extrae la lógica de selección de miniplayer/shorts/watch para que processVideo()
-     * ya sepa qué tipo de contenido está procesando.
-     *
-     * @param {HTMLVideoElement} videoElement - Elemento <video> a analizar
-     * @returns {Object} Objeto con propiedades:
-     *   - type: 'miniplayer' | 'shorts' | 'watch' | 'preview' | 'unknown'
-     *   - container: HTMLElement - Contenedor padre del video
-     *   - isInline: boolean - Si es un preview inline
-     *   - shouldProcess: boolean - Si debe procesarse según configuración
-     */
-    function determineVideoContext(videoElement) {
-        const result = {
-            type: 'unknown',
-            container: null,
-            isInline: false,
-            shouldProcess: true
-        };
-
-        if (!videoElement || videoElement.tagName !== 'VIDEO') {
-            return result;
-        }
-
-        try {
-            const settingsSnapshot = cachedSettings || CONFIG.defaultSettings;
-            const allowMiniplayerSaving = settingsSnapshot.saveMiniplayerVideos !== false && settingsSnapshot.saveRegularVideos !== false;
-            // Detectar miniplayer
-            const miniplayerContainer = videoElement.closest(SELECTORS.MINIPLAYER);
-            if (miniplayerContainer) {
-                result.type = 'miniplayer';
-                result.container = miniplayerContainer;
-                result.shouldProcess = allowMiniplayerSaving;
-                return result;
-            }
-
-            // Detectar shorts
-            const shortsContainer = DOMHelpers.getShortsPlayer();
-            if (shortsContainer) {
-                result.type = 'shorts';
-                result.container = shortsContainer;
-                result.shouldProcess = settingsSnapshot.saveShorts !== false;
-                return result;
-            }
-
-            // Fallback para Shorts: verificar si estamos en página de Shorts y el video está reproduciendo
-            const pageType = getYouTubePageType();
-            if (pageType === 'shorts' && videoElement.src && videoElement.src.includes('blob:')) {
-                result.type = 'shorts';
-                result.container = videoElement.closest('div') || videoElement.parentElement;
-                result.shouldProcess = settingsSnapshot.saveShorts !== false;
-                log('determineVideoContext', `🔍 Shorts detectado por URL y reproducción activa: ${videoElement.src.substring(0, 50)}...`);
-                return result;
-            }
-
-            // Detectar inline preview
-            const inlineContainer = videoElement.closest(SELECTORS.INLINE_PREVIEW);
-            if (inlineContainer) {
-                result.type = 'preview';
-                result.container = inlineContainer;
-                result.isInline = true;
-                // Permitir procesamiento si:
-                // 1. Usuario habilitó saveInlinePreviews, O
-                // 2. El video está actualmente reproduciendo/ha progresado (contenido activo que el usuario ve)
-                const isActive = !videoElement.paused || (videoElement.currentTime > 0);
-                result.shouldProcess = cachedSettings?.saveInlinePreviews === true || isActive;
-                return result;
-            }
-
-            // Detectar watch/main player
-            const watchContainer = videoElement.closest(SELECTORS.WATCH);
-            if (watchContainer) {
-                result.type = 'watch';
-                result.container = watchContainer;
-                result.shouldProcess = cachedSettings?.saveRegularVideos !== false;
-                return result;
-            }
-
-            // Fallback: intentar encontrar cualquier contenedor conocido
-            const anyContainer = videoElement.closest('[id*="player"], [class*="player"]');
-            if (anyContainer) {
-                result.type = 'unknown';
-                result.container = anyContainer;
-            }
-
-        } catch (_) { }
-
-        return result;
-    }
-
-    // ------------------------------------------
-    // MARK: 📺 Get Container
-    // ------------------------------------------
-
-    // Helper para encontrar el <container> actual
-    function getActiveContainer() {
-        // Prioridad: YouTube Helper API
-        if (YTHelper?.player?.playerObject) {
-            try {
-                const co = YTHelper.player.playerObject;
-                const pt = currentPageType || getYouTubePageType();
-                const id = co?.id || co?.getAttribute?.('id');
-                const isShorts = id === 'shorts-player';
-                if (isShorts && pt !== 'shorts') {
-                    log('getActiveContainer', '⚠️ Ignorando playerObject de Shorts fuera de Shorts');
-                } else {
-                    log('getActiveContainer', '✅ Usando YTHelper.player.playerObject');
-                    return co;
-                }
-            } catch (_) { }
-        }
-
-        // Helpers locales para validación estricta
-        const isElementReasonablyVisible = (el) => {
-            try {
-                if (!el || !el.getBoundingClientRect) return false;
-                const r = el.getBoundingClientRect();
-                const cs = getComputedStyle(el);
-                return r.width > 100 && r.height > 50 && r.bottom > 0 && r.top < (window.innerHeight || 0) + 1 && cs.display !== 'none' && cs.visibility !== 'hidden';
-            } catch (_) { return false; }
-        };
-
-        const isAdContext = (node) => {
-            try { return AdDetector.isNodeWithinAdContainer(node); }
-            catch (_) { return false; }
-        };
-
-        const isInlinePreviewContext = (node) => {
-            try {
-                const el = node && node.closest && node.closest(SELECTORS.INLINE_PREVIEW);
-                return !!(el && !isAdContext(node));
-            } catch (_) { return false; }
-        };
-
-        const isLikelyShortsContainer = (el) => {
-            try {
-                if (!el) return false;
-                const id = el.id || el.getAttribute?.('id') || '';
-                if (id === 'shorts-player') return true;
-                if (el.matches?.('ytd-reel-video-renderer, ytd-shorts, #shorts-container')) return true;
-                const cl = (el.className || '').toString();
-                return /reel|shorts/i.test(cl);
-            } catch (_) { return false; }
-        };
-
-        const isValidContainerForPage = (candidate, pageType) => {
-            if (!candidate || typeof candidate.querySelector !== 'function') return false;
-            if (isAdContext(candidate)) return false;
-            const allowInline = cachedSettings?.saveInlinePreviews === true;
-            if (isInlinePreviewContext(candidate) && !allowInline) return false;
-            const isShorts = pageType === 'shorts';
-            const looksLikeShorts = isLikelyShortsContainer(candidate);
-            // Permitir Shorts fuera de /shorts solo si es inline preview y el usuario lo habilitó
-            if (!isShorts && looksLikeShorts) {
-                if (!allowInline) return false;
-                const inlineOk = isInlinePreviewContext(candidate) || isInlinePreviewContext(candidate.querySelector?.('video'));
-                if (!inlineOk) return false;
-            }
-            const videoDesc = candidate.querySelector('video.html5-main-video') || candidate.querySelector('video');
-            const hasKnownPlayerMark = candidate.id === 'movie_player' || candidate.classList?.contains('html5-video-player') || candidate.matches?.('#miniplayer, ytd-miniplayer, .ytp-miniplayer-ui');
-            if (videoDesc) {
-                if (isAdContext(videoDesc)) return false;
-                if (isInlinePreviewContext(videoDesc) && !allowInline) return false;
-                if (!isElementReasonablyVisible(videoDesc)) return false;
-                return true;
-            }
-            return !!hasKnownPlayerMark;
-        };
-
-        const pickFirstValidContainerLocal = (candidates, pageType) => {
-            for (const c of candidates) {
-                if (c && isValidContainerForPage(c, pageType)) {
-                    try {
-                        // Marcar miniplayer de forma estable para poder seguirlo aunque cambie el video interno
-                        if (c.matches?.('#miniplayer, ytd-miniplayer, .ytp-miniplayer-ui')) {
-                            c.dataset.yppMiniplayer = '1';
-                        }
-                    } catch (_) { }
-                    return c;
-                }
-            }
-            return null;
-        };
-
-        // Fallback a selectores DOM
-        const pt2 = currentPageType || getYouTubePageType();
-        let candidates = [];
-        if (pt2 === 'shorts') {
-            candidates = [
-                DOMHelpers.getShortsPlayer(),
-                document.querySelector('ytd-reel-video-renderer'),
-                document.querySelector('#reel-video-renderer'),
-                document.querySelector('ytd-shorts'),
-                document.querySelector('#shorts-container'),
-                DOMHelpers.getWatchPlayer(),
-                document.querySelector('.html5-video-player:not(#inline-preview-player)')
-            ];
-        } else {
-            candidates = [
-                document.querySelector('#player-container-inner #player-container #movie_player'),
-                DOMHelpers.getWatchPlayer(),
-                document.querySelector('.html5-video-player:not(#inline-preview-player)'),
-                document.querySelector('#miniplayer'),
-                document.querySelector('ytd-miniplayer'),
-                document.querySelector('.ytp-miniplayer-ui')
-            ];
-            // Si el usuario habilitó guardar previews inline, considerar su contenedor explícito
-            try { if (cachedSettings?.saveInlinePreviews === true) { candidates.unshift(document.querySelector('#inline-preview-player')); } } catch (_) { }
-            const shortsEls = [
-                document.querySelector('ytd-reel-video-renderer'),
-                document.querySelector('#reel-video-renderer'),
-                document.querySelector('ytd-shorts'),
-                document.querySelector('#shorts-container')
-            ];
-            candidates = candidates.concat(shortsEls);
-        }
-
-        // Intentar también con el <video> como último recurso, mapeando a su contenedor
-        const looseVideo = document.querySelector('video:not([data-no-fullscreen])');
-        if (looseVideo) {
-            const mapped = looseVideo.closest('#movie_player, .html5-video-player, .ytp-miniplayer-ui, #miniplayer, ytd-miniplayer, #inline-preview-player, .ytp-inline-preview-ui') || looseVideo.parentElement;
-            if (mapped) candidates.push(mapped);
-        }
-
-        const picked = pickFirstValidContainerLocal(candidates.filter(Boolean), pt2);
-        if (picked) {
-            log('getActiveContainer', `✅ Container encontrado via DOM: ${picked.tagName}${picked.id ? '#' + picked.id : ''}`);
-            return picked;
-        }
-
-        warn('getActiveContainer', '⚠️ No se encontró container activo');
-        return null;
-    }
-
-    // ------------------------------------------
-    // MARK: 🎬 Get Video Tittle
-    // ------------------------------------------
-
-    /**
-     * Valida que un título sea el actual comparando con document.title
-     * @param {string} candidateTitle - Título candidato a validar
-     * @returns {boolean} - true si el título es válido
-     */
-    function validateTitle(candidateTitle) {
-        if (!candidateTitle) return false;
-
-        // Durante navegación, ser más permisivo ya que document.title puede estar desactualizado
-        if (isNavigating) {
-            // Validaciones básicas durante navegación
-            const isReasonableLength = candidateTitle.length > 3 && candidateTitle.length < 500;
-            const hasValidChars = /[a-zA-Z0-9]/.test(candidateTitle);
-            const isNotGeneric = !['YouTube', 'Loading...', 'Untitled', ''].includes(candidateTitle.trim());
-
-            const isValid = isReasonableLength && hasValidChars && isNotGeneric;
-
-            if (isValid) {
-                log('validateTitle', `✅ Título validado durante navegación: "${candidateTitle}"`);
-            } else {
-                log('validateTitle', `❌ Título rechazado durante navegación: "${candidateTitle}" (longitud: ${candidateTitle.length}, hasValidChars: ${hasValidChars}, isNotGeneric: ${isNotGeneric})`);
-            }
-
-            return isValid;
-        }
-
-        // Validación normal cuando no estamos navegando
-        const docTitle = document.title.replace(/ - YouTube$/, '').trim();
-        if (!docTitle) {
-            // Si no hay document.title, usar validación básica como fallback
-            const isReasonableLength = candidateTitle.length > 3 && candidateTitle.length < 500;
-            const hasValidChars = /[a-zA-Z0-9]/.test(candidateTitle);
-            const isNotGeneric = !['YouTube', 'Loading...', 'Untitled', ''].includes(candidateTitle.trim());
-            return isReasonableLength && hasValidChars && isNotGeneric;
-        }
-
-        try {
-            const pt = getYouTubePageType();
-            const isNonWatch = pt !== 'watch';
-            const docIsGeneric = ['YouTube', 'Loading...', 'Untitled'].includes(docTitle);
-            if (isNonWatch || docIsGeneric) {
-                const isReasonableLength = candidateTitle.length > 3 && candidateTitle.length < 500;
-                const hasValidChars = /[a-zA-Z0-9]/.test(candidateTitle);
-                const isNotGeneric = !['YouTube', 'Loading...', 'Untitled', ''].includes(candidateTitle.trim());
-                const isValidBasic = isReasonableLength && hasValidChars && isNotGeneric;
-                if (isValidBasic) {
-                    log('validateTitle', `✅ Título validado (modo no-watch): "${candidateTitle}"`);
-                } else {
-                    log('validateTitle', `❌ Título rechazado (modo no-watch): "${candidateTitle}"`);
-                }
-                return isValidBasic;
-            }
-        } catch (_) { }
-
-        // Normalizar títulos para comparación (eliminar espacios extras, convertir a minúsculas)
-        const normalize = (str) => str.toLowerCase().replace(/\s+/g, ' ').trim();
-        const normalizedCandidate = normalize(candidateTitle);
-        const normalizedDocTitle = normalize(docTitle);
-
-        // Coincidencia exacta o si uno contiene al otro (para casos de títulos truncados)
-        const isValid = normalizedDocTitle === normalizedCandidate ||
-            normalizedDocTitle.includes(normalizedCandidate) ||
-            normalizedCandidate.includes(normalizedDocTitle);
-
-        if (isValid) {
-            log('validateTitle', `✅ Título validado: "${candidateTitle}" coincide con document.title: "${docTitle}"`);
-        } else {
-            log('validateTitle', `❌ Título NO validado: "${candidateTitle}" no coincide con document.title: "${docTitle}"`);
-        }
-
-        return isValid;
-    }
-
-    // ------------------------------------------
-    // MARK: 📺 Get Video Title
-    // ------------------------------------------
-    // Obtiene el título del video con validación contra datos desactualizados.
-    // Usa patrón YTHelper-first con fallbacks en cascada.
-    //
-    // CRÍTICO: validateTitle() valida contra document.title para evitar
-    // usar títulos de videos ANTERIORES cuando navegas rápido.
-    function getVideoTittle(player, containerId = null) {
-        // ======================================================================
-        // FIX: containerId para evitar contaminación de miniplayer en Shorts
-        // ======================================================================
-        // En coexistencia (shorts + miniplayer), necesitamos saber EXACTAMENTE
-        // dónde extraer el título para evitar contamination.
-
-        // ======================================================================
-        // OPCIÓN 1: YOUTUBE HELPER API (Preferida fuera de Shorts)
-        // ======================================================================
-        // YTHelper proporciona el título confiable del player principal.
-        // NO usarlo en Shorts porque puede estar mostrando el miniplayer.
-        try {
-            const pageType = getYouTubePageType();
-            // FIX: Verificar que NO estamos en shorts-player con containerId explícito
-            const isExplicitShortsPlayer = containerId === 'shorts-player';
-            if (pageType !== 'shorts' && !isExplicitShortsPlayer && YTHelper?.video?.title) {
-                log('getVideoTittle', `Título YTHelper (containerId=${containerId}): ${YTHelper.video.title}`);
-                if (validateTitle(YTHelper.video.title)) {
-                    return YTHelper.video.title;
-                }
-                warn('getVideoTittle', '⚠️ Título YTHelper no validado (posible video previo)');
-            }
-        } catch (_) {
-            // Fallback silencioso si hay error
-            if (YTHelper?.video?.title && validateTitle(YTHelper.video.title)) return YTHelper.video.title;
-        }
-
-        // ======================================================================
-        // OPCIÓN 2: movie_player.getVideoData() (Player principal)
-        // ======================================================================
-        // En páginas no-Shorts, el movie_player contiene el video actual.
-        try {
-            const pageType = getYouTubePageType();
-            const isExplicitShortsPlayer = containerId === 'shorts-player';
-            if (pageType !== 'shorts' && !isExplicitShortsPlayer) {
-                const mpTitle = DOMHelpers.getWatchPlayer()?.getVideoData?.()?.title;
-                if (mpTitle) {
-                    log('getVideoTittle', `Título movie_player: ${mpTitle}`);
-                    if (validateTitle(mpTitle)) {
-                        return mpTitle;
-                    }
-                    warn('getVideoTittle', '⚠️ Título movie_player no validado');
-                }
-            }
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 3: SHORTS - Usar solo encabezado del Short activo
-        // ======================================================================
-        // En Shorts, NUNCA usar datos de miniplayer (#anchored-panel).
-        // Confiar SOLO en extractShortsMetadata().title que detecta el Short ACTIVO.
-        try {
-            const pageType = getYouTubePageType();
-            const isExplicitShortsPlayer = containerId === 'shorts-player';
-            if (pageType === 'shorts' || isExplicitShortsPlayer) {
-                const shortsTitle = extractShortsMetadata().title;
-                if (shortsTitle && typeof shortsTitle === 'string' && shortsTitle.trim().length > 0) {
-                    log('getVideoTittle', `Título Shorts (containerId=${containerId}): ${shortsTitle}`);
-                    return shortsTitle.trim();
-                }
-                // En Shorts, si no hay título propio, NO usar fallbacks (evitar contaminación miniplayer)
-                return t('unknown');
-            }
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 4: Panel anclado - Encabezado de video en páginas watch
-        // ======================================================================
-        // En páginas normales (watch, embed), el #anchored-panel tiene el título oficial
-        try {
-            const anchorTitle =
-                document.querySelector('yt-formatted-string.ytd-video-description-header-renderer')?.textContent?.trim() ||
-                document.querySelector('#anchored-panel yt-formatted-string.style-scope.ytd-video-description-header-renderer')?.textContent?.trim();
-
-            if (anchorTitle) {
-                log('getVideoTittle', `Título #anchored-panel: ${anchorTitle}`);
-                if (validateTitle(anchorTitle)) {
-                    return anchorTitle;
-                }
-                warn('getVideoTittle', '⚠️ Título anchored-panel no validado');
-            }
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 5: Meta tags HTML (consolidados)
-        // ======================================================================
-        // Meta tags pueden tener datos DESACTUALIZADOS de videos previos.
-        // Probar en orden: name="title" → og:title → twitter:title
-        //
-        // IMPORTANTE: Cada uno DEBE VALIDARSE contra document.title
-        // porque YouTube preserva metas de videos anteriores en navegación rápida.
-        const metaTitleSources = [
-            { selector: 'meta[name="title"]', name: 'meta[name="title"]' },
-            { selector: 'meta[property="og:title"]', name: 'og:title' },
-            { selector: 'meta[name="twitter:title"]', name: 'twitter:title' }
-        ];
-
-        for (const source of metaTitleSources) {
-            const metaTitle = document.querySelector(source.selector)?.getAttribute('content');
-            if (metaTitle) {
-                log('getVideoTittle', `Título ${source.name}: ${metaTitle}`);
-                if (validateTitle(metaTitle)) {
-                    return metaTitle;
-                }
-                warn('getVideoTittle', `⚠️ Título ${source.name} no validado`);
-            }
-        }
-
-        // ======================================================================
-        // OPCIÓN 6: window.ytInitialPlayerResponse (JSON incrustado)
-        // ======================================================================
-        // RIESGO ALTO: Este JSON también puede ser de un video previo.
-        // Solo usar si pasó validación.
-        try {
-            const jsonTitle = window.ytInitialPlayerResponse?.videoDetails?.title;
-            if (jsonTitle) {
-                log('getVideoTittle', `Título JSON incrustado: ${jsonTitle}`);
-                if (validateTitle(jsonTitle)) {
-                    return jsonTitle;
-                }
-                warn('getVideoTittle', '⚠️ Título JSON no validado');
-            }
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 7: player.getVideoData() (Fallback si no es Shorts)
-        // ======================================================================
-        // Último intento con el player pasado como parámetro.
-        // Incluye estructura completa con metadata adicional.
-        try {
-            const videoData = player?.getVideoData?.();
-            if (videoData?.title) {
-                log('getVideoTittle', `Título player.getVideoData(): ${videoData.title}`);
-                if (validateTitle(videoData.title)) {
-                    return videoData.title;
-                }
-                warn('getVideoTittle', '⚠️ Título player.getVideoData() no validado');
-            }
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 8: Búsqueda DOM de elementos h1/title
-        // ======================================================================
-        // Selectores específicos para encontrar el h1 del video en DOM.
-        // Estos PUEDEN tener datos viejos en navegación rápida, pero son
-        // lo único disponible en algunos contextos (home, search, etc).
-        const domSelectors = [
-            'ytd-watch-metadata h1 yt-formatted-string',
-            'h1.ytd-watch-metadata yt-formatted-string',
-            '#title h1 yt-formatted-string',
-            'h1 yt-formatted-string',
-            '#title h1',
-            'h1.title'
-        ];
-
-        for (const selector of domSelectors) {
-            const titleElement = document.querySelector(selector);
-            const title = titleElement?.textContent?.trim();
-
-            if (title) {
-                log('getVideoTittle', `Título DOM [${selector}]: ${title}`);
-                if (validateTitle(title)) {
-                    return title;
-                }
-                warn('getVideoTittle', '⚠️ Título DOM no validado');
-            }
-        }
-
-        // ======================================================================
-        // OPCIÓN 9: <title> del documento (Último recurso)
-        // ======================================================================
-        // El <title> de la página siempre tiene el formato "Video Title - YouTube"
-        // Es menos confiable en navegación rápida, pero casi siempre existe.
-        const docTitle = document.title.replace(/ - YouTube$/, '');
-        if (docTitle) {
-            log('getVideoTittle', `Título <title>: ${docTitle}`);
-            if (validateTitle(docTitle)) {
-                return docTitle;
-            }
-            warn('getVideoTittle', '⚠️ Título <title> no validado');
-        }
-
-        // ======================================================================
-        // FALLBACK FINAL: Sin validación (última opción)
-        // ======================================================================
-        // Si llegamos aquí, NO PUDIMOS validar ningún título.
-        // Retornar sin validación con advertencia urgente.
-        warn('getVideoTittle', '🚨 No se pudo validar título, usando sin validación');
-        return YTHelper?.video?.title ||
-            document.querySelector('#anchored-panel yt-formatted-string')?.textContent?.trim() ||
-            document.querySelector('meta[property="og:title"]')?.getAttribute('content') ||
-            document.querySelector('meta[name="title"]')?.getAttribute('content') ||
-            docTitle ||
-            t('unknown');
-    }
-
-    // ------------------------------------------
-    // MARK: 📺 Get Video Author
-    // ------------------------------------------
-    // Obtiene el nombre del canal/autor del video.
-    // Estrategia YTHelper-first con fallbacks consolidados y
-    // manejo especial para Shorts (evitar contaminación de miniplayer).
-    // FIX: containerId parameter disambiguates metadata extraction in coexistence
-    function getVideoAuthor(player, containerId = null) {
-        const pageType = getYouTubePageType();
-        const isExplicitShortsPlayer = containerId === 'shorts-player';
-
-        // ======================================================================
-        // OPCIÓN 1: YOUTUBE HELPER API (Preferida fuera de Shorts)
-        // ======================================================================
-        // YTHelper.video.channel tiene el autor del player principal.
-        // EVITAR en Shorts porque puede ser del miniplayer en background.
-        try {
-            if (pageType !== 'shorts' && !isExplicitShortsPlayer && YTHelper?.video?.channel) {
-                const author = ('' + YTHelper.video.channel).trim();
-                if (author && author.length > 0 && !isPlaceholder(author)) {
-                    log('getVideoAuthor', `Autor YTHelper (containerId=${containerId}): ${author}`);
-                    return author;
-                }
-            }
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 2: movie_player.getVideoData() (Player principal)
-        // ======================================================================
-        // En páginas watch/embed, el movie_player tiene el autor confiable.
-        try {
-            if (pageType !== 'shorts' && !isExplicitShortsPlayer) {
-                const mpAuthor = DOMHelpers.getWatchPlayer()?.getVideoData?.()?.author;
-                if (mpAuthor && typeof mpAuthor === 'string' && mpAuthor.trim().length > 0) {
-                    log('getVideoAuthor', `Autor movie_player: ${mpAuthor}`);
-                    return mpAuthor.trim();
-                }
-            }
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 3: videoDetails.author (JSON incrustado)
-        // ======================================================================
-        // window.ytInitialPlayerResponse es generalmente confiable en páginas watch.
-        try {
-            if (pageType !== 'shorts' && !isExplicitShortsPlayer) {
-                const vdAuthor = window.ytInitialPlayerResponse?.videoDetails?.author;
-                if (vdAuthor && typeof vdAuthor === 'string' && vdAuthor.trim().length > 0) {
-                    log('getVideoAuthor', `Autor videoDetails: ${vdAuthor}`);
-                    return vdAuthor.trim();
-                }
-            }
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 4: Player pasado como parámetro
-        // ======================================================================
-        // Fallback a player.getVideoData() con validación contra placeholders.
-        // Necesario cuando otros métodos fallan.
-        try {
-            const playerAuthor = player?.getVideoData?.()?.author;
-            if (playerAuthor && typeof playerAuthor === 'string') {
-                const author = playerAuthor.trim();
-                if (author && !isPlaceholder(author)) {
-                    log('getVideoAuthor', `Autor player param: ${author}`);
-                    return author;
-                }
-            }
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 5: SHORTS - Encabezado específico del Short activo
-        // ======================================================================
-        // En Shorts, NUNCA usar datos de miniplayer o watch.
-        // Buscar SOLO en el metapanel del Short ACTIVO.
-        if (pageType === 'shorts' || isExplicitShortsPlayer) {
-            // 5a: Usar extractShortsMetadata() (consolidada, busca dentro del metapanel activo)
-            try {
-                const shortsMeta = extractShortsMetadata();
-                if (shortsMeta.author && shortsMeta.author.length > 0 && !isPlaceholder(shortsMeta.author)) {
-                    log('getVideoAuthor', `Autor Shorts (extractShortsMetadata, containerId=${containerId}): ${shortsMeta.author}`);
-                    return shortsMeta.author;
-                }
-            } catch (_) { }
-
-            // 5b: Fallback con selectores DOM adicionales fuera del metapanel
-            try {
-                const shortsAuthor =
-                    // Metapanel del Short ACTIVO (máxima prioridad)
-                    document.querySelector('ytd-reel-video-renderer[is-active] #metapanel #channel-name a')?.textContent?.trim() ||
-                    // Overlay del reproductor
-                    document.querySelector('ytd-reel-player-overlay-renderer #metapanel #channel-name a')?.textContent?.trim() ||
-                    // Encabezado del reproductor
-                    document.querySelector('#shorts-player ytd-reel-player-header-renderer #channel-name a')?.textContent?.trim() ||
-                    document.querySelector('ytd-reel-player-header-renderer #channel-name a')?.textContent?.trim() ||
-                    // Links @username en Shorts
-                    document.querySelector('ytd-reel-video-renderer[is-active] #metapanel a[href^="/@"]')?.textContent?.trim() ||
-                    document.querySelector('#shorts-player a[href^="/@"]')?.textContent?.trim();
-
-                if (shortsAuthor && shortsAuthor.length > 0 && !isPlaceholder(shortsAuthor)) {
-                    log('getVideoAuthor', `Autor Shorts: ${shortsAuthor}`);
-                    return shortsAuthor;
-                }
-            } catch (_) { }
-
-            // En Shorts, si no encontramos autor, NO usar miniplayer (evitar contaminación)
-            log('getVideoAuthor', 'No se encontró autor en Shorts, retornando unknown');
-            return t('unknown');
-        }
-
-        // ======================================================================
-        // OPCIÓN 6: Meta tags HTML y link elements (consolidados)
-        // ======================================================================
-        // Selectores múltiples para encontrar el autor en el DOM.
-        // En páginas watch, el <link itemprop="name"> contiene el canal.
-        const domAuthorSources = [
-            {
-                selector: 'link[itemprop="name"]',
-                getAttribute: 'content',
-                name: 'link[itemprop="name"]'
-            },
-            {
-                selector: 'yt-button-shape#subscribe-button-shape button.yt-spec-button-shape-next',
-                getAttribute: 'aria-label',
-                name: 'subscribe-button aria-label',
-                parse: (text) => text?.replace(/^Subscribe to /, '').replace(/\.$/, '').trim()
-            },
-            {
-                selector: 'ytd-subscription-notification-toggle-button-renderer-next button.yt-spec-button-shape-next',
-                getAttribute: 'aria-label',
-                name: 'subscription-toggle aria-label',
-                parse: (text) => text?.match(/for (.+)$/)?.[1]?.trim()
-            }
-        ];
-
-        for (const source of domAuthorSources) {
-            const element = document.querySelector(source.selector);
-            if (!element) continue;
-
-            let author = element.getAttribute(source.getAttribute);
-            if (source.parse) {
-                author = source.parse(author);
-            }
-
-            if (author && typeof author === 'string' && author.length > 0 && !isPlaceholder(author)) {
-                log('getVideoAuthor', `Autor ${source.name}: ${author}`);
-                return author;
-            }
-        }
-
-        // ======================================================================
-        // FALLBACK FINAL: YTHelper solo fuera de Shorts
-        // ======================================================================
-        // Último recurso: si nada funcionó, usar YTHelper sin validación.
-        // (Ya lo intentamos al inicio, pero repetimos aquí sin validar)
-        if (pageType !== 'shorts' && !isExplicitShortsPlayer && YTHelper?.video?.channel) {
-            const author = ('' + YTHelper.video.channel).trim();
-            log('getVideoAuthor', `Autor YTHelper (sin validar): ${author}`);
-            return author || t('unknown');
-        }
-
-        log('getVideoAuthor', 'No se encontró autor válido');
-        return t('unknown');
-    }
-
-    // Helper: detectar valores "desconocido" o placeholders
-    function isPlaceholder(value) {
-        if (!value || typeof value !== 'string') return true;
-        const lower = value.toLowerCase();
-        return lower === 'unknown' || lower === 'loading' || lower === 'loading...' || value.length === 0;
-    }
-
-    // ------------------------------------------
-    // MARK: 📺 Get Thumbnail
-    // ------------------------------------------
-
-    function getVideoThumbnail(vid) {
-        if (!vid) return null;
-        try {
-            const ptThumb = getYouTubePageType();
-            if (ptThumb === 'home' || ptThumb === 'search' || ptThumb === 'channel' || ptThumb === 'unknown') {
-                return `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`;
-            }
-        } catch (_) { }
-
-        let thumb = YTHelper?.video?.thumbnails?.[0]?.url;
-        if (thumb && thumbnailHasVideoId(thumb, vid)) return cleanThumbnailUrl(thumb);
-
-        // Desde DOM
-        /*
-        <link rel="image_src" href="https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=&amp;rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA">
-        <meta property="og:image" content="https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=&amp;rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA">
-        <meta name="twitter:image" content="https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=&amp;rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA">
-        <link itemprop="thumbnailUrl" href="https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=&amp;rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA">
-        <link itemprop="url" href="https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=&amp;rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA">
-        */
-        const selectors = [
-            'link[rel="image_src"]',
-            'meta[property="og:image"]',
-            'meta[name="twitter:image"]',
-            'link[itemprop="thumbnailUrl"]',
-            'link[itemprop="url"]'
-        ];
-
-        for (const sel of selectors) {
-            const el = document.querySelector(sel);
-            const url = el?.content || el?.href;
-            if (url && thumbnailHasVideoId(url, vid)) return cleanThumbnailUrl(url);
-        }
-
-        // Desde el div de YouTube player
-        /*
-        <div class="ytp-cued-thumbnail-overlay-image" style="background-image: url(&quot;https://i.ytimg.com/vi_webp/${vid}/maxresdefault.webp&quot;);"></div>
-        */
-        const thumbDiv = document.querySelector('.ytp-cued-thumbnail-overlay-image');
-        if (thumbDiv) {
-            const style = thumbDiv.style.backgroundImage;
-            const match = style.match(/url\((['"]?)(.*?)\1\)/);
-            if (match && thumbnailHasVideoId(match[2], vid)) return match[2];
-        }
-
-        // Desde JSON incrustado
-        /*
-        "microformat":{"playerMicroformatRenderer":{"thumbnail":{"thumbnails":[{"url":"https://i.ytimg.com/vi/${vid}/oar2.jpg?sqp=-oaymwEdCJUDENAFSFWQAgHyq4qpAwwIARUAAIhCcAHAAQY=\u0026rs=AOn4CLBug6b83Q3GnLn_dzMjPVf_3phVNA","width":405,"height":720}],
-        */
-        try {
-
-            const url = window.ytInitialPlayerResponse?.microformat?.playerMicroformatRenderer?.thumbnail?.thumbnails?.[0]?.url;
-
-            if (url != null && vid && thumbnailHasVideoId(url, vid)) {
-                return cleanThumbnailUrl(url);
-            }
-        } catch (err) {
-            warn('Error al obtener thumbnail desde JSON:', err);
-        }
-
-        // Fallback final
-        return `https://i.ytimg.com/vi/${vid}/maxresdefault.jpg`;
-    }
-
-    // Limpia parámetros innecesarios de la URL
-    function cleanThumbnailUrl(url) {
-        const match = url.match(/^(https:\/\/i\.ytimg\.com\/vi(?:_webp)?\/[A-Za-z0-9_-]+\/[^?]+)/);
-        return match ? match[1] : url;
-    }
-
-    function thumbnailHasVideoId(url, vid) {
-        if (!url || !vid) return false;
-        try {
-            const m = url.match(/https:\/\/i\.ytimg\.com\/vi(?:_webp)?\/([A-Za-z0-9_-]+)\//);
-            if (m && m[1]) return m[1] === vid;
-            return url.includes(vid);
-        } catch (e) {
-            return false;
-        }
-    }
-
-    /**
-     * Parsea etiquetas de vistas abreviadas (K/M/B, mil/millones) a número y lo formatea como string localizado.
-     * @param {string} label - Texto o aria-label que contiene la cantidad de vistas
-     * @returns {string|null} String con separadores de miles o null si no se puede determinar
-     */
-    // Cache de Date.now() para optimizar rendimiento
-    const DATE_CACHE = {
-        lastTime: 0,
-        lastValue: 0,
-        CACHE_DURATION: 50 // 50ms de cache
-
-    };
-
-    function getCachedTimestamp() {
-        const now = Date.now();
-        if (now - DATE_CACHE.lastTime > DATE_CACHE.CACHE_DURATION) {
-            DATE_CACHE.lastTime = now;
-            DATE_CACHE.lastValue = now;
-        }
-        return DATE_CACHE.lastValue;
-    }
-
-    // Cache de expresiones regulares y multiplicadores para optimización
-    const VIEWS_REGEX_CACHE = {
-        kRegex: /\b(k|mil)\b/,
-        mRegex: /\b(m|mill|millón|millones)\b/,
-        bRegex: /\b(b)\b/,
-        numRegex: /(\d+[\.,]?\d*)/,
-        commaRegex: /,/g
-    };
-
-    const VIEWS_MULTIPLIERS = { k: 1e3, m: 1e6, b: 1e9 };
-
-    function formatViewsFromLabel(label) {
-        if (!label || typeof label !== 'string') return null;
-        const lower = label.toLowerCase();
-
-        // Detectar multiplicadores usando cache
-        let mult = 1;
-        if (VIEWS_REGEX_CACHE.kRegex.test(lower)) mult = VIEWS_MULTIPLIERS.k;
-        else if (VIEWS_REGEX_CACHE.mRegex.test(lower)) mult = VIEWS_MULTIPLIERS.m;
-        else if (VIEWS_REGEX_CACHE.bRegex.test(lower)) mult = VIEWS_MULTIPLIERS.b;
-
-        // Extraer número usando cache
-        const numMatch = lower.match(VIEWS_REGEX_CACHE.numRegex);
-        if (!numMatch) return null;
-        let numStr = numMatch[1].replace(VIEWS_REGEX_CACHE.commaRegex, '');
-
-        // Normalizar decimal: si hay coma y no hay punto, tratar coma como punto
-        if (numStr.includes(',') && !numStr.includes('.')) {
-            numStr = numStr.replace(',', '.');
-        }
-
-        const base = parseFloat(numStr);
-        if (isNaN(base)) return null;
-        const value = Math.round(base * mult);
-        try { return Number(value).toLocaleString(); } catch (_) { return String(value); }
-    }
-
-    /**
-     * Obtiene las vistas desde la UI de Shorts.
-     * @returns {string|null} Vistas formateadas o null si no se encuentran
-     */
-    /**
-     * Extrae metadatos del Short ACTIVO desde el UI (metapanel/overlay).
-     * Consolida las búsquedas de title, views, y channelId en una sola función.
-     *
-     * OPTIMIZACIÓN: En lugar de 3 funciones separadas que buscan selectores,
-     * esta función busca el elemento raíz del Short ACTIVO una sola vez y extrae
-     * toda la información del mismo elemento, evitando múltiples querySelector.
-     *
-     * @returns {Object} { title: string|null, views: string|null, channelId: string|null }
-     */
-    function extractShortsMetadata() {
-        const result = { title: null, views: null, channelId: null, author: null };
-
-        try {
-            // PASO 1: Buscar el contenedor raíz del metapanel activo
-            // Estos selectores apuntan a los mismos elementos, pero buscamos uno a la vez
-            const metapanelSelectors = [
-                'ytd-reel-video-renderer[is-active] #metapanel',
-                'ytd-reel-player-overlay-renderer #metapanel',
-                '#shorts-player #metapanel',
-                '#metapanel'
-            ];
-
-            let metapanel = null;
-            for (const sel of metapanelSelectors) {
-                metapanel = document.querySelector(sel);
-                if (metapanel) break;
-            }
-
-            if (!metapanel) return result;
-
-            // PASO 2: Extraer TÍTULO desde el metapanel
-            // Búsqueda consolidada: probar selectores en orden de preferencia
-            const titleSelectors = [
-                { selector: metapanel.querySelector('#title'), name: '#title' },
-                { selector: metapanel.querySelector('h2 span.yt-core-attributed-string'), name: 'h2 span.yt-core-attributed-string' },
-                { selector: metapanel.querySelector('h2'), name: 'h2' }
-            ];
-
-            for (const source of titleSelectors) {
-                const text = source.selector?.textContent?.trim();
-                if (text && text.length > 1) {
-                    result.title = text;
-                    break;
-                }
-            }
-
-            // PASO 2.5: Extraer AUTOR desde el metapanel
-            const authorSelectors = [
-                { selector: metapanel.querySelector('#channel-name a'), name: '#channel-name a' },
-                { selector: metapanel.querySelector('a[href*="/@"]'), name: 'a[href*="/@"]' },
-                { selector: metapanel.querySelector('a[href*="/channel/"]'), name: 'a[href*="/channel/"]' }
-            ];
-
-            for (const source of authorSelectors) {
-                const text = source.selector?.textContent?.trim();
-                if (text && text.length > 0 && !isPlaceholder(text)) {
-                    result.author = text;
-                    break;
-                }
-            }
-
-            // PASO 3: Extraer VISTAS desde el metapanel
-            // Buscar elementos con aria-label que mencionen "views" o "visualizaciones"
-            const viewElements = metapanel.querySelectorAll('[aria-label*="view" i], [aria-label*="visualizaciones" i], [aria-label*="reproducciones" i]');
-            for (const el of viewElements) {
-                const label = el?.getAttribute?.('aria-label') || el?.textContent || '';
-                const formattedViews = formatViewsFromLabel(label);
-                if (formattedViews) {
-                    result.views = formattedViews;
-                    break;
-                }
-            }
-
-            // PASO 4: Extraer CHANNEL ID desde enlaces
-            // Buscar enlaces que contengan "/channel/" en href
-            const channelLink = metapanel.querySelector('a[href*="/channel/"]');
-            if (channelLink) {
-                const href = channelLink.href || '';
-                const id = href.split('/channel/')[1]?.split(/[/?#]/)[0];
-                if (id && id.length > 0) {
-                    result.channelId = id;
-                }
-            }
-        } catch (_) { }
-
-        return result;
-    }
-
-    // ------------------------------------------
-    // MARK: 📺 Get Video Info
-    // ------------------------------------------
-
-    /**
-     * Cache de conteos de vistas por ID de video.
-     *
-     * La clave es el `videoId` y el valor puede ser:
-     * - un número,
-     * - un string formateado,
-     * - o cualquier representación del conteo que use.
-     *
-     * @type {Map<string, string | number>}
-     */
-    const viewCountCache = new Map();
-
-    /**
-     * @type {Map<string, { data: WatchMeta, time: number }>}
-     */
-    const watchMetaCache = new Map();
-
-    /** Tiempo máximo que se mantiene en caché (10 minutos) */
-    const WATCH_META_TTL = 600_000;
-
-    /**
-     * @typedef {Object} WatchMeta
-     * @property {string} [title]        - Título del video.
-     * @property {string} [author]       - Nombre del canal.
-     * @property {string} [authorId]     - ID del canal.
-     * @property {string} [viewsNumber]  - Cantidad de vistas con separador local.
-     * @property {string} [description]  - Descripción del video.
-     */
-
-    /**
-     * Obtiene metadatos del video directamente desde la página de YouTube.
-     * Hace una petición a `youtube.com/watch?v=<ID>` y extrae el JSON
-     * incrustado `ytInitialPlayerResponse`.
-     *
-     * Si ocurre cualquier error (request, respuesta, parsing, etc.)
-     * siempre se resuelve con `{}`.
-     *
-     * @param {string} videoId - ID del video de YouTube.
-     * @returns {Promise<WatchMeta>} Metadatos extraídos del video.
-     *
-     * @example
-     * fetchWatchMeta('dQw4w9WgXcQ').then((meta) => {
-     *     console.log(meta);
-     * });
-     *
-     */
-    const fetchWatchMeta = (videoId) => {
-        return new Promise((resolve) => {
-            try {
-                GM_xmlhttpRequest({
-                    method: "GET",
-                    url: `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`,
-
-                    onload: (response) => {
-                        const text = response.responseText ?? "";
-                        const data = {};
-
-                        try {
-                            // Extrae el JSON de la página
-                            const match = text.match(/ytInitialPlayerResponse\s*=\s*(\{.*?\});/s);
-
-                            if (match?.[1]) {
-                                const json = JSON.parse(match[1]);
-
-                                const videoDetails = json?.videoDetails ?? null;
-                                const microformat =
-                                    json?.microformat?.playerMicroformatRenderer ?? null;
-
-                                if (videoDetails?.title) data.title = videoDetails.title;
-                                if (videoDetails?.author) data.author = videoDetails.author;
-                                if (videoDetails?.channelId) data.authorId = videoDetails.channelId;
-
-                                if (videoDetails?.viewCount != null) {
-                                    try {
-                                        data.viewsNumber = Number(videoDetails.viewCount).toLocaleString();
-                                    } catch {
-                                        data.viewsNumber = String(videoDetails.viewCount);
-                                    }
-                                }
-
-                                const description = microformat?.description?.simpleText;
-                                if (description) data.description = description.trim();
-                                // log data sin la descripcion
-                                log('fetchwatchmeta', {
-                                    title: data.title,
-                                    author: data.author,
-                                    authorId: data.authorId,
-                                    viewsNumber: data.viewsNumber,
-                                })
-                            }
-                        } catch {
-                            // Ignore JSON parse errors
-                        }
-
-                        resolve(data);
-                    },
-
-                    onerror: () => resolve({}),
-                    ontimeout: () => resolve({}),
-                });
-            } catch {
-                resolve({});
-            }
-        });
-    };
-
-    /**
-     * Obtiene metadatos desde la caché o los descarga si están expirados.
-     *
-     * @param {string} videoId
-     * @returns {Promise<WatchMeta>}
-     */
-    const getWatchMetaCached = async (videoId) => {
-        try {
-            const cached = watchMetaCache.get(videoId);
-
-            if (cached && (Date.now() - cached.time) < WATCH_META_TTL) {
-                return cached.data;
-            }
-        } catch { }
-
-        const data = await fetchWatchMeta(videoId);
-
-        try {
-            watchMetaCache.set(videoId, {
-                data,
-                time: Date.now(),
-            });
-        } catch { }
-
-        return data;
-    };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // Helper: Obtener Channel ID consolidado
-    // Consolida la lógica repetida de búsqueda de authorId entre diferentes contextos
-    async function getVideoAuthorId(videoId, isMiniPlayer, pageType) {
-        // En miniplayer: usar movie_player + caché watch metadata
-        if (isMiniPlayer) {
-            let authorId =
-                document.querySelector('#movie_player a.ytp-ce-channel-title.ytp-ce-link[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                document.querySelector('#movie_player a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                '';
-
-            try {
-                const meta = await getWatchMetaCached(videoId);
-                if (meta?.authorId) return meta.authorId;
-            } catch (_) { }
-
-            return authorId || t('unknown');
-        }
-
-        // En Shorts (sin miniplayer): usar UI de Shorts
-        if (pageType === 'shorts') {
-            let authorId = extractShortsMetadata().channelId ||
-                document.querySelector('#shorts-player a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                document.querySelector('ytd-reel-player-header-renderer a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                document.querySelector('ytd-reel-video-renderer a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                document.querySelector('link[rel="canonical"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                null;
-
-            // Fallback: videoDetails.channelId si es del mismo video
-            if (!authorId) {
-                try {
-                    const vd = window.ytInitialPlayerResponse?.videoDetails;
-                    if (vd?.videoId === videoId && vd?.channelId) {
-                        return vd.channelId;
-                    }
-                } catch (_) { }
-            }
-
-            // Fallback: YTHelper si es del mismo video
-            if (!authorId) {
-                try {
-                    const vid = YTHelper?.video?.id || YTHelper?.video?.videoId;
-                    if (YTHelper?.video?.channelId && vid === videoId) {
-                        return YTHelper.video.channelId.trim();
-                    }
-                } catch (_) { }
-            }
-
-            return authorId || t('unknown');
-        }
-
-        // En otras páginas (watch, embed, home, etc.): usar YTHelper + DOM
-        return YTHelper?.video?.channelId ||
-            document.querySelector('a[href^="/channel/"]')?.getAttribute("href")?.split("/")?.[2] ||
-            document.querySelector('#items yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
-            t('unknown');
-    }
-
-    // Helper: Obtener vistas consolidado
-    // Consolida la búsqueda de vistas entre diferentes contextos
-    function getVideoViews(videoId, pageType, isMiniPlayer) {
-        // En Shorts sin miniplayer: no retornar vistas automáticamente
-        // (se rellenan después con extractShortsMetadata().viewsNumber o caché)
-        if (pageType === 'shorts' && !isMiniPlayer) {
-            return null;
-        }
-
-        // YTHelper: siempre disponible y confiable
-        if (YTHelper?.video?.viewCount) {
-            return Number(YTHelper.video.viewCount).toLocaleString();
-        }
-
-        // JSON incrustado: confiable en páginas watch
-        if (window.ytInitialPlayerResponse?.videoDetails?.viewCount) {
-            return Number(window.ytInitialPlayerResponse.videoDetails.viewCount).toLocaleString();
-        }
-
-        // DOM: múltiples selectores consolidados
-        const viewSelectors = [
-            '.view-count',
-            'view-count-factoid-renderer .ytwFactoidRendererFactoid[role="text"]',
-            'ytd-watch-info-text div#tooltip.tp-yt-paper-tooltip',
-            'yt-formatted-string.view-count'
-        ];
-
-        for (const selector of viewSelectors) {
-            const views = document.querySelector(selector)?.textContent ||
-                document.querySelector(selector)?.getAttribute('aria-label');
-            if (views) {
-                const extracted = views.match(/[\d.,\s]+/)?.[0]?.trim();
-                if (extracted) return extracted;
-            }
-        }
-
-        return t('notAvailable');
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // MARK: getVideoInfo
-    // FIX: Agregar containerId para desambiguar metadata extraction en coexistencia
-    async function getVideoInfo(player, videoId, containerId = null) {
-        const startTime = performance.now();
-        const now = Date.now();
-
-        log('getVideoInfo', `🔄 Iniciando extracción para ${videoId} (containerId=${containerId})`);
-
-        // warn('getVideoInfo', player.outerHTML + ' ' + videoId)
-
-        // Contexto de la página
-        const ptV = getYouTubePageType();
-
-        // Título y autor
-        let title, author, metaFromMiniplayer = null;
-
-        title = getVideoTittle(player, containerId);
-        author = getVideoAuthor(player, containerId);
-
-
-        // Enriquecimiento asíncrono: si el autor sigue siendo 'unknown' en Shorts,
-        // intentar obtenerlo desde fetchWatchMeta (YouTube watch page JSON)
-        if (ptV === 'shorts' && (!author || author === t('unknown') || isPlaceholder(author)) && videoId) {
-            try {
-                const watchMeta = await getWatchMetaCached(videoId);
-                if (watchMeta?.author && !isPlaceholder(watchMeta.author)) {
-                    log('getVideoInfo', `🔄 Shorts: Autor enriquecido desde fetchWatchMeta: "${watchMeta.author}"`);
-                    author = watchMeta.author;
-                }
-                // También enriquecer authorId si no lo tenemos
-                if (watchMeta?.authorId) {
-                    log('getVideoInfo', `🔄 Shorts: AuthorId enriquecido desde fetchWatchMeta: "${watchMeta.authorId}"`);
-                }
-            } catch (_) {
-                log('getVideoInfo', `⚠️ Shorts: Error al enriquecer autor desde fetchWatchMeta para ${videoId}`);
-            }
-        }
-
-        // Thumbnail
-        let thumb = getVideoThumbnail(videoId)
-        log('getVideoInfo', ' 📺 Thumbnail= ', thumb)
-
-        // Datos adicionales para compatibilidad con FreeTube
-        let published =
-            YTHelper?.video?.publishDate?.getTime()
-            || (YTHelper?.video?.rawPublishDate ? new Date(YTHelper.video.rawPublishDate).getTime() : null);
-
-        let description =
-            YTHelper?.video?.rawDescription?.trim()
-            || document.querySelector('#inline-expander div#snippet.ytd-text-inline-expander yt-attributed-string')?.textContent.trim()
-            || '';
-
-        let isLive = YTHelper?.video?.isCurrentlyLive || false;
-
-        // Views (evitar contaminación en Shorts cuando no es miniplayer)
-        let viewsNumber;
-        try {
-            const ytHelperViews = YTHelper?.video?.viewCount;
-            const initialPlayerViews = window.ytInitialPlayerResponse?.videoDetails?.viewCount;
-
-            if (ytHelperViews) {
-                viewsNumber = Number(ytHelperViews).toLocaleString();
-                log('getVideoInfo', `📊 viewsNumber (YTHelper): ${viewsNumber}`);
-            } else if (initialPlayerViews != null) {
-                viewsNumber = Number(initialPlayerViews).toLocaleString();
-                log('getVideoInfo', `📊 viewsNumber (InitialResponse): ${viewsNumber}`);
-            } else {
-                // Último recurso: Selectores del DOM
-                viewsNumber =
-                    document.querySelector('.view-count')?.textContent?.match(/[\d.,\s]+/)?.[0].trim() ||
-                    // funciona en shorts
-                    document.querySelector('view-count-factoid-renderer .ytwFactoidRendererFactoid[role="text"]')?.getAttribute('aria-label')?.match(/[\d.,\s]+/)?.[0].trim() ||
-                    document.querySelector('ytd-watch-info-text div#tooltip.tp-yt-paper-tooltip')?.textContent?.match(/[\d.,\s]+/)?.[0].trim() ||
-                    document.querySelector('yt-formatted-string.view-count')?.textContent?.match(/[\d.,\s]+/)?.[0].trim() ||
-                    t('notAvailable');
-                log('getVideoInfo', `📊 viewsNumber (DOM): ${viewsNumber}`);
-            }
-        } catch (e) {
-            log('getVideoInfo', '⚠️ Error extrayendo vistas:', e);
-            // Mantener el valor previo si existe
-            if (!viewsNumber) viewsNumber = t('notAvailable');
-        }
-
-
-
-
-
-
-
-
-
-
-
-
-
-        let videoEl = null;
-        try {
-            const ptX = getYouTubePageType();
-            if (ptX === 'shorts') {
-                videoEl =
-                    document.querySelector('ytd-reel-video-renderer[is-active] #short-video-container ytd-player div.html5-video-container video') ||
-                    document.querySelector('ytd-reel-video-renderer[is-active] video.reel-video-player-element') ||
-                    document.querySelector('ytd-reel-player-overlay-renderer #shorts-player video') ||
-                    document.querySelector('#shorts-player video') ||
-                    document.querySelector('ytd-shorts video.html5-main-video');
-            }
-        } catch (_) { }
-        if (!videoEl) {
-            videoEl = await getActiveVideoElement();
-        }
-        let duration = normalizeSeconds(getVideoDuration(player, videoEl));
-        log('getVideoInfo', ' 🕕 Duración tras normalizeSeconds = ', duration);
-
-
-        let authorId;
-        // Reutilizar la detección de miniplayer ya hecha al inicio
-        const isMiniOnShorts = isVideoInMiniPlayer;
-
-        // Lógica unificada: si es miniplayer, usar datos del miniplayer independientemente de la página
-        if (isMiniOnShorts) {
-            // Miniplayer: usar datos específicos del miniplayer para evitar contaminación
-            const mpElement = DOMHelpers.getWatchPlayer();
-            authorId =
-                mpElement.querySelector('a.ytp-ce-channel-title.ytp-ce-link[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                mpElement.querySelector('a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                '';
-            // Fusionar con metadata de la página watch del miniplayer para asegurar datos correctos
-            if (metaFromMiniplayer) {
-                log('getVideoInfo', `🔄 Miniplayer: Reutilizando metadata cacheada para ${videoId}`);
-                let appliedFields = [];
-                if (metaFromMiniplayer.authorId) { authorId = metaFromMiniplayer.authorId; appliedFields.push('authorId'); }
-                if (metaFromMiniplayer.author) { author = metaFromMiniplayer.author; appliedFields.push('author'); }
-                const _newViews = metaFromMiniplayer.viewsNumber;
-                const _hasValidNew = _newViews && typeof _newViews === 'string' && _newViews !== t('notAvailable') && _newViews.trim() !== '';
-                const _hasValidCur = viewsNumber && typeof viewsNumber === 'string' && viewsNumber !== t('notAvailable') && viewsNumber.trim() !== '';
-                if (_hasValidNew && !_hasValidCur) { viewsNumber = _newViews; appliedFields.push('viewsNumber'); }
-                if (metaFromMiniplayer.title) { title = metaFromMiniplayer.title; appliedFields.push('title'); }
-                if (metaFromMiniplayer.description) { description = metaFromMiniplayer.description; appliedFields.push('description'); }
-                log('getVideoInfo', `✅ Miniplayer: Campos aplicados: ${appliedFields.join(', ')}`);
-            } else {
-                log('getVideoInfo', `⚠️ Miniplayer: Sin metadata cacheada disponible para ${videoId}`);
-            }
-            if (!authorId) authorId = t('unknown');
-        } else if (ptV === 'shorts') {
-            // Shorts normales (sin miniplayer): primero metapanel/overlay del Short ACTIVO
-            authorId = extractShortsMetadata().channelId ||
-                document.querySelector('#shorts-player a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                document.querySelector('ytd-reel-player-header-renderer a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                document.querySelector('ytd-reel-video-renderer a[href*="/channel/"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                document.querySelector('link[rel="canonical"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                document.querySelector('meta[property="og:url"]')?.content?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                document.querySelector('link[itemprop="url"]')?.href?.split('/channel/')[1]?.split(/[/?#]/)[0] ||
-                null;
-
-            // Fallback seguro: usar videoDetails.channelId si pertenece al mismo Short
-            if (!authorId) {
-                try {
-                    const vd = window.ytInitialPlayerResponse?.videoDetails;
-                    if (vd && vd.videoId === videoId && typeof vd.channelId === 'string' && vd.channelId) {
-                        authorId = vd.channelId;
-                        conError('auto 1er fallback', authorId)
-                    }
-                } catch (_) { }
-            }
-
-            // Fallback extra: intentar usar YTHelper.video.channelId sólo si pertenece al mismo video
-            if (!authorId) {
-                try {
-                    const helperVideo = YTHelper?.video;
-                    const helperVid =
-                        helperVideo && (helperVideo.id || helperVideo.videoId);
-                    const helperChannelId = helperVideo && helperVideo.channelId;
-                    if (
-                        helperChannelId &&
-                        typeof helperChannelId === 'string' &&
-                        helperChannelId.trim().length > 0 &&
-                        helperVid &&
-                        helperVid === videoId
-                    ) {
-                        authorId = helperChannelId.trim();
-                    }
-                } catch (_) { }
-            }
-
-            if (!authorId) authorId = t('unknown');
-
-            // En Shorts, intentar forzar título y vistas desde su propia UI (evitar contaminación del miniplayer)
-            try {
-                const sTitle = extractShortsMetadata().title;
-                if (sTitle && typeof sTitle === 'string' && sTitle.trim().length > 1) title = sTitle.trim();
-            } catch (_) { }
-            try {
-                if (!viewsNumber || viewsNumber === t('notAvailable')) {
-                    const sViews = extractShortsMetadata().viewsNumber;
-                    if (sViews) viewsNumber = sViews;
-                }
-            } catch (_) { }
-            // Fallback seguro: usar meta de la página watch del mismo ID para datos faltantes
-            try {
-                const needsAuthor = !author || author === t('unknown') || isPlaceholder(author);
-                const needsAuthorId = !authorId || authorId === t('unknown');
-                const needsViews = !viewsNumber || viewsNumber === t('notAvailable');
-
-                if (needsAuthor || needsAuthorId || needsViews) {
-                    const metaForShort = await getWatchMetaCached(videoId);
-                    if (metaForShort) {
-                        if (needsViews && metaForShort.viewsNumber) {
-                            viewsNumber = metaForShort.viewsNumber;
-                            log('getVideoInfo', `🔄 Shorts: Vistas enriquecidas desde fetchWatchMeta: "${viewsNumber}"`);
-                        }
-                        if (needsAuthor && metaForShort.author && !isPlaceholder(metaForShort.author)) {
-                            author = metaForShort.author;
-                            log('getVideoInfo', `🔄 Shorts: Autor enriquecido desde fetchWatchMeta (authorId block): "${author}"`);
-                        }
-                        if (needsAuthorId && metaForShort.authorId) {
-                            authorId = metaForShort.authorId;
-                            log('getVideoInfo', `🔄 Shorts: AuthorId enriquecido desde fetchWatchMeta: "${authorId}"`);
-                        }
-                    }
-                }
-            } catch (_) { }
-        } else {
-            // Páginas normales (watch, embed, home, etc.) sin miniplayer
-            authorId =
-                YTHelper?.video?.channelId ||
-                document.querySelector('a[href^="/channel/"]')
-                    .getAttribute("href") // "/channel/UCYfdidRxbB8Qhf0Nx7ioOYw/videos"
-                    .split("/")[2] || // "UCYfdidRxbB8Qhf0Nx7ioOYw"
-
-                //window.ytInitialPlayerResponse?.videoDetails?.channelId ||
-                //document.querySelector('#upload-info a.yt-simple-endpoint')?.href?.split('/channel/')[1] ||
-                //document.querySelector('a.ytp-ce-channel-title.ytp-ce-link')?.href?.split('/channel/')[1] ||
-                document.querySelector('#items yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
-                document.querySelector('#infocard-channel-button yt-button-shape a')?.href?.split('/channel/')[1]?.split('/')[0] ||
-                t('unknown');
-        }
-
-        try {
-
-            if (ptV !== 'watch') {
-                let isMiniContext = false;
-                try {
-                    const mpIdNow = DOMHelpers.getWatchPlayer()?.getVideoData?.()?.video_id;
-                    if (ptV === 'shorts' && mpIdNow && mpIdNow === videoId) isMiniContext = true;
-                } catch (_) { }
-                const meta = await getWatchMetaCached(videoId);
-                const isGeneric = (s) => !s || ['YouTube', 'Loading...', 'Untitled'].includes(('' + s).trim());
-                if (meta) {
-                    if (isMiniContext) {
-                        if (meta.title) title = meta.title;
-                        if (meta.author) author = meta.author;
-                        if (meta.authorId) authorId = meta.authorId;
-                        if (meta.viewsNumber) viewsNumber = meta.viewsNumber;
-                        if (meta.description) description = meta.description;
-                    } else {
-                        // En Shorts (no-miniplayer), no adoptar título/autor/authorId/descripcion desde meta para evitar contaminación
-                        if (ptV !== 'shorts') {
-                            if (isGeneric(title) && meta.title) title = meta.title;
-                            if ((!author || author === t('unknown')) && meta.author) author = meta.author;
-                            if ((!authorId || authorId === t('unknown')) && meta.authorId) authorId = meta.authorId;
-                            if (!viewsNumber && meta.viewsNumber) viewsNumber = meta.viewsNumber;
-                            if (!description && meta.description) description = meta.description;
-                        } else {
-                            // En Shorts, solo permitir rellenar vistas si aún faltan
-                            if (!viewsNumber && meta.viewsNumber) viewsNumber = meta.viewsNumber;
-                        }
-                    }
-                }
-            }
-        } catch (_) { }
-
-        try {
-            if (ptV === 'shorts' && !isMiniOnShorts) {
-                if (!title || title === t('unknown')) {
-                    try {
-                        const sTitle2 = extractShortsMetadata().title;
-                        if (sTitle2 && typeof sTitle2 === 'string' && sTitle2.trim().length > 1) {
-                            title = sTitle2.trim();
-                        }
-                    } catch (_) { }
-                }
-                if (!author || author === t('unknown')) {
-                    try {
-                        const shortsAuthor2 = getVideoAuthor(null, containerId);
-                        if (shortsAuthor2 && shortsAuthor2 !== t('unknown')) {
-                            author = shortsAuthor2;
-                        }
-                    } catch (_) { }
-                }
-            }
-        } catch (_) { }
-
-        // Caché de views
-        const cached = viewCountCache.get(videoId);
-        if (!cached || (now - cached.time) > 5000) {
-            viewCountCache.set(videoId, { views: viewsNumber, time: now });
-        } else {
-            viewsNumber = cached.views;
-        }
-
-        // Valor por defecto legible si no se pudo determinar
-        if (!viewsNumber) viewsNumber = t('notAvailable');
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        const extractionTime = performance.now() - startTime;
-        log('getVideoInfo', 'Info:', {
-            title: title?.substring(0, 30),
-            author: author?.substring(0, 20),
-            viewsNumber,
-            savedAt: now,
-            duration,
-            authorId,
-            videoId,
-            published,
-
-            isLive,
-            extractionTime: `${extractionTime.toFixed(2)}ms`,
-            pageType: ptV,
-            isMiniPlayer: isVideoInMiniPlayer
-        })
-        return {
-            title,
-            author,
-            thumb,
-            viewsNumber,
-            savedAt: now,
-            duration,
-            authorId,
-            videoId,
-            published,
-            description,
-            isLive
-        };
-    }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // ------------------------------------------
-    // MARK: 📺 Get Video Duration
-    // ------------------------------------------
-    // Obtiene la duración del video en segundos con decimales cuando es posible.
-    // Usa patrón YTHelper-first y consolida búsquedas repetidas.
-    //
-    // IMPORTANTE: Algunos métodos (meta tags, time display) NO dan decimales (275 vs 275.421).
-    // El objetivo es conseguir decimales cuando sea posible para precisión.
-    function getVideoDuration(player, videoEl) {
-        const nowTs = Date.now();
-        const canLog = nowTs - lastDurationLog > 2000;
-        if (canLog) lastDurationLog = nowTs;
-
-        // Detectar contexto: Shorts o Watch/Embed (evitar mezclar datos)
-        let pageType = null;
-        let containerType = null;
-        try {
-            pageType = getYouTubePageType();
-            containerType = videoEl?.closest?.(SELECTORS.MAIN_CONTAINERS)?.id || null;
-            const isShortsContext = pageType === 'shorts' || containerType === 'shorts-player';
-            if (canLog && isShortsContext) {
-                log('getVideoDuration', '⏭ Contexto Shorts detectado, evitando YTHelper/meta tags');
-            }
-        } catch (_) { }
-
-        // Helper: validar que duración es válida
-        const isValid = (dur) => dur && dur > 0 && !isNaN(dur);
-
-        // ======================================================================
-        // OPCIÓN 1: player.getDuration() (Player principal)
-        // ======================================================================
-        // El player pasado como parámetro suele ser el del player principal.
-        // Retorna decimales: 275.421
-        try {
-            const dur = player?.getDuration?.();
-            if (canLog) log('getVideoDuration', `[1] player.getDuration: ${dur}`);
-            if (isValid(dur)) return dur;
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 2: movie_player global (Evitar en Shorts)
-        // ======================================================================
-        // En páginas watch, #movie_player.getDuration() es confiable.
-        // EN SHORTS: NUNCA usar porque puede ser del miniplayer en background.
-        if (pageType !== 'shorts' && containerType !== 'shorts-player') {
-            try {
-                const dur = DOMHelpers.getWatchPlayer()?.getDuration?.();
-                if (canLog) log('getVideoDuration', `[2] movie_player.getDuration: ${dur}`);
-                if (isValid(dur)) return dur;
-            } catch (_) { }
-        }
-
-        // ======================================================================
-        // OPCIÓN 3: player.playerObject.getDuration()
-        // ======================================================================
-        // Acceso alternativo al object interno del player.
-        // Retorna decimales: 275.421
-        try {
-            const dur = player?.playerObject?.getDuration?.();
-            if (canLog) log('getVideoDuration', `[3] playerObject.getDuration: ${dur}`);
-            if (isValid(dur)) return dur;
-        } catch (_) { }
-
-        // ======================================================================
-        // OPCIÓN 4: Elemento <video> (Directo)
-        // ======================================================================
-        // Si tenemos el elemento video, su propiedad duration es lo más fiable.
-        // Retorna decimales: 275.421
-        if (videoEl) {
-            try {
-                const dur = videoEl.duration;
-                if (canLog) log('getVideoDuration', `[4] videoEl.duration: ${dur}`);
-                if (isValid(dur)) return dur;
-            } catch (_) { }
-        }
-
-        // ======================================================================
-        // OPCIÓN 5: YOUTUBE HELPER API (Evitar en Shorts)
-        // ======================================================================
-        // YTHelper proporciona acceso al player interno de YouTube.
-        // EN SHORTS: NUNCA usar porque apunta al miniplayer.
-        if (pageType !== 'shorts' && containerType !== 'shorts-player') {
-            try {
-                // Subopción 5a: YTHelper API Proxy (puede dar decimales)
-                const dur = YTHelper?.apiProxy?.getDuration?.();
-                if (canLog) log('getVideoDuration', `[5a] YTHelper.apiProxy.getDuration: ${dur}`);
-                if (isValid(dur)) return dur;
-            } catch (_) { }
-
-            try {
-                // Subopción 5b: YTHelper video.lengthSeconds (NO da decimales: 275)
-                const dur = YTHelper?.video?.lengthSeconds;
-                if (canLog) log('getVideoDuration', `[5b] YTHelper.video.lengthSeconds: ${dur}`);
-                if (isValid(dur)) return dur;
-            } catch (_) { }
-        }
-
-        // ======================================================================
-        // OPCIÓN 6: Meta tags HTML (Consolidados, Evitar en Shorts)
-        // ======================================================================
-        // Meta tags contienen duración formateada, requieren parseo.
-        // NO dan decimales después del parseo (PT4M35S = 275, no 275.421).
-        // EN SHORTS: NO usar.
-        if (pageType !== 'shorts' && containerType !== 'shorts-player') {
-            const metaSources = [
-                {
-                    selector: '.ytp-time-duration',
-                    getAttribute: 'textContent',
-                    parse: parseTimeToSeconds,
-                    name: '.ytp-time-duration (time display)'
-                },
-                {
-                    selector: 'meta[itemprop="duration"]',
-                    getAttribute: 'content',
-                    parse: parseISODuration,
-                    name: 'meta[itemprop="duration"] (ISO format)'
-                }
-            ];
-
-            for (const source of metaSources) {
-                try {
-                    let rawValue;
-                    if (source.getAttribute === 'textContent') {
-                        rawValue = document.querySelector(source.selector)?.textContent;
-                    } else {
-                        rawValue = document.querySelector(source.selector)?.getAttribute(source.getAttribute);
-                    }
-
-                    if (rawValue) {
-                        const dur = source.parse(rawValue.trim());
-                        if (canLog) log('getVideoDuration', `[6] ${source.name}: ${dur}`);
-                        if (isValid(dur)) return dur;
-                    }
-                } catch (_) { }
-            }
-        }
-
-        // ======================================================================
-        // OPCIÓN 7: Elemento <video> con espera de metadatos
-        // ======================================================================
-        // Si el <video> aún no ha cargado metadatos (duration=0),
-        // esperar a que cargue usando el evento 'loadedmetadata'.
-        // Esto es async y retorna una Promise.
-        if (videoEl) {
-            try {
-                const dur = videoEl.duration;
-
-                // Si ya tiene duración, retornarla
-                if (isValid(dur)) {
-                    if (canLog) log('getVideoDuration', `[7a] videoEl.duration (cached): ${dur}`);
-                    return dur;
-                }
-
-                // Si duration es 0/NaN, esperar a metadatos
-                if (isNaN(dur) || dur === 0) {
-                    if (canLog) log('getVideoDuration', '[7b] Esperando a que videoEl cargue metadatos...');
-
-                    return new Promise(resolve => {
-                        const checkAndResolve = () => {
-                            const currentDur = videoEl.duration;
-                            if (isValid(currentDur)) {
-                                if (canLog) log('getVideoDuration', `[7b] videoEl.duration (después de espera): ${currentDur}`);
-                                resolve(currentDur);
-                            }
-                        };
-
-                        // Opción 1: Ya está listo
-                        checkAndResolve();
-
-                        // Opción 2: Esperar evento
-                        if (!isValid(videoEl.duration)) {
-                            videoEl.addEventListener('loadedmetadata', checkAndResolve, { once: true });
-
-                            // Timeout: si pasan 3s sin metadatos, renunciar
-                            setTimeout(() => {
-                                if (!isValid(videoEl.duration)) {
-                                    if (canLog) log('getVideoDuration', '[7b] Timeout esperando metadatos (3s), resolviendo con 0');
-                                    resolve(0);
-                                }
-                            }, 3000);
-                        }
-                    });
-                }
-            } catch (_) { }
-        }
-
-        // ======================================================================
-        // FALLBACK FINAL: 0 (No se pudo obtener duración)
-        // ======================================================================
-        if (canLog) log('getVideoDuration', '[FALLBACK] No se pudo obtener duración válida, retornando 0');
-        return 0;
-    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     // ------------------------------------------
     // MARK: 📺 Extraer o Normalizar Video ID
@@ -8277,168 +5595,30 @@ background: var(--ypp-danger);
         return null;
     }
 
-    // MARK: 📺 Is Live Video
-    function isLiveVideo() {
-        try {
-            log('isLiveVideo', '🔍 Iniciando detección de video live...');
 
-            // Si YTHelper indica que NO es live y tiene duración >0, es un video VOD
-            if (YTHelper?.video?.isCurrentlyLive === false && YTHelper?.video?.lengthSeconds > 0) {
-                log('isLiveVideo', '❌ YTHelper indica no live y duración >0 - NO es live');
-                return false;
-            }
 
-            // 1. Usar YouTube Helper API
-            if (YTHelper?.video) {
-                const isCurrentlyLive = YTHelper.video.isCurrentlyLive;
-                const isLiveOrVodContent = YTHelper.video.isLiveOrVodContent;
-                const wasStreamedOrPremiered = YTHelper.video.wasStreamedOrPremiered;
 
-                log('isLiveVideo', `YouTube Helper API detección:`);
-                log('isLiveVideo', `   - isCurrentlyLive: ${isCurrentlyLive}`);
-                log('isLiveVideo', `   - isLiveOrVodContent: ${isLiveOrVodContent}`);
-                log('isLiveVideo', `   - wasStreamedOrPremiered: ${wasStreamedOrPremiered}`);
 
-                // Si está actualmente en vivo
-                if (isCurrentlyLive /* || isLiveOrVodContent || wasStreamedOrPremiered */) {
-                    log('isLiveVideo', '✅ Detectado como LIVE por YouTube Helper API');
-                    return true;
-                }
-            }
 
-            // 2. Fallback: Verificar badge de live en el player (solo si es visible)
-            const liveBadge = document.querySelector('.ytp-live-badge');
-            const isBadgeVisible = liveBadge && liveBadge.offsetParent !== null &&
-                window.getComputedStyle(liveBadge).display !== 'none';
-            const liveBadgeText = liveBadge?.getAttribute('aria-label') || liveBadge?.textContent || '';
-            log('isLiveVideo', `Live badge encontrado: ${!!liveBadge}, visible: ${isBadgeVisible}, tiene aria-label: ${liveBadge?.hasAttribute('aria-label')}`);
-            log('isLiveVideo', `Contenido del badge: "${liveBadgeText}"`);
 
-            if (liveBadge && isBadgeVisible && liveBadge.hasAttribute('aria-label')) {
-                // Verificar que el contenido del badge realmente indique "live" actual
-                // Excluir mensajes de navegación como "Sigue adelante hasta alcanzar..."
-                const lowerText = liveBadgeText.toLowerCase();
-                const isNavigationMessage = lowerText.includes('sigue') ||
-                    lowerText.includes('adelante') ||
-                    lowerText.includes('alcanzar') ||
-                    lowerText.includes('hasta') ||
-                    lowerText.includes('go forward') ||
-                    lowerText.includes('seek to');
 
-                const badgeIndicatesLive = !isNavigationMessage && (
-                    lowerText === 'live' ||
-                    lowerText === 'en vivo' ||
-                    lowerText === 'directo' ||
-                    lowerText.startsWith('live ') ||
-                    lowerText.startsWith('en vivo ') ||
-                    lowerText.startsWith('directo ')
-                );
 
-                log('isLiveVideo', `Badge indica live: ${badgeIndicatesLive} (navegación: ${isNavigationMessage})`);
 
-                if (badgeIndicatesLive) {
-                    log('isLiveVideo', '✅ Detectado como LIVE por badge del player');
-                    return true;
-                } else {
-                    log('isLiveVideo', '⚠️ Badge encontrado pero no indica live actual - continuando verificaciones...');
-                }
-            }
 
-            // 3. Fallback: Verificar meta tag específico de live broadcast (con validación adicional)
-            const isLiveBroadcastMeta = document.querySelector('meta[itemprop="isLiveBroadcast"]');
-            const isLiveBroadcast = isLiveBroadcastMeta?.content === 'True';
-            log('isLiveBroadcast', `Meta isLiveBroadcast: ${isLiveBroadcastMeta?.content}, es True: ${isLiveBroadcast}`);
 
-            if (isLiveBroadcast) {
-                // SIEMPRE validar meta tag con otros indicadores para evitar falsos positivos
-                const currentTitle = YTHelper?.video?.title || document.title.replace(/ - YouTube$/, '').trim();
-                const hasLiveInTitle = currentTitle.toLowerCase().includes('live');
-                const hasLiveInUrl = window.location.href.includes('/live/');
 
-                log('isLiveVideo', `Validación de meta tag isLiveBroadcast:`);
-                log('isLiveVideo', `   - Título: "${currentTitle}" YTHelper?.video?.title: ${YTHelper?.video?.title} | document.title.replace(/ - YouTube$/, '').trim(): ${document.title.replace(/ - YouTube$/, '').trim()}`);
-                log('isLiveVideo', `   - Título contiene "live": ${hasLiveInTitle}`);
-                log('isLiveVideo', `   - URL contiene "/live/": ${hasLiveInUrl}`);
 
-                // Solo confiar en el meta tag si hay otros indicadores de live
-                if (hasLiveInTitle || hasLiveInUrl) {
-                    log('isLiveVideo', '✅ Detectado como LIVE por meta tag isLiveBroadcast + validación');
-                    return true;
-                } else {
-                    log('isLiveVideo', '⚠️ Meta isLiveBroadcast=True pero sin otros indicadores - posible falso positivo, continuando verificaciones...');
-                }
-            }
 
-            // Verificar indicadores adicionales de live/DVR
-            log('isLiveVideo', `Verificando indicadores adicionales de live/DVR`);
 
-            // Verificar si YouTube considera este contenido como live (SOLO en URL)
-            const hasLiveDvr = window.location.href.includes('live=dvr') ||
-                window.location.href.includes('pltype=contentlive');
 
-            // Verificar en el contexto del player (elementos DOM específicos, NO innerHTML general)
-            const hasPlayerLiveContext = document.querySelector('[data-live="true"]') ||
-                document.querySelector('.ytp-live:not(.ytp-live-badge)') ||
-                document.querySelector('.live-stream-text') ||
-                document.querySelector('.ytp-chrome-top .ytp-live');
 
-            log('isLiveVideo', `YouTube live/DVR indicators:`);
-            log('isLiveVideo', `   - URL contiene live=dvr/pltype=contentlive: ${hasLiveDvr}`);
-            log('isLiveVideo', `   - Contexto de player live detectado (selectores DOM): ${hasPlayerLiveContext}`);
 
-            if (hasLiveDvr || hasPlayerLiveContext) {
-                log('isLiveVideo', '✅ Detectado como LIVE por indicadores de YouTube (live=dvr, pltype=contentlive o contexto de player)');
-                return true;
-            }
 
-            // Verificar duración PT0M0S solo si no estamos navegando
-            if (!isNavigating) {
-                const durationMeta = document.querySelector('meta[itemprop="duration"]')?.content;
-                log('isLiveVideo', `Meta duration: "${durationMeta}"`);
 
-                if (durationMeta === 'PT0M0S') {
-                    // Verificación adicional: buscar otros indicadores de live
-                    const liveAriaLabel = document.querySelector('[aria-label*="live"]');
-                    const liveTitle = document.querySelector('[title*="live"]');
-                    const liveBadgeClass = document.querySelector('.live-badge');
-                    const liveUrl = window.location.href.includes('/live/');
 
-                    log('isLiveVideo', `Indicadores adicionales de live:`);
-                    log('isLiveVideo', `   - aria-label con "live": ${!!liveAriaLabel}`);
-                    log('isLiveVideo', `   - title con "live": ${!!liveTitle}`);
-                    log('isLiveVideo', `   - clase .live-badge: ${!!liveBadgeClass}`);
-                    log('isLiveVideo', `   - URL contiene /live/: ${liveUrl}`);
 
-                    const hasLiveIndicators = liveAriaLabel || liveTitle || liveBadgeClass || liveUrl;
 
-                    if (YTHelper?.video?.lengthSeconds > 0) {
-                        log('isLiveVideo', '⚠️ PT0M0S pero YTHelper indica duración >0 - no es live');
-                    } else if (hasLiveIndicators) {
-                        log('isLiveVideo', '✅ Detectado como LIVE por PT0M0S + indicadores adicionales');
-                        return true;
-                    } else {
-                        log('isLiveVideo', '⚠️ PT0M0S encontrado pero SIN indicadores adicionales de live - probablemente tiempo fijo');
-                    }
-                }
-            } else {
-                log('isLiveVideo', '⏭️ Omitiendo verificación PT0M0S durante navegación');
-            }
 
-            // Verificar si hay tiempo fijo desde el URL
-            /*  const hasFixedTime = window.location.href.includes('&t=') || window.location.href.includes('#t=');
-             log('isLiveVideo', `Tiempo fijo en URL: ${hasFixedTime}`);
-             if (hasFixedTime) {
-                 log('isLiveVideo', '❌ Video tiene tiempo fijo configurado - NO es live');
-                 return false;
-             } */
-
-            log('isLiveVideo', '❌ NO detectado como live');
-            return false;
-        } catch (e) {
-            warn('isLiveVideo', 'Error al detectar video live:', e);
-            return false;
-        }
-    }
 
     // MARK: 📺 Get Playlist Name
     const playlistNameCache = new Map();
@@ -8581,115 +5761,18 @@ background: var(--ypp-danger);
         });
     }
 
-    // ------------------------------------------
-    // MARK: 💾 Video Status Management
-    // ------------------------------------------
-
-    // Cache para info de video (evita llamadas repetidas a YouTube API)
-    const videoInfoCache = new Map();
-    const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
-
-    /**
-     * Limpia el caché de información de video para un ID específico o todo el caché
-     * @param {string} [video_id] - ID del video a limpiar (opcional, si no se especifica limpia todo)
-     */
-    function clearVideoInfoCache(video_id = null) {
-        if (video_id) {
-            if (videoInfoCache.has(video_id)) {
-                videoInfoCache.delete(video_id);
-                log('clearVideoInfoCache', `🧹 Cache limpiado para video ${video_id}`);
-            }
-        } else {
-            const size = videoInfoCache.size;
-            videoInfoCache.clear();
-            log('clearVideoInfoCache', `🧹 Cache completo limpiado (${size} entradas)`);
-        }
-    }
-
-    /**
-     * Obtiene la información del video con cache
-     * @param {object} player - Player de YouTube
-     * @param {string} video_id - ID del video
-     * @param {string} [containerId] - ID del contenedor (shorts-player o movie_player) para disambiguación
-     * @returns {Promise<object>} - Información del video
-     */
-    async function getCachedVideoInfo(player, video_id, containerId = null) {
-        const cacheKey = video_id;
-        const cached = videoInfoCache.get(cacheKey);
 
-        log('getCachedVideoInfo', `🔍 Buscando cache para ${video_id}: ${cached ? 'FOUND' : 'MISS'}`);
 
-        // Durante navegación, ser más estricto con el caché para evitar datos obsoletos
-        const cacheTimeout = isNavigating ? 30 * 1000 : CACHE_DURATION; // 30 segundos durante navegación, 5 minutos normal
 
-        // Verificar si el caché es válido
-        const isCacheValid = cached && (Date.now() - cached.timestamp) < cacheTimeout;
-        // En Shorts, forzar refresco para evitar contaminación (título/vistas)
-        let effectiveCacheValid = isCacheValid;
-        try {
-            const ptNow = getYouTubePageType();
-            if (ptNow === 'shorts') {
-                effectiveCacheValid = false;
-                log('getCachedVideoInfo', `⛔ Bypass cache en Shorts para ${video_id}`);
-            }
-        } catch (_) { }
 
-        // Durante navegación, también verificar que el título en caché coincida con document.title actual
-        let isCacheAccurate = true;
-        if (isNavigating && cached?.data?.title) {
-            const currentDocTitle = document.title.replace(/ - YouTube$/, '').trim();
-            if (currentDocTitle) {
-                const normalize = (str) => str.toLowerCase().replace(/\s+/g, ' ').trim();
-                const normalizedCacheTitle = normalize(cached.data.title);
-                const normalizedDocTitle = normalize(currentDocTitle);
 
-                // Si los títulos no coinciden, el caché probablemente tiene datos del video anterior
-                isCacheAccurate = normalizedDocTitle === normalizedCacheTitle ||
-                    normalizedDocTitle.includes(normalizedCacheTitle) ||
-                    normalizedCacheTitle.includes(normalizedDocTitle);
 
-                if (!isCacheAccurate) {
-                    log('getCachedVideoInfo', `⚠️ Cache inválido para ${video_id}: título "${cached.data.title}" no coincide con document.title "${currentDocTitle}"`);
-                }
-            }
-        }
 
-        if (cached && effectiveCacheValid) {
-            if (cached?.data?.videoId && cached.data.videoId !== video_id) {
-                isCacheAccurate = false;
-                log('getCachedVideoInfo', `⚠️ Cache inválido para ${video_id}: videoId en cache (${cached.data.videoId}) no coincide`);
-            }
-            if (cached?.data?.thumb && !thumbnailHasVideoId(cached.data.thumb, video_id)) {
-                isCacheAccurate = false;
-                log('getCachedVideoInfo', `⚠️ Cache inválido para ${video_id}: thumbnail cacheado no corresponde al ID actual`);
-            }
-        }
 
-        // Retornar cache solo si es válido Y preciso
-        if (effectiveCacheValid && isCacheAccurate) {
-            log('getCachedVideoInfo', `✅ Cache HIT para ${video_id} (${isNavigating ? 'navegando' : 'normal'})`);
-            return cached.data;
-        }
 
-        // Obtener info fresca
-        log('getCachedVideoInfo', `❌ Cache MISS para ${video_id}${isNavigating ? ' (navegando)' : ''}${!isCacheAccurate ? ' (cache impreciso)' : ''}`);
-        const info = await getVideoInfo(player, video_id, containerId);
 
-        // Solo guardar en cache si no estamos navegando O si los datos parecen válidos
-        const shouldCache = !isNavigating || (info.title && info.title.length > 3);
 
-        if (shouldCache) {
-            videoInfoCache.set(cacheKey, {
-                data: info,
-                timestamp: Date.now()
-            });
-            log('getCachedVideoInfo', `💾 Cache guardado para ${video_id}: "${info.title?.substring(0, 30)}..."`);
-        } else {
-            log('getCachedVideoInfo', `⏭️ Sin cache para ${video_id} (navegando)`);
-        }
 
-        return info;
-    }
 
 
 
@@ -8720,640 +5803,19 @@ background: var(--ypp-danger);
 
 
 
-    // MARK: Update Status
 
-    /**
-     * Guarda el progreso del video actual
-     * @param {object} player - Player de YouTube
-     * @param {HTMLVideoElement} videoEl - Elemento de video
-     * @param {string} type - Tipo de video (watch, embed, shorts)
-     * @param {string} plId - ID del playlist (opcional)
-     * @param {string} expectedVideoId - ID del video esperado (opcional)
-     * @param {string} targetContainerId - ID del contenedor específico (movie_player | shorts-player) (opcional)
-     * @returns {Promise<object>} - Resultado del guardado
-     */
-    const updateStatus = async (player, videoEl, type, plId, expectedVideoId, targetContainerId) => {
 
-        const pageTypeNow = getYouTubePageType();
 
 
-        let url = location.href;
 
 
 
 
 
 
-        const urlDataNow = extractOrNormalizeVideoId(url);
 
 
-
-
-
-
-
-        let contId = null; // Identificador del contenedor (movie_player | shorts-player | null)
-        try { contId = videoEl?.closest?.(SELECTORS.MAIN_CONTAINERS)?.id || null; } catch (_) { }
-
-        try {
-            if (pageTypeNow === 'shorts') {
-                // Shorts: distinguir entre contenedor de Shorts y Miniplayer
-                let p = urlDataNow?.list || null;
-                let pSource = p ? 'url' : null; // url | anchor | fallback | null
-
-
-                plId = p || null;
-                // Actualizar lastPlaylistId solo si la fuente es explícita (url o anchor), nunca en fallback
-                try { if ((pSource === 'url' || pSource === 'anchor' || pSource === 'click') && plId) { lastPlaylistId = plId; } } catch (_) { }
-                playlistSource = pSource;
-            } else {
-                // Si plId ya viene como parámetro (desde processVideo), usarlo
-
-                // FIX: Si el plId coincide con la URL actual, marcar como fuente 'url' confiable
-                if (plId && urlDataNow?.list === plId) {
-                    playlistSource = 'url';
-                }
-
-                // Solo resolver si no se proporcionó plId
-                // FIX: Strict check for clean Watch pages before attempting DOM scraping fallback
-                // This prevents scraping playlists from video descriptions (#anchored-panel) when none are active.
-                const isCleanWatch = location.pathname === '/watch' && !new URLSearchParams(location.search).has('list');
-
-
-
-                const isHomeishNow = pageTypeNow === 'home' || pageTypeNow === 'search' || pageTypeNow === 'channel';
-                // Solo sobrescribir plId si el actual NO es un Mix automático (RD)
-                // Los Mixes automáticos (RD) deben ser respetados y guardados como playlists válidas
-                const canApplyMixOverride = !!(clickedPlaylistIdForVideo && lastPlaylistId === clickedPlaylistIdForVideo && /^RD/.test(lastPlaylistId));
-                if (isHomeishNow && canApplyMixOverride && plId && !/^RD/.test(plId)) {
-                    plId = lastPlaylistId;
-                    if (!playlistSource) playlistSource = 'click';
-                }
-            }
-        } catch (_) { }
-        let video_id;
-
-        log('updateStatus', `URL del reproductor: ${url} | Video ID Extraido: ${video_id}`)
-
-        if (!video_id) {
-            conError('updateStatus', 'No se pudo determinar video_id. Abortando guardado.');
-            return { success: false, reason: 'no_video_id' };
-        }
-
-        // No forzar player desde YTHelper aquí para evitar mezclar contenedores; haremos rebind según tipo/ID
-        if (!videoEl || !document.contains(videoEl)) {
-            try { const hv = YTHelper?.player?.videoElement; if (hv) videoEl = hv; } catch (_) { }
-        }
-
-        // Obtener currentTime evitando contaminación entre Shorts y Miniplayer
-        let currentTime = 0;
-
-
-        // Evitar guardar si es una previsualización inline y el usuario no lo habilitó
-        try {
-            const isInline = !!(videoEl?.closest?.('#inline-preview-player') ||
-                videoEl?.closest?.('.ytp-inline-preview-ui') ||
-                videoEl?.closest?.('ytd-thumbnail-overlay-inline-playback-renderer'));
-            const allowInline = cachedSettings?.saveInlinePreviews === true;
-            if (isInline && !allowInline) {
-                log('updateStatus', '🔕 Inline preview detectada y deshabilitada por configuración. No guardar.');
-                return { success: false, reason: 'inline_preview_disabled' };
-            }
-        } catch (_) { }
-
-        // 🚫 CRITICAL: Rechazar anuncios masthead de la homepage
-        // Estos anuncios se cargan en #movie_player pero deben ser ignorados completamente
-        try {
-            const isMastheadAd = !!(videoEl?.closest?.('#masthead-ad') ||
-                videoEl?.closest?.('ytd-video-masthead-ad-v3-renderer') ||
-                videoEl?.closest?.('ytd-page-top-ad-layout-renderer') ||
-                // También verificar si #movie_player está dentro de un masthead ad (caso especial)
-                document.querySelector('#movie_player')?.closest?.('ytd-video-masthead-ad-v3-renderer'));
-            if (isMastheadAd) {
-                log('updateStatus', '🚫 Anuncio masthead de homepage detectado. No guardar (es publicidad, no contenido del usuario).');
-
-                return { success: false, reason: 'masthead_ad_detected' };
-            }
-        } catch (_) { }
-
-        // 1) Priorizar el <video> específico
-        try {
-            if (videoEl) {
-                const t3 = videoEl.currentTime;
-                if (typeof t3 === 'number' && isFinite(t3) && t3 > 0) currentTime = t3;
-            }
-        } catch (_) { }
-        // 2) Luego, player.getCurrentTime del player asociado
-        if (!currentTime || currentTime <= 0) {
-            try {
-                const t = player?.getCurrentTime?.();
-                if (typeof t === 'number' && isFinite(t) && t > 0) currentTime = t;
-            } catch (_) { }
-        }
-        // 3) Solo como último recurso en videos NO-Shorts, usar #movie_player
-        if ((!currentTime || currentTime <= 0) && type !== 'shorts' && contId !== 'shorts-player') {
-            try {
-                const mp = DOMHelpers.getWatchPlayer();
-                const t2 = mp?.getCurrentTime?.();
-                if (typeof t2 === 'number' && isFinite(t2) && t2 > 0) currentTime = t2;
-            } catch (_) { }
-        }
-        const now = Date.now();
-
-        // VALIDACIÓN TEMPRANA: Rechazar si el tipo de contenido está deshabilitado ANTES de obtener metadata
-        log('updateStatus', `🔍 Iniciando validación temprana: type='${type}', cachedSettings=${!!cachedSettings}`);
-        try {
-
-            log('updateStatus', `📄 pageType detectado: ${pageTypeNow}`);
-            let tentativeType = type;
-
-            // Determinar tipo tentativo basado en la página y el tipo declarado
-            if (type === 'shorts' || (type === 'unknown' && pageTypeNow === 'shorts')) {
-                tentativeType = 'shorts';
-            } else if (type === 'live') {
-                tentativeType = 'live';
-            } else if (type === 'unknown' || !type.startsWith('preview_')) {
-                tentativeType = 'watch';
-            }
-            log('updateStatus', `🎯 tentativeType determinado: ${tentativeType} (basado en type='${type}')`);
-            log('updateStatus', `⚙️ cachedSettings: ${JSON.stringify(cachedSettings)}`);
-            /* log('updateStatus', `saveRegularVideos=${cachedSettings?.saveRegularVideos},
-                saveShorts=${cachedSettings?.saveShorts},
-                saveMiniplayerVideos=${cachedSettings?.saveMiniplayerVideos},
-                saveLiveStreams=${cachedSettings?.saveLiveStreams},
-                saveInlinePreviews=${cachedSettings?.saveInlinePreviews}`); */
-
-            // Validación de configuración temprana - RECHAZA TEMPRANO si está deshabilitado
-            if (tentativeType === 'shorts' && cachedSettings?.saveShorts === false) {
-                log('updateStatus', '🛑 EARLY REJECTION: Shorts deshabilitado, omitiendo obtención de metadata');
-                return { success: false, reason: 'shorts_disabled_by_settings' };
-            }
-            if (tentativeType === 'watch' && !type.startsWith('preview_') && cachedSettings?.saveRegularVideos === false) {
-                log('updateStatus', '🛑 EARLY REJECTION: Videos regulares deshabilitados, omitiendo obtención de metadata');
-                return { success: false, reason: 'regular_videos_disabled_by_settings' };
-            }
-            if (tentativeType === 'live' && cachedSettings?.saveLiveStreams === false) {
-                log('updateStatus', '🛑 EARLY REJECTION: Livestreams deshabilitados, omitiendo obtención de metadata');
-                return { success: false, reason: 'livestreams_disabled_by_settings' };
-            }
-            log('updateStatus', '✅ Validación temprana pasada, procediendo a obtener metadata');
-        } catch (e) {
-            log('updateStatus', '⚠️ Error en validación temprana:', e);
-        }
-
-
-
-        return getCachedVideoInfo(player, video_id, targetContainerId).then(async ({ duration, ...videoInfo }) => {
-            log('updateStatus', `then duration: ${duration} = ${formatTime(duration)} | current time: ${currentTime} | video_id: ${video_id}`);
-            const infoIsLive = videoInfo?.isLive === true;
-            const isLiveType = type === 'live' || infoIsLive;
-
-            // Respeto estricto de configuración para lives también en updateStatus
-            try {
-                if (isLiveType && cachedSettings?.saveLiveStreams === false) {
-                    log('updateStatus', '🛑 Video detectado como LIVE en updateStatus y saveLiveStreams está deshabilitado, omitiendo guardado.');
-                    return { success: false, reason: 'live_disabled_by_settings' };
-                }
-            } catch (_) { }
-
-            // Evitar que un currentTime contaminado supere la duración
-
-            if (isLiveType) {
-                // Para LIVE solo requerimos un currentTime válido >= 1s
-                if (isNaN(currentTime) || currentTime < 1) return { success: false, reason: 'invalid_data' };
-            } else {
-                // Para no-LIVE requerimos duración finita y datos válidos
-                // Tiempo mínimo unificado a 0.1s para todos los tipos (incluyendo regulares)
-                // Esto permite detección temprana inmediata después de anuncios
-                const minTime = 0.1;
-
-                if (!duration || !isFinite(duration) || isNaN(currentTime) || currentTime < minTime) {
-                    return { success: false, reason: 'invalid_data' };
-                }
-            }
-
-            // Evitar guardar progreso durante anuncios (tipo-aware)
-            // Normalizar tipo para chequeo de anuncios: tratar preview_* como su base
-            const typeForAdsCheck = (type === 'shorts' || type === 'preview_shorts') ? 'shorts' : 'watch';
-            // Verificar si hay anuncios activos usando el estado por tipo
-            if (isAdBlockedFor(typeForAdsCheck)) {
-                log('updateStatus', `⏸ Anuncio activo (${type}) detectado, no guardando progreso`);
-                return { success: false, reason: 'ad_playing' };
-            }
-            // Chequeo local de anuncios por contenedor (refuerzo) – solo para movie_player
-            try {
-                const container = videoEl?.closest?.('#movie_player, #shorts-player');
-                let hasAdSignals = false;
-                if (container?.id === 'movie_player') {
-                    const hasAdClass = AdSelectors.playerAdClasses.some((c) => container.classList?.contains?.(c));
-                    if (hasAdClass) {
-                        hasAdSignals = true;
-                    } else {
-                        const adNode = DOMHelpers.get('ad:localContainerNode', () => container.querySelector?.(AdSelectorText.inPlayerAdContainers), 100);
-                        if (adNode) {
-                            let isVisible = false;
-                            try {
-                                const rect = adNode.getBoundingClientRect?.();
-                                if (rect && rect.width > 0 && rect.height > 0) {
-                                    const style = window.getComputedStyle?.(adNode);
-                                    if (style && style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0.01) {
-                                        isVisible = true;
-                                    }
-                                }
-                            } catch (_) { }
-                            if (isVisible) hasAdSignals = true;
-                        }
-                    }
-                }
-                if (hasAdSignals) {
-                    log('updateStatus', '⏸ Señales locales de anuncio detectadas, no guardando progreso');
-                    return { success: false, reason: 'ad_playing_local' };
-                }
-            } catch (_) { }
-
-
-            // Buscar progreso previo siempre
-            const sourceData = await getSavedVideoData(video_id, plId);
-
-            // Verificar si el video está completado (staticFinishPercent porcentaje del video)
-            const isFinished = !isLiveType && duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
-
-            if (sourceData && sourceData.forceResumeTime > 0) {
-                if (isFinished) {
-                    log('updateStatus', `Video con tiempo fijo ${video_id} completado. Manteniendo tiempo fijo.`);
-                    const base = {
-                        ...sourceData,
-                        isCompleted: true,
-                        lastUpdated: now,
-                        timestamp: 0,
-                    };
-                    if (!thumbnailHasVideoId(base.thumb, video_id)) {
-                        base.thumb = `https://i.ytimg.com/vi/${video_id}/maxresdefault.jpg`;
-                    }
-                    if (plId) {
-                        const playlist = await Storage.get(plId);
-                        if (playlist?.videos?.[video_id]) {
-                            playlist.videos[video_id] = base;
-                            await Storage.set(plId, playlist);
-                        }
-                    } else {
-                        await Storage.set(video_id, base);
-                        log('updateStatus', `Datos guardados para ${video_id}:`, base);
-                        return { success: true, video_id, timestamp: base.timestamp };
-                    }
-                }
-                // No sobreescribir progreso en videos con tiempo fijo
-                return { success: false, reason: 'fixed_time_no_overwrite' };
-            }
-
-            // Ajustar metadata con fuentes confiables en watch/home
-            let baseVideoInfo = { ...videoInfo };
-            if (pageTypeNow !== 'shorts') {
-                try {
-                    const mp = DOMHelpers.getWatchPlayer();
-                    const mpData = mp?.getVideoData?.();
-                    const mpIdNow2 = mpData?.video_id;
-                    const mpAuthor = mpData?.author;
-                    if (mpIdNow2 && mpIdNow2 === video_id && mpAuthor) baseVideoInfo.author = mpAuthor;
-                } catch (_) { }
-                try {
-                    if (pageTypeNow === 'watch' || pageTypeNow === 'embed') {
-                        const vdAuthor = window.ytInitialPlayerResponse?.videoDetails?.author;
-                        if (vdAuthor) baseVideoInfo.author = vdAuthor;
-                        const chId = window.ytInitialPlayerResponse?.videoDetails?.channelId;
-                        if (chId) baseVideoInfo.authorId = chId;
-                    }
-                } catch (_) { }
-            }
-
-            // En páginas que no son watch (home, etc.), evitar sobreescribir metadata sensible
-            const safeVideoInfo = { ...baseVideoInfo };
-            if (pageTypeNow !== 'watch' && sourceData) {
-                if (!safeVideoInfo.title && sourceData.title) safeVideoInfo.title = sourceData.title;
-                if ((!safeVideoInfo.author || safeVideoInfo.author === t('unknown')) && sourceData.author) safeVideoInfo.author = sourceData.author;
-                if ((!safeVideoInfo.authorId || safeVideoInfo.authorId === t('unknown')) && sourceData.authorId) safeVideoInfo.authorId = sourceData.authorId;
-                if (!safeVideoInfo.thumb && sourceData.thumb) safeVideoInfo.thumb = sourceData.thumb;
-            }
-
-            // Determinar tipo efectivo a guardar: preservar previews inline si están habilitadas y no son anuncios
-            let finalType = type;
-            try {
-                // Solo permitir detección de inline previews en Home, Search o Channel
-                // En modo Watch, el video principal NUNCA debe tratarse como preview inline
-                const isBrowsePage = pageTypeNow === 'home' || pageTypeNow === 'search' || pageTypeNow === 'channel' || pageTypeNow === 'unknown';
-
-                if (allowInline && isBrowsePage) {
-                    const isInlineCtx = !!(videoEl?.closest?.('#inline-preview-player') ||
-                        videoEl?.closest?.('.ytp-inline-preview-ui') ||
-                        videoEl?.closest?.('ytd-thumbnail-overlay-inline-playback-renderer'));
-                    const isAdInline = AdDetector.isNodeWithinAdContainer(videoEl);
-                    if (isInlineCtx) {
-                        if (isAdInline) {
-                            log('updateStatus', '⏸ Inline detectada pero es un contexto de anuncio. No guardar.');
-                            return { success: false, reason: 'ad_context_inline' };
-                        }
-                        const isShortishInline = !!(videoEl?.closest?.('ytd-reel-video-renderer, ytd-shorts, #shorts-player'));
-                        finalType = isShortishInline ? 'preview_shorts' : 'preview_watch';
-                    }
-                }
-            } catch (_) { }
-
-            // Para miniplayer, si ya es preview, mantener el tipo preview, sino usar "watch"
-            try {
-                if (!isLiveType && contId === 'movie_player') {
-                    if (!(typeof finalType === 'string' && finalType.startsWith('preview_'))) {
-                        finalType = 'watch';
-                    }
-                    // Si es miniplayer Y preview, cambiar a preview_watch para mantener consistencia
-                    if (playerInfo.playerType === 'miniplayer' && finalType === 'watch') {
-                        finalType = 'preview_watch';
-                    }
-                }
-            } catch (_) { }
-
-            // Forzar tipo Shorts solo cuando el contenedor real es Shorts
-            try {
-                if (pageTypeNow === 'shorts' && contId === 'shorts-player') {
-                    finalType = 'shorts';
-                }
-            } catch (_) { }
-
-            if (isLiveType && finalType !== 'shorts' && !(typeof finalType === 'string' && finalType.startsWith('preview_'))) {
-                finalType = 'live';
-            }
-
-
-            // Guardar progreso usando el sistema especializado por tipo de contenido
-            const normalizedDuration = isLiveType ? ((isFinite(duration) && duration > 0) ? duration : 0) : duration;
-
-            // Determinar playlist a persistir
-            let playlistToPersist = null;
-            let prevSaved = null;
-            try { prevSaved = await Storage.get(video_id) || null; } catch (_) { prevSaved = null; }
-
-            // FIX: Strict check to avoid inheriting stale playlists on clean Watch pages
-            const isCleanWatch = location.pathname === '/watch' && !new URLSearchParams(location.search).has('list');
-
-            if (finalType === 'shorts') {
-                playlistToPersist = (plId && (playlistSource === 'url' || playlistSource === 'anchor')) ? plId : null;
-            } else if (plId && (playlistSource === 'url' || playlistSource === 'anchor')) {
-                // Solo persistir playlists de fuentes confiables (URL o anchor) para videos regulares
-                // Evitar persistir playlists encontradas en DOM que pertenezcan a otros videos
-                playlistToPersist = plId;
-            } else if (isCleanWatch && prevSaved?.lastViewedPlaylistId) {
-                log('updateStatus', `🧼 Cleaning up stale playlist association because current URL has no list.`);
-                playlistToPersist = null;
-            }
-
-            // FIX: Validación final pre-guardado para garantizar integridad de data
-            // En coexistencia (miniplayer + shorts), verified que video_id es el correcto
-            if (expectedVideoId && video_id && video_id !== expectedVideoId) {
-                warn('updateStatus', `⚠️ CRITICAL: Pre-save validation failed: video_id mismatch! expected=${expectedVideoId}, current=${video_id}. This would cause data corruption. Using expectedVideoId.`);
-                video_id = expectedVideoId;
-            }
-            if (!video_id) {
-                conError('updateStatus', 'CRITICAL: video_id is null/undefined before save! Aborting guardar.');
-                return { success: false, reason: 'null_video_id_presave' };
-            }
-
-            // LLAMADA AL NUEVO SISTEMA: Detección de tipo + guardado especializado
-            const saveResult = await saveVideoDataByType(
-                video_id,
-                currentTime,
-                normalizedDuration,
-                safeVideoInfo,
-                pageTypeNow,
-                contId,
-                videoEl,
-                isLiveType,
-                finalType,
-                playlistToPersist
-            );
-
-            // Procesar resultado y metadatos de playlist
-            if (saveResult.success && playlistToPersist) {
-                const playlistMetaKey = `playlist_meta_${playlistToPersist}`;
-                let playlistMeta = await Storage.get(playlistMetaKey) || {
-                    playlistId: playlistToPersist,
-                    title: '',
-                    lastWatchedVideoId: video_id,
-                    lastUpdated: now
-                };
-
-                log('updateStatus', `📋 Playlist metadata loaded for ${playlistToPersist}: title="${playlistMeta.title}" | lastUpdated=${playlistMeta.lastUpdated}`);
-
-                playlistMeta.lastWatchedVideoId = video_id;
-                playlistMeta.lastUpdated = now;
-                const metaStorageResult = await Storage.set(playlistMetaKey, playlistMeta);
-
-                // Verificar si hubo error de almacenamiento en metadata
-                if (metaStorageResult && !metaStorageResult.success) {
-                    log('updateStatus', `⚠️ Error guardando metadata de playlist: ${metaStorageResult.reason}`);
-                    // No retornamos error aquí ya que el video se guardó correctamente
-                }
-
-                // Siempre intentar obtener el título real si no lo tenemos o si es genérico (igual al ID)
-                if (!playlistMeta.title || playlistMeta.title === playlistToPersist) {
-                    log('updateStatus', `Playlist ${playlistToPersist} sin título o con título genérico, buscando...`);
-                    getPlaylistName(playlistToPersist).then(async name => {
-                        const updated = await Storage.get(playlistMetaKey);
-                        if (updated && (!updated.title || updated.title === playlistToPersist)) {
-                            updated.title = name;
-                            const titleStorageResult = await Storage.set(playlistMetaKey, updated);
-                            if (titleStorageResult && !titleStorageResult.success) {
-                                log('updateStatus', `⚠️ Error guardando título de playlist: ${titleStorageResult.reason}`);
-                            } else {
-                                log('updateStatus', `✅ Título de playlist guardado: "${name}" para ${playlistToPersist}`);
-                            }
-                        }
-                    });
-                } else {
-                    log('updateStatus', `✅ Playlist ${playlistToPersist} ya tiene título: "${playlistMeta.title}"`);
-                }
-
-                return { ...saveResult, playlistId: playlistToPersist };
-            }
-
-            return saveResult;
-
-        }).catch(error => {
-            conError('updateStatus', 'Error en getVideoInfo:', error);
-            return { success: false, reason: 'get_video_info_error', error };
-        });
-    };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // MARK: Resume playback
-    const resumePlayback = async (player, vid, videoEl, savedData, type) => {
-        const contId = 'movie_player';
-
-        log('resumePlayback', `Llamado para [${contId}] con:`, { player, vid, videoEl, savedData, type });
-        if (!savedData || !vid) {
-            log('resumePlayback', '⚠️ No se encontró información para reanudar o video_id inválido.');
-            return;
-        }
-
-        const lastTime = savedData.timestamp;
-        const forceTime = savedData.forceResumeTime;
-        let timeToSeek = forceTime > 0 ? forceTime : lastTime;
-
-        log('resumePlayback', `🎬 Reanudando video ${vid} en ${timeToSeek}s = ${(timeToSeek / 60).toFixed(2)} minutos`);
-        try {
-            // Evitar adoptar shorts-player fuera de Shorts
-            const co = YTHelper?.player?.playerObject;
-            const ve = YTHelper?.player?.videoElement;
-            const pt0 = getYouTubePageType();
-            const isCoShorts = (co?.id || co?.getAttribute?.('id')) === 'shorts-player';
-            const isVeShorts = (() => { try { return ve?.closest?.('#shorts-player') != null; } catch (_) { return false; } })();
-            if (co && (!isCoShorts || pt0 === 'shorts')) player = co;
-            if (ve && (!isVeShorts || pt0 === 'shorts')) videoEl = ve;
-        } catch (_) { }
-
-
-        if (isNavigating) {
-            log('resumePlayback', '⏸ Navegación en curso, posponiendo reanudación...');
-            const cb = async () => {
-                try {
-                    const newPlayer = YTHelper?.player?.playerObject || player;
-                    const newEl = await getActiveVideoElement();
-                    // Verificar que el player aún corresponde al video original
-                    // Si el miniplayer avanzó a otro video, no reintentar
-                    const currentPlayerId = newPlayer?.getVideoData?.()?.video_id;
-                    if (currentPlayerId && currentPlayerId !== vid) {
-                        log('resumePlayback', `⏭ Video cambió durante navegación (${vid} → ${currentPlayerId}), cancelando reanudación`);
-
-                        return;
-                    }
-                    setTimeout(() => { try { resumePlayback(newPlayer, vid, newEl || videoEl, savedData, type); } catch (_) { } }, 0);
-                } catch (_) { }
-            };
-            window.addEventListener('yt-navigate-finish', cb, { once: true });
-            return;
-        }
-
-        if (!timeToSeek || timeToSeek <= 1) {
-            log('resumePlayback', '⏩ No hay tiempo válido para reanudar');
-            return;
-        }
-
-        const container = YTHelper?.player?.playerObject || player?.playerContainer_?.children?.[0] || null;
-        const hasAdClasses = () => !!AdSelectors.playerAdClasses.some((c) => container?.classList?.contains?.(c));
-        const isReadyNoAds = () => !isAdPlaying && !isScriptPaused && !hasAdClasses();
-
-        const waitForNoAds = () => new Promise((resolve) => {
-            try {
-                if (isReadyNoAds()) return resolve();
-                let done = false;
-                const cleanup = () => {
-                    if (done) return;
-                    done = true;
-                    observer?.disconnect();
-                    YTHelper?.eventTarget?.removeEventListener?.('yt-helper-api-ready', onApiReady);
-                };
-                const onApiReady = (evt) => {
-                    try {
-                        const playingAds = evt?.detail?.player?.isPlayingAds === true;
-                        if (!playingAds && isReadyNoAds()) {
-                            cleanup();
-                            resolve();
-                        }
-                    } catch (_) { }
-                };
-                const observer = container ? new MutationObserver(() => {
-                    if (isReadyNoAds()) {
-                        cleanup();
-                        resolve();
-                    }
-                }) : null;
-                if (observer && container) observer.observe(container, { attributes: true, attributeFilter: ['class'] });
-                YTHelper?.eventTarget?.addEventListener?.('yt-helper-api-ready', onApiReady);
-            } catch (_) {
-                resolve();
-            }
-        });
-
-
-
-        const waitForDuration = () => new Promise((resolve) => {
-            const hasDuration = () => {
-                try { return getVideoDuration(player, videoEl) > 0; } catch (_) { return false; }
-            };
-            if (hasDuration()) return resolve();
-            const cleanup = () => {
-                videoEl?.removeEventListener('loadedmetadata', onReady);
-                videoEl?.removeEventListener('durationchange', onReady);
-                videoEl?.removeEventListener('canplay', onReady);
-                videoEl?.removeEventListener('loadeddata', onReady);
-            };
-            const onReady = () => {
-                if (hasDuration()) { cleanup(); resolve(); }
-            };
-            videoEl?.addEventListener('loadedmetadata', onReady);
-            videoEl?.addEventListener('durationchange', onReady);
-            videoEl?.addEventListener('canplay', onReady);
-            videoEl?.addEventListener('loadeddata', onReady);
-        });
-
-        await Promise.all([waitForNoAds(), waitForDuration()]);
-
-
-
-        try { player = YTHelper?.player?.playerObject || player; videoEl = YTHelper?.player?.videoElement || videoEl; } catch (_) { }
-        try {
-            const pt = getYouTubePageType();
-            if (pt === 'watch') {
-                const mp = DOMHelpers.getWatchPlayer();
-                if (mp?.getDuration) player = mp;
-                const ve = DOMHelpers.getWatchPlayerVideo();
-                if (ve) videoEl = ve;
-            } else if (pt === 'home') {
-                // En Home (miniplayer), preferir movie_player y su <video>
-                const mpH = DOMHelpers.getWatchPlayer();
-                if (mpH?.getDuration) player = mpH;
-                const veH = DOMHelpers.getWatchPlayerVideo() || videoEl;
-                if (veH) videoEl = veH;
-            }
-        } catch (_) { }
-
-        const duration = getVideoDuration(player, videoEl);
-        if (duration > 0 && timeToSeek >= duration) {
-            const maxSeek = Math.max(0, duration - 1);
-            const originalTime = timeToSeek;
-            timeToSeek = maxSeek;
-            warn('resumePlayback', `⚠️ Timestamp inválido: ${originalTime}s excede duración ${duration}s. Ajustando a ${timeToSeek}s.`);
-        }
-
-        log('resumePlayback', `✅ Player listo (event-driven), aplicando seek a ${timeToSeek}s`);
-        try {
-            const d = getVideoDuration(player, videoEl);
-            const videoType = type === 'short' ? 'shorts' : 'video';
-            updateProgressBarGradient(timeToSeek, d, videoType);
-        } catch (_) { }
-
-    };
+    // MARK: TIME DISPLAY
 
     let timeDisplay;
     let clearMessageTimeout = null;
@@ -9361,17 +5823,12 @@ background: var(--ypp-danger);
     let clearShortsMessageTimeout = null;
     let lastShortsMessageHtml = '';
     let shortsPanelObserver = null;
-    let lastShortsReattachTs = 0;
+
     let miniplayerTimeDisplay;
     let clearMiniplayerMessageTimeout = null;
-    let lastMiniplayerMessageHtml = '';
-    let miniplayerObserver = null;
-    let lastHandlerPerfLog = 0;
-    let lastAdCheckLog = 0;
-    let lastAdStateLog = 0;
-    let lastDurationLog = 0;
+    let inlinePreviewTimeDisplay;
+    let clearInlinePreviewMessageTimeout = null;
 
-    let lastTimeUpdateTick = 0;
 
 
     // Inicializa la visualización de tiempo en la barra de reproducción
@@ -9456,18 +5913,22 @@ background: var(--ypp-danger);
     function getActiveShortsControlsContainer() {
         try {
             // Priorizar el overlay del reproductor de Shorts (UI visible)
+            // ejemplo jerarquia en DOM
+            //          div#experiment-overlay.overlay.style-scope.ytd-reel-video-renderer
+            //          └─ ytd-reel-player-overlay-renderer.style-scope.ytd-reel-video-renderer
+            //             └─ div.metadata-container.style-scope.ytd-reel-player-overlay-renderer
+            //                └─div#overlay.style-scope.ytd-reel-player-overlay-renderer
+            //                  └─ div#metapanel
+
             const overlayCandidates = [
+                document.querySelector('ytd-reel-video-renderer #metapanel'),
                 document.querySelector('ytd-reel-player-overlay-renderer #metapanel'),
-                document.querySelector('#shorts-player #metapanel'),
+                document.querySelector('#reel-overlay-container #metapanel'),
                 document.querySelector('ytd-shorts #metapanel'),
             ];
             for (const c of overlayCandidates) {
-                if (isVisiblyDisplayed(c)) return c;
+                if (c && isVisiblyDisplayed(c)) return c;
             }
-
-            // Como último recurso, usar el metapanel del item activo en el feed
-            const activeFeed = document.querySelector('ytd-reel-video-renderer[is-active] #metapanel');
-            if (isVisiblyDisplayed(activeFeed)) return activeFeed;
 
             // Fallback genérico
             const any = document.querySelector('#metapanel');
@@ -9529,228 +5990,47 @@ background: var(--ypp-danger);
         }
 
         log('initShortsTimeDisplay', 'Creada visualización de tiempo para Shorts dentro del player');
-
-        // Iniciar observador de cambios en la UI de Shorts para re-anclar si cambia el Short activo
-        startShortsPanelObserver();
     }
 
     /**
-     * Inicia un MutationObserver para detectar cambios en el overlay de Shorts y re-ancorar el display.
+     * Inicia un observador para detectar cuándo aparece el metapanel en Shorts
+     * y anclar el botón de guardado correctamente.
      */
     function startShortsPanelObserver() {
-        try { if (shortsPanelObserver) return; } catch (_) { }
-        const target = document.querySelector('ytd-reel-player-overlay-renderer') ||
-            document.querySelector('ytd-shorts') ||
-            DOMHelpers.getShortsPlayer() ||
-            document.body;
-        if (!target) return;
+        if (shortsPanelObserver) return;
 
-        shortsPanelObserver = new MutationObserver((mutations) => {
-            let shouldReattach = false;
-            for (const m of mutations) {
-                if (m.type === 'childList') {
-                    // Cambios de hijos suelen indicar cambio de Short activo
-                    shouldReattach = true; break;
-                }
-                if (m.type === 'attributes') {
-                    const tn = (m.target?.tagName || '').toLowerCase();
-                    if (tn.includes('reel') || tn.includes('short')) { shouldReattach = true; break; }
-                    if (m.attributeName === 'is-active' || m.attributeName === 'class' || m.attributeName === 'hidden') { shouldReattach = true; break; }
-                }
-            }
-            if (!shouldReattach) return;
-
-            const now = Date.now();
-            if (now - lastShortsReattachTs < 100) return; // throttle
-            lastShortsReattachTs = now;
-
-            try {
-                const panel = getActiveShortsControlsContainer();
-                if (panel && shortsTimeDisplay && shortsTimeDisplay.parentElement !== panel) {
+        shortsPanelObserver = new MutationObserver(() => {
+            const panel = getActiveShortsControlsContainer();
+            if (panel && shortsTimeDisplay && shortsTimeDisplay.parentElement !== panel) {
+                try {
                     panel.appendChild(shortsTimeDisplay);
-                }
-                if (shortsTimeDisplay && lastShortsMessageHtml) {
-                    setInnerHTML(shortsTimeDisplay, lastShortsMessageHtml);
-                    shortsTimeDisplay.classList.remove('ypp-d-none');
-                }
-            } catch (_) { }
-        });
-
-        try {
-            shortsPanelObserver.observe(target, {
-                subtree: true,
-                childList: true,
-                attributes: true,
-                attributeFilter: ['is-active', 'class', 'hidden']
-            });
-        } catch (_) { shortsPanelObserver = null; }
-    }
-
-    /**
-     * Detiene el observer del panel de Shorts si está activo.
-     */
-    function stopShortsPanelObserver() {
-        try { shortsPanelObserver?.disconnect?.(); } catch (_) { }
-        shortsPanelObserver = null;
-    }
-
-    // ------------------------------------------
-    // MARK: 🎬 Miniplayer Messages
-    // ------------------------------------------
-    /**
-     * Inicializa la visualización de tiempo para el miniplayer
-     */
-    function initMiniplayerTimeDisplay() {
-        // Buscar el control bar del miniplayer
-        const miniplayerControl = document.querySelector('.ytp-miniplayer-ui .ytp-chrome-bottom') ||
-            document.querySelector('#miniplayer .ytp-chrome-bottom') ||
-            document.querySelector('ytd-miniplayer .ytp-chrome-bottom');
-
-        log('initMiniplayerTimeDisplay', 'miniplayerControl encontrado:', !!miniplayerControl);
-
-        if (!miniplayerControl) return;
-
-        // Si ya existe el display, asegurar que esté en el contenedor correcto
-        if (miniplayerTimeDisplay && miniplayerTimeDisplay.parentElement !== miniplayerControl) {
-            try { miniplayerControl.appendChild(miniplayerTimeDisplay); } catch (_) { }
-        }
-
-        // Crear elemento si no existe
-        if (!miniplayerTimeDisplay) {
-            miniplayerTimeDisplay = createElement('div', {
-                className: 'ypp-miniplayer-time-display ypp-d-none',
-                onClickEvent: showSavedVideosList,
-                atribute: {
-                    title: `${t('savedVideos')}`,
-                }
-            });
-        }
-
-        // Agregar al control bar si aún no está conectado
-        if (!miniplayerTimeDisplay.isConnected) {
-            miniplayerControl.appendChild(miniplayerTimeDisplay);
-        }
-
-        log('initMiniplayerTimeDisplay', 'Creada visualización de tiempo para miniplayer');
-
-        // Iniciar observador para detectar cambios en el miniplayer
-        startMiniplayerObserver();
-    }
-
-    /**
-     * Inicia un MutationObserver para detectar cambios en el miniplayer
-     */
-    function startMiniplayerObserver() {
-        try { if (miniplayerObserver) return; } catch (_) { }
-        const target = document.querySelector('.ytp-miniplayer-ui') ||
-            document.querySelector('#miniplayer') ||
-            document.querySelector('ytd-miniplayer') ||
-            document.body;
-        if (!target) return;
-
-        miniplayerObserver = new MutationObserver((mutations) => {
-            let shouldReattach = false;
-            for (const m of mutations) {
-                if (m.type === 'childList' || m.type === 'attributes') {
-                    shouldReattach = true;
-                    break;
-                }
+                    shortsTimeDisplay.classList.remove('ypp-floating');
+                    if (lastShortsMessageHtml) {
+                        setInnerHTML(shortsTimeDisplay, lastShortsMessageHtml);
+                    }
+                } catch (_) { }
             }
-            if (!shouldReattach) return;
-
-            try {
-                const control = document.querySelector('.ytp-miniplayer-ui .ytp-chrome-bottom') ||
-                    document.querySelector('#miniplayer .ytp-chrome-bottom') ||
-                    document.querySelector('ytd-miniplayer .ytp-chrome-bottom');
-                if (control && miniplayerTimeDisplay && miniplayerTimeDisplay.parentElement !== control) {
-                    control.appendChild(miniplayerTimeDisplay);
-                }
-                if (miniplayerTimeDisplay && lastMiniplayerMessageHtml) {
-                    setInnerHTML(miniplayerTimeDisplay, lastMiniplayerMessageHtml);
-                    miniplayerTimeDisplay.classList.remove('ypp-d-none');
-                }
-            } catch (_) { }
         });
 
-        try {
-            miniplayerObserver.observe(target, {
-                subtree: true,
-                childList: true,
-                attributes: true,
-                attributeFilter: ['class', 'hidden']
-            });
-        } catch (_) { miniplayerObserver = null; }
+        // Observar cambios estructurales para detectar nuevos metapanels (scroll de shorts)
+        shortsPanelObserver.observe(document.body, { childList: true, subtree: true });
     }
 
-    /**
-     * Detiene el observer del miniplayer si está activo
-     */
-    function stopMiniplayerObserver() {
-        try { miniplayerObserver?.disconnect?.(); } catch (_) { }
-        miniplayerObserver = null;
-    }
 
-    /**
-     * Actualiza el mensaje en el miniplayer
-     * @param {string} message - Mensaje a mostrar en el miniplayer
-     */
-    function updateMiniplayerMessage(message) {
-        // Verificar si miniplayerTimeDisplay existe y está en el DOM, si no, reinicializar
-        if (!miniplayerTimeDisplay || !document.contains(miniplayerTimeDisplay)) {
-            initMiniplayerTimeDisplay();
-        }
 
-        if (!miniplayerTimeDisplay) {
-            warn('updateMiniplayerMessage', '⚠️ No se pudo inicializar el display del miniplayer');
-            return;
-        }
 
-        lastMiniplayerMessageHtml = message;
-        setInnerHTML(miniplayerTimeDisplay, message);
-        miniplayerTimeDisplay.classList.remove('ypp-d-none');
 
-        // Limpiar timeout anterior si existe
-        if (clearMiniplayerMessageTimeout) {
-            clearTimeout(clearMiniplayerMessageTimeout);
-        }
 
-        // No programar limpieza automática para mensajes seek si el video está pausado
-        const isSeekMessage = !!message.includes('svgPlayOrPauseIcon');
-        const activeVideoEl = currentVideoEl || getActiveVideoElement();
-        const isVideoPaused = activeVideoEl?.paused || false;
-        log('updateMiniplayerMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}`);
-
-        if (isSeekMessage && isVideoPaused) return;
-
-        // Programar limpieza automática del mensaje
-        try {
-            clearMiniplayerMessageTimeout = setTimeout(() => {
-                try { clearMiniplayerMessage(); } catch (_) { }
-            }, 1600);
-        } catch (_) { }
-    }
-
-    function clearMiniplayerMessage() {
-        if (miniplayerTimeDisplay) {
-            setInnerHTML(miniplayerTimeDisplay, '');
-            miniplayerTimeDisplay.classList.add('ypp-d-none');
-        }
-
-        // Limpiar timeout si existe
-        if (clearMiniplayerMessageTimeout) {
-            clearTimeout(clearMiniplayerMessageTimeout);
-            clearMiniplayerMessageTimeout = null;
-        }
-    }
 
     // ------------------------------------------
     // MARK: 📢 Playback Bar Messages
     // ------------------------------------------
     /**
     * Actualiza el mensaje en la barra de reproducción
-    * @param {string} message - Mensaje a mostrar en la barra de reproducción
+    * @param {string} message - Mensaje a mostrar
+    * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
-    function updatePlaybackBarMessage(message) {
+    function updatePlaybackBarMessage(message, videoEl) {
         // Verificar si timeDisplay existe y está en el DOM, si no, reinicializar
         if (!timeDisplay || !document.contains(timeDisplay)) {
             initTimeDisplay();
@@ -9770,11 +6050,12 @@ background: var(--ypp-danger);
 
         // No programar limpieza automática para mensajes seek si el video está pausado
         const isSeekMessage = !!message.includes('svgPlayOrPauseIcon');
-        const activeVideoEl = currentVideoEl || getActiveVideoElement();
+        const activeVideoEl = videoEl;
         const isVideoPaused = activeVideoEl?.paused || false;
-        log('updatePlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}, currentVideoEl=${!!currentVideoEl}`);
+        log('updatePlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}`);
 
         if (isSeekMessage && isVideoPaused) return;
+        if (!isSeekMessage && isVideoPaused) { clearPlaybackBarMessage() }
 
         // Programar limpieza automática del mensaje para evitar que quede pegado
         try {
@@ -9806,8 +6087,9 @@ background: var(--ypp-danger);
     /**
     * Actualiza el mensaje para videos Shorts
     * @param {string} message - Mensaje a mostrar en Shorts
+    * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
-    function updateShortsMessage(message) {
+    function updateShortsMessage(message, videoEl) {
         // Verificar si shortsTimeDisplay existe y está en el DOM, si no, reinicializar
         if (!shortsTimeDisplay || !document.contains(shortsTimeDisplay)) {
             initShortsTimeDisplay();
@@ -9890,9 +6172,9 @@ background: var(--ypp-danger);
 
         // No programar limpieza automática para mensajes seek si el video está pausado
         const isSeekMessage = !!message.includes('svgPlayOrPauseIcon')
-        const activeVideoEl = currentVideoEl || getActiveVideoElement();
+        const activeVideoEl = videoEl;
         const isVideoPaused = activeVideoEl?.paused || false;
-        log('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}, currentVideoEl=${!!currentVideoEl}`);
+        log('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}`);
 
         if (isSeekMessage && isVideoPaused) return;
 
@@ -9921,6 +6203,127 @@ background: var(--ypp-danger);
             clearShortsMessageTimeout = null;
         }
     }
+
+    // MARK: 📢 Miniplayer Messages
+    /**
+    * Inicializa la visualización de tiempo para el Miniplayer
+    */
+    function initMiniplayerTimeDisplay() {
+        const miniPlayer = DOMHelpers.getMiniplayer();
+        if (!miniPlayer || miniplayerTimeDisplay) return;
+
+        // Intentar encontrar el contenedor de controles del miniplayer
+        const controls = miniPlayer.querySelector('.ytp-chrome-controls');
+        if (!controls) return;
+
+        miniplayerTimeDisplay = createElement('span', {
+            id: 'ypp-miniplayer-time-display',
+            className: 'ypp-time-display ypp-miniplayer-display ypp-d-none',
+            onClickEvent: showSavedVideosList,
+            atribute: { title: t('savedVideos') }
+        });
+
+        controls.appendChild(miniplayerTimeDisplay);
+        log('initMiniplayerTimeDisplay', '✅ Visualización de tiempo inicializada en Miniplayer');
+    }
+
+    /**
+    * Actualiza el mensaje en el Miniplayer
+    * @param {string} message - Mensaje a mostrar
+    * @param {HTMLElement} videoEl - Elemento de video
+    */
+    function updateMiniplayerMessage(message, videoEl) {
+        if (!miniplayerTimeDisplay || !document.contains(miniplayerTimeDisplay)) {
+            initMiniplayerTimeDisplay();
+        }
+
+        if (!miniplayerTimeDisplay) return;
+
+        setInnerHTML(miniplayerTimeDisplay, message);
+        miniplayerTimeDisplay.classList.remove('ypp-d-none');
+
+        if (clearMiniplayerMessageTimeout) clearTimeout(clearMiniplayerMessageTimeout);
+
+        // No limpiar automáticamente si es seek y está pausado
+        const isSeekMessage = !!message.includes('svgPlayOrPauseIcon');
+        const isVideoPaused = videoEl?.paused || false;
+        if (isSeekMessage && isVideoPaused) return;
+
+        clearMiniplayerMessageTimeout = setTimeout(() => {
+            clearMiniplayerMessage();
+        }, 1600);
+    }
+
+    function clearMiniplayerMessage() {
+        if (miniplayerTimeDisplay) {
+            setInnerHTML(miniplayerTimeDisplay, SVG_ICONS.folder || '');
+            miniplayerTimeDisplay.classList.remove('ypp-d-none');
+        }
+
+        if (clearMiniplayerMessageTimeout) {
+            clearTimeout(clearMiniplayerMessageTimeout);
+            clearMiniplayerMessageTimeout = null;
+        }
+    }
+
+    // MARK: 📢 Inline Preview Messages
+    /**
+    * Inicializa la visualización de tiempo para Inline Previews
+    */
+    function initInlinePreviewTimeDisplay() {
+        const previewPlayer = document.querySelector('#inline-preview-player');
+        if (!previewPlayer || inlinePreviewTimeDisplay) return;
+
+        inlinePreviewTimeDisplay = createElement('div', {
+            id: 'ypp-inline-preview-display',
+            className: 'ypp-time-display ypp-inline-preview-display ypp-d-none ypp-floating',
+            onClickEvent: showSavedVideosList,
+            atribute: { title: t('savedVideos') }
+        });
+
+        previewPlayer.appendChild(inlinePreviewTimeDisplay);
+        log('initInlinePreviewTimeDisplay', '✅ Visualización de tiempo inicializada en Inline Preview');
+    }
+
+    /**
+    * Actualiza el mensaje en Inline Previews
+    * @param {string} message - Mensaje a mostrar
+    * @param {HTMLElement} videoEl - Elemento de video
+    */
+    function updateInlinePreviewMessage(message, videoEl) {
+        if (!inlinePreviewTimeDisplay || !document.contains(inlinePreviewTimeDisplay)) {
+            initInlinePreviewTimeDisplay();
+        }
+
+        if (!inlinePreviewTimeDisplay) return;
+
+        setInnerHTML(inlinePreviewTimeDisplay, message);
+        inlinePreviewTimeDisplay.classList.remove('ypp-d-none');
+
+        if (clearInlinePreviewMessageTimeout) clearTimeout(clearInlinePreviewMessageTimeout);
+
+        // No limpiar automáticamente si es seek y está pausado
+        const isSeekMessage = !!message.includes('svgPlayOrPauseIcon');
+        const isVideoPaused = videoEl?.paused || false;
+        if (isSeekMessage && isVideoPaused) return;
+
+        clearInlinePreviewMessageTimeout = setTimeout(() => {
+            clearInlinePreviewMessage();
+        }, 1600);
+    }
+
+    function clearInlinePreviewMessage() {
+        if (inlinePreviewTimeDisplay) {
+            setInnerHTML(inlinePreviewTimeDisplay, SVG_ICONS.folder || '');
+            inlinePreviewTimeDisplay.classList.remove('ypp-d-none');
+        }
+
+        if (clearInlinePreviewMessageTimeout) {
+            clearTimeout(clearInlinePreviewMessageTimeout);
+            clearInlinePreviewMessageTimeout = null;
+        }
+    }
+
 
     // ------------------------------------------
     // MARK: 🍞 Toasts
@@ -10077,11 +6480,7 @@ background: var(--ypp-danger);
 
     const renderNotificationSection = (settings) => `
         <div class="ypp-settings-section">
-            <label class="ypp-label">
-                <input type="checkbox" name="showNotifications" ${settings.showNotifications ? 'checked' : ''}>
-                <span>${escapeHTML(t('showNotifications'))}</span>
-            </label>
-            <label class="ypp-label">
+         <label class="ypp-label">
                 <input type="checkbox" name="showFloatingButtons" ${settings.showFloatingButtons ? 'checked' : ''}>
                 <span>${escapeHTML(t('showFloatingButton'))}</span>
             </label>
@@ -10120,6 +6519,10 @@ background: var(--ypp-danger);
 
     const renderTimeSettingsSection = (settings) => `
         <div class="ypp-settings-section">
+        <label class="ypp-label">
+                <input type="checkbox" name="showNotifications" ${settings.showNotifications ? 'checked' : ''}>
+                <span>${escapeHTML(t('showNotifications'))}</span>
+            </label>
             <label class="ypp-label">
                 <span>${escapeHTML(t('minSecondsBetweenSaves'))}: </span>
                 <input type="number" class="ypp-input-small" name="minSecondsBetweenSaves" value="${settings.minSecondsBetweenSaves}" min="1" max="9999">
@@ -10272,115 +6675,60 @@ background: var(--ypp-danger);
     // ------------------------------------------
 
     let cachedSettings = null;
-    /** @type {boolean} Indica si la configuración global ya fue cargada/normalizada. */
-    let isSettingsReady = false;
-    /** @type {{ url: string }[]} Cola de navegaciones detectadas antes de que settings estén listos. */
-    const pendingNavigationQueue = [];
-
-    /**
-     * Encola una navegación detectada mientras la configuración aún no está lista.
-     * @param {string} url
-     */
-    const queuePendingNavigation = (url) => {
-        try {
-            pendingNavigationQueue.push({ url: url || window.location.href });
-        } catch (_) { }
-    };
-
-    /**
-     * Procesa las navegaciones pendientes una vez que settings ya están listos.
-     * Solo reprocesa si alguna URL en cola coincide con la URL actual.
-     */
-    const processPendingNavigationQueue = () => {
-        if (!isSettingsReady || !cachedSettings) return;
-        try {
-            if (!pendingNavigationQueue.length) return;
-            const currentUrl = window.location.href;
-            let shouldProcess = false;
-            while (pendingNavigationQueue.length) {
-                const item = pendingNavigationQueue.shift();
-                if (item && item.url === currentUrl) {
-                    shouldProcess = true;
-                }
-            }
-            if (shouldProcess) {
-                try { handleNavigation(); } catch (_) { }
-            }
-        } catch (_) { }
-    };
 
     /**
     * Notifica al usuario sobre el progreso guardado o la posición de seek (reanudación)
     * @param {number} time - Tiempo en segundos
     * @param {string} context - 'seek' o 'progress'
     * @param {object} options - Opciones adicionales
+    *      @param {string} options.videoType - Tipo de video ('watch', 'shorts', 'embed', 'home', 'search', 'channel', 'unknown')
     *      @param {boolean} options.isForced - Indica si el seek fue forzado
     *      @param {object} options.saveResult - Resultado del guardado (solo para context='progress')
+
     */
     async function notifySeekOrProgress(time, context = 'progress', options = {}) {
         log('notifySeekOrProgress', 'Llamado con:', { time, context, options });
-
-        // Para progreso, verificar que realmente se guardó
-        if (context === 'progress') {
-            if (!options.saveResult || !options.saveResult.success) {
-                log('notifySeekOrProgress', 'No se notifica progreso: guardado fallido o no confirmado', options.saveResult);
-                return;
-            }
-            log('notifySeekOrProgress', '✅ Progreso guardado confirmado, procediendo con notificación');
-        }
-
-        /* if (!cachedSettings) {
-            try {
-                cachedSettings = await Settings.get();
-            } catch (error) {
-                conError('notifySeekOrProgress', 'Error al cargar configuración para notificaciones (usaran defaults):', error);
-                cachedSettings = CONFIG.defaultSettings;
-            }
-        } */
-
-        // Redundante podria ser solo alertStyle y borrar "showNotification" de todo el script
         if (cachedSettings.showNotifications === false || cachedSettings.alertStyle === 'hidden') {
             log('notifySeekOrProgress', 'Notificaciones deshabilitadas o estilo oculto, no se muestra mensaje durante guardado');
             return;
         }
-
-
-
-
-
-
+        // Mostrar en el contexto detectado
+        // desconstruir options
+        const { videoType, isForced = false, videoEl, saveResult } = options;
 
         // Bloquear notificación de progreso si hay tiempo fijo o si hay un mensaje seek activo y video está pausado
         if (context === 'progress') {
-            const videoCtx = resolveVideoContext();
-
-            // Opción A: si estamos en Shorts y el guardado proviene de otro contexto (watch/video), no mostrar notificación
-            if (currentPageType === 'shorts' && videoCtx.type !== 'shorts') {
+            // Para progreso, verificar que realmente se guardó
+            if (!saveResult || !saveResult.success) {
+                log('notifySeekOrProgress', 'No se notifica progreso: guardado fallido o no confirmado', saveResult);
                 return;
             }
 
-            const videoId = videoCtx.videoId;
+            // Si estamos en Shorts y el guardado proviene de otro contexto (watch/video), no mostrar notificación
+            if (currentPageType === 'shorts' && videoType !== 'shorts') {
+                log('notifySeekOrProgress', '📱 Vista en Shorts pero video guardado es miniplayer/watch, omitiendo notificación');
+                return;
+            }
 
             // Verificar si hay un mensaje seek activo y el video está pausado (sin retraso)
-            const isVideoPaused = videoCtx.videoElement?.paused || false;
-            const currentMessage = videoCtx.type === 'shorts' ? (shortsTimeDisplay?.innerHTML || '') : (timeDisplay?.innerHTML || '');
-            const hasSeekMessage = !!currentMessage.includes('svgPlayOrPauseIcon')
+            const isVideoPaused = videoEl?.paused || false;
+            const currentMessage = videoType === 'shorts' ? (shortsTimeDisplay?.innerHTML || '') : (timeDisplay?.innerHTML || '');
+            const hasSeekMessage = !!currentMessage.includes('svgPlayOrPauseIcon');
 
-            log('notifySeekOrProgress', `🔍 Estado: videoPaused=${isVideoPaused}, hasSeekMessage=${hasSeekMessage}, context=${videoCtx.type}`);
+            log('notifySeekOrProgress', `🔍 Estado: videoPaused=${isVideoPaused}, hasSeekMessage=${hasSeekMessage}, type=${videoType}`);
 
-            if (videoCtx.type !== 'shorts' && hasSeekMessage && isVideoPaused) {
+            if (hasSeekMessage && isVideoPaused) {
                 log('notifySeekOrProgress', '⏸ Video pausado con mensaje seek activo, omitiendo notificación de progreso');
                 return;
             }
 
             // Usar saveResult en lugar de volver a consultar la base de datos
-            if (videoId && options.saveResult?.savedData?.forceResumeTime > 0) {
+            if (isForced) {
                 log('notifySeekOrProgress', 'Video con tiempo fijo, omitiendo notificación de progreso.');
                 return;
             }
         }
 
-        const { isForced = false/* , videoType = 'normal' */ } = options;
         const timeStr = formatTime(normalizeSeconds((time)));
 
         let icon = '';
@@ -10413,30 +6761,15 @@ background: var(--ypp-danger);
         // Mostrar en UI según el tipo de video realmente guardado (boundType)
         log('notifySeekOrProgress', `Mensaje generado timeStr: "${timeStr}" | Contexto: ${context} | currentPageType: ${currentPageType}`);
 
-        // Mostrar en el contexto visible: para progreso, priorizar el tipo de página actual (evita perder el mensaje en Shorts con miniplayer activo)
-        const videoCtx = resolveVideoContext();
-        const targetType = context === 'progress' ? videoCtx.type : (options.videoType || videoCtx.type);
-
-        // Mostrar en el contexto detectado
-        if (targetType === 'shorts') {
-            updateShortsMessage(message);
-        } else if (targetType === 'miniplayer') {
-            updateMiniplayerMessage(message);
-        } else {
-            // watch/embed/home con miniplayer -> usar barra de reproducción
-            updatePlaybackBarMessage(message);
+        if (videoType === 'watch' || videoType === 'embed') {
+            updatePlaybackBarMessage(message, videoEl);
+        } else if (videoType === 'shorts') {
+            updateShortsMessage(message, videoEl);
+        } else if (videoType === 'miniplayer') {
+            updateMiniplayerMessage(message, videoEl);
+        } else if (videoType === 'preview') {
+            updateInlinePreviewMessage(message, videoEl);
         }
-
-        // Si hay miniplayer activo además del tipo de video detectado, mostrar también allí
-        try {
-            const miniplayerEl = document.querySelector('.ytp-miniplayer-ui') ||
-                document.querySelector('#miniplayer') ||
-                document.querySelector('ytd-miniplayer');
-            if (miniplayerEl && isVisiblyDisplayed(miniplayerEl) && targetType !== 'miniplayer') {
-                // Mostrar también en miniplayer si está visible
-                updateMiniplayerMessage(message);
-            }
-        } catch (_) { }
     }
 
 
@@ -10655,735 +6988,587 @@ background: var(--ypp-danger);
     }
 
     // ------------------------------------------
-    // MARK: processVideo
+    // MARK: 📺 Video Observer & Processing Manager
     // ------------------------------------------
-    let currentVideoEl = null;
-    let lastPlaylistId = null;
-    let lastUrl = ''; // Rastrear la última URL procesada
-    let lastVideoUrl = ''; // URL del último video (para miniplayer en home)
 
-    let lastSaveTimesByVideoId = Object.create(null);
-    let lastResumeId = null;
+    /**
+     * Maneja la observación y procesamiento de videos de forma aislada por tipo.
+     */
+    const VideoObserverManager = (() => {
+        const videoTypeCache = new WeakMap();
+        const pendingVideos = new Set();
+        let isBatchProcessing = false;
 
-    let currentTimeUpdateHandler = null; // Referencia al manejador actual para limpieza correcta
-    /** @type {Set<string>} Track videos currently being processed to prevent duplicate calls */
-    const currentlyProcessingVideos = new Set();
-
-
-
-    const processVideo = async (playerToProcess, videoEl) => {
-        const activeVideoEl = await getActiveVideoElement();
-
-        log('processVideo', `Llegando a processVideo con videoEl: ${videoEl?.constructor?.name} | src: ${videoEl?.src || 'N/A'}`);
-        log('processVideo', `isNavigating: ${isNavigating}`);
-        log('processVideo', `Video paused: ${videoEl?.paused}`);
-        log('processVideo', `🔍 Estado inicial: isAdPlaying=${isAdPlaying}, isScriptPaused=${isScriptPaused}, cachedSettings=${!!cachedSettings}`);
-
-        let urlForVideoId = window.location.href;
-        let videoIdDetected = null;
-
-        try {
-            // CRÍTICO: Si la configuración no está lista, usar defaults como fallback
-            // Esto permite que processVideo funcione incluso durante la inicialización temprana
-            const settingsSnapshot = cachedSettings || CONFIG.defaultSettings;
-            if (!settingsSnapshot) {
-                log('processVideo', '⏸️  Configuración no disponible y sin defaults, abortando');
+        /**
+         * Ejecuta el procesamiento de los videos encolados de forma asíncrona.
+         */
+        const processBatch = () => {
+            if (pendingVideos.size === 0) {
+                isBatchProcessing = false;
                 return;
             }
 
-            // CRÍTICO: Página type para decisiones contextuales
-            const pt0 = getYouTubePageType();
+            isBatchProcessing = true;
+            const batch = Array.from(pendingVideos);
+            pendingVideos.clear();
 
-            // CRÍTICO: En Shorts, NUNCA abort por isScriptPaused o isAdPlaying (banderas globales de watch)
-            // Shorts tiene su propio contexto de anuncios completamente independiente
-            // Continúa procesamiento incluso si hay anuncios de watch detectados
-            const isShortsContext = pt0 === 'shorts';
+            batch.forEach(video => {
+                const type = videoTypeCache.get(video);
+                if (!type) return;
 
-            if (!isShortsContext && isScriptPaused) {
-                log('processVideo', '⏸️  ABORTANDO processVideo - Script pausado (watch context)');
-                return;
-            }
+                info('VideoObserverManager', `🎥 Procesando video tipo: ${type}`, { src: video.src });
 
-            if (!isShortsContext && isAdBlockedFor('video')) {
-                log('processVideo', '⏸️  ABORTANDO processVideo - Anuncio (watch) activo');
-                return;
-            }
-            if (isNavigating && !activeVideoEl) {
-                log('processVideo', `isNavigating: ${isNavigating}`);
-                log('processVideo', `getActiveVideoElement(): ${activeVideoEl}`);
-                log('processVideo', 'Navegación en curso y no se encontró elemento de video, omitiendo procesamiento de video.');
-                return;
-            }
+                switch (type) {
+                    case 'watch':
+                        processWatchVideo(video);
+                        break;
+                    case 'shorts':
+                        processShortsVideo(video);
+                        break;
+                    case 'miniplayer':
+                        processMiniplayerVideo(video);
+                        break;
+                    case 'preview':
+                        processPreviewVideo(video);
+                        break;
+                }
+            });
 
-            let player = playerToProcess;
-
-            // Asegurar que los elementos existen
-            if (!player || !videoEl) {
-
-                warn('processVideo', 'No se encontró videoEl. Abortando.');
-                return;
-
-
-            }
-
-            // Determinar contexto del video (miniplayer, shorts, watch, preview, etc.)
-            const videoContext = determineVideoContext(videoEl);
-            const isMiniplayerContext = videoContext.type === 'miniplayer';
-            const allowMiniplayerSaving = settingsSnapshot.saveMiniplayerVideos !== false && settingsSnapshot.saveRegularVideos !== false;
-            log('processVideo', `📍 Contexto del video: type=${videoContext.type}, container=${videoContext.container?.tagName || 'N/A'}, shouldProcess=${videoContext.shouldProcess}`);
-
-            // Validar si el video debe procesarse según su contexto
-            if (!videoContext.shouldProcess) {
-                log('processVideo', `⏭️  Video tipo '${videoContext.type}' no debe procesarse según configuración`);
-                return;
-            }
-
-            urlForVideoId = window.location.href;
-            const pageType = getYouTubePageType();
-            videoIdDetected = null;
-
-            let urlData = extractOrNormalizeVideoId(urlForVideoId);
-
-            if (!videoIdDetected) {
-                log('processVideo', `🚨 No se pudo determinar el video_id desde ${urlForVideoId}. Abortando procesamiento temprano.`);
-                return;
-            }
-
-            // Asignar URL correcta según contexto para evitar contaminación
-            if (pageType !== 'home' && pageType !== 'shorts') {
-                lastVideoUrl = window.location.href;
+            // Continuar con el siguiente lote si hay más videos
+            if (pendingVideos.size > 0) {
+                setTimeout(processBatch, 0);
             } else {
-                // En Home/Shorts, reconstruir URL según el contexto real del video
-                if (videoContext.type === 'shorts') {
-                    // Para Shorts, usar URL de Shorts (no contaminar con miniplayer)
-                    lastVideoUrl = `https://www.youtube.com/shorts/${videoIdDetected}`;
-                } else if (videoContext.type === 'miniplayer') {
-                    // Para miniplayer, usar URL de watch
-                    lastVideoUrl = `https://www.youtube.com/watch?v=${videoIdDetected}`;
-                } else {
-                    // Para otros contextos (preview, etc.), usar URL de watch
-                    lastVideoUrl = `https://www.youtube.com/watch?v=${videoIdDetected}`;
-                }
+                isBatchProcessing = false;
             }
-            log('processVideo', `URL del video guardada (${videoContext.type}): ${lastVideoUrl}`);
+        };
 
+        /**
+         * Escanea el DOM en busca de videos existentes para procesarlos inmediatamente.
+         */
+        const bootstrap = () => {
+            const body = document.body;
+            if (!body) return;
 
+            info('VideoObserverManager', '🔍 Realizando bootstrap de videos existentes...');
 
-            if (plId && lastVideoUrl && !lastVideoUrl.includes('list=')) {
-                lastVideoUrl += (lastVideoUrl.includes('?') ? '&' : '?') + 'list=' + plId;
-                log('processVideo', `🧩 URL de miniplayer completada con plId: ${lastVideoUrl}`);
-            }
+            // 1. Buscar videos en Watch
+            const watchVideos = body.querySelectorAll(`${S.IDS.MOVIE_PLAYER} video`);
+            watchVideos.forEach(v => enqueueVideo(v, 'watch'));
 
-            log('processVideo', `URL final guardada para miniplayer (con plId si aplica): ${lastVideoUrl}`);
+            // 2. Buscar videos en Shorts
+            const shortsVideos = body.querySelectorAll(`${S.IDS.SHORTS_PLAYER} video`);
+            shortsVideos.forEach(v => enqueueVideo(v, 'shorts'));
 
-
-            // PRIORIDAD 2: Usar lastVideoUrl para miniplayer
-            if (isMiniplayerContext && lastVideoUrl) {
-                // En miniplayer, extraer playlist de lastVideoUrl si no se encontró por otros medios
-                try {
-                    const lastUrlParams = new URL(lastVideoUrl, location.origin).searchParams;
-                    const lastUrlPlaylistId = lastUrlParams.get('list');
-                    if (lastUrlPlaylistId && !plId) {
-                        plId = lastUrlPlaylistId;
-                        log('processVideo', `🔗 Playlist detectada desde lastVideoUrl para miniplayer: ${plId}`);
-                    }
-                } catch (e) {
-                    log('processVideo', `⚠️ Error extrayendo playlist de lastVideoUrl: ${e.message}`);
-                }
+            // 3. Buscar videos en Miniplayer
+            const isMiniplayerVisible = document.documentElement.classList.contains(CLASSES.MINIPLAYER_COMPONENT_VISIBLE) ||
+                document.body.classList.contains(CLASSES.MINIPLAYER_COMPONENT_VISIBLE);
+            if (isMiniplayerVisible) {
+                const miniVideos = body.querySelectorAll(`${SELECTORS.MINIPLAYER} video`);
+                miniVideos.forEach(v => enqueueVideo(v, 'miniplayer'));
             }
 
-            if (plId) {
-                log('processVideo', `📋 Actualizando metadata de playlist ${plId} para video ${videoIdDetected}`);
-                // Llamar directamente a la lógica de metadata de playlist
-                (async () => {
-                    try {
-                        const playlistMetaKey = `playlist_meta_${plId}`;
-                        let playlistMeta = await Storage.get(playlistMetaKey) || {
-                            playlistId: plId,
-                            title: '',
-                            lastWatchedVideoId: videoIdDetected,
-                            lastUpdated: Date.now()
-                        };
+            // 4. Buscar videos en Previews
+            const previewVideos = body.querySelectorAll(`${SELECTORS.INLINE_PREVIEW} video, #video-preview-container video`);
+            previewVideos.forEach(v => enqueueVideo(v, 'preview'));
+        };
 
-                        log('processVideo', `📋 Playlist metadata for ${plId}: title="${playlistMeta.title}"`);
+        /**
+         * Encola un video para su procesamiento.
+         * @param {HTMLVideoElement} videoElement
+         * @param {string} type
+         */
+        const enqueueVideo = (videoElement, type) => {
+            if (videoTypeCache.get(videoElement) === type && !pendingVideos.has(videoElement)) {
+                // Ya procesado o en cola para este tipo
+            }
 
-                        playlistMeta.lastWatchedVideoId = videoIdDetected;
-                        playlistMeta.lastUpdated = Date.now();
-                        await Storage.set(playlistMetaKey, playlistMeta);
+            log('VideoObserverManager', `📥 Encolando video [${type}] para procesar (Total pend: ${pendingVideos.size + 1})`);
+            videoTypeCache.set(videoElement, type);
+            pendingVideos.add(videoElement);
 
-                        // Intentar obtener el título real si no lo tenemos o si es genérico
-                        if (!playlistMeta.title || playlistMeta.title === plId) {
-                            log('processVideo', `Playlist ${plId} sin título o con título genérico, buscando...`);
-                            getPlaylistName(plId).then(async name => {
-                                const updated = await Storage.get(playlistMetaKey);
-                                if (updated && (!updated.title || updated.title === plId)) {
-                                    updated.title = name;
-                                    await Storage.set(playlistMetaKey, updated);
-                                    log('processVideo', `✅ Título de playlist actualizado: "${name}" para ${plId}`);
-                                }
-                            });
+            if (!isBatchProcessing) {
+                setTimeout(processBatch, 0);
+            }
+        };
+
+        // Instancias de observadores
+        let observers = {
+            watch: null,
+            shorts: null,
+            miniplayer: null,
+            preview: null
+        };
+
+        const initObservers = () => {
+            cleanup();
+
+            const config = { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] };
+
+            // 1. Selector para Watch
+            /*       observers.watch = new MutationObserver((mutations) => {
+                      mutations.forEach(m => {
+                          const nodes = m.type === 'childList' ? Array.from(m.addedNodes) : [m.target];
+                          nodes.forEach(node => {
+                              if (node.nodeName === 'VIDEO' && node.closest(S.IDS.MOVIE_PLAYER) && !node.closest(SELECTORS.MINIPLAYER)) {
+                                  enqueueVideo(node, 'watch');
+                              }
+                          });
+                      });
+                  }); */
+            observers.watch = new MutationObserver((mutations) => {
+                mutations.forEach(m => {
+
+                    const nodes = m.type === 'childList'
+                        ? Array.from(m.addedNodes)
+                        : [m.target];
+
+                    nodes.forEach(node => {
+
+                        if (!(node instanceof Element)) return;
+
+                        // Caso 1: el nodo ES el video
+                        if (node.tagName === 'VIDEO') {
+                            if (node.closest(S.IDS.MOVIE_PLAYER) && !node.closest(SELECTORS.MINIPLAYER)) {
+                                enqueueVideo(node, 'watch');
+                            }
+                            return;
                         }
-                    } catch (err) {
-                        log('processVideo', `⚠️ Error actualizando metadata de playlist: ${err.message}`);
+
+                        // Caso 2: el video está dentro del nodo agregado
+                        const video = node.querySelector?.('video');
+
+                        if (video && video.closest(S.IDS.MOVIE_PLAYER) && !video.closest(SELECTORS.MINIPLAYER)) {
+                            enqueueVideo(video, 'watch');
+                        }
+
+                    });
+
+                });
+            });
+
+            // 2. Selector para Shorts
+            /*     observers.shorts = new MutationObserver((mutations) => {
+                    mutations.forEach(m => {
+                        const nodes = m.type === 'childList' ? Array.from(m.addedNodes) : [m.target];
+                        nodes.forEach(node => {
+                            if (node.nodeName === 'VIDEO' && node.closest(S.IDS.SHORTS_PLAYER)) {
+                                enqueueVideo(node, 'shorts');
+                            }
+                        });
+                    });
+                }); */
+            observers.shorts = new MutationObserver((mutations) => {
+                mutations.forEach(m => {
+
+                    const nodes = m.type === 'childList'
+                        ? Array.from(m.addedNodes)
+                        : [m.target];
+
+                    nodes.forEach(node => {
+
+                        if (!(node instanceof Element)) return;
+
+                        // Caso 1: el nodo agregado ES el video
+                        if (node.tagName === 'VIDEO') {
+                            if (node.closest(S.IDS.SHORTS_PLAYER)) {
+                                enqueueVideo(node, 'shorts');
+                            }
+                            return;
+                        }
+
+                        // Caso 2: el video está dentro del nodo agregado
+                        const video = node.querySelector?.('video');
+
+                        if (video && video.closest(S.IDS.SHORTS_PLAYER)) {
+                            enqueueVideo(video, 'shorts');
+                        }
+
+                    });
+
+                });
+            });
+
+            // 3. Selector para Miniplayer
+            // Detecta activación por clase y también cambios internos (nodos o src)
+            /* observers.miniplayer = new MutationObserver((mutations) => {
+                const isMiniVisible = DOMHelpers.getMiniplayerActive()
+
+                /*   document.documentElement.classList.contains(CLASSES.MINIPLAYER_COMPONENT_VISIBLE) ||
+                      document.body.classList.contains(CLASSES.MINIPLAYER_COMPONENT_VISIBLE) ||
+                      document.querySelector('ytd-app')?.hasAttribute(ATTRIBUTES.MINIPLAYER_ACTIVE_ATTR); *
+
+                if (!isMiniVisible) {
+                    log('VideoObserverManager', '💤 Miniplayer no visible, ignorando cambios');
+                    return;
+                }
+
+                log('VideoObserverManager', '📱 Cambio detectado en Miniplayer activo');
+
+                mutations.forEach(m => {
+                    const nodes = m.type === 'childList' ? Array.from(m.addedNodes) : [m.target];
+                    nodes.forEach(node => {
+                        // Si el cambio es el root o algo dentro que termine siendo un video en el miniplayer
+                        const video = node.nodeName === 'VIDEO' ? node : node.querySelector?.('video');
+                        if (video && video.closest(SELECTORS.MINIPLAYER)) {
+                            enqueueVideo(video, 'miniplayer');
+                        }
+                    });
+                });
+
+                // Trigger manual inicial por si acaba de aparecer
+                const v = document.querySelector(`${SELECTORS.MINIPLAYER} video`);
+                if (v) enqueueVideo(v, 'miniplayer');
+            }); */
+            /** @type {string} Último src visto en el video del miniplayer, para detectar cambios de video. */
+            let lastMiniplayerSrc = '';
+
+            observers.miniplayer = new MutationObserver((mutations) => {
+
+                // ⚡ Ruta rápida para cambio de src del video (YouTube muta src en el mismo elemento <video>)
+                // No dependemos de isVisible aquí: si el video está físicamente dentro del selector miniplayer
+                // y su src cambió, es un cambio de video que SIEMPRE debemos registrar.
+                for (const m of mutations) {
+                    if (m.type === 'attributes' && m.attributeName === 'src' && m.target instanceof HTMLVideoElement) {
+                        const videoEl = m.target;
+                        const newSrc = videoEl.src;
+                        if (videoEl.closest(SELECTORS.MINIPLAYER) && newSrc && newSrc !== lastMiniplayerSrc) {
+                            lastMiniplayerSrc = newSrc;
+                            log('VideoObserverManager', '📱 Miniplayer: cambio de src detectado, reiniciando sesión y encolando');
+                            // Limpiar sesión previa para forzar reprocessing en startProcessingSession
+                            const prevSession = activeProcessingSessions.get(videoEl);
+                            if (prevSession?.intervalId) clearInterval(prevSession.intervalId);
+                            activeProcessingSessions.delete(videoEl);
+                            enqueueVideo(videoEl, 'miniplayer');
+                            return; // ya procesamos, salir
+                        }
                     }
-                })();
-            }
-            const playerUrl = urlForVideoId ? urlForVideoId : window.location.href;
-            log('processVideo', `URL del reproductor: ${playerUrl} | Video ID del reproductor: ${videoIdDetected}`);
+                }
+
+                // Ruta normal: verificar visibilidad con querySelector sin caché
+                const isMiniVisible = !!document.querySelector(S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE);
+
+                if (!isMiniVisible) {
+                    log('VideoObserverManager', '💤 Miniplayer no visible, ignorando cambios');
+                    return;
+                } else {
+                    log('VideoObserverManager', '👀 Miniplayer visible, clase "ytdMiniplayerComponentVisible" detectada');
+
+                }
 
 
+                log('VideoObserverManager', '📱 Cambio detectado en Miniplayer activo');
+
+                mutations.forEach(m => {
+
+                    const nodes = m.type === 'childList'
+                        ? Array.from(m.addedNodes)
+                        : [m.target];
+
+                    nodes.forEach(node => {
+
+                        if (!(node instanceof Element)) return;
+
+                        const video =
+                            node.tagName === 'VIDEO'
+                                ? node
+                                : node.querySelector?.('video');
+
+                        if (!video) return;
+
+                        if (video.closest(SELECTORS.MINIPLAYER)) {
+                            enqueueVideo(video, 'miniplayer');
+                        }
+
+                    });
+
+                });
+
+                // Trigger manual en caso de que ya haya un video presente
+                const v = document.querySelector(`${SELECTORS.MINIPLAYER} video`);
+                if (v) enqueueVideo(v, 'miniplayer');
+
+            });
+
+            // 4. Selector para Previews
+            /*  observers.preview = new MutationObserver((mutations) => {
+                 mutations.forEach(m => {
+                     const nodes = m.type === 'childList' ? Array.from(m.addedNodes) : [m.target];
+                     nodes.forEach(node => {
+                         const video = node.nodeName === 'VIDEO' ? node : node.querySelector?.('video');
+                         if (video && (video.closest(SELECTORS.INLINE_PREVIEW) || video.closest('#video-preview-container'))) {
+                             enqueueVideo(video, 'preview');
+                         }
+                     });
+                 });
+             }); */
+            // Igual que el miniplayer, YouTube reutiliza el mismo elemento <video> para diferentes previews.
+            // Usamos lastPreviewSrc para detectar cambios de video via mutación del atributo src.
+            let lastPreviewSrc = '';
+
+            observers.preview = new MutationObserver((mutations) => {
+
+                for (const m of mutations) {
+                    // ⚡ Ruta rápida: cambio de src en video de preview (YouTube muta src en el mismo elemento)
+                    if (m.type === 'attributes' && m.attributeName === 'src' && m.target instanceof HTMLVideoElement) {
+                        const videoEl = m.target;
+                        const newSrc = videoEl.src;
+                        const isPreview =
+                            videoEl.closest(S.IDS.INLINE_PREVIEW_PLAYER) ||
+                            videoEl.closest('#video-preview-container');
+
+                        if (isPreview && newSrc && newSrc !== lastPreviewSrc) {
+                            lastPreviewSrc = newSrc;
+                            log('VideoObserverManager', '👁️ Preview: cambio de src detectado, reiniciando sesión y encolando');
+                            // Limpiar sesión previa para forzar reprocessing
+                            const prevSession = activeProcessingSessions.get(videoEl);
+                            if (prevSession?.intervalId) clearInterval(prevSession.intervalId);
+                            activeProcessingSessions.delete(videoEl);
+                            enqueueVideo(videoEl, 'preview');
+                            return;
+                        }
+                    }
+                }
+
+                // Ruta normal: nodo nuevo añadido al DOM
+                mutations.forEach(m => {
+                    if (m.type !== 'childList') return;
+
+                    Array.from(m.addedNodes).forEach(node => {
+                        if (!(node instanceof Element)) return;
+
+                        const video =
+                            node.tagName === 'VIDEO'
+                                ? node
+                                : node.querySelector?.('video');
+
+                        if (!video) return;
+
+                        const isPreview =
+                            video.closest(S.IDS.INLINE_PREVIEW_PLAYER) ||
+                            video.closest('#video-preview-container');
+
+                        if (isPreview && video.src && video.src !== lastPreviewSrc) {
+                            lastPreviewSrc = video.src;
+                            enqueueVideo(video, 'preview');
+                        }
+                    });
+                });
+
+            });
+
+
+            // Iniciar observación
+            const body = document.body;
 
             try {
-                // Detección del tipo de video
-                let type = getYouTubePageType();
-                const isLive = isLiveVideo();
-                log('processVideo', `📋 Tipo de página inicial: ${type}, isLive: ${isLive}`);
-
-                // Si el tipo es 'watch' o 'embed' y el video está en vivo, cambia el tipo a 'live'.
-                if ((type === 'watch' || type === 'embed') && isLive) {
-                    type = 'live';
-                    log('processVideo', `🔄 Tipo cambiado a 'live' porque se detectó video en vivo`);
-                }
-                try {
-                    // 🚨 CRITICAL FIX: Don't force 'watch' if on shorts page - prevents miniplayer metadata contamination
-                    const pageType = getYouTubePageType();
-                    const isOnShortsPage = pageType === 'shorts';
-
-                    if (isMiniplayerContext && allowMiniplayerSaving && !isOnShortsPage) {
-                        type = 'watch';
-                    }
-                    const cont2 = activeVideoEl?.closest?.('#movie_player, #shorts-player');
-                    const shortsDisabled = (() => { try { return cachedSettings?.saveShorts === false; } catch (_) { return false; } })();
-                    const mpPresent = (() => { try { return !!(DOMHelpers.getWatchPlayer()); } catch (_) { return false; } })();
-                    // Si el video está en el miniplayer/movie_player, tratar shorts/home como watch para el guardado
-                    // SOLO cambiar si está REALMENTE en movie_player (cont2?.id === 'movie_player'), no solo porque existe
-                    if (cont2?.id === 'movie_player') {
-                        if (!isOnShortsPage && (type === 'shorts' || type === 'home')) {
-                            type = 'watch';
-                        }
-                    }
-                } catch (_) { }
-
-                log('processVideo', `🎇 Tipo de video/página detectado: ${type}`);
-
-                // Determinar tipo lógico para guardado (distinguir previews)
-                let logicalType = type;
-                try {
-                    const el = (currentVideoEl || videoEl || activeVideoEl);
-                    const cont = el?.closest?.('#movie_player, #shorts-player');
-                    const isHomeish = (type !== 'watch' && type !== 'shorts' && type !== 'embed' && type !== 'live');
-                    const currentPageType = getYouTubePageType();
-
-                    // 🚨 CRITICAL: Don't force 'watch' if on shorts page - prevents miniplayer metadata contamination
-                    if (isMiniplayerContext && allowMiniplayerSaving && currentPageType !== 'shorts') {
-                        logicalType = 'watch';
-                    } else if (isHomeish && (cont?.id !== 'movie_player')) {
-                        const isShortish = !!(el?.closest?.('ytd-reel-video-renderer, ytd-shorts, #shorts-player'));
-                        logicalType = isShortish ? 'preview_shorts' : 'preview_watch';
-                    } else if (type === 'home' && (cont?.id === 'movie_player') && currentPageType !== 'shorts') {
-                        logicalType = 'watch';
-                    } else if (type === 'shorts') {
-                        logicalType = 'shorts';
-                    }
-                } catch (_) { }
-                log('processVideo', `🎯 Tipo lógico para guardado: ${logicalType}`);
-
-                // Respeto estricto de configuración para lives: si saveLiveStreams es false, no procesar
-                if (isLive && cachedSettings?.saveLiveStreams === false) {
-                    log('processVideo', '🛑 Video detectado como LIVE y la opción saveLiveStreams está deshabilitada, omitiendo.');
-                    isNavigating = false;
-                    currentlyProcessingVideos.delete(lockKey);
-                    return;
-                }
-
-                // Verificar si el tipo de video actual está deshabilitado en la configuración
-                const typeToSetting = {
-                    watch: 'saveRegularVideos',
-                    shorts: 'saveShorts',
-                    live: 'saveLiveStreams'
-                };
-
-                // Si el tipo de video actual está deshabilitado en la configuración, sale de la función
-                // Excepto si hay miniplayer activo (video en #movie_player) aunque estemos en search/channel/etc.
-                let allowByMiniplayer = false;
-                try {
-                    // Permitir procesamiento si hay un miniplayer presente aun estando en Shorts
-                    const cont = activeVideoEl?.closest?.('#movie_player, #shorts-player');
-                    const mp = DOMHelpers.getWatchPlayer();
-                    allowByMiniplayer = allowMiniplayerSaving && ((!!cont && (cont.id === 'movie_player')) || isMiniplayerContext || !!mp);
-                } catch (_) { }
-                // Usar configuración segura (defaults si aún no carga settings) para prevenir crash en carga inicial
-                const safeSettings = cachedSettings || CONFIG.defaultSettings;
-                if (!safeSettings[typeToSetting[type]] && !(((getYouTubePageType() === 'home') || allowByMiniplayer) && activeVideoEl)) {
-                    // Loguea un mensaje indicando que este tipo de video no se debe procesar
-                    log('processVideo', `🛑 Tipo "${type}" no está habilitado para guardado, omitiendo.`);
-                    log('processVideo', `Es home con un video activo? ${!(getYouTubePageType() === 'home' && activeVideoEl)}`);
-
-                    // NO detenemos el monitor - debe seguir activo para detectar ads en próximos videos
-                    // El monitor se gestiona en handleNavigation y debe permanecer activo
-
-                    // Sale de la función, evitando que el video se procese
-                    currentlyProcessingVideos.delete(lockKey);
-                    return;
-                }
-
-                // Resetear lastResumeId si cambió el video ID (para permitir reanudación de videos en playlist)
-                if (lastResumeId && lastResumeId !== videoIdDetected) {
-                    log('processVideo', `🔄 Reset lastResumeId (${lastResumeId} → ${videoIdDetected}) por cambio de video en playlist`);
-                    lastResumeId = null;
-                }
-
-                // Buscar progreso previo
-                let savedData = await getSavedVideoData(videoIdDetected, plId);
-
-                if (savedData?.playlistId) {
-                    log('resolvePlaylist', `💾 Origen: STORAGE (Datos previos) -> ${savedData.playlistId}`);
-                } else if (plId) {
-                    log('resolvePlaylist', `🆕 Origen: NUEVA ASIGNACIÓN (Resolución actual) -> ${plId}`);
-                } else {
-                    log('resolvePlaylist', `⚪ Sin playlist detectada ni guardada.`);
-                }
-
-                log('processVideo', `Verificando reanudación: savedData=${!!savedData}, videoIdDetected=${videoIdDetected}, lastResumeId=${lastResumeId}, videoIdDetected === lastResumeId=${videoIdDetected === lastResumeId}`);
-
-                // Verifica si hay datos guardados para el video y si el video detectado es diferente al último ID de video que se intentó reanudar.
-                // Opción B: desactivar reanudación para previews inline en páginas no watch/shorts/embed (conservar miniplayer)
-                let disableResumeInInlinePreview = false;
-                try {
-                    const cont3 = (currentVideoEl || videoEl || activeVideoEl)?.closest?.('#movie_player, #shorts-player');
-                    disableResumeInInlinePreview = (type !== 'watch' && type !== 'shorts' && type !== 'embed' && cont3?.id !== 'movie_player');
-                } catch (_) { }
-
-                if (savedData && videoIdDetected !== lastResumeId && !disableResumeInInlinePreview) {
-                    // Define si se debe reanudar la reproducción del video
-                    const shouldResume =
-                        // La reanudación está forzada si 'forceResumeTime' es mayor que cero,
-                        // lo que indica un tiempo específico programado para retomar el video.
-                        savedData.forceResumeTime > 0 ||
-
-                        // Alternativamente, se decide reanudar si el tiempo de visualización
-                        // es mayor a minSeekDiff (1.5 segundos) y el video no se ha completado.
-                        // Esto evita reanudar videos que apenas se comenzaron y aún no han capturado el interés del usuario.
-                        (savedData.timestamp > CONFIG.minSeekDiff && !savedData.isCompleted);
-
-                    log('processVideo', `shouldResume=${shouldResume} (forceResumeTime=${savedData.forceResumeTime}, timestamp=${savedData.timestamp}, isCompleted=${savedData.isCompleted})`);
-
-                    // resumePlayback con 200 ms de espera para "shorts"
-                    const debouncedResumePlayback = debounce(resumePlayback, 200);
-
-                    if (shouldResume) {
-                        log('processVideo', `✅ Reanudando ${videoIdDetected} (${type})...`);
-
-                        if (type === 'short') {
-                            // Espera 200 ms sin más llamadas antes de reanudar
-                            debouncedResumePlayback(
-                                player,
-                                videoIdDetected,
-                                videoEl,
-                                savedData,
-                                type
-                            );
-                        } else {
-                            // Reanuda de inmediato para otros tipos
-                            resumePlayback(
-                                player,
-                                videoIdDetected,
-                                videoEl,
-                                savedData,
-                                type
-                            );
-                        }
-
-                        lastResumeId = videoIdDetected;
-                    }
-                } else {
-                    if (disableResumeInInlinePreview) {
-                        log('processVideo', '⏭ Reanudación deshabilitada en previews inline (solo guardar).');
-                    }
-                    log('processVideo', '⏩ No hay datos guardados o video ya fue reanudado, reproducción normal');
-                }
-
-                // Capturar contexto para evitar guardar en navegaciones cruzadas
-                const boundVideoId = videoIdDetected;
-                let boundType = logicalType;
-                const boundPlId = plId;
-
-                // Flag para evitar múltiples llamadas a processVideo desde el handler
-                let isProcessingVideoChange = false;
-
-
-
-                // Handler para guardar progreso
-                let lastAdBlockedHandlerLogTs = 0; // throttle para logs repetitivos del handler
-                let lastHandlerExecTime = 0; // Throttle para el handler de timeupdate
-                const handler = async () => {
-                    try {
-                        // CRÍTICO: Performance - Throttle de 250ms para evitar sobrecargar el hilo principal
-                        // El evento timeupdate puede dispararse hasta 60 veces por segundo en algunos navegadores
-                        const nowMs = Date.now();
-                        if (nowMs - lastHandlerExecTime < 250) return;
-                        lastHandlerExecTime = nowMs;
-
-                        if (isNavigating) return;
-
-                        // Verificar si hay anuncios activos usando el estado por tipo
-                        if (isAdBlockedFor(boundType)) {
-                            const now = Date.now();
-                            if (now - lastAdBlockedHandlerLogTs > 2000) {
-                                log('handler', `⏸ Anuncio activo (${boundType}) detectado, no procesando timeupdate`);
-                                lastAdBlockedHandlerLogTs = now;
-                            }
-                            return;
-                        }
-
-
-
-                        // PROTECCIÓN CRÍTICA: Detectar handlers "stale" (obsoletos)
-                        // Si el handler se ató como 'preview' (inline) pero ahora estamos en una página Watch
-                        // y el video vive dentro de movie_player, entonces este handler es un remanente
-                        // de la navegación anterior y debe ser ignorado.
-                        const currentPageType = getYouTubePageType();
-                        const contNow = (currentVideoEl || videoEl)?.closest?.('#movie_player, #shorts-player');
-
-                        if (boundType.startsWith('preview') && currentPageType === 'watch' && contNow?.id === 'movie_player') {
-                            if (!window._staleLog) { log('handler', '🛑 Handler preview obsoleto detectado en página Watch (movie_player). Abortando.'); window._staleLog = Date.now(); }
-                            return;
-                        }
-
-                        // Verificar visibilidad del video para previews en páginas de inicio/búsqueda
-                        const isPreviewOnHomeLike = (currentPageType === 'home' || currentPageType === 'search' || currentPageType === 'channel') &&
-                            contNow?.id !== 'movie_player';
-
-                        if (isPreviewOnHomeLike) {
-                            // Verificar si el elemento del video es visible y tiene un tamaño razonable
-                            const isVisible = (el) => {
-                                if (!el) return false;
-                                const rect = el.getBoundingClientRect();
-                                // Verificar que tenga dimensiones (no sea 0x0)
-                                const hasSize = rect.width > 0 && rect.height > 0;
-                                if (!hasSize) {
-                                    // Fallback: verificar offsetWidth/Height
-                                    if (el.offsetWidth > 0 && el.offsetHeight > 0) {
-                                        return true; // Tiene dimensiones aunque getBoundingClientRect no lo detecte
-                                    }
-                                    return false;
-                                }
-                                // Verificar que al menos parte del video esté en el viewport
-                                const isPartiallyInViewport = (
-                                    rect.bottom > 0 &&
-                                    rect.top < (window.innerHeight || document.documentElement.clientHeight) &&
-                                    rect.right > 0 &&
-                                    rect.left < (window.innerWidth || document.documentElement.clientWidth)
-                                );
-                                return isPartiallyInViewport;
-                            }
-                        }
-
-                        const nowTick = Date.now();
-                        lastTimeUpdateTick = nowTick;
-
-
-                        // Validar que aún exista un video válido
-                        if (!videoIdDetected) {
-                            conError('handler', 'No se encontró videoIdDetected al intentar guardar progreso.');
-                            return;
-                        }
-
-
-
-                        // Evitar convertir player a string porque puede contener Symbols (es un Proxy)
-                        if (!lastHandlerPerfLog || Date.now() - lastHandlerPerfLog > 3000) {
-                            log('handler de processVideo', `Player tiene getDuration: ${typeof player?.getDuration}, isProxy: ${!!YTHelper?.apiProxy}`);
-                            lastHandlerPerfLog = Date.now();
-                        }
-
-                        // Usar currentPageType ya definido arriba
-                        const urlIdNow = extractOrNormalizeVideoId(window.location.href)?.id || null;
-                        let currentId = null;
-                        try {
-                            // Priorizar obtener del player actual primero (más confiable)
-                            currentId = player?.getVideoData?.()?.video_id || YTHelper?.video?.id || null;
-                        } catch (_) { }
-                        let mpId = null;
-                        try { const mp = DOMHelpers.getWatchPlayer(); mpId = mp?.getVideoData?.()?.video_id || null; } catch (_) { }
-
-                        // DEBUG: Loguear valores para identificar problema
-                        if (!currentId && !mpId && Date.now() - lastTimeUpdateTick > 3000) {
-                            log('handler', `⚠️ DEBUG: No se obtuvo video ID - urlIdNow: ${urlIdNow}, boundVideoId: ${boundVideoId}, videoIdDetected: ${videoIdDetected}`);
-                        }
-
-                        let effectiveIdNow = null;
-                        try {
-                            const cont = (currentVideoEl || videoEl)?.closest?.('#movie_player, #shorts-player');
-                            if (cont?.id === 'movie_player') {
-                                effectiveIdNow = mpId || currentId || urlIdNow || videoIdDetected;
-                            } else if (cont?.id === 'shorts-player') {
-                                effectiveIdNow = urlIdNow || currentId || videoIdDetected;
-                            } else {
-                                effectiveIdNow = currentId || mpId || urlIdNow || videoIdDetected;
-                            }
-                        } catch (_) {
-                            effectiveIdNow = currentId || mpId || urlIdNow || videoIdDetected;
-                        }
-
-                        // CRÍTICO: Detectar cambio de video con mejor lógica
-                        // Se dispara si:
-                        // 1. La URL cambió Y el nuevo ID es válido Y diferente (protegido por contexto)
-                        // 2. O el player reporta un video_id diferente al boundVideoId
-                        const videoIdFromPlayer = currentId || mpId;
-                        const videoIdFromUrl = urlIdNow;
-
-                        // Validar que el nuevo ID es legítimo (no es el mismo y cumple validaciones)
-                        const isValidNewId = (newId) => typeof newId === 'string' && /^[a-zA-Z0-9_-]{11}$/.test(newId);
-
-                        const playerReportsChange = !!(videoIdFromPlayer && isValidNewId(videoIdFromPlayer) && videoIdFromPlayer !== boundVideoId);
-
-                        // Lógica de detección via URL protegida por contexto
-                        let urlReportsChange = !!(videoIdFromUrl && isValidNewId(videoIdFromUrl) && videoIdFromUrl !== boundVideoId);
-
-
-
-                        if (playerReportsChange || urlReportsChange) {
-                            // Evitar múltiples llamadas a processVideo desde el mismo handler
-                            if (isProcessingVideoChange) {
-                                log('handler', '⏳ Cambio de video ya en proceso, omitiendo...');
-                                return;
-                            }
-
-                            const newVideoId = playerReportsChange ? videoIdFromPlayer : videoIdFromUrl;
-
-                            // 🚫 CRITICAL SAFETY CHECK: If any ad is playing, DO NOT process video change
-                            // This prevents contamination when ads auto-play and change the video element
-                            // (e.g., masthead ads on homepage that load into #movie_player)
-                            if (isAdPlaying || isAdWatchPlaying || isAdShortsPlaying) {
-                                log('handler', `🚫 Anuncio activo (isAdPlaying=${isAdPlaying}, watch=${isAdWatchPlaying}, shorts=${isAdShortsPlaying}). Rechazando cambio de video para evitar contaminación: ${newVideoId}`);
-                                isProcessingVideoChange = false;
-                                return;
-                            }
-
-
-
-                            isProcessingVideoChange = true;
-
-
-
-
-
-                            // CRÍTICO: Detectar anuncios en auto-reproducción (mejor que duración)
-                            // La duración es poco confiable (puede ser 5s a livestreams infinitos)
-                            // En su lugar, usar: contenedores DOM + API de YouTube + clases CSS
-                            if (playerReportsChange && !urlReportsChange) {
-                                const isHomeLikePage = currentPageType === 'home' || currentPageType === 'search' || currentPageType === 'channel' || currentPageType === 'shorts' || currentPageType === 'unknown';
-
-                                if (isHomeLikePage) {
-                                    // MÉTODO 1: Usar YTHelper API (más confiable que duración)
-                                    const isAdViaYTHelper = YTHelper?.player?.isPlayingAds;
-
-                                    // MÉTODO 2: Detectar si el videoEl está dentro de contenedor de anuncio (método robusto del AdDetector)
-                                    // Este método chequea selectores de feed ads, clases CSS y estructura DOM
-                                    let isAdViaContainer = false;
-                                    try {
-                                        isAdViaContainer = AdDetector?.isNodeWithinAdContainer?.(currentVideoEl || videoEl) || false;
-                                    } catch (_) { }
-
-                                    // MÉTODO 3: Fallback - chequear si el contenedor tiene clases de anuncio conocidas
-                                    let hasAdClass = false;
-                                    try {
-                                        const container = (currentVideoEl || videoEl)?.closest?.('.html5-video-player, #movie_player, ytd-miniplayer');
-                                        hasAdClass = container?.classList?.contains?.('ytp-ad-player-overlay') ||
-                                            container?.classList?.contains?.('ytp-ad-video-player') ||
-                                            false;
-                                    } catch (_) { }
-
-                                    const isAd = isAdViaYTHelper || isAdViaContainer || hasAdClass;
-
-                                    log('handler', `🔍 Análisis de anuncio: ytHelper=${isAdViaYTHelper}, container=${isAdViaContainer}, classes=${hasAdClass}, resultado=${isAd}, videoId=${newVideoId}`);
-
-                                    if (isAd) {
-                                        log('handler', `🚫 ANUNCIO DETECTADO: ${newVideoId} (métodos: YTHelper=${isAdViaYTHelper}, Container=${isAdViaContainer}, Classes=${hasAdClass}). Ignorando cambio.`);
-
-                                        isProcessingVideoChange = false;
-                                        return;
-                                    }
-                                } else {
-                                    log('handler', `ℹ️ No es home-like page (${currentPageType}), permitiendo procesamiento normal de video`);
-                                }
-                            } else {
-                                log('handler', `ℹ️ No aplica check de anuncio: playerReportsChange=${playerReportsChange}, urlReportsChange=${urlReportsChange}`);
-                            }
-
-                            // Limpiar el período de gracia post-anuncio cuando se detecta un cambio de video
-                            // Esto asegura que el nuevo video no herede el período de gracia del anterior
-                            lastAdEndTime = 0;
-
-
-                            try { clearVideoInfoCache(boundVideoId); } catch (_) { }
-                            try { clearVideoInfoCache(newVideoId); } catch (_) { }
-
-                            if (currentPageType === 'home' || currentPageType === 'search' || currentPageType === 'channel') {
-                                lastVideoUrl = `https://www.youtube.com/watch?v=${newVideoId}${boundPlId ? `&list=${boundPlId}` : ''}`;
-                                try { if (boundPlId) lastPlaylistId = boundPlId; } catch (_) { }
-                            } else if (currentPageType === 'watch' || currentPageType === 'embed') {
-                                lastVideoUrl = window.location.href;
-                            }
-                            log('handler', `📍 Re-procesando video... videoId=${newVideoId}, lastVideoUrl=${lastVideoUrl}`);
-
-
-                            return;
-                        }
-
-                        // Limpiar mensajes seek cuando el video está reproduciéndose,
-                        // pero solo en el display que realmente contiene el mensaje seek.
-                        const currentMessage = timeDisplay?.innerHTML || '';
-                        const hasSeekMessage = !!currentMessage.includes('svgPlayOrPauseIcon');
-                        const currentShortsMessage = shortsTimeDisplay?.innerHTML || '';
-                        const hasShortsSeekMessage = !!currentShortsMessage.includes('svgPlayOrPauseIcon');
-                        const isPlayingNow = !(currentVideoEl || videoEl)?.paused;
-                        if (isPlayingNow) {
-                            if (hasSeekMessage) {
-                                log('handler', '🎬 Reproduciendo: limpiando mensaje seek en barra de reproducción');
-                                clearPlaybackBarMessage();
-                            }
-                            if (hasShortsSeekMessage) {
-                                log('handler', '🎬 Reproduciendo: limpiando mensaje seek en Shorts');
-                                clearShortsMessage();
-                            }
-                        }
-
-                        // Lógica de guardado de progreso
-                        const now = Date.now();
-                        const minInterval = (cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves) * 1000;
-                        const lastSavedForVideo = (lastSaveTimesByVideoId?.[boundVideoId] ?? 0);
-
-                        // Para previews, usar un intervalo más corto para mejor respuesta
-                        const effectiveMinInterval = isPreviewOnHomeLike ?
-                            Math.min(minInterval, 2000) : // Máximo 2 segundos para previews
-                            minInterval;
-
-                        // Verificar si ya se guardó recientemente
-                        if (now - lastSavedForVideo < effectiveMinInterval) {
-                            return;
-                        }
-
-                        if (now - lastSavedForVideo >= minInterval) {
-                            // Llamar a updateStatus y esperar el resultado
-                            updateStatus(player, videoEl, boundType, ((boundType === 'shorts' || currentPageType === 'shorts') ? null : boundPlId), boundVideoId)
-                                .then(saveResult => {
-                                    if (saveResult?.success) {
-                                        log('processVideo', `✅ Progreso guardado exitosamente para ${videoIdDetected}`);
-
-                                        // FIX 3: Validar que el video_id guardado coincide con lo esperado (para detectar contaminación)
-                                        if (saveResult.savedData?.videoId && saveResult.savedData.videoId !== boundVideoId) {
-                                            warn('handler', `⚠️ DATA INTEGRITY ALERT: Video guardado bajo ID incorrecto! Expected: ${boundVideoId}, Saved As: ${saveResult.savedData.videoId}. Posible contaminación de YTHelper en coexistencia.`);
-                                            // NO mostrar notificación si hay desajuste- es mejor no engañar al usuario
-                                            log('handler', `🛑 Omitiendo notificación - data integrity issue detectado`);
-                                            return;
-                                        }
-
-                                        // Notificar solo si realmente se guardó
-                                        // CRITICAL: Video actual puede no coincidir con saveResult (ej: miniplayer+Shorts)
-                                        // Usar currentTime del elemento actual para evitar contaminación de datos
-                                        const currentTime = player.getCurrentTime ? player.getCurrentTime() : ((currentVideoEl || videoEl)?.currentTime || 0);
-                                        notifySeekOrProgress(currentTime, 'progress', { saveResult, videoType: boundType });
-                                        const savedTs = Date.now();
-                                        try { lastSaveTimesByVideoId[boundVideoId] = savedTs; } catch (_) { }
-                                    } else {
-                                        log('processVideo', `⚠️ No se guardó progreso para ${videoIdDetected}:`, saveResult?.reason);
-
-                                        // Mostrar notificación de error de almacenamiento
-                                        if (saveResult?.reason === 'storage_full') {
-                                            showFloatingToast(`${SVG_ICONS.error} ${t('storageFull')}`, 0, { persistent: true });
-                                        }
-
-                                        // Throttle de reintentos cuando es preview inline con datos inválidos
-                                        try {
-                                            if (saveResult?.reason === 'invalid_data') {
-                                                const contNow2 = videoEl?.closest?.('#movie_player, #shorts-player');
-                                                let pageTypeNow2 = getYouTubePageType();
-                                                const isPreviewOnHomeLike2 = (pageTypeNow2 === 'home' || pageTypeNow2 === 'search' || pageTypeNow2 === 'channel') && contNow2?.id !== 'movie_player';
-                                                if (isPreviewOnHomeLike2) {
-                                                    const failTs = Date.now();
-                                                    lastSaveTimesByVideoId[boundVideoId] = failTs;
-                                                }
-                                            }
-                                        } catch (_) { }
-                                    }
-
-                                    // Actualizar barra de progreso con colores (independientemente del guardado)
-                                    try {
-                                        const currentTime = player.getCurrentTime ? player.getCurrentTime() : (videoEl?.currentTime || 0);
-                                        const duration = getVideoDuration(player, videoEl);
-                                        updateProgressBarGradient(currentTime, duration, boundType);
-                                    } catch (error) {
-                                        // Silenciar errores para no afectar el funcionamiento principal
-                                    }
-                                }).catch(error => {
-                                    conError('processVideo', 'Error al guardar progreso:', error);
-                                });
-
-
-                        }
-                    } catch (err) {
-                        conError('handler', 'Error en el handler de timeupdate:', err);
-                    }
-                };
-
-                // Si es preview y el usuario no permite guardar previews, no enlazar handler ni pollers
-                try {
-                    const isPreviewType = typeof boundType === 'string' && boundType.startsWith('preview');
-                    const allowInline = cachedSettings?.saveInlinePreviews === true;
-                    if (isPreviewType && !allowInline) {
-                        log('processVideo', '🔕 Inline preview deshabilitada por configuración. No se enlaza handler.');
-                        // CRÍTICO: Limpiar del Set antes de retornar para evitar deadlock
-                        currentlyProcessingVideos.delete(lockKey);
-                        return;
-                    }
-                } catch (_) { }
-
-                // Actualizar variables globales solo si es el player primario o no hay coexistencia
-                // para mantener compatibilidad con cleanupAll y otros módulos legacy.
-                const isPrimaryForGlobals = !currentVideoEl || !document.contains(currentVideoEl);
-                if (isPrimaryForGlobals) {
-                    currentTimeUpdateHandler = handler;
-                    currentVideoEl = videoEl;
-                }
-
-                try {
-                    videoEl.addEventListener('timeupdate', handler);
-
-                    // CRÍTICO: Limpiar del Set DESPUÉS de configurar el handler para evitar deadlock
-                    currentlyProcessingVideos.delete(lockKey);
-                    log('processVideo', `🔓 Video ${videoIdDetected} liberado del Set de procesamiento`);
-
-                    // LLAMADA INICIAL: Guardar progreso inmediatamente al procesar (captura estado inicial o cambio)
-                    // Esto es CRÍTICO cuando el miniplayer se pausa inmediatamente al navegar a Shorts.
-                    setTimeout(() => {
-                        updateStatus(player, videoEl, boundType, ((boundType === 'shorts' || getYouTubePageType() === 'shorts') ? null : boundPlId), boundVideoId);
-                    }, 500);
-
-                    try {
-                        const ptEnd = getYouTubePageType();
-                        const elEnd = videoEl || activeVideoEl;
-                        const contEnd = elEnd?.closest?.('#movie_player');
-                        const isStableEnd = (ptEnd === 'watch' || ptEnd === 'embed') || !!contEnd;
-                        if (plId && isStableEnd && ptEnd !== 'shorts') lastPlaylistId = plId;
-                    } catch (_) { }
-                } catch (error) {
-                    conError('processVideo', 'Error al adjuntar el handler al video:', error);
-                }
-            } catch (error) {
-                conError('processVideo', `Error al procesar el video ${videoIdDetected}:`, error);
+                observers.watch.observe(body, config);
+                observers.shorts.observe(body, config);
+                observers.preview.observe(body, config);
+
+                // Miniplayer requiere observar clases en root + contenido interno
+                observers.miniplayer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'], subtree: false });
+                observers.miniplayer.observe(body, config); // Catch inner video changes
+
+                info('VideoObserverManager', '✅ Observadores especializados inicializados');
+
+                // Realizar bootstrap inicial
+                /* bootstrap(); */
+            } catch (e) {
+                conError('VideoObserverManager', '❌ Error al iniciar observadores', e);
             }
-        } catch (error) {
-            conError('processVideo (outer)', 'Error crítico en flujo principal de processVideo:', error);
-        } finally {
+        };
 
-            if (videoIdDetected) {
-                currentlyProcessingVideos.delete(videoIdDetected);
+        const cleanup = () => {
+            Object.values(observers).forEach(obs => obs?.disconnect());
+            observers = { watch: null, shorts: null, miniplayer: null, preview: null };
+
+            if (shortsPanelObserver) {
+                shortsPanelObserver.disconnect();
+                shortsPanelObserver = null;
             }
-            log('processVideo', `🏁 Fin de proceso para video ${videoIdDetected}`);
+
+            pendingVideos.clear();
+            log('VideoObserverManager', '🧹 Observadores desconectados');
+        };
+
+        return { init: initObservers, cleanup, bootstrap };
+    })();
+
+    // ------------------------------------------
+    // MARK: Specialized Processing Functions
+    // ------------------------------------------
+
+    /**
+     * Almacena las sesiones de procesamiento activas por cada elemento de video
+     * para evitar duplicidades y permitir limpieza.
+     * @type {WeakMap<HTMLVideoElement, { intervalId: number, lastVideoId: string }>}
+     */
+    const activeProcessingSessions = new WeakMap();
+
+    /**
+     * Inicia una sesión de seguimiento (polling) para un video.
+     * @param {HTMLVideoElement} videoEl
+     * @param {string} type - Contexto (watch, shorts, miniplayer, preview)
+     * @param {string} videoId - ID del video a seguir
+     * @param {object} player - Objeto del player de YouTube
+     * @param {string} containerId - ID del contenedor (movie_player, etc.)
+     * @param {string|null} playlistId - ID de la playlist (opcional)
+     */
+    const startProcessingSession = (videoEl, type, videoId, player, containerId, playlistId = null) => {
+        // Si ya hay una sesión para este mismo video, no hacer nada
+        const currentSession = activeProcessingSessions.get(videoEl);
+        if (currentSession?.lastVideoId === videoId) return;
+
+        // Si hay una sesión vieja para un video diferente en el mismo elemento, limpiar
+        if (currentSession?.intervalId) {
+            clearInterval(currentSession.intervalId);
         }
+
+        info('process', `🚀 Iniciando sesión de seguimiento para [${type}] - ${videoId}`);
+
+        // 1. Intentar reanudar inmediatamente
+        getSavedVideoData(videoId, playlistId).then(savedData => {
+            if (savedData && (savedData.timestamp > 1 || savedData.forceResumeTime > 0)) {
+                PlaybackController.resume(player, videoId, videoEl, savedData, type);
+            }
+        });
+
+        // 2. Configurar intervalo de guardado
+        const intervalId = setInterval(async () => {
+            // Verificar si el video sigue en el DOM y es el mismo
+            if (!document.contains(videoEl)) {
+                clearInterval(intervalId);
+                activeProcessingSessions.delete(videoEl);
+                return;
+            }
+
+            // Llamada unificada al nuevo controlador modular de guardado
+            await PlaybackController.saveStatus(player, videoEl, type, videoId, containerId, playlistId);
+        }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
+
+        activeProcessingSessions.set(videoEl, { intervalId, lastVideoId: videoId });
     };
+
+    async function processWatchVideo(videoEl) {
+        if (!cachedSettings?.saveRegularVideos) return;
+        const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
+        if (isAd) {
+            warn('processWatchVideo', '🚫 Anuncio detectado en Watch, omitiendo procesamiento.');
+            return;
+        }
+
+        const player = DOMHelpers.getWatchPlayer();
+        const videoData = extractOrNormalizeVideoId(location.href);
+        const videoId =
+            player?.getPlayerResponse?.()?.videoDetails?.videoId ||
+            player?.getVideoData?.()?.video_id ||
+            YTHelper?.video?.id ||
+            videoData?.id;
+
+        const playlistId =
+            player?.getVideoData?.()?.list ||
+            videoData?.list ||
+            new URLSearchParams(window.location.search).get('list');
+
+        if (!videoId || !player) return;
+
+        // Optimización: Cachear el nombre de la playlist mientras estamos en Watch (donde está en el DOM)
+        if (playlistId) {
+            getPlaylistName(playlistId).catch(() => { });
+        }
+
+        info('processWatchVideo', `📝 Procesando video de Watch: ${videoId}${playlistId ? ` (Playlist: ${playlistId})` : ''}`);
+        startProcessingSession(videoEl, 'watch', videoId, player, IDs.MOVIE_PLAYER, playlistId);
+    }
+
+    async function processShortsVideo(videoEl) {
+        if (!cachedSettings?.saveShorts) return;
+        const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
+        if (isAd) {
+            warn('processShortsVideo', '🚫 Anuncio detectado en Shorts, omitiendo procesamiento.');
+            return;
+        }
+
+        const player = DOMHelpers.getShortsPlayer();
+        const videoData = extractOrNormalizeVideoId(location.href);
+        const videoId =
+            player?.getPlayerResponse?.()?.videoDetails?.videoId ||
+            player?.getVideoData?.()?.video_id ||
+            YTHelper?.video?.id ||
+            videoData?.id;
+
+        const playlistId =
+            player?.getVideoData?.()?.list ||
+            videoData?.list ||
+            new URLSearchParams(window.location.search).get('list');
+
+        if (!videoId || !player) return;
+
+        info('processShortsVideo', `📱 Procesando video de Shorts: ${videoId}${playlistId ? ` (Playlist: ${playlistId})` : ''}`);
+        startProcessingSession(videoEl, 'shorts', videoId, player, IDs.SHORTS_PLAYER, playlistId);
+    }
+
+    async function processMiniplayerVideo(videoEl) {
+        if (!cachedSettings?.saveMiniplayerVideos) return;
+        const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
+        if (isAd) {
+            warn('processMiniplayerVideo', '🚫 Anuncio detectado en miniplayer, omitiendo procesamiento.');
+            return;
+        }
+
+        // El miniplayer de YouTube suele reutilizar el player principal (#movie_player)
+        // getMiniplayerPlayer() puede devolver null durante transiciones de video (la clase activa se quita momentáneamente),
+        // por lo que usamos un fallback directo y uncached a ytd-miniplayer #movie_player.
+        const player =
+            DOMHelpers.getMiniplayerPlayer() ||
+            document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT} #${IDs.MOVIE_PLAYER}`);
+
+        if (!player) {
+            warn('processMiniplayerVideo', '⚠️ Player del miniplayer no encontrado, omitiendo procesamiento.');
+            return;
+        }
+
+        const videoId =
+            player?.getPlayerResponse?.()?.videoDetails?.videoId ||
+            player?.getVideoData?.()?.video_id ||
+            YTHelper?.video?.id ||
+            extractOrNormalizeVideoId(location.href).id;
+
+        const playlistId =
+            player?.getVideoData?.()?.list ||
+            new URLSearchParams(window.location.search).get('list');
+
+        if (!videoId) return;
+
+        info('processMiniplayerVideo', `📺 Procesando video de Miniplayer: ${videoId}${playlistId ? ` (Playlist: ${playlistId})` : ''}`);
+        startProcessingSession(videoEl, 'miniplayer', videoId, player, IDs.MOVIE_PLAYER, playlistId);
+    }
+
+    async function processPreviewVideo(videoEl) {
+        if (!cachedSettings?.saveInlinePreviews) return;
+        const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
+        if (isAd) {
+            warn('processPreviewVideo', '🚫 Anuncio detectado en Preview, omitiendo procesamiento.');
+            return;
+        }
+
+        const player = DOMHelpers.getInlinePreviewPlayer();
+
+        let videoId = null;
+        try {
+            videoId =
+                player?.getPlayerResponse?.()?.videoDetails?.videoId ||
+                player?.getVideoData?.()?.video_id ||
+                YTHelper?.video?.id;
+        } catch (_) { }
+
+        if (!videoId || !player) return;
+
+        info('processPreviewVideo', `👁️ Procesando video de Preview: ${videoId}`);
+        startProcessingSession(videoEl, 'preview', videoId, player, IDs.INLINE_PREVIEW_PLAYER);
+    }
+
+
 
 
 
@@ -11459,6 +7644,523 @@ background: var(--ypp-danger);
     // ------------------------------------------
     // MARK: ⏯ Seek
     // ------------------------------------------
+
+    /**
+     * Controlador modular para manejar la reanudación y el guardado de progreso
+     * sin depender de funciones monolíticas globales.
+     */
+    const PlaybackController = {
+        /**
+         * Verifica si el guardado está habilitado para un tipo y contexto.
+         * @private
+         */
+        _isSavingEnabled(type, videoEl) {
+            const settings = cachedSettings || CONFIG.defaultSettings;
+
+            if (type === 'live') return settings.saveLiveStreams !== false;
+            if (type === 'shorts') return settings.saveShorts !== false;
+            if (type === 'preview') return settings.saveInlinePreviews === true;
+
+            // Contexto video (watch / miniplayer)
+            const isMiniplayer = !!videoEl?.closest(SELECTORS.MINIPLAYER_ELEMENT);
+            if (isMiniplayer && settings.saveMiniplayerVideos === false) return false;
+
+            return settings.saveRegularVideos !== false;
+        },
+
+        /**
+         * Reanuda la reproducción de un video basándose en datos guardados.
+         * @param {object} player - Instancia del player de YouTube
+         * @param {string} videoId - Id del video
+         * @param {HTMLVideoElement} videoEl - Elemento de video
+         * @param {object} savedData - Datos recuperados del Storage
+         * @param {string} type - Contexto (watch, shorts, etc)
+         */
+        async resume(player, videoId, videoEl, savedData, type) {
+            if (!savedData || !videoId || !videoEl) return;
+
+            const timeToSeek = savedData.forceResumeTime > 0 ? savedData.forceResumeTime : savedData.timestamp;
+            if (timeToSeek <= 1) return;
+
+            log('PlaybackController', `🎬 Intentando reanudar ${videoId} en ${formatTime(timeToSeek)} (${type})`);
+
+            // Esperar a que el video tenga duración y no haya anuncios bloqueantes
+            const isReady = () => {
+                // Priorizar APIs internas de YouTube para la duración
+                let dur = 0;
+                try {
+                    dur = player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds
+                        || player?.getDuration?.()
+                        || player?.getVideoData?.()?.length_seconds
+                        || videoEl.duration;
+                } catch (e) {
+                    dur = videoEl.duration;
+                }
+
+                // Normalizar duración si viene como string
+                dur = Number(dur);
+
+                const adBlocked = AdDetector.isNodeWithinAdContainer(videoEl);
+
+                // Para livestreams o casos especiales donde la duración es 0/infinita, 
+                // consideramos que está listo si el videoEl tiene un readyState suficiente
+                if (type === 'live' || type === 'shorts') {
+                    return !adBlocked && (dur > 0 || videoEl.readyState >= 1);
+                }
+
+                return isFinite(dur) && dur > 0 && !adBlocked;
+            };
+
+            if (!isReady()) {
+                log('PlaybackController', '⏳ Esperando condiciones óptimas para seek...');
+                let attempts = 0;
+                while (!isReady() && attempts < 20) {
+                    await new Promise(r => setTimeout(r, 500));
+                    attempts++;
+                }
+            }
+
+            if (isReady()) {
+                let finalDuration = 0;
+                try {
+                    finalDuration = player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds
+                        || player?.getDuration?.()
+                        || player?.getVideoData?.()?.length_seconds
+                        || videoEl.duration;
+                } catch (e) {
+                    finalDuration = videoEl.duration;
+                }
+                finalDuration = Number(finalDuration);
+
+                // Si la duración es 0 o inválida (común en Shorts inicial o Lives), confiar en timeToSeek
+                const safeTime = (finalDuration > 0 && timeToSeek >= finalDuration)
+                    ? Math.max(0, finalDuration - 1)
+                    : timeToSeek;
+
+                try {
+                    // Aplicar seek mediante API si está disponible, sino directo al elemento
+                    if (typeof player?.seekTo === 'function') {
+                        player.seekTo(safeTime, true);
+                    } else {
+                        videoEl.currentTime = safeTime;
+                    }
+                    log('PlaybackController', `✅ Seek aplicado exitosamente a ${formatTime(safeTime)}`);
+
+                    // Notificar al usuario (Toast/PlaybackBar)
+                    notifySeekOrProgress(safeTime, 'seek', { videoType: type, isForced: savedData.forceResumeTime > 0, videoEl });
+                } catch (e) {
+                    conError('PlaybackController', '❌ Error al aplicar seek:', e);
+                }
+            }
+        },
+
+        /**
+         * Extrae metadatos y guarda el estado actual del video.
+         * @param {object} player - Instancia del player
+         * @param {HTMLVideoElement} videoEl - Elemento de video
+         * @param {string} type - Contexto
+         * @param {string} videoId - Id del video
+         * @param {string} containerId - ID del contenedor (movie_player, etc.)
+         * @param {string|null} playlistId - ID de la playlist (opcional)
+         */
+        async saveStatus(player, videoEl, type, videoId, containerId, playlistId = null) {
+            if (!videoEl || !videoId || AdDetector.isNodeWithinAdContainer(videoEl)) return;
+
+            // Verificación crítica: el video que el player reporta debe coincidir con el que intentamos guardar
+            // Esto evita contaminación si el player cambió de video pero el intervalo viejo sigue corriendo
+            try {
+                const currentPlayerVideoId =
+                    player?.getPlayerResponse?.()?.videoDetails?.videoId ||
+                    player?.getVideoData?.()?.video_id ||
+                    YTHelper?.videoEl?.id
+                if (currentPlayerVideoId && currentPlayerVideoId !== videoId) {
+                    // console.warn(`[PlaybackController] ID mismatch: esperada=${videoId}, actual=${currentPlayerVideoId}. Abortando.`);
+                    return { success: false, reason: 'id_mismatch' };
+                }
+            } catch (_) { }
+
+            const currentTime = videoEl.currentTime;
+            const duration = videoEl.duration;
+
+            if (!isFinite(currentTime) || currentTime < 0.1 || !isFinite(duration) || duration <= 0) return;
+
+            // Obtener metadatos mediante extracción cascada
+            const videoInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+
+            // Determinar tipo final (LIVE gana a todo)
+            const finalType = videoInfo.isLive ? 'live' : type;
+
+            // Validar que el guardado esté habilitado para este tipo/contexto
+            if (!this._isSavingEnabled(finalType, videoEl)) {
+                return { success: false, reason: 'disabled_by_settings' };
+            }
+
+            log('PlaybackController', `💾 Guardando progreso para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType})`);
+
+            // Delegar a la función especializada directamente
+            let result;
+            try {
+                switch (finalType) {
+                    case 'live':
+                        result = await saveLivestream(videoId, currentTime, duration, videoInfo, playlistId || videoInfo.playlistId);
+                        break;
+                    case 'shorts':
+                        result = await saveShortsVideo(videoId, currentTime, duration, videoInfo, playlistId || videoInfo.playlistId);
+                        break;
+                    case 'preview':
+                        result = await savePreview(videoId, currentTime, duration, videoInfo, 'preview_watch', playlistId || videoInfo.playlistId);
+                        break;
+                    case 'watch':
+                    case 'miniplayer':
+                    default:
+                        result = await saveRegularVideo(videoId, currentTime, duration, videoInfo, playlistId || videoInfo.playlistId);
+                        break;
+                }
+            } catch (e) {
+                conError('PlaybackController', `❌ Error inesperado guardando ${videoId}:`, e);
+                result = { success: false, reason: e.message };
+            }
+
+            // Notificar progreso si el guardado fue exitoso
+            if (result && result.success) {
+                notifySeekOrProgress(currentTime, 'progress', { saveResult: result, videoType: finalType, videoEl });
+            }
+
+            return result;
+        }
+    };
+
+    // MARK: 📋 Metadata Helpers
+
+
+
+
+
+
+
+
+
+
+    /**
+     * Extrae información del video siguiendo una estrategia de cascada:
+     * 1. YouTube Internal API (player.getPlayerResponse() o player.getVideoData())
+     * 2. YouTube Helper API (YTHelper)
+     * 3. DOM Fallbacks (selectores y anchors)
+     */
+    async function getCascadedVideoInfo(initialPlayer, videoId, videoEl, type) {
+        let info = {
+            videoId: videoId,
+            title: '',
+            author: '',
+            authorId: '',
+            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+            isLive: false,
+            published: 0,
+            description: '',
+            viewsNumber: '0',
+            viewCount: 0,
+            playlistId: null
+        };
+
+        // 🟢 Nivel 1: YouTube Internal API (Resolución de Player Robusta)
+        try {
+            // Resolución de player focalizada basada en el tipo de página 
+            // player = elemento con id de querySelector 
+            let player = initialPlayer;
+            log('getCascadedVideoInfo', 'Player:', player);
+
+            const checkPlayer = (p) => {
+                try {
+                    const resp = p?.getPlayerResponse()?.videoDetails?.videoId || p?.getVideoData?.()?.video_id;
+                    conError('aaaa', resp)
+                    return resp === videoId;
+                } catch (_) { return false; }
+            };
+
+            if (!checkPlayer(player)) {
+                // Candidatos específicos según contexto
+                const candidates = [];
+                if (type === 'shorts') candidates.push(document.querySelector(S.IDS.SHORTS_PLAYER));
+                if (type === 'watch') candidates.push(document.querySelector(S.IDS.MOVIE_PLAYER));
+                if (type === 'miniplayer') candidates.push(document.querySelector(S.ELEMENTS.MINIPLAYER + S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE));
+                if (type === 'preview') candidates.push(document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER));
+
+                // Fallback a cualquier player si los específicos fallan
+                player = candidates.find(checkPlayer) ||
+                    Array.from(document.querySelectorAll(S.CLASSES.HTML5_VIDEO_PLAYER)).find(checkPlayer) ||
+                    player;
+            }
+
+            // A: getPlayerResponse (Fuente más rica de datos)
+            /* 
+               {
+                 "videoId": "zcrovye5-hw",
+                 "title": "un qué??!? #cyberplaza #cgscomputer #pcgamer #jennieso #ventas #trendingvideo",
+                 "lengthSeconds": "21",
+                 "channelId": "UCv2I3TRTfGokkAQ9ADFnNxA",
+                 "isOwnerViewing": false,
+                 "shortDescription": "🔵 FB: CGS Computer\n🟣 IG: cgscomputer_oficial\n🔴 TikTok: cgs_computer / team.cgs\n⚪ Web: cgs-computer.pe\n🟢 WhatsApp: \n\nLALA https://wa.link/magjg9 - 991 439 162 - LALA\nTÍO LEO https://wa.link/h6aygy 922 211 531 LEO\nKEVIN https://wa.link/og703e 977 443 224 KEVIN\nJENNIE https://wa.link/pjxek6 937 055 670 - JENNIE\nKITTY https://wa.link/zq5nqd 936359801\nGLOGLO https://wa.link/mgpkq7 929207945\n\nVisítanos en: \n\n📌 TIENDA CC CYBERPLAZA 2A 101-102-168-169-170, Av. Garcilazo de la Vega 1348 - Lima",
+                 "isCrawlable": true,
+                 "thumbnail": {
+                   "thumbnails": [
+                     {
+                       "url": "https://i.ytimg.com/vi/zcrovye5-hw/hq2.jpg?sqp=-oaymwE1CKgBEF5IVfKriqkDKAgBFQAAiEIYAHABwAEG8AEB-AG-BIACgAiKAgwIABABGGUgVChEMA8=&rs=AOn4CLBLVSPufQM7DiLSF0zq3bVSZTzwZA",
+                       "width": 168,
+                       "height": 94
+                     },
+                     {
+                       "url": "https://i.ytimg.com/vi/zcrovye5-hw/hq2.jpg?sqp=-oaymwE1CMQBEG5IVfKriqkDKAgBFQAAiEIYAHABwAEG8AEB-AG-BIACgAiKAgwIABABGGUgVChEMA8=&rs=AOn4CLAMpDlGlADz3rl8mxbbGy6jufLoPw",
+                       "width": 196,
+                       "height": 110
+                     },
+                     {
+                       "url": "https://i.ytimg.com/vi/zcrovye5-hw/hq2.jpg?sqp=-oaymwE2CPYBEIoBSFXyq4qpAygIARUAAIhCGABwAcABBvABAfgBvgSAAoAIigIMCAAQARhlIFQoRDAP&rs=AOn4CLBMC4lb20zMh5Q-amvdfV2u59evUQ",
+                       "width": 246,
+                       "height": 138
+                     },
+                     {
+                       "url": "https://i.ytimg.com/vi/zcrovye5-hw/hq2.jpg?sqp=-oaymwE2CNACELwBSFXyq4qpAygIARUAAIhCGABwAcABBvABAfgBvgSAAoAIigIMCAAQARhlIFQoRDAP&rs=AOn4CLDoMNLyxrXsdPHba9WRTUjmJg2d-w",
+                       "width": 336,
+                       "height": 188
+                     },
+                     {
+                       "url": "https://i.ytimg.com/vi/zcrovye5-hw/maxres2.jpg?sqp=-oaymwEoCIAKENAF8quKqQMcGADwAQH4Ab4EgAKACIoCDAgAEAEYZSBUKEQwDw==&rs=AOn4CLClvUEHOlamnBDZAhZrEwf2gSmTXQ",
+                       "width": 1920,
+                       "height": 1080
+                     }
+                   ]
+                 },
+                 "allowRatings": true,
+                 "author": "Team CGS",
+                 "isPrivate": false,
+                 "isUnpluggedCorpus": false,
+                 "isLiveContent": false,
+                 "isTvfilmVideo": false
+               }
+               
+               */
+
+            const playerResponse = (typeof player?.getPlayerResponse === 'function') ? player.getPlayerResponse() : null;
+            if (playerResponse?.videoDetails && playerResponse.videoDetails.videoId === videoId) {
+                const details = playerResponse.videoDetails;
+
+
+
+
+                info.title = details.title || info.title;
+                info.author = details.author || info.author;
+                info.authorId = details.channelId || info.authorId;
+                info.description = details.shortDescription || info.description;
+
+                // Manejo consistente de vistas
+                const rawViews = details.viewCount;
+                if (rawViews) {
+                    info.viewCount = parseInt(rawViews, 10);
+                    info.viewsNumber = info.viewCount.toLocaleString();
+                }
+
+                info.isLive = details.isLiveContent || info.isLive;
+            }
+
+            // B: getVideoData (Fallback de nivel 1)
+            const internalData = player?.getVideoData?.();
+            if (internalData && internalData.video_id === videoId) {
+
+
+                /* 
+                {
+                  "video_id": "zcrovye5-hw",
+                  "author": "Team CGS",
+                  "title": "un qué??!? #cyberplaza #cgscomputer #pcgamer #jennieso #ventas #trendingvideo",
+                  "isPlayable": true,
+                  "errorCode": null,
+                  "video_quality": "large",
+                  "video_quality_features": [],
+                  "backgroundable": false,
+                  "eventId": "QQ6tafaQC6WeobIPz56LoAE",
+                  "cpn": "cSOno_j3FHNWSb7Q",
+                  "isLive": false,
+                  "isWindowedLive": false,
+                  "isManifestless": false,
+                  "allowLiveDvr": false,
+                  "isListed": true,
+                  "isMultiChannelAudio": false,
+                  "hasProgressBarBoundaries": false,
+                  "isPremiere": false,
+                  "itct": "CAAQu2kiEwi2tYj2zY-TAxUlT0gAHU_PAhTKAQTcNAuv",
+                  "playerResponseCpn": "",
+                  "progressBarStartPositionUtcTimeMillis": null,
+                  "progressBarEndPositionUtcTimeMillis": null,
+                  "paidContentOverlayDurationMs": 0,
+                  "isSeekable": null
+                }
+                */
+
+                info.title = info.title || internalData.title;
+                info.author = info.author || internalData.author;
+                info.authorId = info.authorId || internalData.channelId; // Algunos players lo incluyen aquí
+                info.isLive = info.isLive || internalData.isLive;
+            }
+
+            // C: Microformat (Fechas)
+            if (playerResponse?.microformat?.playerMicroformatRenderer) {
+                const micro = playerResponse.microformat.playerMicroformatRenderer;
+                info.published = micro.publishDate ? new Date(micro.publishDate).getTime() : info.published;
+            }
+
+            // D: Playlist ID (Desde playerResponse o getVideoData)
+            info.playlistId =
+                playerResponse?.playlistId ||
+                internalData?.list ||
+                new URLSearchParams(window.location.search).get('list') ||
+                info.playlistId;
+
+        } catch (e) {
+            log('getCascadedVideoInfo', '⚠️ Error en Nivel 1 (Internal API):', e);
+        }
+
+        // 🔵 Nivel 2: YouTube Helper API + Modular Extraction
+        try {
+            if (YTHelper?.video && (!info.title
+                || !info.author
+                || !info.authorId
+                || !info.published
+                || !info.description
+                || !info.viewCount
+                || !info.viewsNumber
+            )) {
+                const helperId = extractOrNormalizeVideoId(location.href).id;
+
+                log('getCascadedVideoInfo', 'Helper ID:', helperId);
+                log('getCascadedVideoInfo', 'Video ID:', videoId);
+                if (helperId === videoId) {
+                    info.title = info.title || YTHelper.video.title;
+                    info.author = info.author || YTHelper.video.channel;
+                    info.authorId = info.authorId || YTHelper.video.channelId;
+                    info.published = info.published || (YTHelper.video.publishDate ? YTHelper.video.publishDate.getTime() : 0);
+                    info.description = info.description || YTHelper.video.rawDescription;
+                    info.viewCount = YTHelper.video.viewCount;
+                    info.viewsNumber = info.viewCount.toLocaleString();
+                }
+            }
+        } catch (_) { }
+
+        // 🟡 Nivel 3: DOM Fallbacks
+        try {
+
+
+            /*    
+             videoId: videoId,
+             title: '',
+             author: '',
+             authorId: '',
+             thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+             isLive: false,
+             published: 0,
+             description: '',
+             viewsNumber: '0',
+             viewCount: 0 
+            */
+
+            // Si es Shorts, usar metapanel del Short ACTIVO
+            if (type === 'shorts') {
+                const metapanel = getActiveShortsControlsContainer();
+
+                if (metapanel) {
+                    // Título (Solo si no tenemos uno válido de Nivel 1/2)
+                    if (!info.title || info.title === videoId) {
+                        const titleEl =
+                            metapanel.querySelector('yt-shorts-video-title-view-model') ||
+                            metapanel.querySelector('h2') ||
+                            // De sidebar
+                            document.querySelector('ytd-video-description-header-renderer #title');
+                        info.title = titleEl?.textContent?.trim() || info.title;
+                    }
+
+                    // Autor (Solo si no tenemos uno de Nivel 1/2)
+                    if (!info.author || info.author === t('unknown')) {
+                        const authorEl = metapanel.querySelector('#channel-name a') || metapanel.querySelector('a[href*="/@"]');
+                        info.author = authorEl?.textContent?.trim() || info.author;
+                    }
+
+                    // Channel ID
+                    if (!info.authorId) {
+                        const channelLink = metapanel.querySelector('a[href*="/channel/"]');
+                        if (channelLink) {
+                            info.authorId = channelLink.href.split('/channel/')[1]?.split(/[/?#]/)[0];
+                        } else {
+                            let channelLink = document.querySelector(`${S.IDS.SHORTS_PLAYER} a[href*="/channel/"]`);
+                            info.authorId = channelLink?.href?.split('/channel/')?.[1]?.split(/[/?#]/)?.[0]
+                        }
+                    }
+
+                    // Vistas (aria-label) - Shorts focus ya que primeros fallbacks no lo añaden
+                    if (!info.viewsNumber || info.viewsNumber === '0' || info.viewCount === 0) {
+                        const viewEl =
+                            // "1,167,872 vistas" 
+                            document.querySelector('view-count-factoid-renderer .ytwFactoidRendererFactoid')
+                                ?.getAttribute?.('aria-label');
+
+                        const match = viewEl?.match(/[\d.,\s]+/)?.[0] || '';
+                        const labelViews = match.trim(); // mantiene comas
+                        info.viewsNumber = labelViews;
+                        info.viewCount = Number(match.replace(/[^\d]/g, "")); // número limpio
+                    }
+                }
+            }
+
+            // Fallbacks genéricos para otros tipos o si Shorts falló
+            if (!info.title || info.title === videoId) {
+                let titleEl = null;
+                if (type === 'watch') {
+                    titleEl =
+                        document.querySelector('h1.ytd-video-primary-info-renderer') ||
+                        document.querySelector('yt-formatted-string.ytd-video-description-header-renderer');
+                } else if (type === 'miniplayer') {
+                    titleEl =
+                        document.querySelector('ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span') ||
+                        document.querySelector('ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span[role="text"]');
+                } else if (type === 'preview') {
+                    titleEl = document.querySelector('#inline-preview-player .ytp-title-link');
+                }
+
+                info.title = titleEl?.textContent?.trim() || info.title;
+
+                // Fallback definitivo al título del documento si nada funcionó
+                if (!info.title || info.title === videoId) {
+                    info.title = document.title.replace(/ - YouTube$/, '') || videoId;
+                }
+            }
+
+            if (!info.author || info.author === t('unknown')) {
+                const container = videoEl?.closest?.(SELECTORS.MAIN_CONTAINERS) || document;
+                const authorEl =
+
+
+
+
+
+                    document.querySelector('#channel-name a') ||
+                    document.querySelector('link[itemprop="name"]');
+                info.author = authorEl?.textContent?.trim() || authorEl?.content || info.author;
+            }
+
+
+            // VIEWS: '.view-count, view-count-factoid-renderer .ytwFactoidRendererFactoid[role="text"], ytd-watch-info-text div#tooltip.tp-yt-paper-tooltip, yt-formatted-string.view-count'
+
+        } catch (e) {
+            log('getCascadedVideoInfo', '⚠️ Error en Nivel 3 (DOM Fallbacks):', e);
+        }
+
+        // Limpieza final
+        if (!info.title || info.title === 'undefined') info.title = videoId;
+        if (!info.author || info.author === 'undefined') info.author = t('unknown');
+
+        return info;
+    }
+
+
+
 
 
 
@@ -11562,8 +8264,6 @@ background: var(--ypp-danger);
     /** @type {VirtualScroller|null} Instancia del scroller virtual para la lista de videos */
     let virtualScroller = null;
     let storageUsageRefreshIntervalId = null;
-    /** @type {Array|null} Cache de items preparados para evitar re-procesar en cada render */
-    let preparedItemsCache = null;
     /** @type {Map<string, string>} Cache global de títulos por ID para uso en createVideoEntry */
     let modalVideoTitleById = new Map();
 
@@ -11822,8 +8522,8 @@ background: var(--ypp-danger);
         // Aplicar ordenamiento
         const getSortValue = (item) => {
             if (currentOrderBy === 'title') return (item.info.title || item.videoId).toLowerCase();
-            if (currentOrderBy === 'oldest') return item.info.savedAt || 0;
-            return -(item.info.savedAt || 0);
+            if (currentOrderBy === 'oldest') return item.info.savedAt || item.info.lastUpdated || item.info.timeWatched || 0;
+            return -(item.info.savedAt || item.info.lastUpdated || item.info.timeWatched || 0);
         };
         filteredItems.sort((a, b) => {
             const valA = getSortValue(a);
@@ -11831,9 +8531,6 @@ background: var(--ypp-danger);
             if (typeof valA === 'string') return valA.localeCompare(valB);
             return valA - valB;
         });
-
-        // Guardar items preparados en cache
-        preparedItemsCache = filteredItems;
 
         // Limpiar indicador de carga
         setInnerHTML(listContainer, '');
@@ -11949,7 +8646,6 @@ background: var(--ypp-danger);
             virtualScroller.destroy();
             virtualScroller = null;
         }
-        preparedItemsCache = null;
 
         if (videosOverlay) {
             videosOverlay.remove();
@@ -12436,19 +9132,18 @@ background: var(--ypp-danger);
 
     async function createVideoEntry(videoId, info, playlistKey = null, playlistTitle = null) {
         let isCompleted = info.isCompleted || false;
-        if (info.timestamp && info.duration) {
-            isCompleted = isCompleted || (normalizeSeconds(info.timestamp) >= normalizeSeconds(info.duration) - 1);
+        const duration = normalizeSeconds(info.duration);
+        const watched = normalizeSeconds(info.timestamp);
+        if (watched > 3 && duration > 10) { // Solo autocalcular si hay datos mínimos confiables
+            isCompleted = isCompleted || (watched >= duration - 2);
         }
 
-        const videoTime = formatTime(normalizeSeconds(info.timestamp));
+        const videoTime = formatTime(watched);
         const rawDuration = info.duration;
-        const duration = normalizeSeconds(info.duration);
 
         if (duration === 0 && rawDuration === 0) {
             log('createVideoEntry', `⚠️ Video ${videoId} sin duración guardada (formato antiguo)`);
         }
-
-        const watched = normalizeSeconds(info.timestamp);
         const remaining = Math.max(duration - watched, 0);
         const percent = duration ? Math.min(100, Math.round((watched / duration) * 100)) : null;
 
@@ -12636,665 +9331,16 @@ background: var(--ypp-danger);
         });
     }
 
-    // ------------------------------------------
-    // MARK: 📢 Ad Monitor
-    // ------------------------------------------
 
-    // Observer centralizado para detectar anuncios
-    function createAdStateMonitor() {
-        log('createAdStateMonitor', '🚀 Iniciando creación del monitor de anuncios');
 
-        const target = getActiveContainer();
-        if (!target) {
-            warn('createAdStateMonitor', '⚠️ No se pudo obtener container activo, monitor no inicializado');
-            return null;
-        }
-        log('createAdStateMonitor', '✅ Container activo obtenido:', target.nodeName, target.className?.substring(0, 50));
 
-        log('createAdStateMonitor', '📋 Selectores de anuncios configurados');
 
-        let observer = null;
-        let classObserver = null;
-        let adRapidCheckInterval = null;
-        let adRapidDelay = 75;
-        const AD_RAPID_MIN = 75;
-        const AD_RAPID_MAX = 250;
-        const playerObj = YTHelper?.player?.playerObject || target;
 
-        // 🚨 CRITICAL FIX: Track ad start time to force reset if stuck (e.g., class ad-created remains in DOM)
-        let lastAdStartTimeWatch = null;
-        let lastAdStartTimeShorts = null;
-        const AD_STUCK_TIMEOUT_MS = 120000;  // 120 seconds (2 minutes) - only for handler recovery in extreme cases
 
-        // Función para pausar/reanudar el script completamente
-        const pauseScript = () => {
-            if (!isScriptPaused) {
-                isScriptPaused = true;
-                log('createAdStateMonitor', '⏸️  SCRIPT PAUSADO TOTALMENTE - Anuncio detectado');
-                // Detener todos los procesos principales del script
-                if (window.mainInterval) clearInterval(window.mainInterval);
-                if (window.progressInterval) clearInterval(window.progressInterval);
-                // Despachar evento global para que otros módulos se detengan
-                window.dispatchEvent(new CustomEvent('scriptPauseStateChanged', { detail: { isPaused: true } }));
-            }
-        };
 
-        const resumeScript = () => {
-            if (isScriptPaused) {
-                isScriptPaused = false;
-                // Marcar cuándo terminó el anuncio para evitar falsos positivos
-                lastAdEndTime = Date.now();
-                log('createAdStateMonitor', '▶️  SCRIPT REANUDADO - Anuncio finalizado');
-                // Reanudar procesos principales del script
-                // El evento scriptPauseStateChanged disparará handleNavigation en el listener global
-                window.dispatchEvent(new CustomEvent('scriptPauseStateChanged', { detail: { isPaused: false } }));
-            }
-        };
 
-        const checkAdState = () => {
-            const nowTs = Date.now();
-            const canLog = nowTs - lastAdCheckLog > 1000;
-            if (canLog) lastAdCheckLog = nowTs;
 
-            // PERÍODO DE GRACIA: Si el anuncio acaba de terminar, dar tiempo para que el DOM se limpie
-            // Esto evita detectar falsos positivos causados por elementos 'fantasma' del anuncio
-            const AD_END_GRACE_PERIOD = 500; // 500ms de gracia después de que termina el anuncio
-            if (lastAdEndTime > 0 && nowTs - lastAdEndTime < AD_END_GRACE_PERIOD) {
-                if (canLog) log('checkAdState', `⏳ PERÍODO DE GRACIA post-anuncio (${nowTs - lastAdEndTime}ms/${AD_END_GRACE_PERIOD}ms) - ignorando detecciones`);
-                return false; // No reportar anuncios durante el período de gracia
-            }
 
-            // Evitar trabajo cuando no hay anuncio y el video está pausado/no visible,
-            // pero antes hacer una verificación ligera de señales fuertes (clases/overlay/API)
-            try {
-                const ve = YTHelper?.player?.videoElement;
-                let isVisible = true;
-                if (ve && ve.getBoundingClientRect) {
-                    const r = ve.getBoundingClientRect();
-                    isVisible = (r.width > 100 && r.height > 50 && r.bottom > 0 && r.top < (window.innerHeight || 0) + 1);
-                }
-                if (!isAdPlaying && ((ve && ve.paused) || !isVisible)) {
-                    const ytHelperAdQuick = !!YTHelper?.player?.isPlayingAds;
-                    const po = YTHelper?.player?.playerObject;
-                    const hasAdClassQuick = !!AdSelectors.playerAdClasses.some((c) => po?.classList?.contains?.(c));
-                    const overlayQuick = !!DOMHelpers.get('ad:quickOverlay', () => target?.querySelector?.(AdSelectorText.inPlayerAdContainers), 100);
-                    if (!ytHelperAdQuick && !hasAdClassQuick && !overlayQuick) {
-                        return false;
-                    }
-                }
-            } catch (_) { }
-
-            let newWatch = false;
-            let newShorts = false;
-
-            // 1. Verificación principal: YTHelper API (más confiable)
-            const ytHelperAd = YTHelper?.player?.isPlayingAds;
-            if (canLog) log('checkAdState', '✅ Verificación principal: YTHelper API', ytHelperAd);
-
-            if (ytHelperAd) {
-                try {
-                    const ptNow = (currentPageType || getYouTubePageType());
-                    if (ptNow === 'shorts') {
-                        newShorts = true;
-                    } else if (ptNow !== 'shorts') {
-                        newWatch = true;
-                    }
-                } catch (_) { newWatch = true; }
-            }
-
-            // 2. Verificación de clases en el playerObject (método del Helper API)
-            const playerObject = YTHelper?.player?.playerObject;
-            const shouldAvoidUnstarted = playerObject?.classList.contains('unstarted-mode');
-            const hasAdClassOnPlayer = !shouldAvoidUnstarted && AdSelectors.playerAdClasses.some((c) => playerObject?.classList?.contains?.(c));
-
-            if (canLog) log('checkAdState', '✅ Verificación de clases en el playerObject', hasAdClassOnPlayer);
-
-            if (hasAdClassOnPlayer) {
-                newWatch = true;
-            }
-
-            // 3. Verificación de elementos visuales DOM
-            const adElement = AdDetector.findVisibleAdUi(target);
-            let adVisible = false;
-
-            if (adElement) {
-                const styles = getComputedStyle(adElement);
-                adVisible =
-                    adElement.offsetParent !== null &&
-                    styles.display !== 'none' &&
-                    styles.visibility !== 'hidden' &&
-                    adElement.getBoundingClientRect().height > 0;
-                if (canLog) log('checkAdState', '👁️  Elemento de anuncio encontrado:', adElement.className, 'visible:', adVisible);
-            } else {
-                if (canLog) log('checkAdState', '👁️  No se encontraron elementos visuales de anuncio');
-            }
-
-            if (adVisible) {
-                newWatch = true;
-            }
-
-            // 4. Verificación para Shorts - Optimizada y sin duplicados
-            const videoTitle = YTHelper?.video?.title || '';
-            const videoAuthor = YTHelper?.video?.channel || '';
-            const authorLower = videoAuthor.toLowerCase();
-            const isInShortsPage = (currentPageType || getYouTubePageType()) === 'shorts';
-
-            if (canLog) log('checkAdState', `📺 Verificación= title: "${videoTitle}", author: "${videoAuthor}", isShorts: ${isInShortsPage}`);
-
-            let hasAdClassShorts = false;
-
-            if (isInShortsPage) {
-                const videoEl = YTHelper?.player?.videoElement;
-                const duration = videoEl?.duration || 0;
-
-                // 0. Detectar clase 'ad-created' (método más confiable)
-                const shortsPlayer = DOMHelpers.getShortsPlayer();
-                const hasAdCreatedClass = shortsPlayer?.classList.contains?.(AdSelectors.shortsAdClasses[0]);
-                if (canLog) log('checkAdState', `🎯 Clase ad-created detectada: ${hasAdCreatedClass}`);
-
-                // Patrones de autores de anuncios
-                const isAdChannel = authorLower.includes('ad upload channel') || authorLower.includes('video ad');
-                const isSuspiciousAuthor = authorLower.includes('game') || authorLower.includes('app') ||
-                    authorLower.includes('download') || authorLower.includes('install') ||
-                    authorLower.match(/\d{3,}/);
-                const isGenericTitle = videoTitle === 'YouTube' || videoTitle === 'Advertisement';
-
-                if (canLog) log('checkAdState', `🔍 Patros | isAdChannel: ${isAdChannel}, isSuspicious: ${isSuspiciousAuthor}, isGeneric: ${isGenericTitle}, duration: ${duration}`);
-
-                if (hasAdCreatedClass) {
-                    hasAdClassShorts = true;
-                    if (canLog) log('checkAdState', `✅ Anuncio de short detectado por clase ad-created`);
-                } else if (isAdChannel) {
-                    hasAdClassShorts = true;
-                    if (canLog) log('checkAdState', `✅ Anuncio de short detectado por canal de anuncios`);
-                } else if (isGenericTitle && duration > 0 && duration <= 60) {
-                    const hasRealAuthorName = videoAuthor.length > 20 && !isSuspiciousAuthor;
-                    hasAdClassShorts = !hasRealAuthorName;
-                    if (canLog) log('checkAdState', `✅ Anuncio de short detectado por título genérico: ${hasAdClassShorts}`);
-                } else if (hasAdCreatedClass && ytHelperAd) {
-                    hasAdClassShorts = true;
-                    if (canLog) log('checkAdState', `✅ Anuncio de short confirmado por clase + API`);
-                }
-            }
-
-            if (hasAdClassShorts) {
-                if (canLog) log('checkAdState', `✅ Anuncio detectado en shorts: ${hasAdClassShorts}`);
-                newShorts = true;
-            }
-
-            // 5. Fallback: Comparación de duraciones
-            let durationMismatch = false;
-            if (YTHelper?.apiProxy) {
-                try {
-                    const progressState = YTHelper.apiProxy.getProgressState?.();
-                    const reportedDuration = progressState?.duration;
-                    const realDuration = YTHelper.apiProxy.getDuration?.();
-                    if (reportedDuration && realDuration) {
-                        durationMismatch = Math.trunc(realDuration) !== Math.trunc(reportedDuration);
-                        if (canLog) log('checkAdState', `⏱️  Comparación duraciones | real: ${realDuration}, reported: ${reportedDuration}, mismatch: ${durationMismatch}`);
-                    }
-                } catch (e) {
-                    if (canLog) log('checkAdState', `⚠️ Error en verificación de duraciones: ${e.message}`);
-                }
-            }
-
-            // 6. Detección por duración corta + elementos de anuncio visibles
-            let shortDurationWithAdElements = false;
-            const videoEl = YTHelper?.player?.videoElement;
-            if (videoEl && videoEl.duration > 0 && videoEl.duration <= 90) {
-                if (!isInShortsPage) {
-                    // FIX BUG 2: Avoid false positives from lingering shorts-player on homepage
-                    const activeContainer = document.querySelector('#movie_player') || document;
-                    shortDurationWithAdElements = AdDetector.hasShortDurationAdUi(activeContainer);
-                } else {
-                    shortDurationWithAdElements = AdDetector.hasShortDurationAdUi();
-                }
-                if (canLog) log('checkAdState', `⏱️  Duración corta con elementos de anuncio | duration: ${videoEl.duration}, hasElements: ${shortDurationWithAdElements}`);
-            }
-
-            // Estado final combinado
-            // Núcleo confiable: API Helper, clases del player, elementos visibles y shorts
-            let newState = ytHelperAd || hasAdClassOnPlayer || adVisible || hasAdClassShorts;
-            if (isInShortsPage) { newShorts = newShorts || hasAdClassShorts || (ytHelperAd && !hasAdClassOnPlayer); }
-            if (!isInShortsPage) { newWatch = newWatch || ytHelperAd || hasAdClassOnPlayer || adVisible; }
-
-            // Heurísticas débiles: solo se usan para detectar INICIO cuando aún no hay anuncio en curso
-            // CRÍTICO PARA SHORTS: NO usar shortDurationWithAdElements en shorts porque los selectores
-            // (.ytp-ad-text, .ytp-ad-preview-container, etc) son PARTE de la UI NORMAL de reproducción de shorts.
-            // Esto causaba que shorts legítimas quedaran marcadas como ads indefinidamente.
-            // Para shorts, SOLO usar señales primarias (hasAdCreatedClass, isAdChannel, ytHelperAd).
-            if (!newState && !isAdPlaying) {
-                if (isInShortsPage) {
-                    // Para shorts: NUNCA usar shortDurationWithAdElements (causa falsos positivos)
-                    // SOLO usar durationMismatch (señal primaria confiable)
-                    newShorts = durationMismatch;
-                } else {
-                    // Para watch/home: sí usar shortDurationWithAdElements (útil para detectar anuncios reales)
-                    newWatch = durationMismatch || shortDurationWithAdElements;
-                }
-            }
-            if (canLog) log('checkAdState', `🏁 Resultado final | newWatch: ${newWatch}, newShorts: ${newShorts}, prevWatch: ${isAdWatchPlaying}, prevShorts: ${isAdShortsPlaying}`);
-
-            // Reset timers on state change to keep them clean (but don't use timeout for reset)
-            if (!newWatch) lastAdStartTimeWatch = null;
-            if (!newShorts) lastAdStartTimeShorts = null;
-
-            // Manejar cambio de estado
-            const prevWatch = isAdWatchPlaying;
-            const prevShorts = isAdShortsPlaying;
-            const prevAny = isAdPlaying;
-            isAdWatchPlaying = !!newWatch;
-            isAdShortsPlaying = !!newShorts;
-            isAdPlaying = isAdWatchPlaying || isAdShortsPlaying;
-
-            if (prevWatch !== isAdWatchPlaying || prevShorts !== isAdShortsPlaying) {
-                if (isAdWatchPlaying && !prevWatch) {
-                    log('checkAdState', `⏹️  ANUNCIO DETECTADO (watch) - Evaluando si pausar script`);
-                    try {
-                        pauseScript();
-                    } catch (e) {
-                        log('checkAdState', `⚠️ Error al detectar coexistencia: ${e.message}, pausando script por seguridad`);
-                        pauseScript();
-                    }
-                    if (!adRapidCheckInterval) { startAdRapidCheck(); }
-                } else if (!isAdWatchPlaying && prevWatch) {
-                    log('checkAdState', `✅ ANUNCIO FINALIZADO (watch) - Reanudando script`);
-                    resumeScript();
-                    if (adRapidCheckInterval) { try { clearTimeout(adRapidCheckInterval); } catch (_) { } adRapidCheckInterval = null; adRapidDelay = AD_RAPID_MIN; }
-                }
-
-                const diagDetails = isInShortsPage ? ` (title:"${videoTitle.substring(0, 20)}", author:"${videoAuthor.substring(0, 25)}", dur:${videoEl?.duration?.toFixed(1) || 0}s)` : '';
-                if (nowTs - lastAdStateLog > 1000) {
-                    log('checkAdState', `📊 Estado cambió: any ${prevAny}→${isAdPlaying} | watch ${prevWatch}→${isAdWatchPlaying} | shorts ${prevShorts}→${isAdShortsPlaying} | ytHelper:${ytHelperAd}, playerClass:${hasAdClassOnPlayer}, visible:${adVisible}, shortsClass:${hasAdClassShorts}${diagDetails}, duration:${durationMismatch}, shortWithAd:${shortDurationWithAdElements}`);
-                    lastAdStateLog = nowTs;
-                }
-
-                window.dispatchEvent(new CustomEvent('adStateChanged', { detail: { isPlaying: isAdPlaying, watch: isAdWatchPlaying, shorts: isAdShortsPlaying } }));
-            } else {
-                if (canLog) log('checkAdState', `✅ Sin cambios en el estado de anuncios`);
-            }
-        };
-
-        // Usar la función debounce centralizada con mayor delay cuando no hay anuncios
-        const debouncedCheck = debounce(checkAdState, 250);
-
-        /**
-         * Programa comprobaciones rápidas durante anuncios con backoff y uso de RAF si visible.
-         */
-        const startAdRapidCheck = () => {
-            const scheduleRAFIfVisible = (cb) => {
-                try {
-                    if (document.visibilityState === 'visible' && typeof requestAnimationFrame === 'function') {
-                        requestAnimationFrame(cb);
-                    } else {
-                        setTimeout(cb, 0);
-                    }
-                } catch (_) { setTimeout(cb, 0); }
-            };
-
-            const tick = () => {
-                const prevWatch = isAdWatchPlaying;
-                const prevShorts = isAdShortsPlaying;
-                scheduleRAFIfVisible(() => {
-                    try { checkAdState(); } catch (_) { }
-                    const stillAd = !!isAdPlaying;
-                    const noChange = (prevWatch === isAdWatchPlaying) && (prevShorts === isAdShortsPlaying);
-                    if (stillAd) {
-                        if (noChange && adRapidDelay < AD_RAPID_MAX) adRapidDelay = Math.min(AD_RAPID_MAX, adRapidDelay + 25);
-                        adRapidCheckInterval = setTimeout(tick, adRapidDelay);
-                    } else {
-                        adRapidCheckInterval = null;
-                        adRapidDelay = AD_RAPID_MIN;
-                    }
-                });
-            };
-
-            if (!adRapidCheckInterval) {
-                adRapidDelay = AD_RAPID_MIN;
-                adRapidCheckInterval = setTimeout(tick, adRapidDelay);
-            }
-        };
-
-        const start = () => {
-            if (observer) return;
-            log('adStateMonitor', 'Iniciando monitor centralizado de anuncios');
-
-            checkAdState();
-
-            if (playerObj && !classObserver) {
-                classObserver = new MutationObserver((mutations) => {
-                    for (const m of mutations) {
-                        if (m.type === 'attributes' && m.attributeName === 'class') {
-                            checkAdState();
-                            break;
-                        }
-                    }
-                });
-                classObserver.observe(playerObj, { attributes: true, attributeFilter: ['class'] });
-            }
-
-            // Crear callback optimizado que filtra mutaciones irrelevantes
-            const optimizedCallback = (mutations) => {
-                // Solo procesar si hay mutaciones relevantes para anuncios
-                const hasRelevantMutation = mutations.some(mutation => {
-                    // Cambios en atributos de clase o hidden
-                    if (mutation.type === 'attributes') {
-                        const target = mutation.target;
-                        // Solo si el elemento tiene clases relacionadas con anuncios
-                        const className = target.className || '';
-                        return className.includes('ad') || className.includes('ytp') || className.includes('video-ads');
-                    }
-                    // Cambios en nodos hijos solo si están en contenedores de anuncios
-                    if (mutation.type === 'childList') {
-                        const target = mutation.target;
-                        const className = target.className || '';
-                        return className.includes('ad') || className.includes('ytp');
-                    }
-                    return false;
-                });
-
-                // Evitar trabajo cuando no hay anuncio y el video está pausado/no visible, salvo que haya mutación relevante
-                try {
-                    const ve = YTHelper?.player?.videoElement;
-                    let isVisible = true;
-                    if (ve && ve.getBoundingClientRect) {
-                        const r = ve.getBoundingClientRect();
-                        isVisible = (r.width > 100 && r.height > 50 && r.bottom > 0 && r.top < (window.innerHeight || 0) + 1);
-                    }
-                    if (!isAdPlaying && ((ve && ve.paused) || !isVisible) && !hasRelevantMutation) {
-                        return;
-                    }
-                } catch (_) { }
-
-                if (hasRelevantMutation) {
-                    debouncedCheck();
-                }
-            };
-
-            observer = new MutationObserver(optimizedCallback);
-            // Observar un subárbol más específico si existe para reducir ruido
-            const adRoot = DOMHelpers.get('ad:monitorRoot', () => target.querySelector(AdSelectorText.inPlayerAdContainers), 250) || target;
-            observer.observe(adRoot, {
-                attributes: true,
-                attributeFilter: ['class', 'hidden'],
-                childList: true,
-                subtree: true
-            });
-
-        };
-
-        const stop = () => {
-            if (observer) {
-                observer.disconnect();
-                observer = null;
-                log('adStateMonitor', 'Monitor de anuncios detenido');
-            }
-            if (adRapidCheckInterval) { try { clearTimeout(adRapidCheckInterval); } catch (_) { } adRapidCheckInterval = null; adRapidDelay = AD_RAPID_MIN; }
-            if (classObserver) {
-                classObserver.disconnect();
-                classObserver = null;
-            }
-        };
-
-        return { start, stop };
-    }
-
-    // Iniciar el monitor global
-    let adMonitor = null;
-
-    function initAdMonitor() {
-        if (adMonitor) {
-            log('initAdMonitor', '🔄 Deteniendo monitor previo');
-            adMonitor.stop();
-        }
-        adMonitor = createAdStateMonitor();
-        if (adMonitor) {
-            adMonitor.start();
-            log('initAdMonitor', '✅ Monitor de anuncios iniciado correctamente');
-        } else {
-            warn('initAdMonitor', '❌ No se pudo crear el monitor de anuncios');
-        }
-    }
-
-
-
-
-
-
-    // ------------------------------------------
-    // MARK: 🖐 handleNavigation
-    // ------------------------------------------
-
-    let waitingForAdEnd = false; // Variable de control para evitar listeners duplicados
-    let isHandlingNavigation = false; // Prevenir llamadas simultáneas a handleNavigation
-    let currentHandlingUrl = null; // URL que se está procesando actualmente
-
-    const handleNavigation = () => {
-
-        // Si la configuración aún no está lista, encolar esta navegación y salir.
-        if (!isSettingsReady) {
-            log('handleNavigation', '⏳ Settings no listos todavía, encolando navegación actual');
-            queuePendingNavigation(location.href);
-            return;
-        }
-
-        const pageType = getYouTubePageType();
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        // Si navegando a Shorts, NUNCA bloquear por anuncios de watch
-        // (Shorts tiene su propio sistema de detección de ads)
-        const shouldBlockForWatchAds = isAdWatchPlaying;
-
-        if (shouldBlockForWatchAds) {
-            // Si ya hay un listener esperando, no agregar otro
-            if (waitingForAdEnd) {
-                log('handleNavigation', '⏸ Ya hay un listener esperando el fin del anuncio.');
-                return;
-            }
-
-            log('handleNavigation', '❌ Anuncio (watch) en curso, esperando a que finalice...');
-            waitingForAdEnd = true;
-
-            // Configurar listener para procesar cuando el anuncio termine
-            const handleAdEndForNavigation = (event) => {
-                if (event?.detail && event.detail.watch === false) {
-                    log('handleNavigation', '▶️ Anuncio finalizado, reanudando navegación.');
-                    window.removeEventListener('adStateChanged', handleAdEndForNavigation);
-                    waitingForAdEnd = false; // Resetear flag
-                    handleNavigation(); // Reintentar navegación
-                }
-            };
-
-            window.addEventListener('adStateChanged', handleAdEndForNavigation);
-            return;
-        }
-
-        const currentUrl = location.href;
-        if (currentUrl === lastUrl) return;
-
-        // Bloquear solo si estamos procesando la MISMA URL
-        if (isHandlingNavigation && currentHandlingUrl === currentUrl) {
-            log('handleNavigation', '⏸ Ya hay una navegación en progreso para esta URL');
-            return;
-        }
-
-        isHandlingNavigation = true;
-        currentHandlingUrl = currentUrl;
-
-        // Limpiar el período de gracia post-anuncio al navegar a una nueva página
-        // Esto evita que el período de gracia interfiera con el procesamiento del nuevo video
-        lastAdEndTime = 0;
-        log('handleNavigation', '🧹 Período de gracia post-anuncio limpiado para nueva navegación');
-
-        // Limpiar caché de video info para asegurar datos frescos
-        clearVideoInfoCache();
-
-        // Reinicializar monitor de anuncios en cada navegación para asegurar que esté activo
-        initAdMonitor();
-
-        isNavigating = true;
-        log('handleNavigation', `Navegando a: ${currentUrl} desde ${lastUrl}`);
-        // Cancelar cualquier navegación pendiente
-        if (navigationDebounceTimeout) clearTimeout(navigationDebounceTimeout);
-
-        // Programar nueva limpieza y búsqueda de video (50ms de delay optimizado)
-        navigationDebounceTimeout = setTimeout(() => {
-            // Verificar si hay anuncio activo ANTES de obtener el tipo de página
-            // IMPORTANTE: Primero obtener tipo de página destino
-
-            // Si navegando a home con miniplayer activo, mantener solo si YA tenemos handler enlazado a ese miniplayer
-            if (currentPageType === 'home' && YTHelper?.player?.videoElement) {
-                const videoEl = YTHelper.player.videoElement;
-                const rect = videoEl.getBoundingClientRect();
-                const isVisible = rect.width > 100 && rect.height > 50 && rect.top >= 0;
-                const isInMiniplayerContainer = videoEl.closest('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer');
-
-                // Verificar que nuestro handler esté enlazado al mismo elemento del miniplayer
-                let isHandlerBoundToMini = false;
-                try {
-                    const cur = currentVideoEl;
-                    const hasHandler = !!currentTimeUpdateHandler;
-                    const sameEl = cur && document.contains(cur) && cur === videoEl;
-                    const sameContainer = sameEl && !!cur.closest('.ytp-miniplayer-ui, #miniplayer, ytd-miniplayer');
-                    isHandlerBoundToMini = hasHandler && sameContainer;
-                } catch (_) { isHandlerBoundToMini = false; }
-
-                if (isVisible && isInMiniplayerContainer && isHandlerBoundToMini) {
-                    log('handleNavigation', '🎵 Miniplayer activo en home y handler enlazado, manteniendo procesamiento actual');
-                    isNavigating = false;
-                    lastUrl = currentUrl;
-                    return;
-                } else if (isVisible && isInMiniplayerContainer && !isHandlerBoundToMini) {
-                    log('handleNavigation', '🎵 Miniplayer activo en home pero sin handler enlazado. Reprocesando para habilitar guardado.');
-                } else {
-                    log('handleNavigation', '🚫 Video detectado pero no es miniplayer visible, continuando navegación normal');
-                }
-            }
-
-
-            const isWatchPage = currentPageType === 'watch';
-
-            if (!isWatchPage) {
-                log('handleNavigation', '🎬 Actualizando tracker del miniplayer (consultando DOM directamente)...');
-
-
-
-            } else {
-                log('handleNavigation', '📺 /watch detectado — detección de miniplayer omitida (no puede coexistir)');
-            }
-
-            cleanupAll();
-
-            // Iniciar verificación
-            processIfReady();
-        }, 50); // Optimizado a 50ms
-    };
-
-    // ------------------------------------------
-    // MARK: 🧹 cleanupAll
-    // ------------------------------------------
-
-    // Función para limpiar todos los observadores y estados
-    const cleanupAll = () => {
-        log('cleanupAll', 'Iniciando limpieza de observadores, intervalos y estados');
-
-        // CRÍTICO: No limpiar si hay anuncio activo
-        if (isAdPlaying || isScriptPaused) {
-            log('cleanupAll', '⏸️  ABORTANDO cleanupAll - Anuncio activo, no se debe limpiar');
-            return;
-        }
-
-        // Limpiar timers/intervals
-        const timers = [
-            { ref: navigationDebounceTimeout, fn: clearTimeout, name: 'navigationDebounceTimeout' },
-        ];
-
-        timers.forEach(({ ref, fn, name }) => {
-            if (ref) {
-                fn(ref);
-                log('cleanupAll', `${name} limpiado`);
-            }
-        });
-
-        // Determinar si debemos preservar miniplayer ANTES de resetear estados/URLs
-        // Preservar cuando:
-        // - Página es home y el miniplayer está activo (comportamiento original)
-        // - Página es shorts y saveShorts=false y existe contenedor de miniplayer (#movie_player)
-        const ptNowCleanup = getYouTubePageType();
-        let shouldPreserveMiniplayer = false;
-        try {
-            const mpContainer = DOMHelpers.getWatchPlayer();
-            const mpHasVideo = !!(mpContainer && typeof mpContainer.getVideoData === 'function' && mpContainer.getVideoData()?.video_id);
-            // Preservar si hay video en movie_player y NO estamos en una página de reproducción directa (watch/embed)
-            // donde el movie_player es el reproductor principal y no un miniplayer.
-            shouldPreserveMiniplayer = mpHasVideo && (ptNowCleanup !== 'watch' && ptNowCleanup !== 'embed');
-        } catch (_) { shouldPreserveMiniplayer = false; }
-
-        // Resetear estados (NO resetear isAdPlaying aquí, lo maneja el monitor)
-        navigationDebounceTimeout = null;
-
-        lastPlaylistId = null;
-        lastResumeId = null; // lastResumeId global 
-
-        // Conservar lastVideoUrl si preservamos miniplayer (para mantener playlistId y reanudaciones correctas)
-        if (!shouldPreserveMiniplayer) {
-            lastVideoUrl = '';
-        } else {
-            log('cleanupAll', 'lastVideoUrl preservado por miniplayer activo');
-        }
-        log('cleanupAll', 'Estados internos reseteados');
-
-        // Limpiar eventos del video SOLO si no hay miniplayer activo que deseemos preservar
-        if (currentVideoEl && !shouldPreserveMiniplayer) {
-            if (currentTimeUpdateHandler) {
-                currentVideoEl.removeEventListener('timeupdate', currentTimeUpdateHandler);
-                currentTimeUpdateHandler = null;
-            }
-            delete currentVideoEl._cachedPlayerEl;
-            currentVideoEl = null;
-            log('cleanupAll', 'Eventos del video eliminados');
-        } else if (shouldPreserveMiniplayer) {
-            log('cleanupAll', 'Miniplayer activo detectado (home/shorts con saveShorts=false), manteniendo event listeners para continuar guardando progreso');
-        }
-
-
-        const container = document.querySelector('.ypp-toast-container');
-        if (container?.hasChildNodes()) {
-            const toasts = container.querySelectorAll('.ypp-toast');
-            let removed = 0;
-
-            toasts.forEach(toast => {
-                log('cleanupAll', toast.textContent);
-                log('cleanupAll tiene svgsaveicon?', toast.querySelector('.svgSaveIcon'), 'tiene pin icon?', toast.querySelector('.svgPinIcon'), 'tiene timer icon?', toast.querySelector('.svgTimerIcon'), 'tiene play or pause icon?', toast.querySelector('.svgPlayOrPauseIcon'));
-                if (toast.querySelector('.svgSaveIcon, .svgPinIcon, .svgTimerIcon, .svgPlayOrPauseIcon')
-                ) {
-                    toast.remove();
-                    removed++;
-                }
-            });
-
-            if (removed > 0) log('cleanupAll', `${removed} toasts removidos`);
-        }
-        log('cleanupAll', 'Limpieza completa realizada');
-    };
-
-    const prepareForNavigationStart = () => {
-        log('prepareForNavigationStart', '⏳ yt-navigate-start: suspendiendo procesamiento');
-        isNavigating = true;
-        if (navigationDebounceTimeout) clearTimeout(navigationDebounceTimeout);
-    };
 
     // ------------------------------------------
     // MARK: 🔄 Migración de Datos
@@ -13455,22 +9501,7 @@ background: var(--ypp-danger);
         // FASE 2: Normalizar esquema de todas las entradas ya en IndexedDB/Storage
         // ──────────────────────────────────────────────────────────────────────────
 
-        /**
-         * Valida de forma conservadora un título de playlist.
-         * No debe usar validateTitle() porque esa función compara contra document.title (video actual).
-         * @param {unknown} candidateTitle
-         * @returns {boolean}
-         */
-        const isValidPlaylistTitle = (candidateTitle) => {
-            if (typeof candidateTitle !== 'string') return false;
-            const title = candidateTitle.trim();
-            if (!title) return false;
-            if (title.length < 2 || title.length > 200) return false;
-            if (typeof isPlaceholder === 'function' && isPlaceholder(title)) return false;
-            const normalized = title.toLowerCase();
-            if (['youtube', 'loading...', 'untitled', 'null', 'undefined'].includes(normalized)) return false;
-            return true;
-        };
+
 
         // Obtener todas las claves del sistema actual (ya en IndexedDB)
         const allKeys = (await Storage.keys()).filter(k =>
@@ -13588,7 +9619,7 @@ background: var(--ypp-danger);
                 if (!meta) continue;
 
                 // Verificar si el título necesita validación
-                if (meta.title && !isValidPlaylistTitle(meta.title)) {
+                if (meta.title) {
                     const updated = { ...meta, title: '' };
                     await Storage.set(metaKey, updated);
                     log('migrateToFreeTubeFormat', `🔧 Playlist meta ${metaKey}: título inválido limpiado`);
@@ -13650,8 +9681,6 @@ background: var(--ypp-danger);
                 waitForHelper().then((h) => {
                     YTHelper = h;
                     try { info('initializeGlobal', '✅ Referencia a YouTube Helper API obtenida'); } catch (_) { }
-                    try { initAdMonitor(); } catch (_) { }
-                    try { setTimeout(() => { try { handleNavigation(); } catch (_) { } }, 0); } catch (_) { }
                 }).catch((error) => {
                     try { warn('initializeGlobal', '⚠️ Helper API no listo aún, continuando en fallback', error); } catch (_) { }
                 });
@@ -13688,15 +9717,14 @@ background: var(--ypp-danger);
                 }
                 cachedSettings = { ...CONFIG.defaultSettings, ...(loadedSettings || {}) };
                 info('initializeGlobal', 'Settings cargados:', cachedSettings);
-                isSettingsReady = true;
-                processPendingNavigationQueue();
+
             } catch (error) {
                 conError('initializeGlobal', ' Error al preparar traducciones/settings:', error);
                 LANGUAGE_FLAGS = FALLBACK_FLAGS;
                 TRANSLATIONS = FALLBACK_TRANSLATIONS;
                 cachedSettings = { ...CONFIG.defaultSettings };
-                isSettingsReady = true;
-                processPendingNavigationQueue();
+
+
             }
 
             // --- Cargar configuración y establecer idioma ---
@@ -13720,8 +9748,8 @@ background: var(--ypp-danger);
                 // Actualizar siempre cachedSettings.language con el idioma detectado/seleccionado
                 cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
                 cachedSettings.language = langToUse;
-                isSettingsReady = true;
-                processPendingNavigationQueue();
+
+
 
                 // Guardar preferencia si era primera carga o si el idioma cambió
                 if (!hadLanguageInStorage || (loadedSettings?.language !== langToUse)) {
@@ -13776,41 +9804,43 @@ background: var(--ypp-danger);
                 conError('initializeGlobal', '❌ Error al registrar menú o inyectar estilos:', error);
             }
 
-            // --- Iniciar monitor de anuncios ---
-            // Nota: El primer intento puede fallar si el DOM no está listo
-            // handleNavigation lo reiniciará cuando sea necesario
-            try {
-                initAdMonitor();
-                info('initializeGlobal', '✅ Intento inicial de monitor de anuncios');
-            } catch (error) {
-                warn('initializeGlobal', '⚠️ Primer intento de monitor falló (normal si DOM no está listo):', error);
-            }
 
             // --- Configurar eventos de navegación ---
+            /**
+             * Maneja eventos de navegación para actualizar el estado global del script.
+             * Aunque los observadores manejan la detección de videos, esta función asegura
+             * que el tipo de página y el ID actual estén sincronizados.
+            */
+            const handleNavigation = () => {
+                currentPageType = getYouTubePageType();
+                info('handleNavigation', `🌐 Navegación detectada: ${currentPageType}`);
+
+                // Limpiar cachés de DOM para asegurar que el siguiente procesamiento use elementos frescos
+                DOMHelpers.clearAll();
+
+                // Forzar escaneo de videos después de la navegación (Bootstrap reactivo)
+                /*  if (typeof VideoObserverManager?.bootstrap === 'function') {
+                     VideoObserverManager.bootstrap();
+                 } */
+            };
             const debouncedNavigation = debounce(handleNavigation, 50);
-            window.addEventListener('yt-navigate-start', prepareForNavigationStart);
             window.addEventListener('yt-navigate-finish', debouncedNavigation);
             document.addEventListener('yt-page-data-updated', debouncedNavigation);
 
-            // --- Configurar listener global para pausa de script por anuncios ---
-            window.addEventListener('scriptPauseStateChanged', (event) => {
-                const { isPaused } = event.detail;
-                if (isPaused) {
-                    info('initializeGlobal', '⏸️  Script pausado por detección de anuncio (scriptPauseStateChanged) - Módulos deben detenerse');
-                } else {
-                    info('initializeGlobal', '▶️  Script reanudado - Anuncio finalizado');
-                    // Esperar a que el DOM se limpie después del anuncio antes de procesar el video
-                    // Esto evita detectar elementos 'fantasma' del anuncio que aún están presentes en el DOM
-                    setTimeout(() => {
-                        info('initializeGlobal', '⏳ Esperando limpieza del DOM post-anuncio...');
-                        handleNavigation();
-                    }, 300); // Esperar 300ms para que el DOM se estabilice
-                }
+            // --- Inicializar observadores de video ---
+            try {
+                VideoObserverManager.init();
+            } catch (error) {
+                conError('initializeGlobal', '❌ Error al inicializar VideoObserverManager:', error);
+            }
 
-            })
-        })
 
-    }
+            isGloballyInitialized = true;
+            initializationPromise = null;
+        })();
+
+        return await initializationPromise;
+    };
 
     // Función principal de inicialización
     const init = async () => {

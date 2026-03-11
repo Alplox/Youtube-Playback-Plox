@@ -4714,6 +4714,45 @@ background: var(--ypp-danger);
         inputFile.click();
     };
 
+
+
+    /* Formato de exportado que realiza freetube
+    {
+        "videoId": "VxoB4vM1pUM",
+        "title": "Apple’s Co-Founder Left to Make THIS??",
+        "author": "Linus Tech Tips",
+        "authorId": "UCXuqSBlHAE6Xw-yeJA0Tunw",
+        "published": 1773252997000,
+        "description": "Get a 15% discount",
+        "viewCount": 92915,
+        "lengthSeconds": 968,
+        "watchProgress": 967.742999,
+        "timeWatched": 1773258438942,
+        "isLive": false,
+        "type": "video",
+        "lastViewedPlaylistType": "",
+        "lastViewedPlaylistItemId": null
+    },
+    {
+        "videoId": "2psXxetNpoo",
+        "title": "I Couldn't Wait! I Made My Own DREAM Steam Machine",
+        "author": "Linus Tech Tips",
+        "authorId": "UCXuqSBlHAE6Xw-yeJA0Tunw",
+        "published": 1769451239000,
+        "description": "Click this link https://boot.dev/?promo=LTT and use my code LTT to get 25% off",
+        "viewCount": 2102746,
+        "lengthSeconds": 1517,
+        "watchProgress": 1499.646,
+        "timeWatched": 1773260012737,
+        "isLive": false,
+        "type": "video",
+        "lastViewedPlaylistId": "PL8mG-RkN2uTxUDsa3bIr1ppk8oBMJqn32",    // referente a: https://www.youtube.com/watch?v=2psXxetNpoo&list=PL8mG-RkN2uTxUDsa3bIr1ppk8oBMJqn32
+        "lastViewedPlaylistType": "local",
+        "lastViewedPlaylistItemId": null
+    } 
+        */
+
+
     /**
     * Convierte el formato interno de YouTube Playback Plox a formato FreeTube
     * @param {Object} internalData - Datos en formato interno del script
@@ -5019,9 +5058,6 @@ background: var(--ypp-danger);
         return { imported, failed, total: freeTubeData.length };
     }
 
-
-
-
     /**
      * Guarda progreso para un video regular (watch page)
      * @param {string} videoId - ID del video
@@ -5089,25 +5125,6 @@ background: var(--ypp-danger);
         // Verificar si hubo error de almacenamiento
         if (storageResult && !storageResult.success) {
             return { success: false, reason: storageResult.reason, videoId, type: 'video' };
-        }
-
-        // Actualizar metadata de playlist si aplica
-        if (playlistId) {
-            const playlistMetaKey = `playlist_meta_${playlistId}`;
-            let playlistMeta = await Storage.get(playlistMetaKey) || {
-                playlistId,
-                title: '',
-                lastWatchedVideoId: videoId,
-                lastUpdated: now
-            };
-            playlistMeta.lastWatchedVideoId = videoId;
-            playlistMeta.lastUpdated = now;
-            const playlistStorageResult = await Storage.set(playlistMetaKey, playlistMeta);
-
-            // Verificar si hubo error de almacenamiento en metadata de playlist
-            if (playlistStorageResult && !playlistStorageResult.success) {
-                log('saveRegularVideo', `⚠️ Error guardando metadata de playlist: ${playlistStorageResult.reason}`);
-            }
         }
 
         return { success: true, videoId, timestamp: videoData.timestamp, type: 'video', savedData: videoData };
@@ -7795,7 +7812,7 @@ background: var(--ypp-danger);
 
         // Cachear el nombre de la playlist mientras estamos en Watch (donde está en el DOM)
         if (playlistId) {
-            getPlaylistName(playlistId).catch(() => { });
+            getPlaylistName(playlistId);
         }
 
         // Inicializar display proactivamente pasando el player ya resuelto
@@ -8199,7 +8216,7 @@ background: var(--ypp-danger);
 
             const checkPlayer = (p) => {
                 try {
-                    const resp = p?.getPlayerResponse()?.videoDetails?.videoId || p?.getVideoData?.()?.video_id;
+                    const resp = p?.getPlayerResponse?.()?.videoDetails?.videoId || p?.getVideoData?.()?.video_id;
                     info('getCascadedVideoInfo', `checkPlayer: ${resp}`)
                     return resp === videoId;
                 } catch (_) { return false; }
@@ -8336,12 +8353,17 @@ background: var(--ypp-danger);
                 info.published = micro.publishDate ? new Date(micro.publishDate).getTime() : info.published;
             }
 
-            // D: Playlist ID (Desde playerResponse o getVideoData)
+            // D: Playlist ID y Título (Desde playerResponse o getVideoData)
             info.playlistId =
                 playerResponse?.playlistId ||
                 internalData?.list ||
                 new URLSearchParams(window.location.search).get('list') ||
                 info.playlistId;
+
+            if (info.playlistId) {
+                // getPlaylistName ya maneja cache y peticiones HTTP si es necesario
+                info.playlistTitle = await getPlaylistName(info.playlistId);
+            }
 
         } catch (e) {
             log('getCascadedVideoInfo', '⚠️ Error en Nivel 1 (Internal API):', e);
@@ -8650,31 +8672,18 @@ background: var(--ypp-danger);
                             return '[unprintable]';
                         }
                     })();
-                    warn('fixThumbnailsInStorage', `Entrada inválida en Storage (se eliminará). key="${key}", type=${typeof data}, preview=${preview}`);
-                } catch (_) { }
-                try {
+                    warn('fixThumbnailsInStorage', `Entrada inválida en Storage (se eliminará). key="${key}", data="${preview}"`);
                     await Storage.del(key);
-                } catch (_) { }
+                } catch (e) {
+                    conError('fixThumbnailsInStorage', `Error al intentar eliminar clave corrupta ${key}:`, e);
+                }
                 continue;
             }
-            if (data.videos && typeof data.videos === 'object') {
-                let modified = false;
-                // Usar Object.keys para evitar crear arrays intermedios
-                for (const vid of Object.keys(data.videos)) {
-                    const info = data.videos[vid];
-                    const vId = info?.videoId || vid;
-                    if (!thumbnailHasVideoId(info?.thumb, vId)) {
-                        if (data.videos[vid] && typeof data.videos[vid] === 'object') {
-                            data.videos[vid].thumb = `https://i.ytimg.com/vi/${vId}/maxresdefault.jpg`;
-                            modified = true;
-                        }
-                        modified = true;
-                    }
-                }
-                if (modified) await Storage.set(key, data);
-            } else {
+
+            // Si no tiene thumbnail o es un thumbnail genérico, intentar generar uno nuevo
+            if (!data.thumb || data.thumb.includes('default/maxresdefault.jpg')) {
                 const vId = data.videoId || key;
-                if (!thumbnailHasVideoId(data?.thumb, vId)) {
+                if (vId && typeof vId === 'string' && vId.length >= 11) {
                     data.thumb = `https://i.ytimg.com/vi/${vId}/maxresdefault.jpg`;
                     await Storage.set(key, data);
                 }
@@ -8757,30 +8766,6 @@ background: var(--ypp-danger);
 
         const keys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
 
-        // Cargar metadata de playlists para referencia
-        const playlistMetas = {};
-        const playlistMetaKeys = (await Storage.keys()).filter(k => k.startsWith('playlist_meta_'));
-        for (const metaKey of playlistMetaKeys) {
-            const meta = await Storage.get(metaKey);
-            if (meta?.playlistId) {
-                playlistMetas[meta.playlistId] = meta;
-
-                // Refresco proactivo: si el título es genérico o falta, intentar recuperarlo
-                if (!meta.title || meta.title === meta.playlistId) {
-                    getPlaylistName(meta.playlistId).then(async name => {
-                        if (name && name !== meta.playlistId) {
-                            const updated = await Storage.get(metaKey);
-                            if (updated && (!updated.title || updated.title === meta.playlistId)) {
-                                updated.title = name;
-                                await Storage.set(metaKey, updated);
-                                log('updateVideoList', `✅ Título de playlist actualizado en segundo plano: ${name}`);
-                            }
-                        }
-                    });
-                }
-            }
-        }
-
         // Cargar todos los datos en lotes paralelos
         const allData = await batchLoadStorageData(keys);
 
@@ -8806,20 +8791,18 @@ background: var(--ypp-danger);
                 continue;
             }
 
-            // Formato FreeTube: todos los videos son entradas independientes
+            // Formato actual: cada video es una entrada independiente con sus metadatos consolidados
             const videoId = data.videoId || key;
-            const playlistId = data.lastViewedPlaylistId;
-            const playlistTitle = playlistId
-                ? (playlistMetas[playlistId]?.title || playlistId)
-                : null;
+            const playlistId = data.lastViewedPlaylistId || null;
+            const playlistTitle = data.playlistTitle || playlistId || null;
 
             allItems.push({
                 type: playlistId ? 'playlist-video' : 'regular-video',
                 videoId,
                 info: data,
                 playlistKey: playlistId,
-                playlistTitle,
-                lastWatchedVideoId: playlistMetas[playlistId]?.lastWatchedVideoId || null
+                playlistTitle: playlistTitle,
+                lastWatchedVideoId: null // Se delegaba a playlist_meta, ahora es opcional
             });
         }
 

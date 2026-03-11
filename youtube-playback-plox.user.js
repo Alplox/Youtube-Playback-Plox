@@ -122,6 +122,7 @@
 // @grant        GM_listValues
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
+// @grant        GM_addElement
 // @run-at       document-end
 // @namespace    youtube-playback-plox
 // @license      MIT
@@ -3978,10 +3979,13 @@ background: var(--ypp-danger);
             let helper = null;
             if (typeof youtubeHelperApi !== 'undefined') {
                 helper = youtubeHelperApi;
+                try { info('waitForHelper', '✅ Referencia a YouTube Helper API obtenida youtubeHelperApi'); } catch (_) { }
             } else if (typeof window.youtubeHelperApi !== 'undefined') {
                 helper = window.youtubeHelperApi;
+                try { info('waitForHelper', '✅ Referencia a YouTube Helper API obtenida window.youtubeHelperApi'); } catch (_) { }
             } else if (typeof unsafeWindow !== 'undefined' && unsafeWindow.youtubeHelperApi) {
                 helper = unsafeWindow.youtubeHelperApi;
+                try { info('waitForHelper', '✅ Referencia a YouTube Helper API obtenida unsafeWindow.youtubeHelperApi'); } catch (_) { }
             }
 
             if (helper) {
@@ -3997,11 +4001,11 @@ background: var(--ypp-danger);
 
             // Si no existe todavía, reintenta
             if (retries < MAX_RETRIES) {
-                warn('init', `[YTHelper] No disponible, reintentando... (${retries + 1}/${MAX_RETRIES})`);
+                warn('waitForHelper', `[YTHelper] No disponible, reintentando... (${retries + 1}/${MAX_RETRIES})`);
 
                 // Intentar cargar desde el fallback en el reintento 3 para darle oportunidad a GreasyFork primero
                 if (retries === 3 && typeof GM_xmlhttpRequest !== 'undefined') {
-                    warn('init', '[YTHelper] Intentando cargar Helper API desde Fallback (GitHub)...');
+                    warn('waitForHelper', '[YTHelper] Intentando cargar Helper API desde Fallback (GitHub)...');
                     GM_xmlhttpRequest({
                         method: 'GET',
                         url: FALLBACK_URL,
@@ -4010,33 +4014,53 @@ background: var(--ypp-danger);
                                 try {
                                     // Reemplazar const por definición en window para acceso global
                                     const code = response.responseText.replace(/const\s+youtubeHelperApi\s*=/, 'window.youtubeHelperApi = ');
+
+                                    // Opción A: GM_addElement (Tampermonkey/Violentmonkey) - Método más seguro para saltar CSP
+                                    if (typeof GM_addElement !== 'undefined') {
+                                        GM_addElement(document.head, 'script', { textContent: code });
+                                        info('waitForHelper', '[YTHelper] Helper API cargado mediante GM_addElement.');
+                                        return;
+                                    }
+
+                                    // Opción B: Trusted Types aware injection
+                                    let trustedCode = code;
+                                    if (window.trustedTypes?.createPolicy) {
+                                        try {
+                                            const policy = window.trustedTypes.createPolicy('ypp-helper-fallback', {
+                                                createScript: (s) => s
+                                            });
+                                            trustedCode = policy.createScript(code);
+                                        } catch (_) { /* Política ya existe o creación bloqueada */ }
+                                    }
+
                                     try {
-                                        // Intento 1: Ejecutar directamente (Sandbox)
+                                        // Intento 1: Sandbox (new Function)
                                         new Function(code)();
-                                        info('init', '[YTHelper] Helper API cargado desde Fallback (Sandbox).');
+                                        info('waitForHelper', '[YTHelper] Helper API cargado desde Fallback (Sandbox).');
                                     } catch (err) {
-                                        // Intento 2: Inyectar en el documento usando nonce existente
+                                        // Intento 2: Inyección DOM con soporte TT
                                         const script = document.createElement('script');
                                         const nonce = document.querySelector('script[nonce]')?.nonce;
                                         if (nonce) script.setAttribute('nonce', nonce);
-                                        script.textContent = code;
+                                        script.textContent = trustedCode;
                                         document.head.appendChild(script);
-                                        info('init', '[YTHelper] Helper API inyectado en el DOM desde Fallback.');
+                                        info('waitForHelper', '[YTHelper] Helper API inyectado en el DOM con soporte TrustedTypes.');
                                     }
                                 } catch (err) {
-                                    conError('init', '[YTHelper] Falló la carga desde Fallback:', err);
+                                    conError('waitForHelper', '[YTHelper] Falló la carga desde Fallback:', err);
                                 }
                             } else {
-                                warn('init', `[YTHelper] Fallback retornó código de estado: ${response.status}`);
+                                warn('waitForHelper', `[YTHelper] Fallback retornó código de estado: ${response.status}`);
                             }
                         },
-                        onerror: (err) => conError('init', '[YTHelper] Error de red al intentar cargar Fallback:', err)
+                        onerror: (err) => conError('waitForHelper', '[YTHelper] Error de red al intentar cargar Fallback:', err)
                     });
                 }
 
                 setTimeout(() => resolve(waitForHelper(retries + 1)), RETRY_INTERVAL);
             } else {
-                reject(new Error('YouTube Helper API no disponible tras varios intentos'));
+                warn('waitForHelper', '⚠️ YouTube Helper API no disponible tras varios intentos. El script funcionará en modo limitado (Fallback).');
+                resolve(null);
             }
         });
     }
@@ -5048,13 +5072,19 @@ background: var(--ypp-danger);
             lastViewedPlaylistId: playlistId || (sourceData?.lastViewedPlaylistId || null),
             lastViewedPlaylistType: playlistId ? 'channel' : (sourceData?.lastViewedPlaylistType || ''),
             lastViewedPlaylistItemId: null,
-            // FreeTube compatibility
             watchProgress: currentTime,
             timeWatched: now
         };
 
         const storageResult = await Storage.set(videoId, videoData);
-        log('saveRegularVideo', `✅ Video regular guardado:`, videoData);
+        // log('saveRegularVideo', `✅ Video regular guardado:`, videoData);
+        log('saveRegularVideo', '✅ Video regular guardado:', {
+            ...videoData,
+            description: videoData.description
+                ? videoData.description.slice(0, 12) +
+                (videoData.description.length > 12 ? ' (truncada para log)' : '')
+                : ''
+        });
 
         // Verificar si hubo error de almacenamiento
         if (storageResult && !storageResult.success) {
@@ -5171,7 +5201,6 @@ background: var(--ypp-danger);
             duration: isFinite(duration) ? duration : (sourceData?.duration || 0),
             thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
             lastViewedPlaylistId: playlistId,
-            // FreeTube compatibility
             watchProgress: currentTime,
             timeWatched: now
         };
@@ -5495,10 +5524,8 @@ background: var(--ypp-danger);
     function getYouTubePageType() {
         const path = location.pathname;
 
-        // Retornar caché si la URL no cambió (optimización: evitar evaluaciones repetidas)
-        if (path === _lastPath && _cachedPageType !== null) {
-            return _cachedPageType;
-        }
+        // Retornar caché si la URL no cambió
+        if (path === _lastPath && _cachedPageType !== null) return _cachedPageType;
 
         // intentar desde page-manager (más fiable)
         const managerType = getTypeFromPageManager();
@@ -5957,57 +5984,78 @@ background: var(--ypp-danger);
     // MARK: TIME DISPLAY
 
     let timeDisplay;
-    let clearMessageTimeout = null;
     let shortsTimeDisplay;
-    let clearShortsMessageTimeout = null;
     let lastShortsMessageHtml = '';
     let shortsPanelObserver = null;
-
     let miniplayerTimeDisplay;
-    let clearMiniplayerMessageTimeout = null;
     let inlinePreviewTimeDisplay;
-    let clearInlinePreviewMessageTimeout = null;
 
+    /**
+     * Map de timeouts de limpieza de mensajes por contexto de display.
+     * Reemplaza las 4 variables individuales clearXxxTimeout.
+     * @type {Map<'watch'|'shorts'|'mini'|'preview', ReturnType<typeof setTimeout>>}
+     */
+    const displayClearTimeouts = new Map();
 
+    /**
+     * Programa la limpieza automática del mensaje de un display.
+     * Cancela cualquier timeout previo para el mismo contexto antes de crear uno nuevo.
+     * @param {'watch'|'shorts'|'mini'|'preview'} context - Contexto del display.
+     * @param {() => void} clearFn - Función que limpia el display.
+     * @param {number} delayMs - Milisegundos hasta la limpieza.
+     */
+    const scheduleDisplayClear = (context, clearFn, delayMs) => {
+        const prev = displayClearTimeouts.get(context);
+        if (prev) clearTimeout(prev);
+        displayClearTimeouts.set(context, setTimeout(() => {
+            try { clearFn(); } catch (_) { }
+            displayClearTimeouts.delete(context);
+        }, delayMs));
+    };
 
-    // Inicializa la visualización de tiempo en la barra de reproducción
-    function initTimeDisplay() {
-        // Intentar encontrar el contenedor de contenidos de tiempo
-        let timeContainer = document.querySelector('.ytp-time-contents');
+    /**
+     * Inicializa la visualización de tiempo en la barra de reproducción del player Watch.
+     * Idempotente: retorna sin efecto si el display ya está conectado al DOM.
+     * @param {HTMLElement} playerContainer - Referencia al player root (#movie_player).
+     */
+    function initTimeDisplay(playerContainer) {
+        // Idempotent: si ya existe y está conectado, nada que hacer
+        if (timeDisplay?.isConnected) return;
 
-        // Soporte para el rediseño "Delhi" (2024+): el contenedor es un pill wrapper (.ytp-time-wrapper)
-        // Usamos el wrapper como contenedor directo para que el botón del script sea un hermano
-        // de los elementos internos (tiempo, badge de vivo) y así poder usar flexbox order.
-        const delhiWrapper = document.querySelector('.ytp-delhi-modern .ytp-time-wrapper');
-        if (delhiWrapper) {
-            // En el rediseño Delhi, preferimos inyectar directamente en el wrapper si es posible
-            timeContainer = delhiWrapper;
-        }
+        // Si existe una referencia previa pero se desconectó, la limpiamos para recrearla fresca
+        if (timeDisplay) timeDisplay = null;
 
+        if (!playerContainer) return;
+
+        // Soporte para el rediseño "Delhi": el contenedor es un pill wrapper (.ytp-time-wrapper)
+        const delhiWrapper = playerContainer.querySelector('.ytp-delhi-modern .ytp-time-wrapper')
+            ?? document.querySelector('.ytp-delhi-modern .ytp-time-wrapper');
+
+        // Fallback al contenedor estándar
+        const timeContainer = delhiWrapper
+            ?? playerContainer.querySelector('.ytp-time-contents')
+            ?? document.querySelector('.ytp-time-contents');
+
+        // Actualizar clase de livestream en el wrapper
         try {
-            const wrapper = delhiWrapper || timeContainer?.closest?.('.ytp-time-wrapper') || timeContainer?.parentElement || document.querySelector('.ytp-time-wrapper');
+            const wrapper = delhiWrapper
+                || timeContainer?.closest?.('.ytp-time-wrapper')
+                || timeContainer?.parentElement
+                || root?.querySelector?.('.ytp-time-wrapper');
             const isLiveHead = !!wrapper?.querySelector?.('.ytp-live-badge-is-livehead');
             if (wrapper?.classList) wrapper.classList.toggle('ypp-is-livestream', isLiveHead);
 
-            // Limpieza defensiva: si no es livehead, asegurarnos de no dejar clases residuales en wrappers antiguos
+            // Limpieza defensiva: quitar clases residuales en wrappers antiguos
             if (!isLiveHead) {
                 for (const el of document.querySelectorAll('.ytp-time-wrapper.ypp-is-livestream')) {
                     try {
                         if (!el.querySelector?.('.ytp-live-badge-is-livehead')) el.classList.remove('ypp-is-livestream');
-                    } catch (_) {
-                    }
+                    } catch (_) { }
                 }
             }
-        } catch (_) {
-        }
+        } catch (_) { }
 
         log('initTimeDisplay', 'timeContainer seleccionado:', timeContainer);
-
-        // Verificar si timeDisplay existe pero fue removido del DOM (ej: después de un anuncio)
-        if (timeDisplay && !document.contains(timeDisplay)) {
-            log('initTimeDisplay', 'timeDisplay existe pero no está en el DOM, reinicializando...');
-            timeDisplay = null;
-        }
 
         if (!timeContainer || timeDisplay) return;
 
@@ -6018,14 +6066,14 @@ background: var(--ypp-danger);
             atribute: { title: `${t('savedVideos')}` }
         });
 
-        // En Delhi UI, asegurarnos de que quede al final (después de badge de vivo)
+        // En Delhi UI, insertar al final (después del badge de directo)
         if (delhiWrapper) {
             delhiWrapper.insertAdjacentElement('beforeend', timeDisplay);
         } else {
             timeContainer.appendChild(timeDisplay);
         }
 
-        log('initTimeDisplay', 'Creada visualización de tiempo en la barra de reproducción');
+        log('initTimeDisplay', '✅ Creada visualización de tiempo en la barra de reproducción');
     }
     /**
      * Determina si un elemento está visible en el layout (no display:none/visibility:hidden, con tamaño > 0)
@@ -6172,48 +6220,42 @@ background: var(--ypp-danger);
     // MARK: 📢 Playback Bar Messages
     // ------------------------------------------
     /**
-    * Actualiza el mensaje en la barra de reproducción
+    * Actualiza el mensaje en la barra de reproducción.
+    * El display debe estar previamente inicializado por `processWatchVideo` vía `initTimeDisplay`.
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
     function updatePlaybackBarMessage(message, videoEl) {
-        // Verificar si timeDisplay existe y está en el DOM, si no, reinicializar
-        if (!timeDisplay || !document.contains(timeDisplay)) {
-            initTimeDisplay();
-        }
+        if (!timeDisplay?.isConnected) return;
 
         if (!timeDisplay) {
             warn('updatePlaybackBarMessage', '⚠️ No se pudo inicializar timeDisplay');
             return;
         }
+
         setInnerHTML(timeDisplay, message);
         timeDisplay.classList.remove('ypp-d-none');
 
-        // Limpiar timeout anterior si existe
-        if (clearMessageTimeout) {
-            clearTimeout(clearMessageTimeout);
-        }
-
         // No programar limpieza automática para mensajes seek si el video está pausado
-        const isSeekMessage = !!message.includes('svgPlayOrPauseIcon');
-        const activeVideoEl = videoEl;
-        const isVideoPaused = activeVideoEl?.paused || false;
+        const isSeekMessage = message.includes('svgPlayOrPauseIcon');
+        const isVideoPaused = videoEl?.paused ?? false;
         log('updatePlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}`);
 
         if (isSeekMessage && isVideoPaused) return;
-        if (!isSeekMessage && isVideoPaused) { clearPlaybackBarMessage() }
+        // Si el video está pausado y el display actual ya muestra un seek, no sobreescribir ni limpiar
+        if (!isSeekMessage && isVideoPaused) {
+            const hasActiveSeek = timeDisplay.querySelector('.svgPlayOrPauseIcon');
+            if (hasActiveSeek) return; // preservar el seek hasta que el usuario reanude
+            clearPlaybackBarMessage();
+            return;
+        }
 
-        // Programar limpieza automática del mensaje para evitar que quede pegado
-        try {
-            clearMessageTimeout = setTimeout(() => {
-                try { clearPlaybackBarMessage(); } catch (_) { }
-            }, 1600);
-        } catch (_) { }
+        scheduleDisplayClear('watch', clearPlaybackBarMessage, 1600);
     }
 
     function clearPlaybackBarMessage() {
         if (timeDisplay) {
-            // Dejar siempre un botón/base visible para abrir la lista de guardados
+            // Dejar siempre el botón de carpeta visible para abrir la lista de guardados
             try {
                 setInnerHTML(timeDisplay, SVG_ICONS.folder || '');
             } catch (_) {
@@ -6222,16 +6264,14 @@ background: var(--ypp-danger);
             timeDisplay.classList.remove('ypp-d-none');
         }
 
-        // Limpiar timeout si existe
-        if (clearMessageTimeout) {
-            clearTimeout(clearMessageTimeout);
-            clearMessageTimeout = null;
-        }
+        const prev = displayClearTimeouts.get('watch');
+        if (prev) { clearTimeout(prev); displayClearTimeouts.delete('watch'); }
     }
 
     // MARK: 📢 Shorts Messages
     /**
-    * Actualiza el mensaje para videos Shorts
+    * Actualiza el mensaje para videos Shorts.
+    * Mantiene init reactivo porque el DOM de Shorts es altamente dinámico.
     * @param {string} message - Mensaje a mostrar en Shorts
     * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
@@ -6272,11 +6312,10 @@ background: var(--ypp-danger);
                     lastShortsMessageHtml = message;
                     setInnerHTML(shortsTimeDisplay, message);
                     shortsTimeDisplay.classList.remove('ypp-d-none');
-                    // Post-check en el siguiente frame: si aún no es visible, forzar fallback al overlayRoot
+                    // Post-check: si aún no es visible, forzar fallback al overlayRoot
                     const postCheck = () => {
                         try {
-                            const stillHidden = !isVisiblyDisplayed(shortsTimeDisplay);
-                            if (stillHidden && overlayRoot) {
+                            if (!isVisiblyDisplayed(shortsTimeDisplay) && overlayRoot) {
                                 try { overlayRoot.appendChild(shortsTimeDisplay); } catch (_) { }
                                 shortsTimeDisplay.classList.add('ypp-floating');
                                 shortsTimeDisplay.classList.remove('ypp-d-none');
@@ -6304,34 +6343,19 @@ background: var(--ypp-danger);
         shortsTimeDisplay.classList.remove('ypp-d-none');
         // Si está en overlayRoot (no metapanel visible), marcar flotante
         try {
-            if (shortsTimeDisplay.parentElement && shortsTimeDisplay.parentElement !== activePanel) {
-                shortsTimeDisplay.classList.add('ypp-floating');
-            } else {
-                shortsTimeDisplay.classList.remove('ypp-floating');
-            }
+            shortsTimeDisplay.classList.toggle('ypp-floating', shortsTimeDisplay.parentElement !== activePanel);
         } catch (_) { }
 
-        // Limpiar timeout anterior si existe
-        if (clearShortsMessageTimeout) {
-            clearTimeout(clearShortsMessageTimeout);
-        }
-
         // No programar limpieza automática para mensajes seek si el video está pausado
-        const isSeekMessage = !!message.includes('svgPlayOrPauseIcon')
-        const activeVideoEl = videoEl;
-        const isVideoPaused = activeVideoEl?.paused || false;
+        const isSeekMessage = message.includes('svgPlayOrPauseIcon');
+        const isVideoPaused = videoEl?.paused ?? false;
         log('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}`);
 
         if (isSeekMessage && isVideoPaused) return;
 
-        // Programar limpieza automática del mensaje para evitar que quede pegado
-        try {
-            const baseMinSeconds = cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves || 1;
-            const ttlMs = Math.max((baseMinSeconds * 1000) + 1500, 1600);
-            clearShortsMessageTimeout = setTimeout(() => {
-                try { clearShortsMessage(); } catch (_) { }
-            }, ttlMs);
-        } catch (_) { }
+        const baseMinSeconds = cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves || 1;
+        const ttlMs = Math.max((baseMinSeconds * 1000) + 1500, 1600);
+        scheduleDisplayClear('shorts', clearShortsMessage, ttlMs);
     }
 
     function clearShortsMessage() {
@@ -6343,23 +6367,24 @@ background: var(--ypp-danger);
             lastShortsMessageHtml = '';
         }
 
-        // Limpiar timeout si existe
-        if (clearShortsMessageTimeout) {
-            clearTimeout(clearShortsMessageTimeout);
-            clearShortsMessageTimeout = null;
-        }
+        const prev = displayClearTimeouts.get('shorts');
+        if (prev) { clearTimeout(prev); displayClearTimeouts.delete('shorts'); }
     }
 
     // MARK: 📢 Miniplayer Messages
     /**
-    * Inicializa la visualización de tiempo para el Miniplayer
+    * Inicializa la visualización de tiempo para el Miniplayer.
+    * Idempotente: retorna sin efecto si el display ya está conectado al DOM.
+    * @param {HTMLElement} playerContainer - Referencia al player miniplayer (#movie_player interno).
     */
-    function initMiniplayerTimeDisplay() {
-        const miniPlayer = DOMHelpers.getMiniplayer();
-        if (!miniPlayer || miniplayerTimeDisplay) return;
+    function initMiniplayerTimeDisplay(playerContainer) {
+        if (miniplayerTimeDisplay?.isConnected) return;
+        if (miniplayerTimeDisplay) miniplayerTimeDisplay = null;
+
+        if (!playerContainer) return;
 
         // Intentar encontrar el contenedor de controles del miniplayer
-        const controls = miniPlayer.querySelector('.ytp-chrome-controls');
+        const controls = playerContainer.querySelector('.ytp-chrome-controls');
         if (!controls) return;
 
         miniplayerTimeDisplay = createElement('span', {
@@ -6374,13 +6399,16 @@ background: var(--ypp-danger);
     }
 
     /**
-    * Actualiza el mensaje en el Miniplayer
+    * Actualiza el mensaje en el Miniplayer.
+    * El display debería ya estar inicializado por `processMiniplayerVideo`.
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video
     */
     function updateMiniplayerMessage(message, videoEl) {
-        if (!miniplayerTimeDisplay || !document.contains(miniplayerTimeDisplay)) {
-            initMiniplayerTimeDisplay();
+        // Fallback reactivo: si el display fue removido (ej: miniplayer cerrado y reabierto)
+        if (!miniplayerTimeDisplay?.isConnected) {
+            const player = DOMHelpers.getMiniplayerActive();
+            if (player) initMiniplayerTimeDisplay(player);
         }
 
         if (!miniplayerTimeDisplay) return;
@@ -6388,16 +6416,16 @@ background: var(--ypp-danger);
         setInnerHTML(miniplayerTimeDisplay, message);
         miniplayerTimeDisplay.classList.remove('ypp-d-none');
 
-        if (clearMiniplayerMessageTimeout) clearTimeout(clearMiniplayerMessageTimeout);
-
         // No limpiar automáticamente si es seek y está pausado
-        const isSeekMessage = !!message.includes('svgPlayOrPauseIcon');
-        const isVideoPaused = videoEl?.paused || false;
+        const isSeekMessage = message.includes('svgPlayOrPauseIcon');
+        const isVideoPaused = videoEl?.paused ?? false;
         if (isSeekMessage && isVideoPaused) return;
+        // Si hay un seek activo en el display, no sobreescribir ni disparar clear
+        if (!isSeekMessage && isVideoPaused) {
+            if (miniplayerTimeDisplay.innerHTML.includes('svgPlayOrPauseIcon')) return;
+        }
 
-        clearMiniplayerMessageTimeout = setTimeout(() => {
-            clearMiniplayerMessage();
-        }, 1600);
+        scheduleDisplayClear('mini', clearMiniplayerMessage, 1600);
     }
 
     function clearMiniplayerMessage() {
@@ -6406,19 +6434,23 @@ background: var(--ypp-danger);
             miniplayerTimeDisplay.classList.remove('ypp-d-none');
         }
 
-        if (clearMiniplayerMessageTimeout) {
-            clearTimeout(clearMiniplayerMessageTimeout);
-            clearMiniplayerMessageTimeout = null;
-        }
+        const prev = displayClearTimeouts.get('mini');
+        if (prev) { clearTimeout(prev); displayClearTimeouts.delete('mini'); }
     }
 
     // MARK: 📢 Inline Preview Messages
     /**
-    * Inicializa la visualización de tiempo para Inline Previews
+    * Inicializa la visualización de tiempo para Inline Previews.
+    * Idempotente: retorna sin efecto si el display ya está conectado al DOM.
+    * @param {HTMLElement} previewPlayerEl - Referencia al preview player resuelta.
     */
-    function initInlinePreviewTimeDisplay() {
-        const previewPlayer = document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER);
-        if (!previewPlayer || inlinePreviewTimeDisplay) return;
+    function initInlinePreviewTimeDisplay(previewPlayerEl) {
+        if (inlinePreviewTimeDisplay?.isConnected) return;
+        if (inlinePreviewTimeDisplay) inlinePreviewTimeDisplay = null;
+
+        if (!previewPlayerEl) return;
+
+        const previewPlayer = previewPlayerEl;
 
         inlinePreviewTimeDisplay = createElement('div', {
             id: 'ypp-inline-preview-display',
@@ -6432,13 +6464,16 @@ background: var(--ypp-danger);
     }
 
     /**
-    * Actualiza el mensaje en Inline Previews
+    * Actualiza el mensaje en Inline Previews.
+    * El display debería ya estar inicializado por `processPreviewVideo`.
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video
     */
     function updateInlinePreviewMessage(message, videoEl) {
-        if (!inlinePreviewTimeDisplay || !document.contains(inlinePreviewTimeDisplay)) {
-            initInlinePreviewTimeDisplay();
+        // Fallback reactivo si fue removido del DOM
+        if (!inlinePreviewTimeDisplay?.isConnected) {
+            const player = DOMHelpers.getInlinePreviewPlayer();
+            if (player) initInlinePreviewTimeDisplay(player);
         }
 
         if (!inlinePreviewTimeDisplay) return;
@@ -6446,16 +6481,16 @@ background: var(--ypp-danger);
         setInnerHTML(inlinePreviewTimeDisplay, message);
         inlinePreviewTimeDisplay.classList.remove('ypp-d-none');
 
-        if (clearInlinePreviewMessageTimeout) clearTimeout(clearInlinePreviewMessageTimeout);
-
         // No limpiar automáticamente si es seek y está pausado
-        const isSeekMessage = !!message.includes('svgPlayOrPauseIcon');
-        const isVideoPaused = videoEl?.paused || false;
+        const isSeekMessage = message.includes('svgPlayOrPauseIcon');
+        const isVideoPaused = videoEl?.paused ?? false;
         if (isSeekMessage && isVideoPaused) return;
+        // Si hay un seek activo en el display, no sobreescribir ni disparar clear
+        if (!isSeekMessage && isVideoPaused) {
+            if (inlinePreviewTimeDisplay.querySelector('.svgPlayOrPauseIcon')) return;
+        }
 
-        clearInlinePreviewMessageTimeout = setTimeout(() => {
-            clearInlinePreviewMessage();
-        }, 1600);
+        scheduleDisplayClear('preview', clearInlinePreviewMessage, 1600);
     }
 
     function clearInlinePreviewMessage() {
@@ -6464,10 +6499,8 @@ background: var(--ypp-danger);
             inlinePreviewTimeDisplay.classList.remove('ypp-d-none');
         }
 
-        if (clearInlinePreviewMessageTimeout) {
-            clearTimeout(clearInlinePreviewMessageTimeout);
-            clearInlinePreviewMessageTimeout = null;
-        }
+        const prev = displayClearTimeouts.get('preview');
+        if (prev) { clearTimeout(prev); displayClearTimeouts.delete('preview'); }
     }
 
 
@@ -6843,7 +6876,7 @@ background: var(--ypp-danger);
             if (!saveResult.success || isForced) return;
             if (currentPageType === 'shorts' && videoType !== 'shorts') return;
             const display = videoType === 'shorts' ? shortsTimeDisplay : timeDisplay;
-            if (videoEl?.paused && display?.innerHTML?.includes('svgPlayOrPauseIcon')) return;
+            if (videoEl?.paused && display?.querySelector('.svgPlayOrPauseIcon')) return;
         }
 
         const timeStr = formatTime(normalizeSeconds(time));
@@ -7167,38 +7200,51 @@ background: var(--ypp-danger);
 
             info('VideoObserverManager', `🔍 Realizando bootstrap de videos existentes...${force ? ' (FORZADO)' : ''}`);
 
-            // 1. Buscar videos en Watch
+            // 1. Buscar video en Watch
             if (currentPageType === 'watch') {
-                const watchVideos = body.querySelectorAll(`${S.IDS.MOVIE_PLAYER} video`);
-                watchVideos.forEach(v => {
-                    if (force) videoTypeCache.delete(v);
-                    enqueueVideo(v, 'watch');
-                });
+                const watchPlayer = DOMHelpers.getWatchPlayer();
+                if (watchPlayer) {
+                    const watchVideo = watchPlayer.querySelector('video');
+                    if (watchVideo) {
+                        if (force) videoTypeCache.delete(watchVideo);
+                        enqueueVideo(watchVideo, 'watch');
+                    }
+                }
             }
 
-            // 2. Buscar videos en Shorts
-            const shortsVideos = body.querySelectorAll(`${S.IDS.SHORTS_PLAYER} video`);
-            shortsVideos.forEach(v => {
-                if (force) videoTypeCache.delete(v);
-                enqueueVideo(v, 'shorts');
-            });
-
-            // 3. Buscar videos en Miniplayer
-            isMiniplayerActive = !!document.querySelector(S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE);
-            if (isMiniplayerActive) {
-                const miniVideos = body.querySelectorAll(`${S.ELEMENTS.MINIPLAYER_ELEMENT} video`);
-                miniVideos.forEach(v => {
-                    if (force) videoTypeCache.delete(v);
-                    enqueueVideo(v, 'miniplayer');
-                });
+            // 2. Buscar video en Shorts
+            if (currentPageType === 'shorts') {
+                const shortsPlayer = DOMHelpers.getShortsPlayer();
+                if (shortsPlayer) {
+                    const shortsVideo = shortsPlayer.querySelector('video');
+                    if (shortsVideo) {
+                        if (force) videoTypeCache.delete(shortsVideo);
+                        enqueueVideo(shortsVideo, 'shorts');
+                    }
+                }
             }
 
-            // 4. Buscar videos en Previews (Grid)
-            const previewVideos = body.querySelectorAll(`${S.ELEMENTS.INLINE_PREVIEW_ELEMENT} video, ${S.IDS.VIDEO_PREVIEW_CONTAINER} video`);
-            previewVideos.forEach(v => {
-                if (force) videoTypeCache.delete(v);
-                enqueueVideo(v, 'preview');
-            });
+            // 3. Buscar video en Miniplayer
+            if (currentPageType !== 'watch') {
+                const miniplayerActive = DOMHelpers.getMiniplayerActive();
+                if (!!miniplayerActive) {
+                    const miniVideo = miniplayerActive?.querySelector('video');
+                    if (force) videoTypeCache.delete(miniVideo);
+                    enqueueVideo(miniVideo, 'miniplayer');
+                }
+            }
+
+            // 4. Buscar video tipo Preview (Home / Search)
+            if (currentPageType !== 'shorts') {
+                const previewPlayer = DOMHelpers.getInlinePreviewPlayer();
+                if (previewPlayer) {
+                    const previewVideo = previewPlayer.querySelector('video');
+                    if (previewVideo) {
+                        if (force) videoTypeCache.delete(previewVideo);
+                        enqueueVideo(previewVideo, 'preview');
+                    }
+                }
+            }
         };
 
         /**
@@ -7512,7 +7558,7 @@ background: var(--ypp-danger);
                 });
 
                 // Trigger manual en caso de que ya haya un video presente
-                const v = document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT} video`);
+                const v = DOMHelpers.getMiniplayerPlayerVideo();
                 if (v) enqueueVideo(v, 'miniplayer');
 
             });
@@ -7672,7 +7718,7 @@ background: var(--ypp-danger);
      * @param {string} containerId - ID del contenedor (movie_player, etc.)
      * @param {string|null} playlistId - ID de la playlist (opcional)
      */
-    const startProcessingSession = (videoEl, type, videoId, player, containerId, playlistId = null) => {
+    const startProcessingSession = async (videoEl, type, videoId, player, containerId, playlistId = null) => {
         // Si ya hay una sesión para este mismo video, no hacer nada
         const currentSession = activeProcessingSessions.get(videoEl);
         if (currentSession?.lastVideoId === videoId) return;
@@ -7683,6 +7729,15 @@ background: var(--ypp-danger);
         }
 
         info('process', `🚀 Iniciando sesión de seguimiento para [${type}] - ${videoId}`);
+
+        // Obtener metadatos base una sola vez al inicio de la sesión
+        let cachedVideoInfo = null;
+        try {
+            cachedVideoInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+            info('process', `💾 Metadatos cacheados inicialmente para sesión de [${type}] - ${videoId}`);
+        } catch (e) {
+            warn('process', `⚠️ Error obteniendo metadatos base, se delegará la obtención al guardado:`, e);
+        }
 
         // 1. Intentar reanudar inmediatamente
         getSavedVideoData(videoId, playlistId).then(savedData => {
@@ -7700,8 +7755,8 @@ background: var(--ypp-danger);
                 return;
             }
 
-            // Llamada unificada al nuevo controlador modular de guardado
-            await PlaybackController.saveStatus(player, videoEl, type, videoId, containerId, playlistId);
+            // Llamada unificada al nuevo controlador modular de guardado usando metadatos cacheados
+            await PlaybackController.saveStatus(player, videoEl, type, videoId, containerId, playlistId, cachedVideoInfo);
         }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
 
         activeProcessingSessions.set(videoEl, { intervalId, lastVideoId: videoId });
@@ -7718,7 +7773,7 @@ background: var(--ypp-danger);
         // Safeguard: Solo procesar como Watch si la URL es realmente de video
         // (Previene que el miniplayer en el Home active el procesador de Watch por error)
         if (currentPageType !== 'watch') {
-            log('processWatchVideo', '⚠️ Abortando Watch: No estamos en /watch (posible Miniplayer en Home)');
+            log('processWatchVideo', '⚠️ Abortando: No estamos en /watch (posible Miniplayer en Home)');
             return;
         }
 
@@ -7738,10 +7793,13 @@ background: var(--ypp-danger);
 
         if (!videoId || !player) return;
 
-        // Optimización: Cachear el nombre de la playlist mientras estamos en Watch (donde está en el DOM)
+        // Cachear el nombre de la playlist mientras estamos en Watch (donde está en el DOM)
         if (playlistId) {
             getPlaylistName(playlistId).catch(() => { });
         }
+
+        // Inicializar display proactivamente pasando el player ya resuelto
+        initTimeDisplay(player);
 
         info('processWatchVideo', `📝 Procesando video de Watch: ${videoId}${playlistId ? ` (Playlist: ${playlistId})` : ''}`);
         startProcessingSession(videoEl, 'watch', videoId, player, IDs.MOVIE_PLAYER, playlistId);
@@ -7783,10 +7841,10 @@ background: var(--ypp-danger);
         }
 
         // El miniplayer de YouTube suele reutilizar el player principal (#movie_player)
-        // getMiniplayerPlayer() puede devolver null durante transiciones de video (la clase activa se quita momentáneamente),
+        // getMiniplayerPlayerVideo() puede devolver null durante transiciones de video (la clase activa se quita momentáneamente),
         // por lo que usamos un fallback directo y uncached a ytd-miniplayer #movie_player.
         const player =
-            DOMHelpers.getMiniplayerPlayer() ||
+            DOMHelpers.getMiniplayerPlayerVideo() ||
             document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT} #${IDs.MOVIE_PLAYER}`);
 
         if (!player) {
@@ -7798,13 +7856,28 @@ background: var(--ypp-danger);
             player?.getPlayerResponse?.()?.videoDetails?.videoId ||
             player?.getVideoData?.()?.video_id ||
             YTHelper?.video?.id ||
-            extractOrNormalizeVideoId(location.href).id;
+            null;
+
+        if (!videoId) {
+            warn('processMiniplayerVideo', '⚠️ ID del video no encontrado en miniplayer, omitiendo procesamiento.');
+            return;
+        }
 
         const playlistId =
             player?.getVideoData?.()?.list ||
-            new URLSearchParams(window.location.search).get('list');
+            new URLSearchParams(window.location.search).get('list') ||
+            null;
 
-        if (!videoId) return;
+        if (!playlistId) {
+            warn('processMiniplayerVideo', '🔍 Playlist ID no encontrado en miniplayer:');
+            warn('processMiniplayerVideo', `- player.getVideoData()?.list: ${player?.getVideoData?.()?.list}`);
+            warn('processMiniplayerVideo', `- location.search: ${window.location.search}`);
+            warn('processMiniplayerVideo', `- location.href: ${location.href}`);
+            warn('processMiniplayerVideo', `- playerResponse?: ${!!player?.getPlayerResponse?.()}`);
+        }
+
+        // Inicializar display del miniplayer proactivamente
+        initMiniplayerTimeDisplay(player);
 
         info('processMiniplayerVideo', `📺 Procesando video de Miniplayer: ${videoId}${playlistId ? ` (Playlist: ${playlistId})` : ''}`);
         startProcessingSession(videoEl, 'miniplayer', videoId, player, IDs.MOVIE_PLAYER, playlistId);
@@ -7829,6 +7902,9 @@ background: var(--ypp-danger);
         } catch (_) { }
 
         if (!videoId || !player) return;
+
+        // Inicializar display de preview proactivamente con referencia al player ya resuelta
+        initInlinePreviewTimeDisplay(player);
 
         info('processPreviewVideo', `👁️ Procesando video de Preview: ${videoId}`);
         startProcessingSession(videoEl, 'preview', videoId, player, IDs.INLINE_PREVIEW_PLAYER);
@@ -7917,24 +7993,6 @@ background: var(--ypp-danger);
      */
     const PlaybackController = {
         /**
-         * Verifica si el guardado está habilitado para un tipo y contexto.
-         * @private
-         */
-        _isSavingEnabled(type, videoEl) {
-            const settings = cachedSettings || CONFIG.defaultSettings;
-
-            if (type === 'live') return settings.saveLiveStreams !== false;
-            if (type === 'shorts') return settings.saveShorts !== false;
-            if (type === 'preview') return settings.saveInlinePreviews === true;
-
-            // Contexto video (watch / miniplayer)
-            const isMiniplayer = !!videoEl?.closest(S.ELEMENTS.MINIPLAYER_ELEMENT);
-            if (isMiniplayer && settings.saveMiniplayerVideos === false) return false;
-
-            return settings.saveRegularVideos !== false;
-        },
-
-        /**
          * Reanuda la reproducción de un video basándose en datos guardados.
          * @param {object} player - Instancia del player de YouTube
          * @param {string} videoId - Id del video
@@ -7950,15 +8008,17 @@ background: var(--ypp-danger);
 
             log('PlaybackController', `🎬 Intentando reanudar ${videoId} en ${formatTime(timeToSeek)} (${type})`);
 
-            // Esperar a que el video tenga duración y no haya anuncios bloqueantes
+            // Esperar a que el video tenga duración válida
             const isReady = () => {
+
                 // Priorizar APIs internas de YouTube para la duración
                 let dur = 0;
                 try {
-                    dur = player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds
-                        || player?.getDuration?.()
-                        || player?.getVideoData?.()?.length_seconds
-                        || videoEl.duration;
+                    dur =
+                        player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds ||
+                        player?.getDuration?.() ||
+                        player?.getVideoData?.()?.length_seconds ||
+                        videoEl.duration;
                 } catch (e) {
                     dur = videoEl.duration;
                 }
@@ -7966,15 +8026,13 @@ background: var(--ypp-danger);
                 // Normalizar duración si viene como string
                 dur = Number(dur);
 
-                const adBlocked = AdDetector.isNodeWithinAdContainer(videoEl);
-
                 // Para livestreams o casos especiales donde la duración es 0/infinita, 
                 // consideramos que está listo si el videoEl tiene un readyState suficiente
                 if (type === 'live' || type === 'shorts') {
-                    return !adBlocked && (dur > 0 || videoEl.readyState >= 1);
+                    return dur > 0 || videoEl.readyState >= 1;
                 }
 
-                return isFinite(dur) && dur > 0 && !adBlocked;
+                return isFinite(dur) && dur > 0;
             };
 
             if (!isReady()) {
@@ -7989,10 +8047,11 @@ background: var(--ypp-danger);
             if (isReady()) {
                 let finalDuration = 0;
                 try {
-                    finalDuration = player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds
-                        || player?.getDuration?.()
-                        || player?.getVideoData?.()?.length_seconds
-                        || videoEl.duration;
+                    finalDuration =
+                        player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds ||
+                        player?.getDuration?.() ||
+                        player?.getVideoData?.()?.length_seconds ||
+                        videoEl.duration;
                 } catch (e) {
                     finalDuration = videoEl.duration;
                 }
@@ -8029,7 +8088,7 @@ background: var(--ypp-danger);
          * @param {string} containerId - ID del contenedor (movie_player, etc.)
          * @param {string|null} playlistId - ID de la playlist (opcional)
          */
-        async saveStatus(player, videoEl, type, videoId, containerId, playlistId = null) {
+        async saveStatus(player, videoEl, type, videoId, containerId, playlistId = null, cachedVideoInfo = null) {
             if (!videoEl || !videoId || AdDetector.isNodeWithinAdContainer(videoEl)) return;
 
             // Si el video está pausado y no hemos cambiado de tiempo tras pausa (seek)
@@ -8050,7 +8109,7 @@ background: var(--ypp-danger);
             // Registrar el último tiempo guardado exitosamente para el próximo tick
             videoEl.dataset.lastSavedTime = currentTime;
 
-            // Verificación crítica: el video que el player reporta debe coincidir con el que intentamos guardar
+            // Video que el player reporta debe coincidir con el que intentamos guardar
             // Esto evita contaminación si el player cambió de video pero el intervalo viejo sigue corriendo
             try {
                 const currentPlayerVideoId =
@@ -8063,18 +8122,13 @@ background: var(--ypp-danger);
                 }
             } catch (_) { }
 
-            // Obtener metadatos mediante extracción cascada
-            const videoInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+            // Usar metadatos cacheados si están disponibles para evitar extraer recursivamente de la API del player en cada "tick" de guardado
+            const videoInfo = cachedVideoInfo || await getCascadedVideoInfo(player, videoId, videoEl, type);
 
             // Determinar tipo final (LIVE gana a todo)
             const finalType = videoInfo.isLive ? 'live' : type;
 
-            // Validar que el guardado esté habilitado para este tipo/contexto
-            if (!this._isSavingEnabled(finalType, videoEl)) {
-                return { success: false, reason: 'disabled_by_settings' };
-            }
-
-            log('PlaybackController', `💾 Guardando progreso para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType})`);
+            log('PlaybackController', ` Guardando progreso para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType})`);
 
             // Debug logs adicionales para PlaybackController
             if (finalType === 'preview') {
@@ -8115,16 +8169,6 @@ background: var(--ypp-danger);
     };
 
     // MARK: 📋 Metadata Helpers
-
-
-
-
-
-
-
-
-
-
     /**
      * Extrae información del video siguiendo una estrategia de cascada:
      * 1. YouTube Internal API (player.getPlayerResponse() o player.getVideoData())
@@ -8399,7 +8443,7 @@ background: var(--ypp-danger);
                 try {
                     const richItem = videoEl.closest('ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-rich-grid-media, ytd-video-renderer');
                     if (richItem) {
-                        // Cue de hover para confirmar que este es el elemento activo (opcional pero recomendado por el usuario)
+                        // Cue de hover para confirmar que este es el elemento activo
                         const isCurrentlyHovered = !!richItem.querySelector('.yt-spec-touch-feedback-shape--hovered');
 
                         // Buscar link con playlist
@@ -8737,7 +8781,7 @@ background: var(--ypp-danger);
             }
         }
 
-        // Cargar todos los datos en lotes paralelos (optimización)
+        // Cargar todos los datos en lotes paralelos
         const allData = await batchLoadStorageData(keys);
 
         let allItems = [];
@@ -8923,7 +8967,6 @@ background: var(--ypp-danger);
 
                     let playlistUrl = `https://www.youtube.com/playlist?list=${item.playlistKey}`;
                     // Para Mixes (RD...), YouTube requiere un v=ID válido.
-                    // También es mejor para la experiencia de usuario empezar a reproducir.
                     if (item.playlistKey.startsWith('RD') && item.firstVideoId) {
                         playlistUrl = `https://www.youtube.com/watch?v=${item.firstVideoId}&list=${item.playlistKey}`;
                     }
@@ -9992,16 +10035,7 @@ background: var(--ypp-danger);
             let externalTranslations = null;
 
             // --- Inicializar YouTube Helper API ---
-            try {
-                waitForHelper().then((h) => {
-                    YTHelper = h;
-                    try { info('initializeGlobal', '✅ Referencia a YouTube Helper API obtenida'); } catch (_) { }
-                }).catch((error) => {
-                    try { warn('initializeGlobal', '⚠️ Helper API no listo aún, continuando en fallback', error); } catch (_) { }
-                });
-            } catch (error) {
-                try { warn('initializeGlobal', '⚠️ Error al iniciar espera de Helper API, continuando', error); } catch (_) { }
-            }
+            waitForHelper().then(h => YTHelper = h);
 
             // --- Cargar traducciones ---
             try {
@@ -10038,8 +10072,6 @@ background: var(--ypp-danger);
                 LANGUAGE_FLAGS = FALLBACK_FLAGS;
                 TRANSLATIONS = FALLBACK_TRANSLATIONS;
                 cachedSettings = { ...CONFIG.defaultSettings };
-
-
             }
 
             // --- Cargar configuración y establecer idioma ---

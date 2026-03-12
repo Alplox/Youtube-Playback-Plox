@@ -1234,7 +1234,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
     // ------------------------------------------
 
     function injectStyles() {
-        if (document.getElementById('youtube-playback-plox-styles')) return; // evitar duplicados
+        if (document.querySelector('#youtube-playback-plox-styles')) return; // evitar duplicados
 
         const style = document.createElement('style');
         style.id = 'youtube-playback-plox-styles';
@@ -2549,7 +2549,7 @@ background: var(--ypp-danger);
         }
 
         // Verificar si ya existe el estilo para evitar duplicados
-        if (document.getElementById('ypp-progress-bar-styles')) {
+        if (document.querySelector('#ypp-progress-bar-styles')) {
             log('injectProgressBarCSS', 'CSS ya existe, omitiendo inyección');
             return;
         }
@@ -4434,7 +4434,7 @@ background: var(--ypp-danger);
     };
 
     const importDataFromFile = async () => {
-        let inputFile = document.getElementById('ypp-import-file');
+        let inputFile = document.querySelector('#ypp-import-file');
         if (!inputFile) {
             inputFile = createElement('input', {
                 id: 'ypp-import-file',
@@ -4549,7 +4549,7 @@ background: var(--ypp-danger);
     };
 
     const importFromFreeTube = () => {
-        let inputFile = document.getElementById('ypp-import-freetube-file');
+        let inputFile = document.querySelector('#ypp-import-freetube-file');
         if (!inputFile) {
             inputFile = createElement('input', {
                 id: 'ypp-import-freetube-file',
@@ -5919,7 +5919,7 @@ background: var(--ypp-danger);
 
     // MARK: TIME DISPLAY
 
-    let timeDisplay;
+    let watchTimeDisplay;
     let shortsTimeDisplay;
     let lastShortsMessageHtml = '';
     let shortsPanelObserver = null;
@@ -5956,10 +5956,10 @@ background: var(--ypp-danger);
      */
     function initTimeDisplay(playerContainer) {
         // Idempotent: si ya existe y está conectado, nada que hacer
-        if (timeDisplay?.isConnected) return;
+        if (watchTimeDisplay?.isConnected) return;
 
         // Si existe una referencia previa pero se desconectó, la limpiamos para recrearla fresca
-        if (timeDisplay) timeDisplay = null;
+        if (watchTimeDisplay) watchTimeDisplay = null;
 
         if (!playerContainer) return;
 
@@ -5993,9 +5993,9 @@ background: var(--ypp-danger);
 
         log('initTimeDisplay', 'timeContainer seleccionado:', timeContainer);
 
-        if (!timeContainer || timeDisplay) return;
+        if (!timeContainer || watchTimeDisplay) return;
 
-        timeDisplay = createElement('span', {
+        watchTimeDisplay = createElement('span', {
             id: 'ypp-time-display-indicator',
             className: 'ypp-time-display ypp-d-none',
             onClickEvent: showSavedVideosList,
@@ -6004,9 +6004,9 @@ background: var(--ypp-danger);
 
         // En Delhi UI, insertar al final (después del badge de directo)
         if (delhiWrapper) {
-            delhiWrapper.insertAdjacentElement('beforeend', timeDisplay);
+            delhiWrapper.insertAdjacentElement('beforeend', watchTimeDisplay);
         } else {
-            timeContainer.appendChild(timeDisplay);
+            timeContainer.appendChild(watchTimeDisplay);
         }
 
         log('initTimeDisplay', '✅ Creada visualización de tiempo en la barra de reproducción');
@@ -6163,49 +6163,49 @@ background: var(--ypp-danger);
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
-    function updatePlaybackBarMessage(message, videoEl, isSeek = false) {
-        if (!timeDisplay?.isConnected) return;
+    function updateWatchPlaybackBarMessage(message, videoEl, isSeek = false) {
+        if (!watchTimeDisplay?.isConnected) return;
 
-        if (!timeDisplay) {
-            warn('updatePlaybackBarMessage', '⚠️ No se pudo inicializar timeDisplay');
+        if (!watchTimeDisplay) {
+            warn('updateWatchPlaybackBarMessage', '⚠️ No se pudo inicializar watchTimeDisplay');
             return;
         }
 
-        setInnerHTML(timeDisplay, message);
-        timeDisplay.classList.remove('ypp-d-none');
+        setInnerHTML(watchTimeDisplay, message);
+        watchTimeDisplay.classList.remove('ypp-d-none');
 
         // No programar limpieza automática para mensajes seek si el video está pausado
         const isVideoPaused = videoEl?.paused ?? false;
-        log('updatePlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}`);
+        log('updateWatchPlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}`);
 
         if (isSeek && isVideoPaused) return;
         // Si el video está pausado y el display actual ya muestra un seek, no sobreescribir ni limpiar
         if (!isSeek && isVideoPaused) {
-            const hasActiveSeek = timeDisplay.dataset.activeSeek === 'true';
+            const hasActiveSeek = watchTimeDisplay.dataset.activeSeek === 'true';
             if (hasActiveSeek) return; // preservar el seek hasta que el usuario reanude
             clearPlaybackBarMessage();
             return;
         }
 
         if (isSeek) {
-            timeDisplay.dataset.activeSeek = 'true';
+            watchTimeDisplay.dataset.activeSeek = 'true';
         } else {
-            delete timeDisplay.dataset.activeSeek;
+            delete watchTimeDisplay.dataset.activeSeek;
         }
 
         scheduleDisplayClear('watch', clearPlaybackBarMessage, 1600);
     }
 
     function clearPlaybackBarMessage() {
-        if (timeDisplay) {
+        if (watchTimeDisplay) {
             // Dejar siempre el botón de carpeta visible para abrir la lista de guardados
             try {
-                setInnerHTML(timeDisplay, SVG_ICONS.folder || '');
+                setInnerHTML(watchTimeDisplay, SVG_ICONS.folder || '');
             } catch (_) {
-                setInnerHTML(timeDisplay, '');
+                setInnerHTML(watchTimeDisplay, '');
             }
-            delete timeDisplay.dataset.activeSeek;
-            timeDisplay.classList.remove('ypp-d-none');
+            delete watchTimeDisplay.dataset.activeSeek;
+            watchTimeDisplay.classList.remove('ypp-d-none');
         }
 
         const prev = displayClearTimeouts.get('watch');
@@ -6322,6 +6322,7 @@ background: var(--ypp-danger);
     * @param {HTMLElement} playerContainer - Referencia al player miniplayer (#movie_player interno).
     */
     function initMiniplayerTimeDisplay(playerContainer) {
+      
         if (miniplayerTimeDisplay?.isConnected) return;
         if (miniplayerTimeDisplay) miniplayerTimeDisplay = null;
 
@@ -6805,9 +6806,9 @@ background: var(--ypp-danger);
     };
 
     const handlers = {
-        watch: updatePlaybackBarMessage,
-        embed: updatePlaybackBarMessage,
-        live: updatePlaybackBarMessage,
+        watch: updateWatchPlaybackBarMessage,
+        embed: updateWatchPlaybackBarMessage,
+        live: updateWatchPlaybackBarMessage,
         shorts: updateShortsMessage,
         miniplayer: updateMiniplayerMessage,
         preview: updateInlinePreviewMessage
@@ -6821,7 +6822,7 @@ background: var(--ypp-danger);
         if (context === 'progress') {
             if (!saveResult.success || isForced) return;
             if (currentPageType === 'shorts' && videoType !== 'shorts') return;
-            const display = videoType === 'shorts' ? shortsTimeDisplay : timeDisplay;
+            const display = videoType === 'shorts' ? shortsTimeDisplay : watchTimeDisplay;
             if (videoEl?.paused && display?.querySelector('.svgPlayOrPauseIcon')) return;
         }
 
@@ -6868,6 +6869,13 @@ background: var(--ypp-danger);
     let selectedVideos = new Set(); // IDs de videos seleccionados
     let isSelectionMode = false; // Modo de selección activo
 
+    let createPlaylistBtn = null; // Botón de crear playlist
+    let playlistInfoEl = null; // parafo donde se meustra numero de item seleccionados
+    let playlistTextareaEl = null; // textarea donde se muestra enlace de playlist creado
+    let modalVideosFooterFirtsRow = null; // Botones de exportacion en modal videos
+    let modalVideosFooterSecondRow = null; // Botones eliminar todo, crear playlist y configuraciones
+    let playlistContainer = null;
+
     /**
      * Activa/desactiva el modo de selección de videos
      */
@@ -6875,77 +6883,48 @@ background: var(--ypp-danger);
         isSelectionMode = !isSelectionMode;
         selectedVideos.clear();
 
+        // Fallback: buscar el botón solo si no está disponible la referencia
+        createPlaylistBtn ??= document.querySelector('#ypp-create-playlist-btn');
+        if (!createPlaylistBtn) return;
+
         // Actualizar la interfaz
         await updateVideoList();
-        updateSelectionUI();
 
-        log('toggleSelectionMode', `Modo de selección: ${isSelectionMode ? 'ACTIVADO' : 'DESACTIVADO'}`);
-    }
-
-    /**
-     * Actualiza la interfaz según el modo de selección
-     */
-    function updateSelectionUI() {
-        // Buscar el botón por su contenido o clase específica
-        const createPlaylistBtn = Array.from(document.querySelectorAll('.ypp-btn')).find(btn =>
-            btn.innerHTML.includes(t('createPlaylist')) || btn.innerHTML.includes(t('selectVideos'))
-        );
-
-        if (createPlaylistBtn) {
-            if (isSelectionMode) {
-                setInnerHTML(createPlaylistBtn, `${SVG_ICONS.close} ${t('selectVideos')} (${selectedVideos.size})`);
-                createPlaylistBtn.className = 'ypp-btn ypp-btn-danger ypp-sombra';
-            } else {
-                setInnerHTML(createPlaylistBtn, `${SVG_ICONS.playlist} ${t('createPlaylist')}`);
-                createPlaylistBtn.className = 'ypp-btn ypp-btn-primary ypp-sombra';
-            }
+        if (isSelectionMode) {
+            setInnerHTML(createPlaylistBtn, `${SVG_ICONS.close} ${t('selectVideos')} (${selectedVideos.size})`);
+            createPlaylistBtn.className = 'ypp-btn ypp-btn-danger ypp-sombra';
+        } else {
+            setInnerHTML(createPlaylistBtn, `${SVG_ICONS.playlist} ${t('createPlaylist')}`);
+            createPlaylistBtn.className = 'ypp-btn ypp-btn-primary ypp-sombra';
         }
-
         // Mostrar/ocultar área de playlist y botones del footer
         updatePlaylistArea();
+
+        log('toggleSelectionMode', `Modo de selección: ${isSelectionMode ? 'ACTIVADO' : 'DESACTIVADO'}`);
     }
 
     /**
      * Actualiza el área de playlist integrada
      */
     function updatePlaylistArea() {
-        const playlistArea = document.getElementById('ypp-playlist-area');
-        const firstRow = document.querySelector('.ypp-footer-row:first-child');
-        const secondRow = document.querySelector('.ypp-footer-row:last-child');
+        playlistContainer ??= document.querySelector('#ypp-playlist-area');
+        modalVideosFooterFirtsRow ??= document.querySelector('.ypp-footer-row:first-child');
+        modalVideosFooterSecondRow ??= document.querySelector('.ypp-footer-row:last-child');
 
-        if (!playlistArea) return;
+        if (!modalVideosFooterFirtsRow || !modalVideosFooterSecondRow || !playlistContainer) return;
+
+        // Mostrar área de playlist y ocultar botones normales de footer modal videos
+        playlistContainer.classList.toggle('active', isSelectionMode);
+        modalVideosFooterFirtsRow?.classList.toggle('hidden', isSelectionMode);
+        modalVideosFooterSecondRow?.classList.toggle('hidden', isSelectionMode);
 
         if (isSelectionMode) {
-            // Mostrar área de playlist y ocultar botones normales
-            playlistArea.classList.add('active');
-            if (playlistArea) {
-                playlistArea.classList.add('active');
-            }
-            if (firstRow) {
-                firstRow.classList.add('hidden');
-            }
-            if (secondRow) {
-                secondRow.classList.add('hidden');
-            }
-
-            // Actualizar información si hay videos seleccionados
+            // Actualizar el área de playlist si hay videos seleccionados
             if (selectedVideos.size > 0) {
                 updatePlaylistContent();
             }
         } else {
-            // Ocultar área de playlist y mostrar botones normales
-            playlistArea.classList.remove('active');
-            if (playlistArea) {
-                playlistArea.classList.remove('active');
-            }
-            if (firstRow) {
-                firstRow.classList.remove('hidden');
-            }
-            if (secondRow) {
-                secondRow.classList.remove('hidden');
-            }
-
-            // Limpiar contenido del área de playlist
+            // Limpiar el área de playlist
             clearPlaylistContent();
         }
     }
@@ -6954,64 +6933,62 @@ background: var(--ypp-danger);
      * Actualiza el contenido del área de playlist
      */
     function updatePlaylistContent() {
-        const playlistInfo = document.getElementById('ypp-playlist-info');
-        const playlistTextarea = document.getElementById('ypp-playlist-textarea');
+        // Operador ??= solo consulta el DOM si la variable es null o undefined
+        playlistInfoEl ??= document.querySelector('#ypp-playlist-info');
+        playlistTextareaEl ??= document.querySelector('#ypp-playlist-textarea');
 
-        if (playlistInfo) {
-            playlistInfo.textContent = `${t('selectedVideos')}: ${selectedVideos.size}`;
+        if (!playlistInfoEl || !playlistTextareaEl) return;
+
+        const size = selectedVideos.size;
+        playlistInfoEl.textContent = `${t('selectedVideos')}: ${size}`;
+
+        if (size === 0) {
+            playlistTextareaEl.value = '';
+            return;
         }
 
-        if (playlistTextarea) {
-            if (selectedVideos.size > 0) {
-                const videoIds = Array.from(selectedVideos);
-                const playlistUrl = `https://www.youtube.com/watch_videos?video_ids=${videoIds.join(',')}`;
-                playlistTextarea.value = playlistUrl;
-            } else {
-                playlistTextarea.value = '';
-            }
-        }
+        playlistTextareaEl.value =
+            `https://www.youtube.com/watch_videos?video_ids=${Array.from(selectedVideos).join(',')}`;
     }
 
     /**
      * Limpia el contenido del área de playlist
      */
     function clearPlaylistContent() {
-        const playlistInfo = document.getElementById('ypp-playlist-info');
-        const playlistTextarea = document.getElementById('ypp-playlist-textarea');
+        playlistInfoEl ??= document.querySelector('#ypp-playlist-info');
+        playlistTextareaEl ??= document.querySelector('#ypp-playlist-textarea');
 
-        if (playlistInfo) {
-            playlistInfo.textContent = `${t('selectedVideos')}: 0`;
-        }
+        if (!playlistInfoEl || !playlistTextareaEl) return;
 
-        if (playlistTextarea) {
-            playlistTextarea.value = '';
-        }
+        playlistInfoEl.textContent = `${t('selectedVideos')}: 0`;
+        playlistTextareaEl.value = '';
     }
 
     /**
      * Copia el enlace de playlist al portapapeles
      */
     function copyPlaylistLink() {
-        const textarea = document.getElementById('ypp-playlist-textarea');
-        if (!textarea || !textarea.value) {
+        playlistTextareaEl ??= document.querySelector('#ypp-playlist-textarea');
+
+        if (!playlistTextareaEl || !playlistTextareaEl.value) {
             alert(t('selectAtLeastOne'));
             return;
         }
 
-        copyToClipboard(textarea.value, document.getElementById('ypp-copy-playlist-btn'));
+        copyToClipboard(playlistTextareaEl.value, document.querySelector('#ypp-copy-playlist-btn'));
     }
 
     /**
      * Abre el enlace de playlist en una nueva pestaña
      */
     function openPlaylistLink() {
-        const textarea = document.getElementById('ypp-playlist-textarea');
-        if (!textarea || !textarea.value) {
+        playlistTextareaEl ??= document.querySelector('#ypp-playlist-textarea');
+        if (!playlistTextareaEl || !playlistTextareaEl.value) {
             alert(t('selectAtLeastOne'));
             return;
         }
 
-        window.open(textarea.value, '_blank');
+        window.open(playlistTextareaEl.value, '_blank');
     }
 
     /**
@@ -7061,9 +7038,6 @@ background: var(--ypp-danger);
             selectedVideos.add(videoId);
             log('toggleVideoSelection', `Video ${videoId} seleccionado`);
         }
-
-        // Actualizar UI
-        updateSelectionUI();
 
         // Actualizar el checkbox específico
         const checkbox = document.querySelector(`input[data-video-id="${videoId}"]`);
@@ -8916,7 +8890,7 @@ background: var(--ypp-danger);
                 );
             },
             onRender: ({ renderedCount, totalItems }) => {
-                const statsEl = document.getElementById('ypp-render-stats');
+                const statsEl = document.querySelector('#ypp-render-stats');
                 if (statsEl) {
                     statsEl.textContent = `📊 ${renderedCount}/${totalItems} ${t('rendered') || 'rendered'}`;
                 }
@@ -8974,7 +8948,7 @@ background: var(--ypp-danger);
      * @returns {Promise<void>}
      */
     const updateStorageUsageIndicator = async () => {
-        const el = document.getElementById('ypp-storage-usage');
+        const el = document.querySelector('#ypp-storage-usage');
         if (!el) return;
 
         const estimateFn = navigator?.storage?.estimate;
@@ -9130,10 +9104,12 @@ background: var(--ypp-danger);
         });
 
         const btnCreatePlaylist = createElement('button', {
+            id: 'ypp-create-playlist-btn',
             className: 'ypp-btn ypp-btn-primary ypp-sombra',
             html: `${SVG_ICONS.playlist} ${t('createPlaylist')}`,
             onClickEvent: async () => { await toggleSelectionMode(); }
         });
+
 
         const btnSettings = createElement('button', {
             className: 'ypp-btn ypp-btn-secondary ypp-sombra',
@@ -9143,6 +9119,7 @@ background: var(--ypp-danger);
 
         secondRow.appendChild(btnClearAll);
         secondRow.appendChild(btnCreatePlaylist);
+        createPlaylistBtn = btnCreatePlaylist; // Guardar referencia global para evitar llamadas al DOM
         secondRow.appendChild(btnSettings);
 
         // Área de creación de playlist integrada
@@ -9208,6 +9185,14 @@ background: var(--ypp-danger);
         footer.appendChild(firstRow);
         footer.appendChild(secondRow);
         footer.appendChild(playlistArea);
+
+        // Guardar referencia global para evitar llamadas al DOM
+        playlistInfoEl = playlistInfo
+        playlistTextareaEl = playlistTextarea
+        modalVideosFooterFirtsRow = firstRow
+        modalVideosFooterSecondRow = secondRow
+        playlistContainer = playlistArea
+
         videosContainer.appendChild(footer);
 
         videosOverlay.addEventListener('click', (e) => {

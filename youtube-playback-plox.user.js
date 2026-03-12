@@ -3385,7 +3385,7 @@ background: var(--ypp-danger);
     let cachedSettings = null; // Configuración del usuario
 
     // ------------------------------------------
-    // MARK: 📢 Ad Selectors / Ad Detector (centralizado)
+    // MARK: 📢 Ad Selectors / Ad Detector
     // ------------------------------------------
 
     const AdSelectors = Object.freeze({
@@ -4089,17 +4089,6 @@ background: var(--ypp-danger);
         };
     };
 
-    // MARK: 🔧 Thumbnail Has Video ID
-    function thumbnailHasVideoId(url, vid) {
-        if (!url || !vid) return false;
-        try {
-            const m = url.match(/https:\/\/i\.ytimg\.com\/vi(?:_webp)?\/([A-Za-z0-9_-]+)\//);
-            if (m && m[1]) return m[1] === vid;
-            return url.includes(vid);
-        } catch (e) {
-            return false;
-        }
-    }
 
     // MARK: 🎯 VirtualScroller
     /**
@@ -4760,11 +4749,11 @@ background: var(--ypp-danger);
     */
     function toFreeTubeFormat(internalData) {
         // Redondear valores de tiempo para que FreeTube los muestre correctamente
-        const timestamp = internalData.timestamp || 0;
-        const duration = internalData.duration || 0;
+        const progress = internalData.watchProgress ?? internalData.timestamp ?? 0;
+        const duration = internalData.lengthSeconds ?? internalData.duration ?? 0;
 
         // Redondear watchProgress a 2 decimales
-        const watchProgress = Math.round(timestamp * 100) / 100;
+        const watchProgress = Math.round(progress * 100) / 100;
         // Redondear lengthSeconds a entero (FreeTube espera segundos completos)
         const lengthSeconds = Math.round(duration);
 
@@ -4775,14 +4764,13 @@ background: var(--ypp-danger);
             authorId: internalData.authorId || '',
             published: internalData.published || null,
             description: internalData.description || '',
-            viewCount: typeof internalData.viewsNumber === 'string'
-                ? parseInt(internalData.viewsNumber.replace(/[,\.\s]/g, '')) || 0
-                : (internalData.viewsNumber || 0),
-            lengthSeconds: lengthSeconds, // Redondeado a entero
-            watchProgress: watchProgress, // Redondeado a 2 decimales
-            timeWatched: internalData.lastUpdated || internalData.savedAt || Date.now(),
+            viewCount: internalData.viewCount ?? (parseInt(internalData.viewsNumber?.replace(/[,\.\s]/g, '')) || 0),
+            lengthSeconds: lengthSeconds,
+            watchProgress: watchProgress,
+            timeWatched: internalData.timeWatched || Date.now(),
             isLive: internalData.isLive || false,
-            // FreeTube usa 'video' para todos los formatos
+            // FreeTube usa 'video' para todo en su tipo en exportación historial.db
+            // ultima revision la hice con la version: v0.23.14 Beta 
             type: 'video',
             // Metadatos de playlist (FreeTube los incluye siempre, aunque sean null)
             lastViewedPlaylistId: internalData.lastViewedPlaylistId || null,
@@ -4878,17 +4866,8 @@ background: var(--ypp-danger);
      * @returns {Object} Datos en formato interno del script
      */
     function fromFreeTubeFormat(freeTubeData) {
-        // Generar thumbnail URL directamente sin depender del contexto de la página
+        // Generar thumbnail URL directamente si el videoId es válido
         const videoId = freeTubeData.videoId;
-        let thumbnailUrl;
-
-        if (videoId && typeof videoId === 'string' && videoId.length >= 11) {
-            // Usar URL directa de YouTube como fallback confiable
-            thumbnailUrl = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-        } else {
-            // Fallback adicional si el videoId es inválido
-            thumbnailUrl = 'https://i.ytimg.com/vi/default/maxresdefault.jpg';
-        }
 
         // Determinar si el video está completado basado en el progreso
         const watchProgress = freeTubeData.watchProgress || 0;
@@ -4899,7 +4878,7 @@ background: var(--ypp-danger);
             // Considerar completado si el progreso es >= 95% o si quedan menos de 30 segundos
             const progressPercent = (watchProgress / lengthSeconds) * 100;
             const remainingSeconds = lengthSeconds - watchProgress;
-            isCompleted = progressPercent >= CONFIG.defaultSettings.staticFinishPercent || remainingSeconds <= 30;
+            isCompleted = progressPercent >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent) || remainingSeconds <= 30;
         }
 
         return {
@@ -4907,13 +4886,12 @@ background: var(--ypp-danger);
             title: freeTubeData.title,
             author: freeTubeData.author,
             authorId: freeTubeData.authorId,
-            thumb: thumbnailUrl,
-            viewsNumber: freeTubeData.viewCount ? freeTubeData.viewCount.toLocaleString() : 'N/D',
-            savedAt: freeTubeData.timeWatched,
-            duration: freeTubeData.lengthSeconds,
-            timestamp: freeTubeData.watchProgress,
-            lastUpdated: freeTubeData.timeWatched,
-            videoType: normalizeVideoType(freeTubeData.type === 'short' ? 'shorts' : 'video'),
+            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`, // Campo temporal compatible con UI legacy que aún busque thumb
+            viewCount: freeTubeData.viewCount || 0,
+            watchProgress: freeTubeData.watchProgress || 0,
+            lengthSeconds: freeTubeData.lengthSeconds || 0,
+            timeWatched: freeTubeData.timeWatched || Date.now(),
+            type: normalizeVideoType(freeTubeData.type === 'short' ? 'shorts' : 'video'),
             isCompleted: isCompleted,
             published: freeTubeData.published,
             description: freeTubeData.description,
@@ -5059,16 +5037,12 @@ background: var(--ypp-danger);
     }
 
     /**
-     * Guarda progreso para un video regular (watch page)
-     * @param {string} videoId - ID del video
-     * @param {number} currentTime - Tiempo actual en segundos
-     * @param {number} duration - Duración total del video
-     * @param {Object} videoInfo - Información del video (title, author, etc.)
-     * @param {string|null} playlistId - ID de la playlist si aplica
-     * @returns {Object} Resultado de la operación
+     * Lógica interna compartida para guardar videos que no son Shorts ni Directos (Watch o Miniplayer).
+     * @private
      */
-    async function saveRegularVideo(videoId, currentTime, duration, videoInfo, playlistId) {
-        log('saveRegularVideo', `Guardando video regular ${videoId} en ${currentTime}s`);
+    async function internalSaveRegularVideo(currentTime, videoInfo, logContext = 'saveRegularVideo') {
+        const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
+        log(logContext, `Guardando video ${videoId} en ${currentTime}s`);
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
@@ -5077,44 +5051,104 @@ background: var(--ypp-danger);
         // Si tiene tiempo fijo, no sobreescribir
         if (sourceData && sourceData.forceResumeTime > 0) {
             if (isFinished) {
-                log('saveRegularVideo', `Video ${videoId} completado, manteniendo tiempo fijo`);
+                log(logContext, `Video ${videoId} completado, manteniendo tiempo fijo`);
                 const base = { ...sourceData, isCompleted: true, lastUpdated: now, timestamp: 0 };
-                if (!thumbnailHasVideoId(base.thumb, videoId)) {
-                    base.thumb = `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`;
-                }
                 await Storage.set(videoId, base);
             }
             return { success: false, reason: 'fixed_time_no_overwrite' };
         }
 
-        // Preservar metadata si existe
-        const safeVideoInfo = { ...videoInfo };
-        if (sourceData) {
-            if (!safeVideoInfo.title && sourceData.title) safeVideoInfo.title = sourceData.title;
-            if (!safeVideoInfo.author && sourceData.author) safeVideoInfo.author = sourceData.author;
-            if (!safeVideoInfo.authorId && sourceData.authorId) safeVideoInfo.authorId = sourceData.authorId;
-        }
-
         const videoData = {
-            ...safeVideoInfo,
             videoId,
-            timestamp: currentTime,
-            lastUpdated: now,
-            savedAt: now, // Campo para ordenamiento
-            videoType: 'video',
+            title: videoInfo.title || sourceData?.title,
+            author: videoInfo.author || sourceData?.author,
+            authorId: videoInfo.authorId || sourceData?.authorId,
+            published: videoInfo.published || sourceData?.published,
+            description: videoInfo.description || sourceData?.description,
+            isLive: videoInfo.isLive || sourceData?.isLive || false,
+            watchProgress: currentTime,
+            lengthSeconds: duration,
+            timeWatched: now,
+            type: 'video',
             isCompleted: isFinished,
-            duration,
-            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+            viewCount: videoInfo.viewCount || 0,
             lastViewedPlaylistId: playlistId || (sourceData?.lastViewedPlaylistId || null),
             lastViewedPlaylistType: playlistId ? 'channel' : (sourceData?.lastViewedPlaylistType || ''),
             lastViewedPlaylistItemId: null,
-            watchProgress: currentTime,
-            timeWatched: now
+            playlistTitle: videoInfo.playlistTitle || sourceData?.playlistTitle
         };
 
         const storageResult = await Storage.set(videoId, videoData);
-        // log('saveRegularVideo', `✅ Video regular guardado:`, videoData);
-        log('saveRegularVideo', '✅ Video regular guardado:', {
+        log(logContext, `✅ Video guardado (${logContext}):`, {
+            ...videoData,
+            description: videoData.description
+                ? videoData.description.slice(0, 12) +
+                (videoData.description.length > 12 ? ' (truncada para log)' : '')
+                : ''
+        });
+
+        if (storageResult && !storageResult.success) {
+            return { success: false, reason: storageResult.reason, videoId, type: 'video' };
+        }
+
+        return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'video', savedData: videoData };
+    }
+
+    /**
+     * Guarda progreso para videos regulares (Página de Watch)
+     * @param {number} currentTime - Tiempo actual
+     * @param {Object} videoInfo - Información del video
+     * @returns {Object} Resultado
+     */
+    async function saveRegularVideo(currentTime, videoInfo) {
+        return await internalSaveRegularVideo(currentTime, videoInfo, 'saveRegularVideo');
+    }
+
+    /**
+     * Guarda progreso para videos en el Miniplayer
+     * @param {number} currentTime - Tiempo actual
+     * @param {Object} videoInfo - Información del video
+     * @returns {Object} Resultado
+     */
+    async function saveMiniplayer(currentTime, videoInfo) {
+        return await internalSaveRegularVideo(currentTime, videoInfo, 'saveMiniplayer');
+    }
+
+    /**
+     * Guarda progreso para Shorts
+     * @param {number} currentTime - Tiempo actual
+     * @param {Object} videoInfo - Información del short (videoId, title, author, duration, etc.)
+     * @returns {Object} Resultado de la operación
+     */
+    async function saveShortsVideo(currentTime, videoInfo) {
+        const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
+        log('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
+
+        const now = Date.now();
+        const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
+
+        const videoData = {
+            videoId,
+            title: videoInfo.title,
+            author: videoInfo.author,
+            authorId: videoInfo.authorId,
+            published: videoInfo.published,
+            description: videoInfo.description,
+            isLive: false,
+            watchProgress: currentTime,
+            lengthSeconds: duration,
+            viewCount: videoInfo.viewCount || 0,
+            timeWatched: now,
+            type: 'shorts',
+            isCompleted: isFinished,
+            lastViewedPlaylistId: playlistId,
+            lastViewedPlaylistType: '',
+            lastViewedPlaylistItemId: null
+        };
+
+        const storageResult = await Storage.set(videoId, videoData);
+        // log('saveShortsVideo', `✅ Short guardado:`, videoData);
+        log('saveShortsVideo', '✅ Short guardado:', {
             ...videoData,
             description: videoData.description
                 ? videoData.description.slice(0, 12) +
@@ -5124,66 +5158,21 @@ background: var(--ypp-danger);
 
         // Verificar si hubo error de almacenamiento
         if (storageResult && !storageResult.success) {
-            return { success: false, reason: storageResult.reason, videoId, type: 'video' };
-        }
-
-        return { success: true, videoId, timestamp: videoData.timestamp, type: 'video', savedData: videoData };
-    }
-
-    /**
-     * Guarda progreso para Shorts
-     * @param {string} videoId - ID del short
-     * @param {number} currentTime - Tiempo actual
-     * @param {number} duration - Duración total
-     * @param {Object} videoInfo - Información del short
-     * @returns {Object} Resultado de la operación
-     */
-    async function saveShortsVideo(videoId, currentTime, duration, videoInfo, playlistId = null) {
-        log('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
-
-        /* const sourceData = await getSavedVideoData(videoId, playlistId); */
-        const now = Date.now();
-        const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
-
-        const videoData = {
-            ...videoInfo,
-            videoId,
-            timestamp: currentTime,
-            lastUpdated: now,
-            savedAt: now,
-            videoType: 'shorts',
-            isCompleted: isFinished,
-            duration,
-            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-            lastViewedPlaylistId: playlistId,
-            lastViewedPlaylistType: '',
-            lastViewedPlaylistItemId: null,
-            watchProgress: currentTime,
-            timeWatched: now
-        };
-
-        const storageResult = await Storage.set(videoId, videoData);
-        log('saveShortsVideo', `✅ Short guardado:`, videoData);
-
-        // Verificar si hubo error de almacenamiento
-        if (storageResult && !storageResult.success) {
             return { success: false, reason: storageResult.reason, videoId, type: 'shorts' };
         }
 
-        return { success: true, videoId, timestamp: videoData.timestamp, type: 'shorts', savedData: videoData };
+        return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'shorts', savedData: videoData };
     }
 
     /**
      * Guarda progreso para previews (inline playback en home/search)
-     * @param {string} videoId - ID del video en preview
      * @param {number} currentTime - Tiempo actual
-     * @param {number} duration - Duración total
-     * @param {Object} videoInfo - Información del video
+     * @param {Object} videoInfo - Información del video (videoId, title, author, duration, etc.)
      * @param {string} previewType - 'preview_watch' o 'preview_shorts'
-     * @param {string|null} playlistId - ID de la playlist (opcional)
      * @returns {Object} Resultado de la operación
      */
-    async function savePreview(videoId, currentTime, duration, videoInfo, previewType, playlistId = null) {
+    async function savePreview(currentTime, videoInfo, previewType) {
+        const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
         log('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
@@ -5193,87 +5182,102 @@ background: var(--ypp-danger);
         const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
 
         // Log de debug intensivo para detectar flickering y completions prematuros
-        log('savePreview', `[DEBUG] Saving Preview: videoId=${videoId}, cur=${currentTime.toFixed(2)}, dur=${duration.toFixed(2)}, isFinished=${isFinished}`);
+        log('savePreview', `Saving Preview: videoId=${videoId}, cur=${currentTime.toFixed(2)}, dur=${duration.toFixed(2)}, isFinished=${isFinished}`);
 
         // Verificación de seguridad adicional: no marcar como completado si el tiempo es sospechosamente bajo
         // o si la duración parece ser un placeholder (YouTube a veces pone 0.1 o similar al inicio)
         const safeIsFinished = isFinished && currentTime > 0.8 && duration > 1;
 
         const resolvedVideoType = (() => {
-            const previousType = sourceData?.videoType;
+            const previousType = sourceData?.type;
             if (previousType === 'video' || previousType === 'shorts' || previousType === 'live') return previousType;
             return previewType;
         })();
 
         // Preservar datos previos para previews
         const videoData = {
-            ...(sourceData || {}),
-            ...videoInfo,
             videoId,
-            timestamp: currentTime,
-            lastUpdated: now,
-            savedAt: now,
-            videoType: resolvedVideoType,
-            isCompleted: safeIsFinished,
-            duration: isFinite(duration) ? duration : (sourceData?.duration || 0),
-            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-            lastViewedPlaylistId: playlistId,
+            title: videoInfo.title,
+            author: videoInfo.author,
+            authorId: videoInfo.authorId,
+            published: videoInfo.published,
+            description: videoInfo.description,
+            isLive: videoInfo.isLive || false,
             watchProgress: currentTime,
-            timeWatched: now
+            lengthSeconds: isFinite(duration) ? duration : (sourceData?.lengthSeconds || 0),
+            viewCount: videoInfo.viewCount || 0,
+            timeWatched: now,
+            type: resolvedVideoType,
+            isCompleted: safeIsFinished,
+            lastViewedPlaylistId: playlistId,
+            playlistTitle: videoInfo.playlistTitle || sourceData?.playlistTitle
         };
 
         const storageResult = await Storage.set(videoId, videoData);
-        log('savePreview', `✅ Preview guardado:`, videoData);
+        // log('savePreview', `✅ Preview guardado:`, videoData);
+        log('savePreview', '✅ Preview guardado:', {
+            ...videoData,
+            description: videoData.description
+                ? videoData.description.slice(0, 12) +
+                (videoData.description.length > 12 ? ' (truncada para log)' : '')
+                : ''
+        });
 
         // Verificar si hubo error de almacenamiento
         if (storageResult && !storageResult.success) {
             return { success: false, reason: storageResult.reason, videoId, type: 'preview' };
         }
 
-        return { success: true, videoId, timestamp: videoData.timestamp, type: 'preview' };
+        return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'preview' };
     }
 
     /**
      * Guarda progreso para livestreams
-     * @param {string} videoId - ID del livestream
      * @param {number} currentTime - Tiempo actual
-     * @param {number} duration - Duración (0 para en vivo)
      * @param {Object} videoInfo - Información del livestream
-     * @param {string|null} playlistId - ID de la playlist (opcional)
      * @returns {Object} Resultado de la operación
      */
-    async function saveLivestream(videoId, currentTime, duration, videoInfo, playlistId = null) {
+    async function saveLivestream(currentTime, videoInfo) {
+        const { videoId, lengthSeconds: duration } = videoInfo;
         log('saveLivestream', `Guardando livestream ${videoId} en ${currentTime}s`);
 
-        /*         const sourceData = await getSavedVideoData(videoId, playlistId); */
         const now = Date.now();
 
         const videoData = {
             videoId,
-            timestamp: currentTime,
-            lastUpdated: now,
-            savedAt: now,
-            videoType: 'live',
+            title: videoInfo.title,
+            author: videoInfo.author,
+            authorId: videoInfo.authorId,
+            published: videoInfo.published,
+            description: videoInfo.description,
+            isLive: true,
+            watchProgress: currentTime,
+            lengthSeconds: isFinite(duration) && duration > 0 ? duration : 0,
+            viewCount: videoInfo.viewCount || 0,
+            timeWatched: now,
+            type: 'live',
             isCompleted: false,
-            duration: isFinite(duration) && duration > 0 ? duration : 0,
-            ...videoInfo,
-            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
             lastViewedPlaylistId: null,
             lastViewedPlaylistType: '',
-            lastViewedPlaylistItemId: null,
-            watchProgress: currentTime,
-            timeWatched: now
+            lastViewedPlaylistItemId: null
         };
 
         const storageResult = await Storage.set(videoId, videoData);
-        log('saveLivestream', `✅ Livestream guardado:`, videoData);
+        // log('saveLivestream', `✅ Livestream guardado:`, videoData);
+        log('saveLivestream', '✅ Livestream guardado:', {
+            ...videoData,
+            description: videoData.description
+                ? videoData.description.slice(0, 12) +
+                (videoData.description.length > 12 ? ' (truncada para log)' : '')
+                : ''
+        });
 
         // Verificar si hubo error de almacenamiento
         if (storageResult && !storageResult.success) {
             return { success: false, reason: storageResult.reason, videoId, type: 'live' };
         }
 
-        return { success: true, videoId, timestamp: videoData.timestamp, type: 'live' };
+        return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'live' };
     }
 
 
@@ -5303,128 +5307,43 @@ background: var(--ypp-danger);
         log('getSavedVideoData', `Buscando datos guardados para ID: ${videoId} | Playlist ID: ${playlistId}`);
         if (!videoId) return null;
 
-        // En el formato FreeTube, todos los videos se guardan con video_id como clave
-        // independientemente de si fueron vistos en una playlist o no
-        const videoData = await Storage.get(videoId);
+        let videoData = await Storage.get(videoId);
 
-        if (videoData) {
-            // Si encontramos el video y se especificó un playlistId, verificar compatibilidad
-            if (playlistId && videoData.lastViewedPlaylistId === playlistId) {
-                log('getSavedVideoData', `✅ Video encontrado con playlist coincidente`);
-                return videoData;
-            } else if (!playlistId) {
-                log('getSavedVideoData', `✅ Video encontrado (sin filtro de playlist)`);
-                return videoData;
-            } else {
-                log('getSavedVideoData', `⚠ Video encontrado pero en contexto diferente (guardado: ${videoData.lastViewedPlaylistId}, buscado: ${playlistId}) - usando fallback base`);
-                return videoData;
-            }
-        }
-
-        // Compatibilidad con formato antiguo (playlists anidadas)
-        if (playlistId) {
+        // Fallback context: si no se encuentra por videoId, probar en la playlist directamente
+        if (!videoData && playlistId) {
             const oldPlaylistData = await Storage.get(playlistId);
             if (oldPlaylistData?.videos?.[videoId]) {
                 log('getSavedVideoData', `✅ Video encontrado en formato antiguo (playlist anidada)`);
-                return oldPlaylistData.videos[videoId];
+                videoData = oldPlaylistData.videos[videoId];
             }
         }
 
-        // Búsqueda flexible: por si alguna vez se guardó con prefijos raros
-        const keys = await Storage.keys?.() || [];
-        const altKey = keys.find(k => k.endsWith(videoId) || k.includes(videoId));
-        if (altKey && altKey !== `playlist_meta_${videoId}`) {
-            log('getSavedVideoData', `✅ Video encontrado con clave alternativa: ${altKey}`);
-            return await Storage.get(altKey);
+        // Búsqueda flexible adicional
+        if (!videoData) {
+            const keys = (await Storage.keys?.()) || [];
+            const altKey = keys.find(k => (k.endsWith(videoId) || k.includes(videoId)) && !isNonVideoStorageKey(k));
+            if (altKey) {
+                log('getSavedVideoData', `✅ Video encontrado con clave alternativa: ${altKey}`);
+                videoData = await Storage.get(altKey);
+            }
+        }
+
+        if (videoData) {
+            // NORMALIZACIÓN: Asegurar que siempre se devuelven los campos estándar
+            // para que los consumidores (como initPlaybackBar) no tengan que lidiar con fallbacks
+            return {
+                ...videoData,
+                watchProgress: videoData.watchProgress ?? 0,
+                lengthSeconds: videoData.lengthSeconds ?? 0,
+                timeWatched: videoData.timeWatched ?? Date.now(),
+                type: videoData.type ?? 'video'
+            };
         }
 
         log('getSavedVideoData', `✗ No se encontraron datos para el video`);
         return null;
     }
 
-    // MARK: 📺 Normaliza las claves de almacenamiento de YouTube
-    /**
-    * @function normalizeYouTubeStorageKeys
-    * @description
-    * Normaliza las claves almacenadas en `Storage` que estén relacionadas con YouTube.
-    * Revisa todas las claves, intenta extraer o corregir los IDs de video,
-    * y migra los datos a claves normalizadas, evitando duplicados.
-    *
-    * @returns {void} No devuelve ningún valor. Realiza operaciones directamente sobre `Storage`.
-    *
-    * @example
-    * // Ejemplo de uso:
-    * normalizeYouTubeStorageKeys();
-    *
-    * // Este proceso:
-    * //  - Lee todas las claves del almacenamiento
-    * //  - Detecta las que contienen identificadores de videos no normalizados
-    * //  - Crea nuevas claves con el formato correcto y migra los datos
-    */
-    async function normalizeYouTubeStorageKeys() {
-        const NORMALIZE_VERSION = 2; // Incrementar si cambia la lógica de normalización
-        const NORMALIZE_KEY = 'ypp_normalize_storage_keys_version';
-
-        // Evitar re-ejecución si ya se aplicó esta versión
-        try {
-            const last = await GM_getValue(NORMALIZE_KEY, 0);
-            if (last >= NORMALIZE_VERSION) {
-                log('normalizeYouTubeStorageKeys', `✅ Normalización ya aplicada (versión ${last})`);
-                return;
-            }
-        } catch (e) {
-            // Si falla GM_getValue, continuar sin bloquear la normalización
-            warn('normalizeYouTubeStorageKeys', 'No se pudo leer versión de normalización, continuando...', e);
-        }
-        // Verifica si el objeto Storage tiene disponible el método keys()
-        if (typeof Storage?.keys !== 'function') {
-            conError('normalizeYouTubeStorageKeys', 'Storage.keys() no disponible.');
-            return;
-        }
-
-        // Obtiene todas las claves almacenadas
-        const allKeys = await Storage.keys();
-        // Contador para llevar registro de cuántas claves se han migrado
-        let changes = 0;
-
-        // Recorre todas las claves encontradas en el almacenamiento
-        let iter = 0;
-        for (const key of allKeys) {
-            // Intenta extraer o normalizar el ID del video desde la clave
-            const newKey = extractOrNormalizeVideoId(key)?.id;
-
-            // Registra la operación en el log
-            log('normalizeYouTubeStorageKeys', `Clave original: ${key} | Clave nueva: ${newKey}`);
-
-            // Si se obtuvo un ID válido y diferente de la clave original
-            if (newKey && newKey !== key) {
-                // Obtiene los datos asociados a la clave antigua
-                const data = await Storage.get(key);
-
-                // Solo migra si la nueva clave aún no existe (para evitar sobrescribir datos)
-                if (!(await Storage.get(newKey))) {
-                    await Storage.set(newKey, data);  // Guarda los datos bajo la nueva clave
-                    await Storage.del(key);           // Elimina la clave antigua
-                    log('normalizeYouTubeStorageKeys', `✅ Migrado: "${key}" -> "${newKey}"`);
-                    changes++;
-                } else {
-                    // Si la nueva clave ya existe, registra un aviso de duplicado
-                    log('normalizeYouTubeStorageKeys', `⚠️ Duplicado detectado: "${key}" ya existe como "${newKey}"`);
-                }
-            }
-        }
-
-        // Muestra un resumen al final del proceso
-        log('normalizeYouTubeStorageKeys', `🔁 Normalización completa. ${changes} claves migradas.`);
-
-        // Marcar como aplicada esta versión de normalización para evitar re-ejecuciones
-        try {
-            await GM_setValue(NORMALIZE_KEY, NORMALIZE_VERSION);
-            log('normalizeYouTubeStorageKeys', `📝 Versión de normalización guardada: ${NORMALIZE_VERSION}`);
-        } catch (e) {
-            warn('normalizeYouTubeStorageKeys', 'No se pudo guardar versión de normalización', e);
-        }
-    }
 
 
 
@@ -6091,6 +6010,7 @@ background: var(--ypp-danger);
         }
 
         log('initTimeDisplay', '✅ Creada visualización de tiempo en la barra de reproducción');
+        clearPlaybackBarMessage();
     }
     /**
      * Determina si un elemento está visible en el layout (no display:none/visibility:hidden, con tamaño > 0)
@@ -6201,6 +6121,7 @@ background: var(--ypp-danger);
         }
 
         log('initShortsTimeDisplay', 'Creada visualización de tiempo para Shorts dentro del player');
+        clearShortsMessage();
     }
 
     /**
@@ -6242,7 +6163,7 @@ background: var(--ypp-danger);
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
-    function updatePlaybackBarMessage(message, videoEl) {
+    function updatePlaybackBarMessage(message, videoEl, isSeek = false) {
         if (!timeDisplay?.isConnected) return;
 
         if (!timeDisplay) {
@@ -6254,17 +6175,22 @@ background: var(--ypp-danger);
         timeDisplay.classList.remove('ypp-d-none');
 
         // No programar limpieza automática para mensajes seek si el video está pausado
-        const isSeekMessage = message.includes('svgPlayOrPauseIcon');
         const isVideoPaused = videoEl?.paused ?? false;
-        log('updatePlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}`);
+        log('updatePlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}`);
 
-        if (isSeekMessage && isVideoPaused) return;
+        if (isSeek && isVideoPaused) return;
         // Si el video está pausado y el display actual ya muestra un seek, no sobreescribir ni limpiar
-        if (!isSeekMessage && isVideoPaused) {
-            const hasActiveSeek = timeDisplay.querySelector('.svgPlayOrPauseIcon');
+        if (!isSeek && isVideoPaused) {
+            const hasActiveSeek = timeDisplay.dataset.activeSeek === 'true';
             if (hasActiveSeek) return; // preservar el seek hasta que el usuario reanude
             clearPlaybackBarMessage();
             return;
+        }
+
+        if (isSeek) {
+            timeDisplay.dataset.activeSeek = 'true';
+        } else {
+            delete timeDisplay.dataset.activeSeek;
         }
 
         scheduleDisplayClear('watch', clearPlaybackBarMessage, 1600);
@@ -6278,6 +6204,7 @@ background: var(--ypp-danger);
             } catch (_) {
                 setInnerHTML(timeDisplay, '');
             }
+            delete timeDisplay.dataset.activeSeek;
             timeDisplay.classList.remove('ypp-d-none');
         }
 
@@ -6377,8 +6304,8 @@ background: var(--ypp-danger);
 
     function clearShortsMessage() {
         if (shortsTimeDisplay) {
-            setInnerHTML(shortsTimeDisplay, '');
-            shortsTimeDisplay.classList.add('ypp-d-none');
+            setInnerHTML(shortsTimeDisplay, SVG_ICONS.folder || '');
+            shortsTimeDisplay.classList.remove('ypp-d-none');
             shortsTimeDisplay.classList.remove('ypp-floating');
             // Al limpiar el mensaje, también vaciar el caché para evitar reusar mensajes de Shorts anteriores
             lastShortsMessageHtml = '';
@@ -6413,6 +6340,7 @@ background: var(--ypp-danger);
 
         controls.appendChild(miniplayerTimeDisplay);
         log('initMiniplayerTimeDisplay', '✅ Visualización de tiempo inicializada en Miniplayer');
+        clearMiniplayerMessage();
     }
 
     /**
@@ -6478,6 +6406,7 @@ background: var(--ypp-danger);
 
         previewPlayer.appendChild(inlinePreviewTimeDisplay);
         log('initInlinePreviewTimeDisplay', '✅ Visualización de tiempo inicializada en Inline Preview');
+        clearInlinePreviewMessage();
     }
 
     /**
@@ -6913,7 +6842,8 @@ background: var(--ypp-danger);
                 timeStr
             );
 
-        handlers[videoType]?.(message, videoEl);
+        const isSeek = context === 'seek';
+        handlers[videoType]?.(message, videoEl, isSeek);
     }
 
 
@@ -7244,10 +7174,12 @@ background: var(--ypp-danger);
             // 3. Buscar video en Miniplayer
             if (currentPageType !== 'watch') {
                 const miniplayerActive = DOMHelpers.getMiniplayerActive();
-                if (!!miniplayerActive) {
-                    const miniVideo = miniplayerActive?.querySelector('video');
-                    if (force) videoTypeCache.delete(miniVideo);
-                    enqueueVideo(miniVideo, 'miniplayer');
+                if (miniplayerActive) {
+                    const miniVideo = miniplayerActive.querySelector('video');
+                    if (miniVideo) {
+                        if (force) videoTypeCache.delete(miniVideo);
+                        enqueueVideo(miniVideo, 'miniplayer');
+                    }
                 }
             }
 
@@ -7270,6 +7202,7 @@ background: var(--ypp-danger);
          * @param {string} type - El tipo de video (watch, shorts, miniplayer, preview).
          */
         const enqueueVideo = (videoElement, type) => {
+            if (!videoElement) return;
             // Protección: No encolar videos que son detectados como anuncios
             if (AdDetector.isNodeWithinAdContainer(videoElement)) {
                 warn('VideoObserverManager', `🚫 Omitiendo video [${type}] detectado como anuncio por AdDetector`);
@@ -7732,10 +7665,9 @@ background: var(--ypp-danger);
      * @param {string} type - Contexto (watch, shorts, miniplayer, preview)
      * @param {string} videoId - ID del video a seguir
      * @param {object} player - Objeto del player de YouTube
-     * @param {string} containerId - ID del contenedor (movie_player, etc.)
      * @param {string|null} playlistId - ID de la playlist (opcional)
      */
-    const startProcessingSession = async (videoEl, type, videoId, player, containerId, playlistId = null) => {
+    const startProcessingSession = async (videoEl, type, videoId, player) => {
         // Si ya hay una sesión para este mismo video, no hacer nada
         const currentSession = activeProcessingSessions.get(videoEl);
         if (currentSession?.lastVideoId === videoId) return;
@@ -7757,8 +7689,9 @@ background: var(--ypp-danger);
         }
 
         // 1. Intentar reanudar inmediatamente
-        getSavedVideoData(videoId, playlistId).then(savedData => {
-            if (savedData && (savedData.timestamp > 1 || savedData.forceResumeTime > 0)) {
+        // getSavedVideoData usa el playlistId del objeto de metadatos si está disponible
+        getSavedVideoData(videoId, cachedVideoInfo?.lastViewedPlaylistId).then(savedData => {
+            if (savedData && (savedData.watchProgress > 1 || savedData.forceResumeTime > 0)) {
                 PlaybackController.resume(player, videoId, videoEl, savedData, type);
             }
         });
@@ -7773,7 +7706,7 @@ background: var(--ypp-danger);
             }
 
             // Llamada unificada al nuevo controlador modular de guardado usando metadatos cacheados
-            await PlaybackController.saveStatus(player, videoEl, type, videoId, containerId, playlistId, cachedVideoInfo);
+            await PlaybackController.saveStatus(player, videoEl, type, videoId, cachedVideoInfo);
         }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
 
         activeProcessingSessions.set(videoEl, { intervalId, lastVideoId: videoId });
@@ -7795,31 +7728,21 @@ background: var(--ypp-danger);
         }
 
         const player = DOMHelpers.getWatchPlayer();
-
-        const videoData = extractOrNormalizeVideoId(location.href);
         const videoId =
             player?.getPlayerResponse?.()?.videoDetails?.videoId ||
             player?.getVideoData?.()?.video_id ||
-            YTHelper?.video?.id ||
-            videoData?.id;
+            // YTHelper?.video?.id ||
+            // videoData?.id;
 
-        const playlistId =
-            player?.getVideoData?.()?.list ||
-            videoData?.list ||
-            new URLSearchParams(window.location.search).get('list');
+            extractOrNormalizeVideoId(location.href).id;
 
         if (!videoId || !player) return;
-
-        // Cachear el nombre de la playlist mientras estamos en Watch (donde está en el DOM)
-        if (playlistId) {
-            getPlaylistName(playlistId);
-        }
 
         // Inicializar display proactivamente pasando el player ya resuelto
         initTimeDisplay(player);
 
-        info('processWatchVideo', `📝 Procesando video de Watch: ${videoId}${playlistId ? ` (Playlist: ${playlistId})` : ''}`);
-        startProcessingSession(videoEl, 'watch', videoId, player, IDs.MOVIE_PLAYER, playlistId);
+        info('processWatchVideo', `📝 Procesando video de Watch: ${videoId}`);
+        startProcessingSession(videoEl, 'watch', videoId, player);
     }
 
     async function processShortsVideo(videoEl) {
@@ -7831,22 +7754,15 @@ background: var(--ypp-danger);
         }
 
         const player = DOMHelpers.getShortsPlayer();
-        const videoData = extractOrNormalizeVideoId(location.href);
         const videoId =
             player?.getPlayerResponse?.()?.videoDetails?.videoId ||
             player?.getVideoData?.()?.video_id ||
-            YTHelper?.video?.id ||
-            videoData?.id;
-
-        const playlistId =
-            player?.getVideoData?.()?.list ||
-            videoData?.list ||
-            new URLSearchParams(window.location.search).get('list');
+            extractOrNormalizeVideoId(location.href).id;
 
         if (!videoId || !player) return;
 
-        info('processShortsVideo', `📱 Procesando video de Shorts: ${videoId}${playlistId ? ` (Playlist: ${playlistId})` : ''}`);
-        startProcessingSession(videoEl, 'shorts', videoId, player, IDs.SHORTS_PLAYER, playlistId);
+        info('processShortsVideo', `📱 Procesando video de Shorts: ${videoId}`);
+        startProcessingSession(videoEl, 'shorts', videoId, player);
     }
 
     async function processMiniplayerVideo(videoEl) {
@@ -7880,24 +7796,11 @@ background: var(--ypp-danger);
             return;
         }
 
-        const playlistId =
-            player?.getVideoData?.()?.list ||
-            new URLSearchParams(window.location.search).get('list') ||
-            null;
-
-        if (!playlistId) {
-            warn('processMiniplayerVideo', '🔍 Playlist ID no encontrado en miniplayer:');
-            warn('processMiniplayerVideo', `- player.getVideoData()?.list: ${player?.getVideoData?.()?.list}`);
-            warn('processMiniplayerVideo', `- location.search: ${window.location.search}`);
-            warn('processMiniplayerVideo', `- location.href: ${location.href}`);
-            warn('processMiniplayerVideo', `- playerResponse?: ${!!player?.getPlayerResponse?.()}`);
-        }
-
         // Inicializar display del miniplayer proactivamente
         initMiniplayerTimeDisplay(player);
 
-        info('processMiniplayerVideo', `📺 Procesando video de Miniplayer: ${videoId}${playlistId ? ` (Playlist: ${playlistId})` : ''}`);
-        startProcessingSession(videoEl, 'miniplayer', videoId, player, IDs.MOVIE_PLAYER, playlistId);
+        info('processMiniplayerVideo', `📺 Procesando video de Miniplayer: ${videoId}`);
+        startProcessingSession(videoEl, 'miniplayer', videoId, player);
     }
 
     async function processPreviewVideo(videoEl) {
@@ -7924,7 +7827,7 @@ background: var(--ypp-danger);
         initInlinePreviewTimeDisplay(player);
 
         info('processPreviewVideo', `👁️ Procesando video de Preview: ${videoId}`);
-        startProcessingSession(videoEl, 'preview', videoId, player, IDs.INLINE_PREVIEW_PLAYER);
+        startProcessingSession(videoEl, 'preview', videoId, player);
     }
 
 
@@ -8020,7 +7923,7 @@ background: var(--ypp-danger);
         async resume(player, videoId, videoEl, savedData, type) {
             if (!savedData || !videoId || !videoEl) return;
 
-            const timeToSeek = savedData.forceResumeTime > 0 ? savedData.forceResumeTime : savedData.timestamp;
+            const timeToSeek = savedData.forceResumeTime > 0 ? savedData.forceResumeTime : savedData.watchProgress;
             if (timeToSeek <= 1) return;
 
             log('PlaybackController', `🎬 Intentando reanudar ${videoId} en ${formatTime(timeToSeek)} (${type})`);
@@ -8102,10 +8005,9 @@ background: var(--ypp-danger);
          * @param {HTMLVideoElement} videoEl - Elemento de video
          * @param {string} type - Contexto
          * @param {string} videoId - Id del video
-         * @param {string} containerId - ID del contenedor (movie_player, etc.)
-         * @param {string|null} playlistId - ID de la playlist (opcional)
+         * @param {object|null} videoInfo - Metadatos cacheados
          */
-        async saveStatus(player, videoEl, type, videoId, containerId, playlistId = null, cachedVideoInfo = null) {
+        async saveStatus(player, videoEl, type, videoId, videoInfo = null) {
             if (!videoEl || !videoId || AdDetector.isNodeWithinAdContainer(videoEl)) return;
 
             // Si el video está pausado y no hemos cambiado de tiempo tras pausa (seek)
@@ -8139,36 +8041,75 @@ background: var(--ypp-danger);
                 }
             } catch (_) { }
 
-            // Usar metadatos cacheados si están disponibles para evitar extraer recursivamente de la API del player en cada "tick" de guardado
-            const videoInfo = cachedVideoInfo || await getCascadedVideoInfo(player, videoId, videoEl, type);
+            // Refresco dinámico: Si no hay cache, o si la cache existe pero no tiene vistas (timing de carga),
+            // intentamos extraer de nuevo para completar los datos.
+            if (!videoInfo || !videoInfo.viewCount || videoInfo.viewCount === 0) {
+                const freshInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+                if (videoInfo) {
+                    // Si ya teníamos cache (pasada por referencia), la actualizamos in-place
+                    Object.assign(videoInfo, freshInfo);
+                } else {
+                    videoInfo = freshInfo;
+                }
+            }
+
+            // Determinar tipo real actual (Transición Watch -> Miniplayer)
+            let actualType = type;
+            if (type === 'watch' && DOMHelpers.getMiniplayerActive()) {
+                actualType = 'miniplayer';
+            }
 
             // Determinar tipo final (LIVE gana a todo)
-            const finalType = videoInfo.isLive ? 'live' : type;
+            const finalType = videoInfo.isLive ? 'live' : actualType;
+
+            // Verificar si el guardado está habilitado para este tipo final (Centralizado)
+            if (finalType === 'live' && !cachedSettings?.saveLiveStreams) return { success: false, reason: 'disabled_by_settings' };
+            if (finalType === 'shorts' && !cachedSettings?.saveShorts) return { success: false, reason: 'disabled_by_settings' };
+            if (finalType === 'preview' && !cachedSettings?.saveInlinePreviews) return { success: false, reason: 'disabled_by_settings' };
+            if (finalType === 'miniplayer' && !cachedSettings?.saveMiniplayerVideos) return { success: false, reason: 'disabled_by_settings' };
+            if (finalType === 'watch' && !cachedSettings?.saveRegularVideos) return { success: false, reason: 'disabled_by_settings' };
 
             log('PlaybackController', ` Guardando progreso para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType})`);
 
             // Debug logs adicionales para PlaybackController
             if (finalType === 'preview') {
-                info('PlaybackController', `[DEBUG] saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);
+                info('PlaybackController', `saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);
             }
+
+            // Consolidar metadatos en videoInfo antes de delegar
+            if (videoInfo) {
+                videoInfo.videoId = videoId;
+                videoInfo.lengthSeconds = duration;
+            }
+
 
             // Delegar a la función especializada directamente
             let result;
             try {
                 switch (finalType) {
                     case 'live':
-                        result = await saveLivestream(videoId, currentTime, duration, videoInfo, playlistId || videoInfo.playlistId);
+                        result = await saveLivestream(currentTime, videoInfo);
                         break;
                     case 'shorts':
-                        result = await saveShortsVideo(videoId, currentTime, duration, videoInfo, playlistId || videoInfo.playlistId);
+                        result = await saveShortsVideo(currentTime, videoInfo);
                         break;
                     case 'preview':
-                        result = await savePreview(videoId, currentTime, duration, videoInfo, 'preview_watch', playlistId || videoInfo.playlistId);
+                        {
+                            const previewContainer = videoEl.closest(ELEMENTS.INLINE_PREVIEW_ELEMENT);
+                            const isShortsPreview =
+                                previewContainer ? previewContainer.querySelector('a[href^="/shorts/"]') !== null : false;
+                            const specificPreviewType = isShortsPreview ? 'preview_shorts' : 'preview_watch';
+                            result = await savePreview(currentTime, videoInfo, specificPreviewType);
+                        }
                         break;
                     case 'watch':
+                        result = await saveRegularVideo(currentTime, videoInfo);
+                        break;
                     case 'miniplayer':
+                        result = await saveMiniplayer(currentTime, videoInfo);
+                        break;
                     default:
-                        result = await saveRegularVideo(videoId, currentTime, duration, videoInfo, playlistId || videoInfo.playlistId);
+                        result = await saveRegularVideo(currentTime, videoInfo);
                         break;
                 }
             } catch (e) {
@@ -8198,13 +8139,15 @@ background: var(--ypp-danger);
             title: '',
             author: '',
             authorId: '',
-            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
             isLive: false,
             published: 0,
             description: '',
-            viewsNumber: '0',
             viewCount: 0,
-            playlistId: null
+            lengthSeconds: 0,
+            lastViewedPlaylistId: null,
+            playlistTitle: null,
+            lastViewedPlaylistType: '',
+            lastViewedPlaylistItemId: null
         };
 
         // 🟢 Nivel 1: YouTube Internal API (Resolución de Player Robusta)
@@ -8227,7 +8170,7 @@ background: var(--ypp-danger);
                 const candidates = [];
                 if (type === 'shorts') candidates.push(document.querySelector(S.IDS.SHORTS_PLAYER));
                 if (type === 'watch') candidates.push(document.querySelector(S.IDS.MOVIE_PLAYER));
-                if (type === 'miniplayer') candidates.push(document.querySelector(S.ELEMENTS.MINIPLAYER + S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE));
+                if (type === 'miniplayer') candidates.push(document.querySelector(`${S.ELEMENTS.MINIPLAYER}${S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE}`));
                 if (type === 'preview') candidates.push(document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER));
 
                 // Fallback a cualquier player si los específicos fallan
@@ -8289,6 +8232,8 @@ background: var(--ypp-danger);
             if (playerResponse?.videoDetails && playerResponse.videoDetails.videoId === videoId) {
                 const details = playerResponse.videoDetails;
 
+                info.lengthSeconds = parseInt(details.lengthSeconds, 10) || 0;
+
 
 
 
@@ -8301,7 +8246,6 @@ background: var(--ypp-danger);
                 const rawViews = details.viewCount;
                 if (rawViews) {
                     info.viewCount = parseInt(rawViews, 10);
-                    info.viewsNumber = info.viewCount.toLocaleString();
                 }
 
                 info.isLive = details.isLiveContent || info.isLive;
@@ -8353,16 +8297,22 @@ background: var(--ypp-danger);
                 info.published = micro.publishDate ? new Date(micro.publishDate).getTime() : info.published;
             }
 
-            // D: Playlist ID y Título (Desde playerResponse o getVideoData)
-            info.playlistId =
+            // D: Playlist ID (Búsqueda exhaustiva en metadatos y URL)
+            info.lastViewedPlaylistId =
                 playerResponse?.playlistId ||
                 internalData?.list ||
                 new URLSearchParams(window.location.search).get('list') ||
-                info.playlistId;
+                info.lastViewedPlaylistId;
 
-            if (info.playlistId) {
-                // getPlaylistName ya maneja cache y peticiones HTTP si es necesario
-                info.playlistTitle = await getPlaylistName(info.playlistId);
+            //player?.getVideoData?.()?.list ||
+            // const videoData = extractOrNormalizeVideoId(location.href);
+            //  videoData?.list 
+
+
+            // Nivel 1.5: Si hay playlistId, obtener título (maneja cache automáticamente)
+            if (info.lastViewedPlaylistId) {
+                // Si estamos en Watch, el título de la playlist suele estar ya cacheado o disponible en el DOM
+                info.playlistTitle = await getPlaylistName(info.lastViewedPlaylistId);
             }
 
         } catch (e) {
@@ -8377,7 +8327,6 @@ background: var(--ypp-danger);
                 || !info.published
                 || !info.description
                 || !info.viewCount
-                || !info.viewsNumber
             )) {
                 const helperId = extractOrNormalizeVideoId(location.href).id;
 
@@ -8389,8 +8338,7 @@ background: var(--ypp-danger);
                     info.authorId = info.authorId || YTHelper.video.channelId;
                     info.published = info.published || (YTHelper.video.publishDate ? YTHelper.video.publishDate.getTime() : 0);
                     info.description = info.description || YTHelper.video.rawDescription;
-                    info.viewCount = YTHelper.video.viewCount;
-                    info.viewsNumber = info.viewCount.toLocaleString();
+                    info.viewCount = YTHelper.video.viewCount
                 }
             }
         } catch (_) { }
@@ -8404,12 +8352,13 @@ background: var(--ypp-danger);
              title: '',
              author: '',
              authorId: '',
-             thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
              isLive: false,
              published: 0,
              description: '',
-             viewsNumber: '0',
-             viewCount: 0 
+             viewCount: 0,
+             lengthSeconds: 0,
+             lastViewedPlaylistId: null,
+             playlistTitle: null
             */
 
             // Si es Shorts, usar metapanel del Short ACTIVO
@@ -8445,22 +8394,24 @@ background: var(--ypp-danger);
                     }
 
                     // Vistas (aria-label) - Shorts focus ya que primeros fallbacks no lo añaden
-                    if (!info.viewsNumber || info.viewsNumber === '0' || info.viewCount === 0) {
+                    if (info.viewCount === 0 || !info.viewCount) {
+                        log('getCascadedVideoInfo', 'Vistas: 0');
                         const viewEl =
                             // "1,167,872 vistas" 
                             document.querySelector('view-count-factoid-renderer .ytwFactoidRendererFactoid')
                                 ?.getAttribute?.('aria-label');
 
                         const match = viewEl?.match(/[\d.,\s]+/)?.[0] || '';
-                        const labelViews = match.trim(); // mantiene comas
-                        info.viewsNumber = labelViews;
-                        info.viewCount = Number(match.replace(/[^\d]/g, "")); // número limpio
+                        const cleanMatch = Number(match.replace(/[^\d]/g, ""))
+
+                        log('getCascadedVideoInfo', 'Vistas: ', cleanMatch);
+                        info.viewCount = cleanMatch; // número limpio
                     }
                 }
             }
 
             // 🟢 Nivel 3: DOM Fallbacks (Última instancia)
-            if (type === 'preview' && (!info.playlistId || !info.title || info.title === videoId)) {
+            if (type === 'preview' && (!info.lastViewedPlaylistId || !info.title || info.title === videoId)) {
                 // Para previews, el contexto del DOM es vital para la playlist
                 try {
                     const richItem = videoEl.closest('ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-rich-grid-media, ytd-video-renderer');
@@ -8473,8 +8424,8 @@ background: var(--ypp-danger);
                         if (linkWithList) {
                             const url = new URL(linkWithList.href, window.location.origin);
                             const listId = url.searchParams.get('list');
-                            if (listId && !info.playlistId) {
-                                info.playlistId = listId;
+                            if (listId && !info.lastViewedPlaylistId) {
+                                info.lastViewedPlaylistId = listId;
                                 info('getCascadedVideoInfo', `📂 Playlist detectada en ${isCurrentlyHovered ? 'HOVER' : 'contexto'} de Preview: ${listId}`);
                             }
                         }
@@ -8680,13 +8631,10 @@ background: var(--ypp-danger);
                 continue;
             }
 
-            // Si no tiene thumbnail o es un thumbnail genérico, intentar generar uno nuevo
-            if (!data.thumb || data.thumb.includes('default/maxresdefault.jpg')) {
-                const vId = data.videoId || key;
-                if (vId && typeof vId === 'string' && vId.length >= 11) {
-                    data.thumb = `https://i.ytimg.com/vi/${vId}/maxresdefault.jpg`;
-                    await Storage.set(key, data);
-                }
+            // Eliminar la propiedad `thumb` si existe (campo legado)
+            if (data.thumb !== undefined) {
+                delete data.thumb;
+                await Storage.set(key, data);
             }
         }
     }
@@ -8838,16 +8786,13 @@ background: var(--ypp-danger);
 
         // Aplicar filtros
         let filteredItems = allItems.filter(item => {
-            const vType = item.info.videoType;
+            const vType = item.info.type;
             if (currentFilterBy === 'completed') return item.info.isCompleted === true;
             if (currentFilterBy === 'fixedTime') return item.info.forceResumeTime && item.info.forceResumeTime > 0;
             if (currentFilterBy === 'playlist') return item.type === 'playlist-video';
             if (currentFilterBy === 'preview') return (vType && vType.startsWith('preview'));
 
-            if (currentFilterBy === 'video') {
-                return vType === 'video' || vType === 'watch' || !vType; // fallback for watch legacy if any
-            }
-
+            if (currentFilterBy === 'video') return vType === 'video';
             if (currentFilterBy === 'shorts') return vType === 'shorts';
             if (currentFilterBy === 'live') return vType === 'live';
 
@@ -8864,8 +8809,9 @@ background: var(--ypp-danger);
         // Aplicar ordenamiento
         const getSortValue = (item) => {
             if (currentOrderBy === 'title') return (item.info.title || item.videoId).toLowerCase();
-            if (currentOrderBy === 'oldest') return item.info.savedAt || item.info.lastUpdated || item.info.timeWatched || 0;
-            return -(item.info.savedAt || item.info.lastUpdated || item.info.timeWatched || 0);
+            const time = item.info.timeWatched || 0;
+            if (currentOrderBy === 'oldest') return time;
+            return -time;
         };
         filteredItems.sort((a, b) => {
             const valA = getSortValue(a);
@@ -9324,7 +9270,7 @@ background: var(--ypp-danger);
 
         if (!info) return;
 
-        let duration = normalizeSeconds(info.duration) || 0;
+        let duration = normalizeSeconds(info.lengthSeconds) || 0;
 
         let promptText = info.forceResumeTime
             ? `${t('enterStartTimeOrEmpty')}:`
@@ -9473,17 +9419,19 @@ background: var(--ypp-danger);
 
     async function createVideoEntry(videoId, info, playlistKey = null, playlistTitle = null) {
         let isCompleted = info.isCompleted || false;
-        const duration = normalizeSeconds(info.duration);
-        const watched = normalizeSeconds(info.timestamp);
+        // Normalizar usando nuevos campos con fallbacks
+        const duration = normalizeSeconds(info.lengthSeconds);
+        const watched = normalizeSeconds(info.watchProgress);
+
         if (watched > 3 && duration > 10) { // Solo autocalcular si hay datos mínimos confiables
             isCompleted = isCompleted || (watched >= duration - 2);
         }
 
         const videoTime = formatTime(watched);
-        const rawDuration = info.duration;
+        const rawDuration = info.lengthSeconds ?? 0;
 
         if (duration === 0 && rawDuration === 0) {
-            log('createVideoEntry', `⚠️ Video ${videoId} sin duración guardada (formato antiguo)`);
+            log('createVideoEntry', `⚠️ Video ${videoId} sin duración guardada`);
         }
         const remaining = Math.max(duration - watched, 0);
         const percent = duration ? Math.min(100, Math.round((watched / duration) * 100)) : null;
@@ -9498,14 +9446,16 @@ background: var(--ypp-danger);
             finalPlaylistTitle = finalPlaylistTitle.replace(/undefined/g, '').trim();
         }
 
-        const isLiveEntry = (info.videoType === 'live') || info.isLive === true;
+        const isLiveEntry = info.type === 'live' || info.isLive === true;
 
-        const defaultThumbUrl = `https://i.ytimg.com/vi/${escapeHTML(videoId)}/hqdefault.jpg`;
-        const thumbUrl = (info.thumb && info.thumb !== 'undefined' && info.thumb !== null) ? escapeHTML(info.thumb) : defaultThumbUrl;
+        const thumbUrl = `https://i.ytimg.com/vi/${escapeHTML(videoId)}/hqdefault.jpg`;
 
         const titleText = escapeHTML(info.title || videoId);
         const authorText = escapeHTML(info.author || t('unknown'));
-        const viewsText = escapeHTML(`${info.viewsNumber || info.views || 0} ${t('views')}`);
+
+        const viewCount = info.viewCount ?? 0;
+        const viewsText = escapeHTML(`${viewCount.toLocaleString()} ${t('views')}`);
+
         const playlistUrl = escapeHTML(playlistKey?.startsWith('RD') ? `https://www.youtube.com/watch?v=${videoId}&list=${playlistKey}` : `https://www.youtube.com/playlist?list=${playlistKey}`);
 
         const hasFixedTime = info.forceResumeTime > 0;
@@ -9723,7 +9673,7 @@ background: var(--ypp-danger);
      * @returns {Promise<{migrated: number, skipped: number}>}
      */
     async function migrateToFreeTubeFormat() {
-        const MIGRATION_VERSION = 2; // Incrementar solo si cambia la lógica/estructura de migración
+        const MIGRATION_VERSION = 3;
         const MIGRATION_KEY = 'ypp_migration_freetube_format_version';
 
         /**
@@ -9766,12 +9716,7 @@ background: var(--ypp-danger);
         let migrated = 0;
         let skipped = 0;
 
-        // ─────────────────────────────────────────────────────────────
-        // FASE 1: Rescatar claves legacy remanentes de localStorage/GM
-        // ─────────────────────────────────────────────────────────────
-        // StorageAsync.initialize() ya migró la mayoría de claves a IndexedDB,
-        // pero puede haber remanentes (e.g. error parcial, claves escritas après).
-        let legacyRescued = 0;
+        // FASE 1: Rescatar claves legacy (localStorage/GM)
         try {
             let legacyKeys = [];
             if (typeof localStorage !== 'undefined') {
@@ -9784,23 +9729,10 @@ background: var(--ypp-danger);
                 );
             }
 
-            // Filtrar claves no relevantes
-            const relevantLegacyKeys = legacyKeys.filter(k =>
-                !k.includes('userSettings') &&
-                !k.includes('translations_cache') &&
-                !k.includes('migration_') &&
-                !k.includes('idb_migrated') &&
-                !k.includes('_test_')
-            );
-
-            log('migrateToFreeTubeFormat', `📊 Claves legacy remanentes: ${relevantLegacyKeys.length}`);
+            const relevantLegacyKeys = legacyKeys.filter(k => !isNonVideoStorageKey(k.replace('YT_PLAYBACK_PLOX_', '')));
 
             for (const rawKey of relevantLegacyKeys) {
-                const cleanKey = rawKey.startsWith('YT_PLAYBACK_PLOX_')
-                    ? rawKey.slice('YT_PLAYBACK_PLOX_'.length)
-                    : rawKey;
-
-                // Solo rescatar si no existe ya en IndexedDB
+                const cleanKey = rawKey.startsWith('YT_PLAYBACK_PLOX_') ? rawKey.slice(17) : rawKey;
                 const existing = await Storage.get(cleanKey);
                 if (existing) continue;
 
@@ -9813,179 +9745,105 @@ background: var(--ypp-danger);
                     if (!data && typeof GM_getValue === 'function') {
                         data = await GM_getValue(rawKey, null);
                     }
-                } catch (e) {
-                    warn('migrateToFreeTubeFormat', `Error al leer clave legacy ${rawKey}:`, e);
-                }
+                } catch (e) { /* noop */ }
 
-                if (!data) continue;
-
-                await Storage.set(cleanKey, data);
-                legacyRescued++;
-
-                // Limpiar la clave legacy del sistema antiguo
-                try {
+                if (data) {
+                    await Storage.set(cleanKey, data);
                     await deleteGMValueSafe(rawKey);
                     if (typeof localStorage !== 'undefined') localStorage.removeItem(rawKey);
-                } catch (e) {
-                    warn('migrateToFreeTubeFormat', `Error al eliminar clave legacy ${rawKey}:`, e);
                 }
-            }
-
-            if (legacyRescued > 0) {
-                log('migrateToFreeTubeFormat', `✅ Rescatadas ${legacyRescued} claves legacy remanentes`);
             }
         } catch (e) {
-            warn('migrateToFreeTubeFormat', 'Error en fase 1 (rescate legacy):', e);
+            warn('migrateToFreeTubeFormat', 'Error en rescate legacy:', e);
         }
 
-        // ──────────────────────────────────────────────────────────────────────────
-        // FASE 2: Normalizar esquema de todas las entradas ya en IndexedDB/Storage
-        // ──────────────────────────────────────────────────────────────────────────
-
-
-
-        // Obtener todas las claves del sistema actual (ya en IndexedDB)
-        const allKeys = (await Storage.keys()).filter(k =>
-            !k.startsWith('userSettings') &&
-            k !== 'translations_cache_v1' &&
-            !k.startsWith('ypp_')
-        );
-
-        log('migrateToFreeTubeFormat', `📦 Procesando ${allKeys.length} claves en Storage`);
-
-        // Separar claves por tipo para procesarlas en orden
-        const playlistMetaKeys = [];
-        const dataKeys = [];
-        for (const key of allKeys) {
-            if (key.startsWith('playlist_meta_')) {
-                playlistMetaKeys.push(key);
-            } else {
-                dataKeys.push(key);
-            }
-        }
-
-        // Procesar datos de video
+        // FASE 2: Normalización Consolidada (Format Limpio)
+        const allKeys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
         let batchCount = 0;
-        for (const key of dataKeys) {
-            const data = await Storage.get(key);
-            if (!data) continue;
 
-            // Si tiene la estructura de playlist anidada (formato antiguo)
-            if (data.videos && typeof data.videos === 'object') {
-                const playlistId = key;
-                const playlistTitle = data.title || playlistId;
+        for (const key of allKeys) {
+            try {
+                const data = await Storage.get(key);
+                if (!data) continue;
 
-                log('migrateToFreeTubeFormat', `📦 Migrando playlist ${playlistId} con ${Object.keys(data.videos).length} videos`);
-
-                // Crear metadata de la playlist
-                const playlistMetaKey = `playlist_meta_${playlistId}`;
-                await Storage.set(playlistMetaKey, {
-                    playlistId: playlistId,
-                    title: playlistTitle,
-                    lastWatchedVideoId: data.lastWatchedVideoId || null,
-                    lastUpdated: Date.now()
-                });
-
-                // Migrar cada video de la playlist
-                let inner = 0;
-                for (const [videoId, videoData] of Object.entries(data.videos)) {
-                    const migratedVideo = {
-                        videoId: videoId,
-                        timestamp: videoData.timestamp,
-                        lastUpdated: videoData.lastUpdated || videoData.savedAt || Date.now(),
-                        videoType: normalizeVideoType(videoData.videoType),
-                        isCompleted: videoData.isCompleted || false,
-                        duration: videoData.duration,
-                        title: videoData.title,
-                        author: videoData.author,
-                        thumb: videoData.thumb,
-                        viewsNumber: videoData.viewsNumber,
-                        savedAt: videoData.savedAt,
-                        authorId: videoData.authorId,
-                        published: videoData.published,
-                        description: videoData.description,
-                        isLive: videoData.isLive,
-                        lastViewedPlaylistId: playlistId,
-                        lastViewedPlaylistType: 'channel',
-                        lastViewedPlaylistItemId: null,
-                        forceResumeTime: videoData.forceResumeTime
-                    };
-
-                    await Storage.set(videoId, migratedVideo);
-                    migrated++;
-                    if ((++inner % 50) === 0) { await new Promise(r => setTimeout(r, 0)); }
+                // Caso A: Playlist anidada (la estructura de playlist anidada (formato antiguo))
+                if (data.videos && typeof data.videos === 'object') {
+                    const playlistId = key;
+                    for (const [vId, vData] of Object.entries(data.videos)) {
+                        await Storage.set(vId, {
+                            videoId: vId,
+                            title: vData.title,
+                            author: vData.author,
+                            authorId: vData.authorId,
+                            published: vData.published,
+                            description: vData.description,
+                            isLive: vData.isLive || false,
+                            watchProgress: vData.watchProgress ?? vData.timestamp ?? 0,
+                            lengthSeconds: vData.lengthSeconds ?? vData.duration ?? 0,
+                            timeWatched: vData.timeWatched ?? vData.lastUpdated ?? vData.savedAt ?? Date.now(),
+                            type: normalizeVideoType(vData.videoType || vData.type),
+                            viewCount: typeof vData.viewsNumber === 'string' ? (parseInt(vData.viewsNumber.replace(/[,\.\s]/g, '')) || 0) : (vData.viewCount ?? (parseInt(vData.viewsNumber) || 0)),
+                            isCompleted: vData.isCompleted || false,
+                            lastViewedPlaylistId: playlistId,
+                            lastViewedPlaylistType: 'channel',
+                            lastViewedPlaylistItemId: null,
+                            forceResumeTime: vData.forceResumeTime
+                        });
+                        migrated++;
+                    }
+                    await Storage.del(key);
+                    log('migrateToFreeTubeFormat', `✅ Playlist ${key} desanidada`);
                 }
+                // Caso B: Entrada de video (individual)
+                else {
+                    const hasLegacyFields = data.timestamp !== undefined || data.duration !== undefined || data.videoType !== undefined || data.thumb !== undefined;
 
-                // Eliminar la entrada antigua de playlist
-                await Storage.del(key);
-                log('migrateToFreeTubeFormat', `✅ Playlist ${playlistId} migrada completamente`);
-            } else if (data.videoId || data.timestamp !== undefined) {
-                // Video individual: normalizar videoType y asegurar campos FreeTube
-                const currentType = normalizeVideoType(data.videoType);
-                const needsTypeNormalization = currentType !== data.videoType;
-                const needsFreeTubeFields = !data.lastViewedPlaylistId && !data.lastViewedPlaylistType && data.lastViewedPlaylistId !== null;
+                    if (hasLegacyFields) {
+                        const cleanData = {
+                            videoId: data.videoId || key,
+                            title: data.title,
+                            author: data.author,
+                            authorId: data.authorId,
+                            published: data.published,
+                            description: data.description,
+                            isLive: data.isLive || false,
+                            watchProgress: data.watchProgress ?? data.timestamp ?? 0,
+                            lengthSeconds: data.lengthSeconds ?? data.duration ?? 0,
+                            timeWatched: data.timeWatched ?? data.lastUpdated ?? data.savedAt ?? Date.now(),
+                            type: data.type ?? normalizeVideoType(data.videoType || data.type),
+                            viewCount: typeof data.viewsNumber === 'string' ? (parseInt(data.viewsNumber.replace(/[,\.\s]/g, '')) || 0) : (data.viewCount ?? (parseInt(data.viewsNumber) || 0)),
+                            isCompleted: data.isCompleted || false,
+                            playlistTitle: data.playlistTitle,
+                            lastViewedPlaylistId: data.lastViewedPlaylistId ?? null,
+                            lastViewedPlaylistType: data.lastViewedPlaylistType ?? '',
+                            lastViewedPlaylistItemId: data.lastViewedPlaylistItemId ?? null
+                        };
 
-                if (needsTypeNormalization || needsFreeTubeFields) {
-                    const updated = {
-                        ...data,
-                        videoId: data.videoId || key,
-                        videoType: currentType,
-                        lastViewedPlaylistId: data.lastViewedPlaylistId ?? null,
-                        lastViewedPlaylistType: data.lastViewedPlaylistType ?? '',
-                        lastViewedPlaylistItemId: data.lastViewedPlaylistItemId ?? null
-                    };
-                    await Storage.set(key, updated);
-                    migrated++;
-                    log('migrateToFreeTubeFormat', `🔧 Video ${key} normalizado: videoType ${data.videoType || '(none)'} → ${currentType}`);
-                } else {
-                    skipped++;
+                        if (data.forceResumeTime !== undefined) cleanData.forceResumeTime = data.forceResumeTime;
+
+                        await Storage.set(key, cleanData);
+                        migrated++;
+                    } else {
+                        skipped++;
+                    }
                 }
+            } catch (e) {
+                conError('migrateToFreeTubeFormat', `Error en clave ${key}:`, e);
             }
 
-            // Progreso cada 50 entradas
             if ((++batchCount % 50) === 0) {
-                showFloatingToast(
-                    t('migratingDataProgress', { count: batchCount }),
-                    2000,
-                    { persistent: true }
-                );
+                showFloatingToast(t('migratingDataProgress', { count: batchCount }), 1000, { persistent: true });
                 await new Promise(r => setTimeout(r, 0));
             }
         }
 
-        // Validar playlist_meta existentes (normalizar títulos inválidos)
-        for (const metaKey of playlistMetaKeys) {
-            try {
-                const meta = await Storage.get(metaKey);
-                if (!meta) continue;
-
-                // Verificar si el título necesita validación
-                if (meta.title) {
-                    const updated = { ...meta, title: '' };
-                    await Storage.set(metaKey, updated);
-                    log('migrateToFreeTubeFormat', `🔧 Playlist meta ${metaKey}: título inválido limpiado`);
-                }
-            } catch (e) {
-                warn('migrateToFreeTubeFormat', `Error al validar playlist_meta ${metaKey}:`, e);
-            }
-        }
-
-        // Marcar la migración como completada para esta versión
         await GM_setValue(MIGRATION_KEY, MIGRATION_VERSION);
+        log('migrateToFreeTubeFormat', `✅ Migración v${MIGRATION_VERSION} completada: ${migrated} migrados`);
 
-        log('migrateToFreeTubeFormat', `✅ Migración v${MIGRATION_VERSION} completada: ${migrated} migrados, ${skipped} ya correctos, ${legacyRescued} rescatados de legacy`);
-
-        // Mostrar mensaje final al usuario
         if (migrated > 0) {
-            showFloatingToast(
-                t('migrationComplete', { migrated: migrated }),
-                5000
-            );
+            showFloatingToast(t('migrationComplete', { migrated: migrated }), 5000);
         } else {
-            showFloatingToast(
-                t('migrationNoData'),
-                3000
-            );
+            showFloatingToast(t('migrationNoData'), 3000);
         }
 
         return { migrated, skipped };
@@ -10096,18 +9954,6 @@ background: var(--ypp-danger);
                 info('initializeGlobal', '✅ StorageAsync inicializado');
             } catch (err) {
                 conError('initializeGlobal', '❌ Error al inicializar StorageAsync:', err);
-            }
-
-            // --- Normalizar almacenamiento ---
-            try {
-                if (typeof normalizeYouTubeStorageKeys === 'function') {
-                    await normalizeYouTubeStorageKeys();
-                    info('initializeGlobal', '🧹 Storage normalizado correctamente.');
-                } else {
-                    warn('initializeGlobal', '⚠️ normalizeYouTubeStorageKeys no definida aún.');
-                }
-            } catch (err) {
-                conError('initializeGlobal', '❌ Error al normalizar Storage:', err);
             }
 
             // --- Migrar datos al formato FreeTube ---

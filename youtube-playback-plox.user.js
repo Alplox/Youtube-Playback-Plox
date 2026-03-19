@@ -8036,6 +8036,9 @@ background: var(--ypp-danger);
             // Determinar tipo final (LIVE gana a todo)
             const finalType = videoInfo.isLive ? 'live' : actualType;
 
+            // Actualizar degradado de color en la barra de progreso
+            updateProgressBarGradient(currentTime, duration, finalType);
+
             // Verificar si el guardado está habilitado para este tipo final (Centralizado)
             if (finalType === 'live' && !cachedSettings?.saveLiveStreams) return { success: false, reason: 'disabled_by_settings' };
             if (finalType === 'shorts' && !cachedSettings?.saveShorts) return { success: false, reason: 'disabled_by_settings' };

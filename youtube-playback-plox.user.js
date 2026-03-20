@@ -932,11 +932,13 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
         const DEFAULT_TTL_MS = 125;
 
         /**
+         * Obtiene un valor cacheado o lo recalcula si expiró.
+         *
          * @template T
-         * @param {string} key
-         * @param {() => T} getter
-         * @param {number} [ttlMs=DEFAULT_TTL_MS]
-         * @returns {T}
+         * @param {string} key Clave única de caché.
+         * @param {() => T} getter Función que obtiene el valor si no existe o expiró.
+         * @param {number} [ttlMs=DEFAULT_TTL_MS] Tiempo de vida en milisegundos.
+         * @returns {T} Valor cacheado o recién calculado.
          */
         const get = (key, getter, ttlMs = DEFAULT_TTL_MS) => {
             const now = Date.now();
@@ -2447,32 +2449,11 @@ background: var(--ypp-danger);
             const percent = Math.min(100, Math.round((currentTime / duration) * 100));
             const progressColor = getProgressColor(percent);
 
-            // Detectar si estamos en shorts
-            const isShorts = type === 'shorts' || window.location.pathname.includes('/shorts/');
-
-            if (isShorts) {
-                // Cache de selectores para shorts
-                const getShortsElements = (() => {
-                    let cache = null;
-                    let cacheTime = 0;
-                    const CACHE_DURATION = 50; // 50ms de cache para elementos UI
-
-                    return () => {
-                        const now = Date.now();
-                        if (!cache || (now - cacheTime) > CACHE_DURATION) {
-                            cache = {
-                                progressHost: document.querySelector('.desktopShortsPlayerControlsHost .ytPlayerProgressBarHost, .ytPlayerProgressBarHost'),
-                                playedBar: document.querySelector('.ytProgressBarLineProgressBarPlayed'),
-                                hoveredBar: document.querySelector('.ytProgressBarLineProgressBarHovered'),
-                                playheadDot: document.querySelector('.ytProgressBarPlayheadProgressBarPlayheadDot')
-                            };
-                            cacheTime = now;
-                        }
-                        return cache;
-                    };
-                })();
-
-                const { progressHost: shortsProgressHost, playedBar: shortsPlayedBar, hoveredBar: shortsHoveredBar, playheadDot: shortsPlayheadDot } = getShortsElements();
+            if (type === 'shorts') {
+                const shortsProgressHost = DOMHelpers.get('shorts:progressHost', () => document.querySelector('.desktopShortsPlayerControlsHost .ytPlayerProgressBarHost, .ytPlayerProgressBarHost'), 50);
+                const shortsPlayedBar = DOMHelpers.get('shorts:playedBar', () => document.querySelector('.ytProgressBarLineProgressBarPlayed'), 50);
+                const shortsHoveredBar = DOMHelpers.get('shorts:hoveredBar', () => document.querySelector('.ytProgressBarLineProgressBarHovered'), 50);
+                const shortsPlayheadDot = DOMHelpers.get('shorts:playheadDot', () => document.querySelector('.ytProgressBarPlayheadProgressBarPlayheadDot'), 50);
 
                 if (shortsProgressHost) {
                     // Aplicar variables CSS para el degradado en shorts
@@ -2496,27 +2477,9 @@ background: var(--ypp-danger);
                     }
                 }
             } else {
-                // Cache de selectores para videos regulares
-                const getVideoElements = (() => {
-                    let cache = null;
-                    let cacheTime = 0;
-                    const CACHE_DURATION = 50; // 50ms de cache para elementos UI
-
-                    return () => {
-                        const now = Date.now();
-                        if (!cache || (now - cacheTime) > CACHE_DURATION) {
-                            cache = {
-                                progressContainer: document.querySelector('.ytp-progress-bar'),
-                                playProgress: document.querySelector('.ytp-play-progress'),
-                                hoverProgress: document.querySelector('.ytp-hover-progress')
-                            };
-                            cacheTime = now;
-                        }
-                        return cache;
-                    };
-                })();
-
-                const { progressContainer, playProgress, hoverProgress } = getVideoElements();
+                const progressContainer = DOMHelpers.get('video:progressContainer', () => document.querySelector('.ytp-progress-bar'), 50);
+                const playProgress = DOMHelpers.get('video:playProgress', () => document.querySelector('.ytp-play-progress'), 50);
+                const hoverProgress = DOMHelpers.get('video:hoverProgress', () => document.querySelector('.ytp-hover-progress'), 50);
 
                 if (progressContainer) {
                     // Aplicar variables CSS para el degradado
@@ -2680,47 +2643,6 @@ background: var(--ypp-danger);
                 /* Asegurar que el badge sea clickeable */
                 pointer-events: auto !important;
                 cursor: pointer !important;
-            }
-
-            /* puede descuadrar "punto rojo" de boton en vivo */
-            /*
-            .ytp-delhi-modern .ytp-time-wrapper .ytp-live-badge.ytp-live-badge-is-livehead,
-            .ytp-delhi-modern .ytp-time-wrapper .live-badge.ytp-live-badge-is-livehead {
-                display: flex !important;
-            } */
-
-            /* Livestream real (clase agregada por el script) */
-            .ypp-is-livestream .ytp-time-contents,
-            .ypp-is-livestream .ytp-time-current,
-            .ypp-is-livestream .ytp-time-separator,
-            .ypp-is-livestream .ytp-time-duration {
-                display: none !important;
-            }
-
-            .ypp-is-livestream .ytp-live-badge.ytp-live-badge-is-livehead {
-                display: inline-flex !important;
-                align-items: center !important;
-            }
-
-            .ypp-is-livestream .ytp-live-badge.ytp-live-badge-is-livehead::before {
-                position: relative !important;
-                top: 0 !important;
-                transform: none !important;
-            }
-
-            .ypp-is-livestream .ytp-live-badge.ytp-live-badge-is-livehead[disabled]::before {
-                display: inline-block !important;
-                vertical-align: middle !important;
-                top: -1px !important;
-            }
-
-            .ypp-is-livestream .ypp-time-display {
-                max-height: 24px !important;
-                line-height: normal !important;
-                padding: 2px 8px !important;
-                border-radius: 12px !important;
-                overflow: visible !important;
-                white-space: nowrap !important;
             }
 
             .ytp-delhi-modern .ytp-time-wrapper .ypp-time-display {
@@ -5772,36 +5694,32 @@ background: var(--ypp-danger);
 
             if (currentPlaylistId === playlistId) {
                 // Intentar múltiples selectores para el panel de playlist
-                const playlistName =
+                const playlistName = DOMHelpers.get(`playlist:name:${playlistId}`, () => (
                     // Playlist panel en el reproductor (Watch Page Sidebar)
-                    // NO document.querySelector('ytd-playlist-panel-renderer .header-description h3 a')?.textContent?.trim() ||
-                    // NO document.querySelector('ytd-playlist-panel-renderer .header-description h3')?.textContent?.trim() ||
                     document.querySelector('ytd-playlist-panel-renderer #header-description h3 a')?.textContent?.trim() ||
                     document.querySelector('ytd-playlist-panel-renderer #header-description h3')?.textContent?.trim() ||
-                    // NO document.querySelector('ytd-playlist-panel-renderer .playlist-header-content .title')?.textContent?.trim() ||
 
                     // YouTube Mix y estructuras antiguas
                     document.querySelector('ytd-playlist-panel-renderer yt-formatted-string.title')?.textContent?.trim() ||
                     document.querySelector('#header-description yt-formatted-string.title')?.textContent?.trim() ||
-                    // NO document.querySelector('ytd-playlist-panel-renderer #title span#text')?.textContent?.trim() ||
 
                     // Alternativas adicionales
                     document.querySelector('#container #header-description yt-formatted-string')?.textContent?.trim() ||
                     document.querySelector('yt-formatted-string.title:nth-child(1)')?.textContent?.trim() ||
 
                     // Overlay del reproductor
-                    // NO document.querySelector('.ytp-title-playlist-button')?.getAttribute('aria-label')?.replace(/^Playlist:\s*/, '')?.trim() ||
-                    document.querySelector('.byline-title')?.textContent?.trim();
+                    document.querySelector('.byline-title')?.textContent?.trim()
+                ), 250);
 
                 // si PAGE TYPE ES PLAYLIST
                 // Header de la página de playlist (si estamos en la página de playlist)
 
                 const ptNow = getYouTubePageType();
-                const browsePlaylistName = ptNow === 'playlist' ? (
+                const browsePlaylistName = ptNow === 'playlist' ? DOMHelpers.get(`playlist:browseName:${playlistId}`, () => (
                     document.querySelector('#header .ytd-playlist-header-renderer h1 yt-formatted-string')?.textContent?.trim() ||
                     document.querySelector('ytd-browse[page-subtype="playlist"] ytd-playlist-header-renderer #title')?.textContent?.trim() ||
                     document.querySelector('ytd-playlist-header-renderer h1.title')?.textContent?.trim()
-                ) : null;
+                ), 250) : null;
 
                 const finalDomName = playlistName || browsePlaylistName;
 
@@ -5955,45 +5873,59 @@ background: var(--ypp-danger);
      * @param {HTMLElement} playerContainer - Referencia al player root (#movie_player).
      */
     function initTimeDisplay(playerContainer) {
-        // Idempotent: si ya existe y está conectado, nada que hacer
-        if (watchTimeDisplay?.isConnected) return;
+        /* 
+        
+        <div class="ytp-time-display notranslate" style="">
+          <div class="ytp-time-wrapper ytp-time-wrapper-delhi">
+            <div class="ytp-time-contents" role="button" tabindex="0"
+              aria-label="-0 minutos 45 segundos de 2 minutos 30 segundos"><span class="ytp-time-clip-icon"
+                aria-label="Clip"><svg height="100%" version="1.1" viewBox="0 0 24 24" width="100%">
+                  <path
+                    d="M22,3h-4l-5,5l3,3l6-6V3L22,3z M10.79,7.79C10.91,7.38,11,6.95,11,6.5C11,4.01,8.99,2,6.5,2S2,4.01,2,6.5S4.01,11,6.5,11 c0.45,0,.88-0.09,1.29-0.21L9,12l-1.21,1.21C7.38,13.09,6.95,13,6.5,13C4.01,13,2,15.01,2,17.5S4.01,22,6.5,22s4.5-2.01,4.5-4.5 c0-0.45-0.09-0.88-0.21-1.29L12,15l6,6h4v-2L10.79,7.79z M6.5,8C5.67,8,5,7.33,5,6.5S5.67,5,6.5,5S8,5.67,8,6.5S7.33,8,6.5,8z M6.5,19C5.67,19,5,18.33,5,17.5S5.67,16,6.5,16S8,16.67,8,17.5S7.33,19,6.5,19z">
+                  </path>
+                </svg></span><span class="ytp-time-current">-0:45</span><span class="ytp-time-separator"> / </span><span
+                class="ytp-time-duration">2:30</span></div><button class="ytp-live-badge ytp-button">En vivo</button><span
+              class="ypp-time-display" id="ypp-time-display-indicator" title="Ver videos guardados"><svg
+                class="ypp-svgFolderIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"></path>
+              </svg></span>
+          </div><span class="ytp-clip-watch-full-video-button-separator">•</span><span
+            class="ytp-clip-watch-full-video-button">Mirar video completo</span>
+        </div>
+        
+        
+        └─ div.ytp-time-display.notranslate
+            ├─ div.ytp-time-wrapper.ytp-time-wrapper-delhi
+            │   ├─ div.ytp-time-contents
+            │   │   ├─ span.ytp-time-clip-icon
+            │   │   │   └─ svg.[object.SVGAnimatedString]
+            │   │   │       └─ path.[object.SVGAnimatedString]
+            │   │   ├─ span.ytp-time-current
+            │   │   ├─ span.ytp-time-separator
+            │   │   └─ span.ytp-time-duration
+            │   ├─ button.ytp-live-badge.ytp-button
+            │   └─ span#ypp-time-display-indicator.ypp-time-display
+            │       └─ svg.[object.SVGAnimatedString]
+            │           └─ path.[object.SVGAnimatedString]
+            ├─ span.ytp-clip-watch-full-video-button-separator
+            └─ span.ytp-clip-watch-full-video-button
+        */
+
+
+        // Si el player no existe o el display ya está conectado (ya esta en el DOM), no hacer nada
+        if (!playerContainer || watchTimeDisplay?.isConnected) return;
 
         // Si existe una referencia previa pero se desconectó, la limpiamos para recrearla fresca
         if (watchTimeDisplay) watchTimeDisplay = null;
 
-        if (!playerContainer) return;
+        log('initTimeDisplay', 'playerContainer', playerContainer);
 
         // Soporte para el rediseño "Delhi": el contenedor es un pill wrapper (.ytp-time-wrapper)
-        const delhiWrapper = playerContainer.querySelector('.ytp-delhi-modern .ytp-time-wrapper')
-            ?? document.querySelector('.ytp-delhi-modern .ytp-time-wrapper');
+        const timeWrapper = DOMHelpers.get('player:timeWrapper', () =>
+            playerContainer.querySelector('.ytp-time-wrapper')
+            ?? document.querySelector('.ytp-time-wrapper'), 100);
 
-        // Fallback al contenedor estándar
-        const timeContainer = delhiWrapper
-            ?? playerContainer.querySelector('.ytp-time-contents')
-            ?? document.querySelector('.ytp-time-contents');
-
-        // Actualizar clase de livestream en el wrapper
-        try {
-            const wrapper = delhiWrapper
-                || timeContainer?.closest?.('.ytp-time-wrapper')
-                || timeContainer?.parentElement
-                || root?.querySelector?.('.ytp-time-wrapper');
-            const isLiveHead = !!wrapper?.querySelector?.('.ytp-live-badge-is-livehead');
-            if (wrapper?.classList) wrapper.classList.toggle('ypp-is-livestream', isLiveHead);
-
-            // Limpieza defensiva: quitar clases residuales en wrappers antiguos
-            if (!isLiveHead) {
-                for (const el of document.querySelectorAll('.ytp-time-wrapper.ypp-is-livestream')) {
-                    try {
-                        if (!el.querySelector?.('.ytp-live-badge-is-livehead')) el.classList.remove('ypp-is-livestream');
-                    } catch (_) { }
-                }
-            }
-        } catch (_) { }
-
-        log('initTimeDisplay', 'timeContainer seleccionado:', timeContainer);
-
-        if (!timeContainer || watchTimeDisplay) return;
+        log('initTimeDisplay', 'timeWrapper seleccionado:', timeWrapper);
 
         watchTimeDisplay = createElement('span', {
             id: 'ypp-time-display-indicator',
@@ -6003,10 +5935,8 @@ background: var(--ypp-danger);
         });
 
         // En Delhi UI, insertar al final (después del badge de directo)
-        if (delhiWrapper) {
-            delhiWrapper.insertAdjacentElement('beforeend', watchTimeDisplay);
-        } else {
-            timeContainer.appendChild(watchTimeDisplay);
+        if (timeWrapper) {
+            timeWrapper.insertAdjacentElement('beforeend', watchTimeDisplay);
         }
 
         log('initTimeDisplay', '✅ Creada visualización de tiempo en la barra de reproducción');
@@ -6035,38 +5965,41 @@ background: var(--ypp-danger);
      * @returns {HTMLElement|null} Contenedor de controles del Short activo o null si no existe aún.
      */
     function getActiveShortsControlsContainer() {
-        try {
-            // Priorizar el overlay del reproductor de Shorts (UI visible)
-            // ejemplo jerarquia en DOM
-            // └─ ytd-shorts.style-scope.ytd-page-manager
-            //    ├─ div#header.style-scope.ytd-shorts
-            //    ├─ div#offline-container.style-scope.ytd-shorts
-            //    └─ div#shorts-container.style-scope.ytd-shorts
-            //       └─ div#cinematic-shorts-scrim.style-scope.ytd-shorts
-            //          └─ div#shorts-inner-container.style-scope.ytd-shorts
-            //             └─ div#0.reel-video-in-sequence-new.style-scope.ytd-shorts
-            //                └─ div#experiment-overlay.overlay.style-scope.ytd-reel-video-renderer
-            //                   └─ ytd-reel-player-overlay-renderer.style-scope.ytd-reel-video-renderer
-            //                      └─ div.metadata-container.style-scope.ytd-reel-player-overlay-renderer
-            //                         └─ div#overlay.style-scope.ytd-reel-player-overlay-renderer
-            //                            └─ div#metapanel
+        const vid = window.location.href.match(/\/shorts\/([^/?#&]+)/)?.[1] || 'current';
+        log('getActiveShortsControlsContainer', `🔍 Short ID: ${vid}`);
+        return DOMHelpers.get(`shorts:metapanel:${vid}`, () => {
+            try {
+                // Priorizar el overlay del reproductor de Shorts (UI visible)
+                // ejemplo jerarquia en DOM
+                // └─ ytd-shorts.style-scope.ytd-page-manager
+                //    ├─ div#header.style-scope.ytd-shorts
+                //    ├─ div#offline-container.style-scope.ytd-shorts
+                //    └─ div#shorts-container.style-scope.ytd-shorts
+                //       └─ div#cinematic-shorts-scrim.style-scope.ytd-shorts
+                //          └─ div#shorts-inner-container.style-scope.ytd-shorts
+                //             └─ div#0.reel-video-in-sequence-new.style-scope.ytd-shorts
+                //                └─ div#experiment-overlay.overlay.style-scope.ytd-reel-video-renderer
+                //                   └─ ytd-reel-player-overlay-renderer.style-scope.ytd-reel-video-renderer
+                //                      └─ div.metadata-container.style-scope.ytd-reel-player-overlay-renderer
+                //                         └─ div#overlay.style-scope.ytd-reel-player-overlay-renderer
+                //                            └─ div#metapanel
 
-            const overlayCandidates = [
-                document.querySelector(`${S.IDS.REEL_VIDEO_RENDERER} #metapanel`),
-                document.querySelector('ytd-reel-player-overlay-renderer #metapanel'),
-                document.querySelector('#reel-overlay-container #metapanel'),
-                document.querySelector(`${S.IDS.YTD_SHORTS} #metapanel`),
-            ];
-            for (const c of overlayCandidates) {
-                if (c && isVisiblyDisplayed(c)) return c;
+                const overlayCandidates = [
+                    document.querySelector(`${S.IDS.REEL_VIDEO_RENDERER} #metapanel`),
+                    document.querySelector('ytd-reel-player-overlay-renderer #metapanel'),
+                    document.querySelector('#reel-overlay-container #metapanel'),
+                    document.querySelector(`${S.IDS.YTD_SHORTS} #metapanel`),
+                ];
+                for (const c of overlayCandidates) {
+                    if (c && isVisiblyDisplayed(c)) return c;
+                }
+
+                // Fallback genérico
+                return document.querySelector('#metapanel');
+            } catch (_) {
+                return document.querySelector('#metapanel');
             }
-
-            // Fallback genérico
-            const any = document.querySelector('#metapanel');
-            return any || null;
-        } catch (_) {
-            return document.querySelector('#metapanel');
-        }
+        }, 100);
     }
 
     /**
@@ -6075,9 +6008,11 @@ background: var(--ypp-danger);
     function initShortsTimeDisplay() {
         // Buscar el contenedor de controles dentro del Short ACTIVO
         const shortsPlayerControls = getActiveShortsControlsContainer();
-        const overlayRoot = document.querySelector('ytd-reel-player-overlay-renderer') ||
+        const overlayRoot =
+            document.querySelector('ytd-reel-player-overlay-renderer') ||
             DOMHelpers.getShortsPlayer() ||
             document.querySelector(`${S.IDS.YTD_SHORTS}`);
+
         log('initShortsTimeDisplay', 'shortsPlayerControls encontrado:', shortsPlayerControls)
 
         // Si el metapanel aún no existe, preparar fallback flotante en overlay/body
@@ -6230,12 +6165,17 @@ background: var(--ypp-danger);
             return;
         }
 
+        if (currentPageType !== 'shorts') {
+            warn('updateShortsMessage', '⚠️ No se pudo inicializar el display de Shorts, currentPageType:', currentPageType);
+            return;
+        }
+
         // Asegurar que el observador esté activo aunque el display existiera previamente
         try { startShortsPanelObserver(); } catch (_) { }
 
         // Re-anclar al contenedor del Short activo si cambió por scroll
         const activePanel = getActiveShortsControlsContainer();
-        const overlayRoot = document.querySelector('ytd-reel-player-overlay-renderer') || DOMHelpers.getShortsPlayer() || document.querySelector('ytd-shorts');
+        const overlayRoot = document.querySelector('ytd-reel-player-overlay-renderer') || DOMHelpers.getShortsPlayer();
         if (activePanel && shortsTimeDisplay.parentElement !== activePanel) {
             try { activePanel.appendChild(shortsTimeDisplay); } catch (_) { }
         }
@@ -6287,6 +6227,8 @@ background: var(--ypp-danger);
         shortsTimeDisplay.classList.remove('ypp-d-none');
         // Si está en overlayRoot (no metapanel visible), marcar flotante
         try {
+            log('updateShortsMessage', 'shortsTimeDisplay.parentElement:', shortsTimeDisplay.parentElement)
+            log('updateShortsMessage', 'activePanel:', activePanel)
             shortsTimeDisplay.classList.toggle('ypp-floating', shortsTimeDisplay.parentElement !== activePanel);
         } catch (_) { }
 
@@ -6322,7 +6264,7 @@ background: var(--ypp-danger);
     * @param {HTMLElement} playerContainer - Referencia al player miniplayer (#movie_player interno).
     */
     function initMiniplayerTimeDisplay(playerContainer) {
-      
+
         if (miniplayerTimeDisplay?.isConnected) return;
         if (miniplayerTimeDisplay) miniplayerTimeDisplay = null;
 
@@ -6696,7 +6638,7 @@ background: var(--ypp-danger);
         }
 
         // Cerrar otros modales que no sean el de videos
-        const existingModals = document.querySelectorAll('.ypp-modalOverlay');
+        const existingModals = DOMHelpers.get('ui:allModals', () => document.querySelectorAll('.ypp-modalOverlay'), 50);
         existingModals.forEach(modal => {
             if (modal !== videosOverlay) modal.remove();
         });
@@ -7878,7 +7820,7 @@ background: var(--ypp-danger);
 
 
     // ------------------------------------------
-    // MARK: ⏯ Seek
+    // MARK: PlaybackController
     // ------------------------------------------
 
     /**
@@ -8048,7 +7990,6 @@ background: var(--ypp-danger);
 
             log('PlaybackController', ` Guardando progreso para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType})`);
 
-            // Debug logs adicionales para PlaybackController
             if (finalType === 'preview') {
                 info('PlaybackController', `saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);
             }
@@ -8422,15 +8363,16 @@ background: var(--ypp-danger);
             if (!info.title || info.title === videoId) {
                 let titleEl = null;
                 if (type === 'watch') {
-                    titleEl =
+                    titleEl = DOMHelpers.get(`video:titleWatch:${videoId}`, () =>
                         document.querySelector('h1.ytd-video-primary-info-renderer') ||
-                        document.querySelector('yt-formatted-string.ytd-video-description-header-renderer');
+                        document.querySelector('yt-formatted-string.ytd-video-description-header-renderer'), 250);
                 } else if (type === 'miniplayer') {
-                    titleEl =
+                    titleEl = DOMHelpers.get(`video:titleMini:${videoId}`, () =>
                         document.querySelector('ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span') ||
-                        document.querySelector('ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span[role="text"]');
+                        document.querySelector('ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span[role="text"]'), 250);
                 } else if (type === 'preview') {
-                    titleEl = document.querySelector(`${S.IDS.INLINE_PREVIEW_PLAYER} .ytp-title-link`);
+                    titleEl = DOMHelpers.get(`video:titlePreview:${videoId}`, () =>
+                        document.querySelector(`${S.IDS.INLINE_PREVIEW_PLAYER} .ytp-title-link`), 250);
                 }
 
                 info.title = titleEl?.textContent?.trim() || info.title;
@@ -8442,15 +8384,9 @@ background: var(--ypp-danger);
             }
 
             if (!info.author || info.author === t('unknown')) {
-                const container = videoEl?.closest?.(SELECTORS.MAIN_CONTAINERS) || document;
-                const authorEl =
-
-
-
-
-
+                const authorEl = DOMHelpers.get(`video:author:${videoId}`, () =>
                     document.querySelector('#channel-name a') ||
-                    document.querySelector('link[itemprop="name"]');
+                    document.querySelector('link[itemprop="name"]'), 250);
                 info.author = authorEl?.textContent?.trim() || authorEl?.content || info.author;
             }
 
@@ -8503,7 +8439,6 @@ background: var(--ypp-danger);
     function createFilterSelector(currentValue, onChange) {
         const wrapper = createElement('div', { className: 'ypp-d-flex' });
         const label = createElement('label', { className: 'ypp-label ypp-label-filters', text: `${t('filterByType')}:`, atribute: { for: 'filter-selector' } });
-        // select no soporta SVG
         const select = createElement('select', {
             className: 'ypp-filter-select', id: 'filter-selector', html: `
         <option value="all" ${currentValue === 'all' ? 'selected' : ''}>🔎 ${t('all')}</option>
@@ -8566,12 +8501,21 @@ background: var(--ypp-danger);
     // MARK: 📂 Video List UI
     // ------------------------------------------
 
+    /** @type {HTMLElement|null} Overlay principal de la lista de videos (fondo negro) */
     let videosOverlay = null;
+    /** @type {HTMLElement|null} Contenedor principal de la lista de videos */
     let videosContainer = null;
+    /** @type {HTMLElement|null} Contenedor de la lista de videos */
     let listContainer = null;
-    let currentOrderBy, currentFilterBy, currentSearchQuery;
+    /** @type {string|null} Orden actual de la lista de videos */
+    let currentOrderBy = null;
+    /** @type {string|null} Filtro actual de la lista de videos */
+    let currentFilterBy = null;
+    /** @type {string|null} Búsqueda actual de la lista de videos */
+    let currentSearchQuery = null;
     /** @type {VirtualScroller|null} Instancia del scroller virtual para la lista de videos */
     let virtualScroller = null;
+    /** @type {number|null} ID del intervalo de actualización del uso de almacenamiento */
     let storageUsageRefreshIntervalId = null;
     /** @type {Map<string, string>} Cache global de títulos por ID para uso en createVideoEntry */
     let modalVideoTitleById = new Map();
@@ -8932,9 +8876,15 @@ background: var(--ypp-danger);
     }
 
     /**
-     * Formatea una cantidad de bytes en unidades humanas.
-     * @param {number} bytes
-     * @returns {string}
+     * Convierte un número de bytes a una cadena legible con unidades (B, KB, MB, GB, TB).
+     *
+     * @param {number|string} bytes - Cantidad de bytes a formatear. Puede ser número o string convertible a número.
+     * @returns {string} Representación formateada en la unidad más apropiada (ej: "1.23 MB").
+     *
+     * @example
+     * formatBytes(1024); // "1 KB"
+     * formatBytes(1234567); // "1.18 MB"
+     * formatBytes(0); // "0 B"
      */
     const formatBytes = (bytes) => {
         const value = Number(bytes);
@@ -8947,11 +8897,24 @@ background: var(--ypp-danger);
     };
 
     /**
-     * Actualiza el indicador de uso/cuota del almacenamiento (origin storage, incluye IndexedDB).
-     * @returns {Promise<void>}
+     * Actualiza el indicador de uso de almacenamiento en el DOM.
+     *
+     * Busca el elemento con id `#ypp-storage-usage` y muestra el uso actual
+     * frente al límite disponible usando la API `navigator.storage.estimate()`.
+     *
+     * Si la API no está disponible o los valores no son válidos, limpia el contenido.
+     *
+     * @async
+     * @function updateStorageUsageIndicator
+     * @returns {Promise<void>} No retorna ningún valor.
+     *
+     * @example
+     * await updateStorageUsageIndicator();
+     * // Resultado esperado en el DOM:
+     * // "1.23 MB / 2 GB"
      */
     const updateStorageUsageIndicator = async () => {
-        const el = document.querySelector('#ypp-storage-usage');
+        const el = DOMHelpers.get('ui:storageUsage', () => document.querySelector('#ypp-storage-usage'), 500);
         if (!el) return;
 
         const estimateFn = navigator?.storage?.estimate;

@@ -6952,8 +6952,9 @@ background: var(--ypp-danger);
         } catch (err) {
             conError('copyToClipboard', 'Error al copiar al portapapeles:', err);
             // Fallback para navegadores que no soportan clipboard API
-            const textarea = document.createElement('textarea');
-            textarea.value = text;
+            const textarea = createElement('textarea', {
+                value: text
+            });
             document.body.appendChild(textarea);
             textarea.select();
             document.execCommand('copy');
@@ -8812,8 +8813,9 @@ background: var(--ypp-danger);
             bufferSize: 8,
             renderItem: async (item) => {
                 if (item.type === 'playlist-header') {
-                    const header = document.createElement('div');
-                    header.className = 'ypp-playlist-header';
+                    const header = createElement('div', {
+                        className: 'ypp-playlist-header'
+                    });
 
                     let playlistUrl = `https://www.youtube.com/playlist?list=${item.playlistKey}`;
                     // Para Mixes (RD...), YouTube requiere un v=ID válido.
@@ -8836,10 +8838,25 @@ background: var(--ypp-danger);
                     item.playlistTitle
                 );
             },
-            onRender: ({ renderedCount, totalItems }) => {
+            onRender: ({ renderedCount }) => {
                 const statsEl = document.querySelector('#ypp-render-stats');
                 if (statsEl) {
-                    statsEl.textContent = `📊 ${renderedCount}/${totalItems} ${t('rendered') || 'rendered'}`;
+                    // Para que las estadísticas sean coherentes con el total de "Videos" de arriba,
+                    // filtramos los headers de la cuenta total y renderizada. 
+                    const totalVideos = filteredItems.length;
+                    let renderedVideos = 0;
+                    if (virtualScroller) {
+                        virtualScroller.renderedItems.forEach((el, idx) => {
+                            const item = virtualItems[idx];
+                            if (item && item.type !== 'playlist-header') {
+                                renderedVideos++;
+                            }
+                        });
+                    } else {
+                        renderedVideos = renderedCount; // Fallback
+                    }
+
+                    statsEl.textContent = `${renderedVideos}/${totalVideos} ${t('rendered')}`;
                 }
             }
         });

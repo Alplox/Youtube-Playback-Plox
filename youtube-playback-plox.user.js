@@ -698,15 +698,15 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             showNotifications: true,
             minSecondsBetweenSaves: 1,
             showFloatingButtons: false,
-            saveRegularVideos: true, // Por defecto, guardar videos regulares
-            saveShorts: false, // Por defecto, no guardar Shorts
-            saveLiveStreams: false, // Por defecto, no guardar directos de URL tipo "/live" o "/watch" con player en directo, si ya es VOD lo toma como regular
-            language: 'en-US', // Idioma predeterminado
-            alertStyle: 'iconText', // Estilo de alerta predeterminado
+            saveRegularVideos: true,         // Por defecto, guardar videos regulares
+            saveShorts: false,               // Por defecto, no guardar Shorts
+            saveLiveStreams: false,          // Por defecto, no guardar directos de URL tipo "/live" o "/watch" con player en directo, si ya es VOD lo toma como regular
+            language: 'en-US',               // Idioma predeterminado
+            alertStyle: 'iconText',          // Estilo de alerta predeterminado
             enableProgressBarGradient: true, // Por defecto, habilitar degradado de colores en barra de progreso
-            staticFinishPercent: 95, // Porcentaje desde el final para considerar video como completado (95% = 5% antes del final)
-            saveInlinePreviews: false, // Guardar previsualizaciones inline (Homepage) desactivado por defecto
-            saveMiniplayerVideos: true, // Guardar videos en miniplayer (default: activo)
+            staticFinishPercent: 95,         // Porcentaje desde el final para considerar video como completado (95% = 5% antes del final)
+            saveInlinePreviews: false,       // Guardar previsualizaciones inline (Homepage) desactivado por defecto
+            saveMiniplayerVideos: true,      // Guardar videos en miniplayer (default: activo)
         },
 
         /** Clave para guardar filtros del usuario en GM_* */
@@ -854,17 +854,15 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
 
     };
 
-
     /*    
-    'ytd-rich-grid-renderer',      // Grid de videos en home
-           'ytd-video-renderer',          // Video individual
-           'ytd-playlist-video-renderer', // Videos en playlist
-           'ytd-compact-video-renderer',  // Videos relacionados
-           'ytd-reel-video-renderer',     // Shorts
-           '#contents',                   // Contenedor general
-           'ytd-watch-next-secondary-results-renderer' // Videos relacionados en watch
-           //  */
-
+        'ytd-rich-grid-renderer',              // Grid de videos en home
+        'ytd-video-renderer',                  // Video individual
+        'ytd-playlist-video-renderer',         // Videos en playlist
+        'ytd-compact-video-renderer',          // Videos relacionados
+        'ytd-reel-video-renderer',             // Shorts
+        '#contents',                           // Contenedor general
+        'ytd-watch-next-secondary-results-renderer' // Videos relacionados en watch
+    */
 
     // === SELECTORES COMPUESTOS ===
     const S = {
@@ -883,23 +881,6 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
         ATTR: Object.fromEntries(
             Object.entries(ATTRIBUTES).map(([k, v]) => [k, selector.attr(v)])
         )
-    };
-
-    // === SELECTORES COMPUESTOS ===
-    const SELECTORS = {
-        MINIPLAYER: [S.ELEMENTS.MINIPLAYER_ELEMENT].join(', '),
-        INLINE_PREVIEW: [
-            S.IDS.INLINE_PREVIEW_PLAYER,
-            S.CLASSES.INLINE_PREVIEW_UI,
-            S.CLASSES.INLINE_PREVIEW_OVERLAY
-        ].join(', '),
-        SHORTS: [S.ELEMENTS.REEL_VIDEO_RENDERER, S.IDS.SHORTS_PLAYER].join(', '),
-        WATCH: [S.IDS.MOVIE_PLAYER, S.CLASSES.HTML5_VIDEO_PLAYER].join(', '),
-        MAIN_CONTAINERS: [
-            S.IDS.MOVIE_PLAYER,
-            S.IDS.SHORTS_PLAYER,
-            S.IDS.INLINE_PREVIEW_PLAYER
-        ].join(', ')
     };
 
     /**
@@ -1054,7 +1035,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
              * 
              * @example
              * // Fuerza la actualización del registro de la caja de anuncios
-             * DOMHelpers.removeExact('ad:container');
+             * DOMHelpers.removeExact('ad:skipButton');
              * // Si en la memoria tienes guardado "ad:skipButton", "ad:banner" y "ad:video", 
              * // la función solo borrará "ad:skipButton", y dejará el resto intacto.
              */
@@ -2251,6 +2232,15 @@ background: var(--ypp-danger);
   font-size: 1.6rem;
   margin: 0;
   flex: 1;
+  align-items: center;
+  justify-content: flex-start;
+  display: flex;
+  gap: 5px;
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
 }
 
 .ypp-modalBody {
@@ -6605,10 +6595,10 @@ background: var(--ypp-danger);
 
     const renderAlertStyleSection = (settings) => {
         const styles = [
-            { value: 'iconText', text: '🔔 Icon + Text' },
-            { value: 'iconOnly', text: '🔔 Icon Only' },
-            { value: 'textOnly', text: '📝 Text Only' },
-            { value: 'hidden', text: '🚫 Hidden' }
+            { value: 'iconText', text: `🔔📝 ${escapeHTML(t('alertIconText'))}` },
+            { value: 'iconOnly', text: `🔔 ${escapeHTML(t('alertIconOnly'))}` },
+            { value: 'textOnly', text: `📝 ${escapeHTML(t('alertTextOnly'))}` },
+            { value: 'hidden', text: `🚫 ${escapeHTML(t('alertHidden'))}` }
         ];
         const optionsHTML = styles.map(s => `
             <option value="${s.value}" ${settings.alertStyle === s.value ? 'selected' : ''}>${escapeHTML(s.text)}</option>
@@ -6667,7 +6657,7 @@ background: var(--ypp-danger);
         // Header
         const header = createElement('div', { className: 'ypp-modalHeader' });
         setInnerHTML(header, `
-            <h3 class="ypp-modalTitle">⚙️ ${escapeHTML(t('settings'))}</h3>
+            <h3 class="ypp-modalTitle">️${SVG_ICONS.settings} ${escapeHTML(t('settings'))}</h3>
             <button class="ypp-btn ypp-btn-small ypp-btn-close" aria-label="${escapeHTML(t('close'))}" title="${escapeHTML(t('close'))}" type="button">
                 ${SVG_ICONS.close}
             </button>
@@ -8764,6 +8754,7 @@ background: var(--ypp-danger);
         `);
         listContainer.appendChild(statsBar);
 
+        DOMHelpers.removeExact('ui:storageUsage');
         try { await updateStorageUsageIndicator(); } catch (_) { }
 
         // Crear contenedor para el scroller virtual
@@ -9037,7 +9028,6 @@ background: var(--ypp-danger);
         videosContainer.appendChild(listContainer);
 
         try {
-            await updateStorageUsageIndicator();
             if (!storageUsageRefreshIntervalId) {
                 storageUsageRefreshIntervalId = setInterval(() => {
                     updateStorageUsageIndicator().catch(() => { });

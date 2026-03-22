@@ -8331,42 +8331,59 @@ background: var(--ypp-danger);
 
                     // Vistas - Shorts focus ya que primeros fallbacks no lo añaden
                     if (info.viewCount === 0 || !info.viewCount) {
-                        warn('getCascadedVideoInfo', 'Vistas shorts detectadas en cero');
+                        async function fetchShortsViews() {
+                            if (!videoId) return null;
 
-                        let shortContainer = document.querySelector('ytd-shorts #shorts-panel-container view-count-factoid-renderer');
+                            const res = await fetch(
+                                "https://www.youtube.com/youtubei/v1/player?key=" + ytcfg.get("INNERTUBE_API_KEY"),
+                                {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                        context: ytcfg.get("INNERTUBE_CONTEXT"),
+                                        videoId
+                                    })
+                                }
+                            );
 
-
-                        if (shortContainer
-                            && shortContainer.isConnected
-                        ) {
-
-
-                            const viewEl =
-                                // "1,167,872 vistas" 
-                                shortContainer.querySelector('.ytwFactoidRendererFactoid')?.getAttribute?.('aria-label');
-
-                            const match = viewEl?.match(/[\d.,\s]+/)?.[0] || '';
-                            let cleanMatch = Number(match.replace(/[^\d]/g, ""))
-
-                            log('getCascadedVideoInfo', 'viewEl', viewEl)
-                            log('getCascadedVideoInfo', 'Vistas shorts obtenidas 1er intento ', cleanMatch);
-
-                            // chequear que no siga en cero
-                            if (cleanMatch === 0) {
-                                const viewEl =
-                                    // 519,586    
-                                    shortContainer.querySelector('span.yt-core-attributed-string[role="text"]').textContent
-                                cleanMatch = Number(viewEl.replace(/[^\d]/g, ""))
-                                log('getCascadedVideoInfo', 'Vistas shorts obtenidas 2do intento ', cleanMatch);
-                            }
-
-                            info.viewCount = cleanMatch; // número limpio
-                        } else {
-                            warn('getCascadedVideoInfo', 'No se encontró el contenedor de vistas de shorts');
+                            const data = await res.json();
+                            return data.videoDetails?.viewCount;
                         }
 
+                        let viewCountFromFetch = await fetchShortsViews();
+                        if (viewCountFromFetch) {
+                            viewCountFromFetch = Number(viewCountFromFetch.replace(/[^\d]/g, ''));
+                            log('getCascadedVideoInfo', 'Vistas shorts obtenidas mediante fetch: ' + viewCountFromFetch);
+                            info.viewCount = viewCountFromFetch;
+                        } else {
+                            // view-count-factoid-renderer es un singleton en el panel compartido
+                            // que se actualiza con ~2s de retraso al navegar entre Shorts.
+                            let shortContainer = document.querySelector('ytd-shorts #shorts-panel-container view-count-factoid-renderer');
 
+                            if (shortContainer && shortContainer.isConnected) {
+                                const viewEl =
+                                    // "1,167,872 vistas"
+                                    shortContainer.querySelector('.ytwFactoidRendererFactoid')?.getAttribute?.('aria-label');
 
+                                const match = viewEl?.match(/[\d.,\s]+/)?.[0] || '';
+                                let cleanMatch = Number(match.replace(/[^\d]/g, ''));
+
+                                log('getCascadedVideoInfo', 'Vistas shorts obtenidas 1er intento ', cleanMatch);
+
+                                // chequear que no siga en cero
+                                if (cleanMatch === 0) {
+                                    const viewEl2 =
+                                        // 519,586
+                                        shortContainer.querySelector('span.yt-core-attributed-string[role="text"]')?.textContent;
+                                    cleanMatch = Number((viewEl2 ?? '').replace(/[^\d]/g, ''));
+                                    log('getCascadedVideoInfo', 'Vistas shorts obtenidas 2do intento ', cleanMatch);
+                                }
+
+                                info.viewCount = cleanMatch; // número limpio
+                            } else {
+                                warn('getCascadedVideoInfo', 'No se encontró el contenedor de vistas de shorts');
+                            }
+                        }
                     }
                 }
             }

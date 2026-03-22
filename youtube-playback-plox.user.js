@@ -834,6 +834,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
         SHORTS_CONTAINER: 'shorts-container',
         SHORTS_VIDEO_CONTAINER: 'short-video-container',
         SHORTS_PLAYER: 'shorts-player',
+        METAPANEL: 'metapanel',                          // Panel de información del short (nombre canal, boton sub, descripción, etc)
 
         // === INLINE PREVIEW ===
         VIDEO_PREVIEW_MAIN_CONTAINER: 'video-preview',
@@ -4984,8 +4985,8 @@ background: var(--ypp-danger);
             type: 'video',
             isCompleted: isFinished,
             viewCount: videoInfo.viewCount || 0,
-            lastViewedPlaylistId: playlistId || (sourceData?.lastViewedPlaylistId || null),
-            lastViewedPlaylistType: playlistId ? 'channel' : (sourceData?.lastViewedPlaylistType || ''),
+            lastViewedPlaylistId: playlistId || null,
+            lastViewedPlaylistType: playlistId ? 'channel' : '',
             lastViewedPlaylistItemId: null,
             playlistTitle: videoInfo.playlistTitle || sourceData?.playlistTitle
         };
@@ -5955,41 +5956,38 @@ background: var(--ypp-danger);
      * @returns {HTMLElement|null} Contenedor de controles del Short activo o null si no existe aún.
      */
     function getActiveShortsControlsContainer() {
-        const vid = window.location.href.match(/\/shorts\/([^/?#&]+)/)?.[1] || 'current';
-        log('getActiveShortsControlsContainer', `🔍 Short ID: ${vid}`);
-        return DOMHelpers.get(`shorts:metapanel:${vid}`, () => {
-            try {
-                // Priorizar el overlay del reproductor de Shorts (UI visible)
-                // ejemplo jerarquia en DOM
-                // └─ ytd-shorts.style-scope.ytd-page-manager
-                //    ├─ div#header.style-scope.ytd-shorts
-                //    ├─ div#offline-container.style-scope.ytd-shorts
-                //    └─ div#shorts-container.style-scope.ytd-shorts
-                //       └─ div#cinematic-shorts-scrim.style-scope.ytd-shorts
-                //          └─ div#shorts-inner-container.style-scope.ytd-shorts
-                //             └─ div#0.reel-video-in-sequence-new.style-scope.ytd-shorts
-                //                └─ div#experiment-overlay.overlay.style-scope.ytd-reel-video-renderer
-                //                   └─ ytd-reel-player-overlay-renderer.style-scope.ytd-reel-video-renderer
-                //                      └─ div.metadata-container.style-scope.ytd-reel-player-overlay-renderer
-                //                         └─ div#overlay.style-scope.ytd-reel-player-overlay-renderer
-                //                            └─ div#metapanel
+        // Priorizar el overlay del reproductor de Shorts (UI visible)
+        // ejemplo jerarquia en DOM
+        // └─ ytd-shorts.style-scope.ytd-page-manager
+        //    ├─ div#header.style-scope.ytd-shorts
+        //    ├─ div#offline-container.style-scope.ytd-shorts
+        //    └─ div#shorts-container.style-scope.ytd-shorts
+        //       └─ div#cinematic-shorts-scrim.style-scope.ytd-shorts
+        //          └─ div#shorts-inner-container.style-scope.ytd-shorts
+        //             └─ div#0.reel-video-in-sequence-new.style-scope.ytd-shorts
+        //                └─ div#experiment-overlay.overlay.style-scope.ytd-reel-video-renderer
+        //                   └─ ytd-reel-player-overlay-renderer.style-scope.ytd-reel-video-renderer
+        //                      └─ div.metadata-container.style-scope.ytd-reel-player-overlay-renderer
+        //                         └─ div#overlay.style-scope.ytd-reel-player-overlay-renderer
+        //                            └─ div#metapanel
 
-                const overlayCandidates = [
-                    document.querySelector(`${S.IDS.REEL_VIDEO_RENDERER} #metapanel`),
-                    document.querySelector('ytd-reel-player-overlay-renderer #metapanel'),
-                    document.querySelector('#reel-overlay-container #metapanel'),
-                    document.querySelector(`${S.IDS.YTD_SHORTS} #metapanel`),
-                ];
-                for (const c of overlayCandidates) {
-                    if (c && isVisiblyDisplayed(c)) return c;
-                }
+        const selectors = [
+            `${S.IDS.REEL_VIDEO_RENDERER} ${S.IDS.METAPANEL}`,
+            `#experiment-overlay ${S.IDS.METAPANEL}`,
+            `ytd-reel-player-overlay-renderer ${S.IDS.METAPANEL}`,
+            `#reel-overlay-container ${S.IDS.METAPANEL}`,
+            `${S.IDS.YTD_SHORTS} ${S.IDS.METAPANEL}`
+        ];
 
-                // Fallback genérico
-                return document.querySelector('#metapanel');
-            } catch (_) {
-                return document.querySelector('#metapanel');
+        for (const selector of selectors) {
+            const el = document.querySelector(selector);
+            if (el && el.isConnected && isVisiblyDisplayed(el)) {
+                return el;
             }
-        }, 100);
+        }
+
+        // Fallback final
+        return document.querySelector(S.IDS.METAPANEL);
     }
 
     /**
@@ -7159,8 +7157,7 @@ background: var(--ypp-danger);
             miniplayer: null,
             preview: null
         };
-
-        const initObservers = () => {
+        const initObservers = (forceBootstrap = false) => {
             cleanup();
 
             const config = { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] };
@@ -7527,7 +7524,7 @@ background: var(--ypp-danger);
                 if (!currentPageType) currentPageType = getYouTubePageType();
 
                 // Realizar bootstrap inicial
-                bootstrap();
+                bootstrap(forceBootstrap);
             } catch (e) {
                 conError('VideoObserverManager', '❌ Error al iniciar observadores', e);
             }
@@ -7684,8 +7681,7 @@ background: var(--ypp-danger);
         // getMiniplayerPlayerVideo() puede devolver null durante transiciones de video (la clase activa se quita momentáneamente),
         // por lo que usamos un fallback directo y uncached a ytd-miniplayer #movie_player.
         const player =
-            DOMHelpers.getMiniplayerPlayerVideo() ||
-            document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT} #${IDs.MOVIE_PLAYER}`);
+            document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT}${S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE} ${S.IDS.MOVIE_PLAYER}`);
 
         if (!player) {
             warn('processMiniplayerVideo', '⚠️ Player del miniplayer no encontrado, omitiendo procesamiento.');
@@ -7695,7 +7691,7 @@ background: var(--ypp-danger);
         const videoId =
             player?.getPlayerResponse?.()?.videoDetails?.videoId ||
             player?.getVideoData?.()?.video_id ||
-            YTHelper?.video?.id ||
+
             null;
 
         if (!videoId) {
@@ -7725,7 +7721,7 @@ background: var(--ypp-danger);
             videoId =
                 player?.getPlayerResponse?.()?.videoDetails?.videoId ||
                 player?.getVideoData?.()?.video_id ||
-                YTHelper?.video?.id;
+                null;
         } catch (_) { }
 
         if (!videoId || !player) return;
@@ -8143,9 +8139,6 @@ background: var(--ypp-danger);
 
                 info.lengthSeconds = parseInt(details.lengthSeconds, 10) || 0;
 
-
-
-
                 info.title = details.title || info.title;
                 info.author = details.author || info.author;
                 info.authorId = details.channelId || info.authorId;
@@ -8206,17 +8199,53 @@ background: var(--ypp-danger);
                 info.published = micro.publishDate ? new Date(micro.publishDate).getTime() : info.published;
             }
 
-            // D: Playlist ID (Búsqueda exhaustiva en metadatos y URL)
-            info.lastViewedPlaylistId =
-                playerResponse?.playlistId ||
-                internalData?.list ||
-                new URLSearchParams(window.location.search).get('list') ||
-                info.lastViewedPlaylistId;
+            // D: Playlist ID (Búsqueda exhaustiva en metadatos, DOM y retries por SPA)
+            let currentPlaylistId = null;
+            let retryCount = 0;
+            const maxRetries = 5; // Total 5 * 200ms = 1s timeout
 
-            //player?.getVideoData?.()?.list ||
-            // const videoData = extractOrNormalizeVideoId(location.href);
-            //  videoData?.list 
+            while (!currentPlaylistId && retryCount < maxRetries) {
+                const refreshedPlayerResponse = (typeof player?.getPlayerResponse === 'function') ? player.getPlayerResponse() : playerResponse;
+                const refreshedInternalData = (typeof player?.getVideoData === 'function') ? player.getVideoData() : internalData;
 
+                // 1. Extraer directo de las APIs internas (si se actualizaron)
+                currentPlaylistId =
+                    refreshedPlayerResponse?.playlistId ||
+                    refreshedInternalData?.list ||
+                    (typeof player?.getPlaylistId === 'function' ? player.getPlaylistId() : null);
+
+                // 2. Si no está, buscar en el DOM de la cola de reproducción (.ytp-next-button, etc)
+                if (!currentPlaylistId) {
+                    try {
+                        const anchors = [
+                            player?.querySelector?.('.ytp-next-button'),
+                            player?.querySelector?.('.ytp-prev-button')
+                        ];
+                        for (const anchor of anchors) {
+                            if (anchor && anchor.href) {
+                                const listParam = new URLSearchParams(new URL(anchor.href, window.location.origin).search).get('list');
+                                if (listParam) {
+                                    currentPlaylistId = listParam;
+                                    break;
+                                }
+                            }
+                        }
+                    } catch (e) { }
+                }
+
+                if (currentPlaylistId) break;
+
+                // 3. Fallback en fast-transitions: Si seguimos en null, es posible que el DOM/API aún no se hayan propagado. 
+                // Hacer un breve delay solo para miniplayer/watch porque YouTube SPA toma ~100-300ms en actualizar la info de Playlists
+                if (type === 'miniplayer' || type === 'watch') {
+                    await new Promise(r => setTimeout(r, 200));
+                    retryCount++;
+                } else {
+                    break;
+                }
+            }
+
+            info.lastViewedPlaylistId = currentPlaylistId || info.lastViewedPlaylistId;
 
             // Nivel 1.5: Si hay playlistId, obtener título (maneja cache automáticamente)
             if (info.lastViewedPlaylistId) {
@@ -8254,8 +8283,6 @@ background: var(--ypp-danger);
 
         // 🟡 Nivel 3: DOM Fallbacks
         try {
-
-
             /*    
              videoId: videoId,
              title: '',
@@ -8302,24 +8329,48 @@ background: var(--ypp-danger);
                         }
                     }
 
-                    // Vistas (aria-label) - Shorts focus ya que primeros fallbacks no lo añaden
+                    // Vistas - Shorts focus ya que primeros fallbacks no lo añaden
                     if (info.viewCount === 0 || !info.viewCount) {
-                        log('getCascadedVideoInfo', 'Vistas: 0');
-                        const viewEl =
-                            // "1,167,872 vistas" 
-                            document.querySelector('view-count-factoid-renderer .ytwFactoidRendererFactoid')
-                                ?.getAttribute?.('aria-label');
+                        warn('getCascadedVideoInfo', 'Vistas shorts detectadas en cero');
 
-                        const match = viewEl?.match(/[\d.,\s]+/)?.[0] || '';
-                        const cleanMatch = Number(match.replace(/[^\d]/g, ""))
+                        let shortContainer = document.querySelector('ytd-shorts #shorts-panel-container view-count-factoid-renderer');
 
-                        log('getCascadedVideoInfo', 'Vistas: ', cleanMatch);
-                        info.viewCount = cleanMatch; // número limpio
+
+                        if (shortContainer
+                            && shortContainer.isConnected
+                        ) {
+
+
+                            const viewEl =
+                                // "1,167,872 vistas" 
+                                shortContainer.querySelector('.ytwFactoidRendererFactoid')?.getAttribute?.('aria-label');
+
+                            const match = viewEl?.match(/[\d.,\s]+/)?.[0] || '';
+                            let cleanMatch = Number(match.replace(/[^\d]/g, ""))
+
+                            log('getCascadedVideoInfo', 'viewEl', viewEl)
+                            log('getCascadedVideoInfo', 'Vistas shorts obtenidas 1er intento ', cleanMatch);
+
+                            // chequear que no siga en cero
+                            if (cleanMatch === 0) {
+                                const viewEl =
+                                    // 519,586    
+                                    shortContainer.querySelector('span.yt-core-attributed-string[role="text"]').textContent
+                                cleanMatch = Number(viewEl.replace(/[^\d]/g, ""))
+                                log('getCascadedVideoInfo', 'Vistas shorts obtenidas 2do intento ', cleanMatch);
+                            }
+
+                            info.viewCount = cleanMatch; // número limpio
+                        } else {
+                            warn('getCascadedVideoInfo', 'No se encontró el contenedor de vistas de shorts');
+                        }
+
+
+
                     }
                 }
             }
 
-            // 🟢 Nivel 3: DOM Fallbacks (Última instancia)
             if (type === 'preview' && (!info.lastViewedPlaylistId || !info.title || info.title === videoId)) {
                 // Para previews, el contexto del DOM es vital para la playlist
                 try {
@@ -9952,12 +10003,12 @@ background: var(--ypp-danger);
                 // Limpiar cachés de DOM para asegurar que el siguiente procesamiento use elementos frescos
                 DOMHelpers.clearAll();
 
-                // Forzar escaneo de videos después de la navegación (Bootstrap reactivo)
+                // Forzar escaneo de videos después de la navegación y reinicializar observers
                 if (typeof VideoObserverManager?.clearCache === 'function') {
                     VideoObserverManager.clearCache();
                 }
-                if (typeof VideoObserverManager?.bootstrap === 'function') {
-                    VideoObserverManager.bootstrap(true);
+                if (typeof VideoObserverManager?.init === 'function') {
+                    VideoObserverManager.init(true);
                 }
             };
             const debouncedNavigation = debounce(handleNavigation, 50);

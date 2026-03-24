@@ -5956,6 +5956,15 @@ background: var(--ypp-danger);
      * @returns {HTMLElement|null} Contenedor de controles del Short activo o null si no existe aún.
      */
     function getActiveShortsControlsContainer() {
+        // En la nueva interfaz de Shorts, pueden existir múltiples de estos contenedores
+        // precargados. Iteramos y devolvemos el que realmente es visible.
+        const panels = document.querySelectorAll(S.IDS.METAPANEL);
+        for (const panel of panels) {
+            if (isVisiblyDisplayed(panel)) {
+                return panel;
+            }
+        }
+
         // Priorizar el overlay del reproductor de Shorts (UI visible)
         // ejemplo jerarquia en DOM
         // └─ ytd-shorts.style-scope.ytd-page-manager
@@ -5972,22 +5981,25 @@ background: var(--ypp-danger);
         //                            └─ div#metapanel
 
         const selectors = [
-            `${S.IDS.REEL_VIDEO_RENDERER} ${S.IDS.METAPANEL}`,
-            `#experiment-overlay ${S.IDS.METAPANEL}`,
+            `${S.ELEMENTS.REEL_VIDEO_RENDERER} ${S.IDS.METAPANEL}`,
+            `ytd-reel-player-overlay-renderer .metadata-container`,
             `ytd-reel-player-overlay-renderer ${S.IDS.METAPANEL}`,
+            `#experiment-overlay ${S.IDS.METAPANEL}`,
             `#reel-overlay-container ${S.IDS.METAPANEL}`,
-            `${S.IDS.YTD_SHORTS} ${S.IDS.METAPANEL}`
+            `${S.ELEMENTS.YTD_SHORTS} ${S.IDS.METAPANEL}`
         ];
 
         for (const selector of selectors) {
-            const el = document.querySelector(selector);
-            if (el && el.isConnected && isVisiblyDisplayed(el)) {
-                return el;
+            const elements = document.querySelectorAll(selector);
+            for (const el of elements) {
+                if (isVisiblyDisplayed(el)) {
+                    return el;
+                }
             }
         }
 
-        // Fallback final
-        return document.querySelector(S.IDS.METAPANEL);
+        // Fallback final: No se encontró ningún contenedor que sea visible
+        return null;
     }
 
     /**
@@ -7540,7 +7552,9 @@ background: var(--ypp-danger);
             }
 
             pendingVideos.clear();
-            log('VideoObserverManager', '🧹 Observadores desconectados');
+            globalNavigationId++; // Invalidar sesiones en vuelo
+            stopAllSessions();
+            log('VideoObserverManager', '🧹 Observadores y sesiones desconectadas');
         };
 
         const clearCache = () => {
@@ -7556,12 +7570,64 @@ background: var(--ypp-danger);
     // MARK: Specialized Processing Functions
     // ------------------------------------------
 
+
+
+    const getVideoId = (player) => {
+        if (typeof player?.getPlayerResponse === 'function') {
+            const resp = player.getPlayerResponse()
+            const videoDetailsVideoId = resp?.videoDetails?.videoId
+            const microformatVideoId = resp?.microformat?.playerMicroformatRenderer?.externalVideoId
+            info('getVideoId', `getPlayerResponse DETECTADO ${videoDetailsVideoId} - ${microformatVideoId}`)
+            const id = videoDetailsVideoId || microformatVideoId
+            if (id) return id
+        }
+
+        if (typeof player?.getVideoData === 'function') {
+            const id = player.getVideoData()?.video_id
+            info('getVideoId', 'getVideoData DETECTADO', id)
+            if (id) return id
+        }
+
+        if (currentPageType === 'watch' || currentPageType === 'shorts') {
+            const id = extractOrNormalizeVideoId(location.href)?.id
+            info('getVideoId', 'Usando fallback desde URL', id)
+            if (id) return id
+        }
+
+        warn('getVideoId', '❌ no se pudo obtener videoId')
+        return null
+    }
+
+
     /**
      * Almacena las sesiones de procesamiento activas por cada elemento de video
-     * para evitar duplicidades y permitir limpieza.
-     * @type {WeakMap<HTMLVideoElement, { intervalId: number, lastVideoId: string }>}
+     * para evitar duplicidades y permitir limpieza global en navegación.
+     * @type {Map<HTMLVideoElement, { intervalId: number, lastVideoId: string }>}
      */
-    const activeProcessingSessions = new WeakMap();
+    const activeProcessingSessions = new Map();
+
+    /**
+     * Detiene todos los intervalos de seguimiento activos y limpia el registro.
+     * Se utiliza principalmente durante la navegación (cleanup).
+     */
+    const stopAllSessions = () => {
+        const sessionCount = activeProcessingSessions.size;
+        if (sessionCount === 0) return;
+
+        info('process', `🧹 Deteniendo todas las sesiones activas (${sessionCount})`);
+        for (const [videoEl, session] of activeProcessingSessions.entries()) {
+            if (session.intervalId) {
+                clearInterval(session.intervalId);
+            }
+        }
+        activeProcessingSessions.clear();
+    };
+
+    /**
+     * ID de navegación global para evitar carreras (race conditions) en la inicialización de sesiones.
+     * Incrementado en cada cleanup de VideoObserverManager.
+     */
+    let globalNavigationId = 0;
 
     /**
      * Inicia una sesión de seguimiento (polling) para un video.
@@ -7572,6 +7638,8 @@ background: var(--ypp-danger);
      * @param {string|null} playlistId - ID de la playlist (opcional)
      */
     const startProcessingSession = async (videoEl, type, videoId, player) => {
+        const navIdAtStart = globalNavigationId;
+
         // Si ya hay una sesión para este mismo video, no hacer nada
         const currentSession = activeProcessingSessions.get(videoEl);
         if (currentSession?.lastVideoId === videoId) return;
@@ -7587,6 +7655,13 @@ background: var(--ypp-danger);
         let cachedVideoInfo = null;
         try {
             cachedVideoInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+
+            // Protección crítica: Si hubo navegación durante el await, abortar el inicio de la sesión
+            if (navIdAtStart !== globalNavigationId) {
+                warn('process', `🛑 Abortando inicio de sesión [${type}] - ${videoId}: Navegación detectada durante fetch`);
+                return;
+            }
+
             info('process', `💾 Metadatos cacheados inicialmente para sesión de [${type}] - ${videoId}`);
         } catch (e) {
             warn('process', `⚠️ Error obteniendo metadatos base, se delegará la obtención al guardado:`, e);
@@ -7602,14 +7677,22 @@ background: var(--ypp-danger);
 
         // 2. Configurar intervalo de guardado
         const intervalId = setInterval(async () => {
-            // Verificar si el video sigue en el DOM y es el mismo
-            if (!document.contains(videoEl)) {
+            // Kill Switch: Condiciones para detener el seguimiento de esta sesión
+            const isDisconnected = !document.contains(videoEl);
+            const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
+            const currentVideoId = getVideoId(player);
+            const hasIdChanged = currentVideoId !== videoId;
+
+            if (isDisconnected || isAdNow || hasIdChanged) {
+                const reason = isDisconnected ? 'Elemento removido' : (isAdNow ? 'Anuncio detectado' : `ID cambiado: ${currentVideoId}`);
+                info('process', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${reason}`);
+
                 clearInterval(intervalId);
                 activeProcessingSessions.delete(videoEl);
                 return;
             }
 
-            // Llamada unificada al nuevo controlador modular de guardado usando metadatos cacheados
+            // Llamada unificada al controlador modular de guardado usando metadatos cacheados
             await PlaybackController.saveStatus(player, videoEl, type, videoId, cachedVideoInfo);
         }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
 
@@ -7632,15 +7715,16 @@ background: var(--ypp-danger);
         }
 
         const player = DOMHelpers.getWatchPlayer();
-        const videoId =
-            player?.getPlayerResponse?.()?.videoDetails?.videoId ||
-            player?.getVideoData?.()?.video_id ||
-            // YTHelper?.video?.id ||
-            // videoData?.id;
+        if (!player) {
+            warn('processWatchVideo', '⚠️ Player de Watch no encontrado, omitiendo procesamiento.');
+            return;
+        }
 
-            extractOrNormalizeVideoId(location.href).id;
-
-        if (!videoId || !player) return;
+        const videoId = player ? getVideoId(player) : null;
+        if (!videoId) {
+            warn('processWatchVideo', '⚠️ ID del video no encontrado en Watch, omitiendo procesamiento.');
+            return;
+        }
 
         // Inicializar display proactivamente pasando el player ya resuelto
         initTimeDisplay(player);
@@ -7657,14 +7741,24 @@ background: var(--ypp-danger);
             return;
         }
 
+        if (currentPageType !== 'shorts') {
+            log('processShortsVideo', '⚠️ Abortando: No estamos en /shorts');
+            return;
+        }
+
         const player = DOMHelpers.getShortsPlayer();
-        const videoId =
-            player?.getPlayerResponse?.()?.videoDetails?.videoId ||
-            player?.getVideoData?.()?.video_id ||
-            extractOrNormalizeVideoId(location.href).id;
+        if (!player) {
+            warn('processShortsVideo', '⚠️ Player de Shorts no encontrado, omitiendo procesamiento.');
+            return;
+        }
 
-        if (!videoId || !player) return;
+        const videoId = player ? getVideoId(player) : null;
+        if (!videoId) {
+            warn('processShortsVideo', '⚠️ ID del video no encontrado en Shorts, omitiendo procesamiento.');
+            return;
+        }
 
+        initShortsTimeDisplay()
         info('processShortsVideo', `📱 Procesando video de Shorts: ${videoId}`);
         startProcessingSession(videoEl, 'shorts', videoId, player);
     }
@@ -7679,21 +7773,15 @@ background: var(--ypp-danger);
 
         // El miniplayer de YouTube suele reutilizar el player principal (#movie_player)
         // getMiniplayerPlayerVideo() puede devolver null durante transiciones de video (la clase activa se quita momentáneamente),
-        // por lo que usamos un fallback directo y uncached a ytd-miniplayer #movie_player.
+        // por lo que usamos un fallback directo y uncached a ytd-miniplayer #movie_player sin usar DOMHelpers.
         const player =
             document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT}${S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE} ${S.IDS.MOVIE_PLAYER}`);
-
         if (!player) {
             warn('processMiniplayerVideo', '⚠️ Player del miniplayer no encontrado, omitiendo procesamiento.');
             return;
         }
 
-        const videoId =
-            player?.getPlayerResponse?.()?.videoDetails?.videoId ||
-            player?.getVideoData?.()?.video_id ||
-
-            null;
-
+        const videoId = player ? getVideoId(player) : null;
         if (!videoId) {
             warn('processMiniplayerVideo', '⚠️ ID del video no encontrado en miniplayer, omitiendo procesamiento.');
             return;
@@ -7715,16 +7803,16 @@ background: var(--ypp-danger);
         }
 
         const player = DOMHelpers.getInlinePreviewPlayer();
+        if (!player) {
+            warn('processPreviewVideo', '⚠️ Player de Preview no encontrado, omitiendo procesamiento.');
+            return;
+        }
 
-        let videoId = null;
-        try {
-            videoId =
-                player?.getPlayerResponse?.()?.videoDetails?.videoId ||
-                player?.getVideoData?.()?.video_id ||
-                null;
-        } catch (_) { }
-
-        if (!videoId || !player) return;
+        const videoId = player ? getVideoId(player) : null;
+        if (!videoId) {
+            warn('processPreviewVideo', '⚠️ ID del video no encontrado para Preview, omitiendo procesamiento.');
+            return;
+        }
 
         // Inicializar display de preview proactivamente con referencia al player ya resuelta
         initInlinePreviewTimeDisplay(player);
@@ -7732,6 +7820,7 @@ background: var(--ypp-danger);
         info('processPreviewVideo', `👁️ Procesando video de Preview: ${videoId}`);
         startProcessingSession(videoEl, 'preview', videoId, player);
     }
+
 
 
 
@@ -7911,16 +8000,18 @@ background: var(--ypp-danger);
          * @param {object|null} videoInfo - Metadatos cacheados
          */
         async saveStatus(player, videoEl, type, videoId, videoInfo = null) {
+            // Protección redundante: No procesar si no hay elementos o es un anuncio
             if (!videoEl || !videoId || AdDetector.isNodeWithinAdContainer(videoEl)) return;
 
             // Si el video está pausado y no hemos cambiado de tiempo tras pausa (seek)
             // entonces no procesamos ninguna lógica de guardado ni metadata para ahorrar recursos.
-            const currentTime = videoEl.currentTime;
-            const duration = videoEl.duration;
+            const currentTime = videoEl.currentTime || player.getCurrentTime();
+            const duration = videoEl.duration || player.getDuration();
 
             if (!isFinite(currentTime) || currentTime < 0.1 || !isFinite(duration) || duration <= 0) return;
 
             if (videoEl.paused) {
+                warn('saveStatus', `Video ${type} - ${videoId} pausado`)
                 const prevSavedTime = parseFloat(videoEl.dataset.lastSavedTime || '0');
                 if (Math.abs(currentTime - prevSavedTime) < CONFIG.minSeekDiff) {
                     // El video está pausado y su tiempo no se movió lo suficiente como para justificar un guardado (no fue un seek)
@@ -8033,10 +8124,33 @@ background: var(--ypp-danger);
 
     // MARK: 📋 Metadata Helpers
     /**
-     * Extrae información del video siguiendo una estrategia de cascada:
-     * 1. YouTube Internal API (player.getPlayerResponse() o player.getVideoData())
-     * 2. YouTube Helper API (YTHelper)
-     * 3. DOM Fallbacks (selectores y anchors)
+     * Extrae y normaliza metadatos del video mediante una estrategia de resolución en cascada ("Waterfall").
+     * 
+     * El proceso garantiza la integridad de los datos intentando obtener la información desde múltiples fuentes
+     * en orden de fiabilidad:
+     * 1. APIs Internas de YouTube: Acceso directo a `getPlayerResponse()` y `getVideoData()` del reproductor.
+     * 2. YouTube Helper API: Consulta a la interfaz global del script (YTHelper).
+     * 3. DOM Fallbacks: Heurísticas basadas en selectores CSS y atributos de elementos según el contexto.
+     * 
+     * @async
+     * @param {Object} initialPlayer - Instancia del reproductor de YouTube (Elemento DOM o API object).
+     * @param {string} videoId - Identificador único de 11 caracteres del video.
+     * @param {HTMLVideoElement} videoEl - Referencia al elemento `<video>` activo.
+     * @param {string} type - Contexto de la interfaz ('watch', 'shorts', 'miniplayer', 'preview').
+     * @returns {Promise<Object>} Promesa que resuelve en un objeto con los metadatos normalizados:
+     *   - `videoId` (string): El ID del video.
+     *   - `title` (string): Título del video.
+     *   - `author` (string): Nombre del canal/autor.
+     *   - `authorId` (string): ID del canal de YouTube.
+     *   - `isLive` (boolean): `true` si es una transmisión en vivo.
+     *   - `published` (number): Timestamp en ms de la fecha de publicación.
+     *   - `description` (string): Descripción corta o fragmento.
+     *   - `viewCount` (number): Número total de visualizaciones.
+     *   - `lengthSeconds` (number): Duración total en segundos.
+     *   - `lastViewedPlaylistId` (string|null): ID de la lista de reproducción actual.
+     *   - `playlistTitle` (string|null): Título de la lista activa.
+     *   - `lastViewedPlaylistType` (string): Categoría de la playlist detectada.
+     *   - `lastViewedPlaylistItemId` (string|null): ID único del ítem en la secuencia.
      */
     async function getCascadedVideoInfo(initialPlayer, videoId, videoEl, type) {
         let info = {
@@ -8055,87 +8169,29 @@ background: var(--ypp-danger);
             lastViewedPlaylistItemId: null
         };
 
-        // 🟢 Nivel 1: YouTube Internal API (Resolución de Player Robusta)
+        // 🟢 Nivel 1: YouTube Internal API - getPlayerResponse() y getVideoData()
         try {
-            // Resolución de player focalizada basada en el tipo de página 
-            // player = elemento con id de querySelector 
+            /** 
+             * Referencia mutable al componente del reproductor de YouTube para este contexto.
+             * 
+             * Se inicializa con la instancia detectada, pero permite la re-resolución dinámica
+             * mediante candidatos específicos del DOM si el ID del video no coincide con la
+             * referencia inicial (común en transiciones rápidas de YouTube SPA).
+             * 
+             * @type {Object|HTMLElement}
+             */
             let player = initialPlayer;
             log('getCascadedVideoInfo', 'Player:', player);
 
-            const checkPlayer = (p) => {
-                try {
-                    const resp = p?.getPlayerResponse?.()?.videoDetails?.videoId || p?.getVideoData?.()?.video_id;
-                    info('getCascadedVideoInfo', `checkPlayer: ${resp}`)
-                    return resp === videoId;
-                } catch (_) { return false; }
-            };
-
-            if (!checkPlayer(player)) {
-                // Candidatos específicos según contexto
-                const candidates = [];
-                if (type === 'shorts') candidates.push(document.querySelector(S.IDS.SHORTS_PLAYER));
-                if (type === 'watch') candidates.push(document.querySelector(S.IDS.MOVIE_PLAYER));
-                if (type === 'miniplayer') candidates.push(document.querySelector(`${S.ELEMENTS.MINIPLAYER}${S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE}`));
-                if (type === 'preview') candidates.push(document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER));
-
-                // Fallback a cualquier player si los específicos fallan
-                player = candidates.find(checkPlayer) ||
-                    Array.from(document.querySelectorAll(S.CLASSES.HTML5_VIDEO_PLAYER)).find(checkPlayer) ||
-                    player;
-            }
-
             // A: getPlayerResponse (Fuente más rica de datos)
-            /* 
-               {
-                 "videoId": "zcrovye5-hw",
-                 "title": "un qué??!? #cyberplaza #cgscomputer #pcgamer #jennieso #ventas #trendingvideo",
-                 "lengthSeconds": "21",
-                 "channelId": "UCv2I3TRTfGokkAQ9ADFnNxA",
-                 "isOwnerViewing": false,
-                 "shortDescription": "🔵 FB: CGS Computer\n🟣 IG: cgscomputer_oficial\n🔴 TikTok: cgs_computer / team.cgs\n⚪ Web: cgs-computer.pe\n🟢 WhatsApp: \n\nLALA https://wa.link/magjg9 - 991 439 162 - LALA\nTÍO LEO https://wa.link/h6aygy 922 211 531 LEO\nKEVIN https://wa.link/og703e 977 443 224 KEVIN\nJENNIE https://wa.link/pjxek6 937 055 670 - JENNIE\nKITTY https://wa.link/zq5nqd 936359801\nGLOGLO https://wa.link/mgpkq7 929207945\n\nVisítanos en: \n\n📌 TIENDA CC CYBERPLAZA 2A 101-102-168-169-170, Av. Garcilazo de la Vega 1348 - Lima",
-                 "isCrawlable": true,
-                 "thumbnail": {
-                   "thumbnails": [
-                     {
-                       "url": "https://i.ytimg.com/vi/zcrovye5-hw/hq2.jpg?sqp=-oaymwE1CKgBEF5IVfKriqkDKAgBFQAAiEIYAHABwAEG8AEB-AG-BIACgAiKAgwIABABGGUgVChEMA8=&rs=AOn4CLBLVSPufQM7DiLSF0zq3bVSZTzwZA",
-                       "width": 168,
-                       "height": 94
-                     },
-                     {
-                       "url": "https://i.ytimg.com/vi/zcrovye5-hw/hq2.jpg?sqp=-oaymwE1CMQBEG5IVfKriqkDKAgBFQAAiEIYAHABwAEG8AEB-AG-BIACgAiKAgwIABABGGUgVChEMA8=&rs=AOn4CLAMpDlGlADz3rl8mxbbGy6jufLoPw",
-                       "width": 196,
-                       "height": 110
-                     },
-                     {
-                       "url": "https://i.ytimg.com/vi/zcrovye5-hw/hq2.jpg?sqp=-oaymwE2CPYBEIoBSFXyq4qpAygIARUAAIhCGABwAcABBvABAfgBvgSAAoAIigIMCAAQARhlIFQoRDAP&rs=AOn4CLBMC4lb20zMh5Q-amvdfV2u59evUQ",
-                       "width": 246,
-                       "height": 138
-                     },
-                     {
-                       "url": "https://i.ytimg.com/vi/zcrovye5-hw/hq2.jpg?sqp=-oaymwE2CNACELwBSFXyq4qpAygIARUAAIhCGABwAcABBvABAfgBvgSAAoAIigIMCAAQARhlIFQoRDAP&rs=AOn4CLDoMNLyxrXsdPHba9WRTUjmJg2d-w",
-                       "width": 336,
-                       "height": 188
-                     },
-                     {
-                       "url": "https://i.ytimg.com/vi/zcrovye5-hw/maxres2.jpg?sqp=-oaymwEoCIAKENAF8quKqQMcGADwAQH4Ab4EgAKACIoCDAgAEAEYZSBUKEQwDw==&rs=AOn4CLClvUEHOlamnBDZAhZrEwf2gSmTXQ",
-                       "width": 1920,
-                       "height": 1080
-                     }
-                   ]
-                 },
-                 "allowRatings": true,
-                 "author": "Team CGS",
-                 "isPrivate": false,
-                 "isUnpluggedCorpus": false,
-                 "isLiveContent": false,
-                 "isTvfilmVideo": false
-               }
-               
-               */
-
-            const playerResponse = (typeof player?.getPlayerResponse === 'function') ? player.getPlayerResponse() : null;
-            if (playerResponse?.videoDetails && playerResponse.videoDetails.videoId === videoId) {
+            const playerResponse = player?.getPlayerResponse?.();
+            if (playerResponse?.videoDetails) {
                 const details = playerResponse.videoDetails;
+
+                log('getCascadedVideoInfo', 'PlayerResponse.videoDetails:', details);
+                log('getCascadedVideoInfo', 'playerResponse?.microformat?.playerMicroformatRenderer:', playerResponse?.microformat?.playerMicroformatRenderer);
+                log('getCascadedVideoInfo', 'visitas microformat', playerResponse?.microformat.playerMicroformatRenderer.viewCount)
+                log('getCascadedVideoInfo', 'PlaylistId:', player.getPlaylistId?.());
 
                 info.lengthSeconds = parseInt(details.lengthSeconds, 10) || 0;
 
@@ -8144,10 +8200,9 @@ background: var(--ypp-danger);
                 info.authorId = details.channelId || info.authorId;
                 info.description = details.shortDescription || info.description;
 
-                // Manejo consistente de vistas
                 const rawViews = details.viewCount;
                 if (rawViews) {
-                    info.viewCount = parseInt(rawViews, 10);
+                    info.viewCount = rawViews.length > 0 ? parseInt(rawViews, 10) : 0;
                 }
 
                 info.isLive = details.isLiveContent || info.isLive;
@@ -8155,46 +8210,18 @@ background: var(--ypp-danger);
 
             // B: getVideoData (Fallback de nivel 1)
             const internalData = player?.getVideoData?.();
-            if (internalData && internalData.video_id === videoId) {
-
-
-                /* 
-                {
-                  "video_id": "zcrovye5-hw",
-                  "author": "Team CGS",
-                  "title": "un qué??!? #cyberplaza #cgscomputer #pcgamer #jennieso #ventas #trendingvideo",
-                  "isPlayable": true,
-                  "errorCode": null,
-                  "video_quality": "large",
-                  "video_quality_features": [],
-                  "backgroundable": false,
-                  "eventId": "QQ6tafaQC6WeobIPz56LoAE",
-                  "cpn": "cSOno_j3FHNWSb7Q",
-                  "isLive": false,
-                  "isWindowedLive": false,
-                  "isManifestless": false,
-                  "allowLiveDvr": false,
-                  "isListed": true,
-                  "isMultiChannelAudio": false,
-                  "hasProgressBarBoundaries": false,
-                  "isPremiere": false,
-                  "itct": "CAAQu2kiEwi2tYj2zY-TAxUlT0gAHU_PAhTKAQTcNAuv",
-                  "playerResponseCpn": "",
-                  "progressBarStartPositionUtcTimeMillis": null,
-                  "progressBarEndPositionUtcTimeMillis": null,
-                  "paidContentOverlayDurationMs": 0,
-                  "isSeekable": null
-                }
-                */
-
+            if (internalData) {
                 info.title = info.title || internalData.title;
                 info.author = info.author || internalData.author;
                 info.authorId = info.authorId || internalData.channelId; // Algunos players lo incluyen aquí
                 info.isLive = info.isLive || internalData.isLive;
             }
 
-            // C: Microformat (Fechas)
+            // C: Microformat (Metadatos de renderizado)
             if (playerResponse?.microformat?.playerMicroformatRenderer) {
+
+
+
                 const micro = playerResponse.microformat.playerMicroformatRenderer;
                 info.published = micro.publishDate ? new Date(micro.publishDate).getTime() : info.published;
             }
@@ -8257,7 +8284,7 @@ background: var(--ypp-danger);
             log('getCascadedVideoInfo', '⚠️ Error en Nivel 1 (Internal API):', e);
         }
 
-        // 🔵 Nivel 2: YouTube Helper API + Modular Extraction
+        // 🔵 Nivel 2: YouTube Helper API
         try {
             if (YTHelper?.video && (!info.title
                 || !info.author
@@ -8266,7 +8293,7 @@ background: var(--ypp-danger);
                 || !info.description
                 || !info.viewCount
             )) {
-                const helperId = extractOrNormalizeVideoId(location.href).id;
+                const helperId = YTHelper.video.id /* extractOrNormalizeVideoId(location.href).id */;
 
                 log('getCascadedVideoInfo', 'Helper ID:', helperId);
                 log('getCascadedVideoInfo', 'Video ID:', videoId);
@@ -8281,7 +8308,7 @@ background: var(--ypp-danger);
             }
         } catch (_) { }
 
-        // 🟡 Nivel 3: DOM Fallbacks
+        // 🟡 Nivel 3: DOM Fallbacks + Fetch para vistas shorts
         try {
             /*    
              videoId: videoId,

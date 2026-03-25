@@ -165,7 +165,7 @@
 })();
 
 // Atajo para no tener que escribir window.MyScriptLogger cada vez
-const { log, info, warn, error: conError } = window.MyScriptLogger;
+const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.MyScriptLogger;
 
 // --- INICIO CARGA LÓGICA PRINCIPAL DEL USERSCRIPT ---
 
@@ -590,7 +590,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
                     const cachedVersion = cached?.version ?? cached?.data?.VERSION;
                     const versionMatches = !TRANSLATIONS_EXPECTED_VERSION || cachedVersion === TRANSLATIONS_EXPECTED_VERSION;
                     if (isFresh && cached?.data && versionMatches) {
-                        info('loadTranslations', 'Usando traducciones desde caché GM_*');
+                        logInfo('loadTranslations', 'Usando traducciones desde caché GM_*');
                         return cached.data;
                     }
                 }
@@ -604,7 +604,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
                 const cachedVersion = cached?.version ?? cached?.data?.VERSION;
                 const versionMatches = !TRANSLATIONS_EXPECTED_VERSION || cachedVersion === TRANSLATIONS_EXPECTED_VERSION;
                 if (isFresh && cached?.data && versionMatches) {
-                    info('loadTranslations', 'Usando traducciones desde caché localStorage');
+                    logInfo('loadTranslations', 'Usando traducciones desde caché localStorage');
                     return cached.data;
                 }
             }
@@ -647,19 +647,19 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
                 const candidate = await fetchUrl(url);
                 if (candidate?.LANGUAGE_FLAGS && Object.keys(candidate.LANGUAGE_FLAGS).length > 0 &&
                     candidate?.TRANSLATIONS && Object.keys(candidate.TRANSLATIONS).length > 0) {
-                    info('loadTranslations', 'Traducciones externas cargadas correctamente desde: ' + url);
+                    logInfo('loadTranslations', 'Traducciones externas cargadas correctamente desde: ' + url);
                     data = candidate;
                     break;
                 } else {
-                    warn('loadTranslations', 'Traducciones inválidas desde: ' + url);
+                    logWarn('loadTranslations', 'Traducciones inválidas desde: ' + url);
                 }
             } catch (e) {
-                warn('loadTranslations', 'Fallo al cargar traducciones desde ' + url, e);
+                logWarn('loadTranslations', 'Fallo al cargar traducciones desde ' + url, e);
             }
         }
 
         if (!data) {
-            conError('loadTranslations', 'No se pudieron cargar traducciones externas, usando fallback');
+            logError('loadTranslations', 'No se pudieron cargar traducciones externas, usando fallback');
             data = { LANGUAGE_FLAGS: FALLBACK_FLAGS, TRANSLATIONS: FALLBACK_TRANSLATIONS };
         }
 
@@ -1158,7 +1158,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
 
     // Función para cambiar el idioma
     async function setLanguage(lang, options = { persist: true }) {
-        log('setLanguage', 'lang que llega:', lang);
+        logLog('setLanguage', 'lang que llega:', lang);
         let validLang = lang;
 
         if (!TRANSLATIONS[validLang]) {
@@ -1177,11 +1177,11 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
                 settings.language = validLang;
                 await Settings.set(settings);
             } catch (e) {
-                conError('setLanguage', 'Error persistiendo idioma', e);
+                logError('setLanguage', 'Error persistiendo idioma', e);
             }
         }
 
-        log('setLanguage', 'lang que sale:', validLang);
+        logLog('setLanguage', 'lang que sale:', validLang);
         return true;
     }
 
@@ -1192,7 +1192,7 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             ? navigator.languages
             : (primaryLang ? [primaryLang] : []);
 
-        log('detectBrowserLanguage', 'candidates:', candidates);
+        logLog('detectBrowserLanguage', 'candidates:', candidates);
 
         // Coincidencia exacta priorizando navigator.languages[0]
         for (const lang of candidates) {
@@ -1204,12 +1204,12 @@ const { log, info, warn, error: conError } = window.MyScriptLogger;
             const prefix = (lang || '').split('-')[0];
             const matched = Object.keys(TRANSLATIONS).find(k => k === prefix || k.startsWith(prefix + '-'));
             if (matched) {
-                log('detectBrowserLanguage', 'matched by prefix:', matched);
+                logLog('detectBrowserLanguage', 'matched by prefix:', matched);
                 return matched;
             }
         }
 
-        warn(`Idioma del navegador '${primaryLang}' no soportado, usando default.`);
+        logWarn(`Idioma del navegador '${primaryLang}' no soportado, usando default.`);
         return CONFIG.defaultSettings.language;
     }
 
@@ -2498,13 +2498,13 @@ background: var(--ypp-danger);
     function injectProgressBarCSS() {
         // Verificar si la funcionalidad está deshabilitada en la configuración
         if (!cachedSettings.enableProgressBarGradient) {
-            log('injectProgressBarCSS', 'Degradado de barra de progreso deshabilitado en configuración');
+            logLog('injectProgressBarCSS', 'Degradado de barra de progreso deshabilitado en configuración');
             return;
         }
 
         // Verificar si ya existe el estilo para evitar duplicados
         if (document.querySelector('#ypp-progress-bar-styles')) {
-            log('injectProgressBarCSS', 'CSS ya existe, omitiendo inyección');
+            logLog('injectProgressBarCSS', 'CSS ya existe, omitiendo inyección');
             return;
         }
 
@@ -2679,9 +2679,9 @@ background: var(--ypp-danger);
             style.textContent = css;
             document.head.appendChild(style);
 
-            log('injectProgressBarCSS', 'CSS inyectado para barra de progreso (regular y shorts)');
+            logLog('injectProgressBarCSS', 'CSS inyectado para barra de progreso (regular y shorts)');
         } catch (error) {
-            conError('injectProgressBarCSS', 'Error al inyectar CSS:', error);
+            logError('injectProgressBarCSS', 'Error al inyectar CSS:', error);
         }
     }
 
@@ -2774,12 +2774,6 @@ background: var(--ypp-danger);
 
     // Nueva capa asíncrona de almacenamiento (IndexedDB primario + caché en memoria + fallback)
     const StorageAsync = (() => {
-        const logger = {
-            info: (...args) => { try { log('StorageAsync', ...args); } catch (_) { console.info('[StorageAsync]', ...args); } },
-            warn: (...args) => { try { warn('StorageAsync', ...args); } catch (_) { console.warn('[StorageAsync]', ...args); } },
-            error: (...args) => { try { conError('StorageAsync', ...args); } catch (_) { console.error('[StorageAsync]', ...args); } }
-        };
-
         // Estado de inicialización
         let isReady = false;
         let initError = null;
@@ -2825,7 +2819,7 @@ background: var(--ypp-danger);
             if (readyPromise) return readyPromise;
             readyPromise = (async () => {
                 try {
-                    logger.info('Iniciando StorageAsync...');
+                    logInfo('Iniciando StorageAsync...');
                     // Detectar si ya se migró
                     const migrated = localStorage.getItem(STORAGE_MIGRATION_STATE_KEY) === '1';
                     let legacySnapshot = [];
@@ -2840,12 +2834,12 @@ background: var(--ypp-danger);
                                 allKeys = Object.keys(localStorage);
                             }
                         } catch (err) {
-                            logger.warn('Error al obtener claves para migración:', err);
+                            logWarn('Error al obtener claves para migración:', err);
                         }
 
                         // Filtrar: solo claves del script, excluyendo metaclaves
                         const filteredKeys = (allKeys || []).filter(k => isScriptKey(k) && !STORAGE_META_KEYS.has(k));
-                        logger.info(`Migración: ${filteredKeys.length} claves del script encontradas(de ${allKeys.length} totales)`);
+                        logInfo(`Migración: ${filteredKeys.length} claves del script encontradas(de ${allKeys.length} totales)`);
 
                         for (const rawKey of filteredKeys) {
                             // Strip prefix para coherencia con nuevo Storage sin prefijos
@@ -2859,7 +2853,7 @@ background: var(--ypp-danger);
                                     if (item) value = JSON.parse(item);
                                 }
                             } catch (err) {
-                                logger.warn(`Error al leer clave ${rawKey}: `, err);
+                                logWarn(`Error al leer clave ${rawKey}: `, err);
                             }
                             if (value !== null) {
                                 legacySnapshot.push({ key: normalizedKey, value: JSON.stringify(value) });
@@ -2870,17 +2864,17 @@ background: var(--ypp-danger);
                     const result = await IndexedDBAdapter.bootstrap(legacySnapshot);
                     if (result.source === 'legacy') {
                         localStorage.setItem(STORAGE_MIGRATION_STATE_KEY, '1');
-                        logger.info(`Migración completada: ${result.entries.length} entradas migradas a IndexedDB`);
+                        logInfo(`Migración completada: ${result.entries.length} entradas migradas a IndexedDB`);
                     }
                     // Poblar caché en memoria desde IndexedDB
                     for (const entry of result.entries) {
                         storageCache.set(entry.key, entry.value);
                     }
                     isReady = true;
-                    logger.info('StorageAsync listo. Backend:', IndexedDBAdapter.isSupported ? 'IndexedDB' : 'fallback');
+                    logInfo('StorageAsync listo. Backend:', IndexedDBAdapter.isSupported ? 'IndexedDB' : 'fallback');
                 } catch (err) {
                     initError = err;
-                    logger.error('Falló inicialización de StorageAsync:', err);
+                    logError('Falló inicialización de StorageAsync:', err);
                     // En caso de error, mantener caché vacía y delegar a API sincrónica existente
                 }
             })();
@@ -2910,7 +2904,7 @@ background: var(--ypp-danger);
                         return JSON.parse(raw);
                     }
                 } catch (err) {
-                    logger.warn(`Error al leer ${key} desde IndexedDB: `, err);
+                    logWarn(`Error al leer ${key} desde IndexedDB: `, err);
                 }
             }
             return null;
@@ -2927,7 +2921,7 @@ background: var(--ypp-danger);
                 try {
                     await IndexedDBAdapter.put(key, serialized);
                 } catch (err) {
-                    logger.warn(`Error al escribir ${key} en IndexedDB, usando fallback: `, err);
+                    logWarn(`Error al escribir ${key} en IndexedDB, usando fallback: `, err);
                     // Lanzar el error para que el manejador superior lo capture
                     throw err;
                 }
@@ -2944,7 +2938,7 @@ background: var(--ypp-danger);
                 try {
                     await IndexedDBAdapter.del(key);
                 } catch (err) {
-                    logger.warn(`Error al eliminar ${key} en IndexedDB: `, err);
+                    logWarn(`Error al eliminar ${key} en IndexedDB: `, err);
                 }
             }
         }
@@ -2959,7 +2953,7 @@ background: var(--ypp-danger);
                     const entries = await IndexedDBAdapter.getAllEntries();
                     return entries.map(e => e.key).filter(k => !STORAGE_META_KEYS.has(k));
                 } catch (err) {
-                    logger.warn('Error al listar claves desde IndexedDB, usando caché:', err);
+                    logWarn('Error al listar claves desde IndexedDB, usando caché:', err);
                 }
             }
             // Fallback a caché en memoria
@@ -3003,18 +2997,6 @@ background: var(--ypp-danger);
         let dbPromise = null;
         let operationQueue = Promise.resolve();
 
-        const idbLogger = {
-            info: (...args) => {
-                try { log('IndexedDB', ...args); } catch (_) { console.info('[IndexedDB]', ...args); }
-            },
-            warn: (...args) => {
-                try { warn('IndexedDB', ...args); } catch (_) { console.warn('[IndexedDB]', ...args); }
-            },
-            error: (...args) => {
-                try { conError('IndexedDB', ...args); } catch (_) { console.error('[IndexedDB]', ...args); }
-            }
-        };
-
         function openDatabase() {
             if (dbPromise) return dbPromise;
             if (!isSupported) return Promise.reject(new Error('IndexedDB no soportado'));
@@ -3029,7 +3011,7 @@ background: var(--ypp-danger);
                     };
                     request.onsuccess = () => resolve(request.result);
                     request.onerror = () => reject(request.error);
-                    request.onblocked = () => idbLogger.warn('Inicialización bloqueada esperando pestañas previas');
+                    request.onblocked = () => logWarn('Inicialización bloqueada esperando pestañas previas');
                 } catch (error) {
                     reject(error);
                 }
@@ -3074,9 +3056,9 @@ background: var(--ypp-danger);
         function enqueue(operation) {
             operationQueue = operationQueue
                 .then(() => operation().catch((error) => {
-                    idbLogger.error('Operación fallida', error);
+                    logError('Operación fallida', error);
                 }))
-                .catch((error) => idbLogger.error('Error en cola IndexedDB', error));
+                .catch((error) => logError('Error en cola IndexedDB', error));
             return operationQueue;
         }
 
@@ -3118,11 +3100,11 @@ background: var(--ypp-danger);
             if (!isSupported) return { entries: [], source: 'unsupported' };
             const existingEntries = await getAllEntries();
             if (existingEntries.length > 0) {
-                idbLogger.info(`Recuperando ${existingEntries.length} entradas desde IndexedDB`);
+                logInfo(`Recuperando ${existingEntries.length} entradas desde IndexedDB`);
                 return { entries: existingEntries, source: 'idb' };
             }
             if (legacySnapshot.length > 0) {
-                idbLogger.info(`Migrando ${legacySnapshot.length} entradas legadas a IndexedDB`);
+                logInfo(`Migrando ${legacySnapshot.length} entradas legadas a IndexedDB`);
                 await bulkPut(legacySnapshot);
                 return { entries: legacySnapshot, source: 'legacy' };
             }
@@ -3157,7 +3139,7 @@ background: var(--ypp-danger);
             try {
                 await StorageAsync.set(key, value);
             } catch (err) {
-                conError('Storage', `Storage.set: Error al guardar la clave "${key}"`, err);
+                logError('Storage', `Storage.set: Error al guardar la clave "${key}"`, err);
                 // Detectar errores de cuota y devolver resultado específico
                 if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
                     return { success: false, reason: 'storage_full', error: err };
@@ -3174,7 +3156,7 @@ background: var(--ypp-danger);
             try {
                 return await StorageAsync.get(key);
             } catch (err) {
-                conError('Storage', `Storage.get: Error al obtener la clave "${key}"`, err);
+                logError('Storage', `Storage.get: Error al obtener la clave "${key}"`, err);
                 return null;
             }
         },
@@ -3186,7 +3168,7 @@ background: var(--ypp-danger);
             try {
                 await StorageAsync.del(key);
             } catch (err) {
-                conError('Storage', `Storage.del: Error al eliminar la clave "${key}"`, err);
+                logError('Storage', `Storage.del: Error al eliminar la clave "${key}"`, err);
             }
         },
 
@@ -3197,7 +3179,7 @@ background: var(--ypp-danger);
             try {
                 return await StorageAsync.keys();
             } catch (err) {
-                conError('Storage', 'Storage.keys: Error al listar claves', err);
+                logError('Storage', 'Storage.keys: Error al listar claves', err);
                 return [];
             }
         },
@@ -3239,7 +3221,7 @@ background: var(--ypp-danger);
 
                 return { ...CONFIG.defaultSettings, ...parsed };
             } catch (error) {
-                conError('Settings', 'Error al cargar configuración del usuario:', error);
+                logError('Settings', 'Error al cargar configuración del usuario:', error);
                 return { ...CONFIG.defaultSettings };
             }
         },
@@ -3268,7 +3250,7 @@ background: var(--ypp-danger);
                     hadLanguageInStorage: Object.prototype.hasOwnProperty.call(parsed || {}, 'language')
                 };
             } catch (error) {
-                conError('Settings', 'Error al cargar configuración del usuario (meta):', error);
+                logError('Settings', 'Error al cargar configuración del usuario (meta):', error);
                 return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
             }
         },
@@ -3283,7 +3265,7 @@ background: var(--ypp-danger);
                 const serialized = JSON.stringify(settings);
                 await GM_setValue(CONFIG.userSettingsKey, serialized);
             } catch (error) {
-                conError('Settings', 'Error al guardar configuración del usuario:', error);
+                logError('Settings', 'Error al guardar configuración del usuario:', error);
             }
         }
     };
@@ -3609,7 +3591,7 @@ background: var(--ypp-danger);
                 else if (parts.length === 3) {
                     seconds = parts[0] * 3600 + parts[1] * 60 + parts[2];
                 } else {
-                    conError('Formato de tiempo no válido:', input);
+                    logError('Formato de tiempo no válido:', input);
                     return '00:00';
                 }
             }
@@ -3620,13 +3602,13 @@ background: var(--ypp-danger);
         }
         // Caso por defecto
         else {
-            conError('Valor de entrada no válido:', input);
+            logError('Valor de entrada no válido:', input);
             return '00:00';
         }
 
         // Validación final
         if (typeof seconds !== 'number' || isNaN(seconds) || seconds < 0) {
-            conError('Valor de segundos no válido:', input);
+            logError('Valor de segundos no válido:', input);
             return '00:00';
         }
 
@@ -3756,7 +3738,7 @@ background: var(--ypp-danger);
                 });
             } catch (e) {
                 // Si falla (probablemente porque ya existe), intentar recuperarla si es posible o usar fallback
-                console.warn('TrustedTypes policy creation failed:', e);
+                logWarn('TrustedTypes policy creation failed:', e);
             }
         }
         return _ttPolicy;
@@ -3786,7 +3768,7 @@ background: var(--ypp-danger);
                     element.appendChild(doc.body.firstChild);
                 }
             } catch (err) {
-                log('setInnerHTML', '❌ Falló fallback de DOMParser:', err);
+                logLog('setInnerHTML', '❌ Falló fallback de DOMParser:', err);
                 element.textContent = html; // Al menos mostramos el texto si todo falla
             }
         }
@@ -3892,13 +3874,13 @@ background: var(--ypp-danger);
             let helper = null;
             if (typeof youtubeHelperApi !== 'undefined') {
                 helper = youtubeHelperApi;
-                try { info('waitForHelper', '✅ Referencia a YouTube Helper API obtenida youtubeHelperApi'); } catch (_) { }
+                try { logInfo('waitForHelper', '✅ Referencia a YouTube Helper API obtenida youtubeHelperApi'); } catch (_) { }
             } else if (typeof window.youtubeHelperApi !== 'undefined') {
                 helper = window.youtubeHelperApi;
-                try { info('waitForHelper', '✅ Referencia a YouTube Helper API obtenida window.youtubeHelperApi'); } catch (_) { }
+                try { logInfo('waitForHelper', '✅ Referencia a YouTube Helper API obtenida window.youtubeHelperApi'); } catch (_) { }
             } else if (typeof unsafeWindow !== 'undefined' && unsafeWindow.youtubeHelperApi) {
                 helper = unsafeWindow.youtubeHelperApi;
-                try { info('waitForHelper', '✅ Referencia a YouTube Helper API obtenida unsafeWindow.youtubeHelperApi'); } catch (_) { }
+                try { logInfo('waitForHelper', '✅ Referencia a YouTube Helper API obtenida unsafeWindow.youtubeHelperApi'); } catch (_) { }
             }
 
             if (helper) {
@@ -3914,11 +3896,11 @@ background: var(--ypp-danger);
 
             // Si no existe todavía, reintenta
             if (retries < MAX_RETRIES) {
-                warn('waitForHelper', `[YTHelper] No disponible, reintentando... (${retries + 1}/${MAX_RETRIES})`);
+                logWarn('waitForHelper', `[YTHelper] No disponible, reintentando... (${retries + 1}/${MAX_RETRIES})`);
 
                 // Intentar cargar desde el fallback en el reintento 3 para darle oportunidad a GreasyFork primero
                 if (retries === 3 && typeof GM_xmlhttpRequest !== 'undefined') {
-                    warn('waitForHelper', '[YTHelper] Intentando cargar Helper API desde Fallback (GitHub)...');
+                    logWarn('waitForHelper', '[YTHelper] Intentando cargar Helper API desde Fallback (GitHub)...');
                     GM_xmlhttpRequest({
                         method: 'GET',
                         url: FALLBACK_URL,
@@ -3931,7 +3913,7 @@ background: var(--ypp-danger);
                                     // Opción A: GM_addElement (Tampermonkey/Violentmonkey) - Método más seguro para saltar CSP
                                     if (typeof GM_addElement !== 'undefined') {
                                         GM_addElement(document.head, 'script', { textContent: code });
-                                        info('waitForHelper', '[YTHelper] Helper API cargado mediante GM_addElement.');
+                                        logInfo('waitForHelper', '[YTHelper] Helper API cargado mediante GM_addElement.');
                                         return;
                                     }
 
@@ -3949,7 +3931,7 @@ background: var(--ypp-danger);
                                     try {
                                         // Intento 1: Sandbox (new Function)
                                         new Function(code)();
-                                        info('waitForHelper', '[YTHelper] Helper API cargado desde Fallback (Sandbox).');
+                                        logInfo('waitForHelper', '[YTHelper] Helper API cargado desde Fallback (Sandbox).');
                                     } catch (err) {
                                         // Intento 2: Inyección DOM con soporte TT
                                         const script = document.createElement('script');
@@ -3957,22 +3939,22 @@ background: var(--ypp-danger);
                                         if (nonce) script.setAttribute('nonce', nonce);
                                         script.textContent = trustedCode;
                                         document.head.appendChild(script);
-                                        info('waitForHelper', '[YTHelper] Helper API inyectado en el DOM con soporte TrustedTypes.');
+                                        logInfo('waitForHelper', '[YTHelper] Helper API inyectado en el DOM con soporte TrustedTypes.');
                                     }
                                 } catch (err) {
-                                    conError('waitForHelper', '[YTHelper] Falló la carga desde Fallback:', err);
+                                    logError('waitForHelper', '[YTHelper] Falló la carga desde Fallback:', err);
                                 }
                             } else {
-                                warn('waitForHelper', `[YTHelper] Fallback retornó código de estado: ${response.status}`);
+                                logWarn('waitForHelper', `[YTHelper] Fallback retornó código de estado: ${response.status}`);
                             }
                         },
-                        onerror: (err) => conError('waitForHelper', '[YTHelper] Error de red al intentar cargar Fallback:', err)
+                        onerror: (err) => logError('waitForHelper', '[YTHelper] Error de red al intentar cargar Fallback:', err)
                     });
                 }
 
                 setTimeout(() => resolve(waitForHelper(retries + 1)), RETRY_INTERVAL);
             } else {
-                warn('waitForHelper', '⚠️ YouTube Helper API no disponible tras varios intentos. El script funcionará en modo limitado (Fallback).');
+                logWarn('waitForHelper', '⚠️ YouTube Helper API no disponible tras varios intentos. El script funcionará en modo limitado (Fallback).');
                 resolve(null);
             }
         });
@@ -4057,7 +4039,7 @@ background: var(--ypp-danger);
          */
         _init() {
             if (!this.container) {
-                console.warn('[VirtualScroller] Container no proporcionado');
+                logWarn('[VirtualScroller] Container no proporcionado');
                 return;
             }
 
@@ -4221,7 +4203,7 @@ background: var(--ypp-danger);
                 this.spacer.appendChild(el);
                 this.renderedItems.set(index, el);
             } catch (err) {
-                console.error('[VirtualScroller] Error rendering item:', index, err);
+                logError('[VirtualScroller] Error rendering item:', index, err);
             } finally {
                 this.renderingItems.delete(index);
             }
@@ -4317,7 +4299,7 @@ background: var(--ypp-danger);
 
             // Early exit si no hay datos que exportar
             if (keys.length === 0) {
-                log('exportDataToFile', 'No hay datos para exportar');
+                logLog('exportDataToFile', 'No hay datos para exportar');
                 return;
             }
 
@@ -4339,9 +4321,9 @@ background: var(--ypp-danger);
 
             const count = Object.keys(exportData).length;
             showFloatingToast(`${SVG_ICONS.upload} ${t('itemsImported', { count })}`);
-            log('exportDataToFile', `Exportados ${count} videos en formato JSON nativo`);
+            logLog('exportDataToFile', `Exportados ${count} videos en formato JSON nativo`);
         } catch (error) {
-            conError('exportDataToFile', 'Error al exportar:', error);
+            logError('exportDataToFile', 'Error al exportar:', error);
             showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
         }
     };
@@ -4380,7 +4362,7 @@ background: var(--ypp-danger);
                 );
 
                 if (validKeys.length === 0) {
-                    log('importDataFromFile', 'No hay datos válidos para importar');
+                    logLog('importDataFromFile', 'No hay datos válidos para importar');
                     showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
                     return;
                 }
@@ -4393,7 +4375,7 @@ background: var(--ypp-danger);
                         await Storage.set(key, value);
                         importCount++;
                     } else {
-                        log('importDataFromFile', `Entrada inválida ignorada: ${key}`);
+                        logLog('importDataFromFile', `Entrada inválida ignorada: ${key}`);
                         skipped++;
                     }
                 }
@@ -4402,12 +4384,12 @@ background: var(--ypp-danger);
 
                 if (importCount > 0) {
                     showFloatingToast(`${SVG_ICONS.check} ${t('itemsImported', { count: importCount })} ${skipped > 0 ? ` (${skipped} ${t('omitedVideos')})` : ''}`);
-                    log('importDataFromFile', `Importados ${importCount} videos, ${skipped} omitidos`);
+                    logLog('importDataFromFile', `Importados ${importCount} videos, ${skipped} omitidos`);
                 } else {
                     showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
                 }
             } catch (error) {
-                conError('importDataFromFile', 'Error al importar:', error);
+                logError('importDataFromFile', 'Error al importar:', error);
                 showFloatingToast(`${SVG_ICONS.error} ${t('importError')}`);
             } finally {
                 inputFile.value = '';
@@ -4434,7 +4416,7 @@ background: var(--ypp-danger);
                         const jsonLine = JSON.stringify(obj);
                         // Verificar que sea válido (debugging)
                         if (jsonLine.includes('\n') || jsonLine.includes('\r')) {
-                            warn('exportToFreeTube', 'JSON con saltos de línea detectado, limpiando...');
+                            logWarn('exportToFreeTube', 'JSON con saltos de línea detectado, limpiando...');
                             // Esto no debería ocurrir con JSON.stringify, pero por seguridad
                             return jsonLine.replace(/\r?\n/g, '\\n');
                         }
@@ -4455,7 +4437,7 @@ background: var(--ypp-danger);
                 URL.revokeObjectURL(url);
                 showFloatingToast(`${SVG_ICONS.upload} FreeTube ${t('dataExported')}`);
             } catch (err) {
-                conError('exportToFreeTube', 'Error exporting to FreeTube format:', err);
+                logError('exportToFreeTube', 'Error exporting to FreeTube format:', err);
                 showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
             }
         })();
@@ -4519,7 +4501,7 @@ background: var(--ypp-danger);
                     showFloatingToast(`${SVG_ICONS.download} ${t('importingFromFreeTubeAsSQLite')}`);
                 } catch (textErr) {
                     // Si leer como texto falla por cualquier motivo, continuamos intentando parsear como SQLite
-                    log('importFromFreeTube', 'No se pudo procesar .db como texto, intentando SQLite', textErr);
+                    logLog('importFromFreeTube', 'No se pudo procesar .db como texto, intentando SQLite', textErr);
                 }
 
                 // Intentar parsear como SQLite DB (binario)
@@ -4541,7 +4523,7 @@ background: var(--ypp-danger);
                         showFloatingToast(`${SVG_ICONS.error} ${t('noVideosImportedFromFreeTubeDB')} ${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
                     }
                 } catch (error) {
-                    conError('importFromFreeTube', 'Error procesando archivo .db:', error);
+                    logError('importFromFreeTube', 'Error procesando archivo .db:', error);
                     showFloatingToast(`${SVG_ICONS.error} ${t('importError')}`);
                 }
 
@@ -4576,7 +4558,7 @@ background: var(--ypp-danger);
                             }
                         }
 
-                        log('importFromFreeTube', `Parseado como JSON Lines: ${data.length} objetos encontrados`);
+                        logLog('importFromFreeTube', `Parseado como JSON Lines: ${data.length} objetos encontrados`);
                     } catch (linesError) {
                         throw new SyntaxError('El archivo no tiene un formato JSON válido ni JSON Lines (formato FreeTube)');
                     }
@@ -4602,7 +4584,7 @@ background: var(--ypp-danger);
                     showFloatingToast(`${SVG_ICONS.error} ${t('noVideosImportedFromFreeTubeDB')} ${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
                 }
             } catch (error) {
-                conError('importFromFreeTube', 'Error importando:', error);
+                logError('importFromFreeTube', 'Error importando:', error);
                 if (error instanceof SyntaxError) {
                     showFloatingToast(`${SVG_ICONS.error} ${t('importError')}: ${error.message}`);
                 } else {
@@ -4764,11 +4746,11 @@ background: var(--ypp-danger);
                 }
             }
 
-            log('parseFreeTubeDB', `Encontrados ${jsonObjects.length} videos en la base de datos`);
+            logLog('parseFreeTubeDB', `Encontrados ${jsonObjects.length} videos en la base de datos`);
             return jsonObjects;
 
         } catch (error) {
-            conError('parseFreeTubeDB', 'Error parseando DB:', error);
+            logError('parseFreeTubeDB', 'Error parseando DB:', error);
             return [];
         }
     }
@@ -4833,7 +4815,7 @@ background: var(--ypp-danger);
 
             // Compatibilidad con formato antiguo (playlists anidadas)
             if (data.videos) {
-                log('exportToFreeTubeFormat', `Exportando playlist antigua ${key} con ${Object.keys(data.videos).length} videos`);
+                logLog('exportToFreeTubeFormat', `Exportando playlist antigua ${key} con ${Object.keys(data.videos).length} videos`);
                 Object.entries(data.videos).forEach(([vidKey, videoObj]) => {
                     const internal = Object.assign({}, videoObj, { videoId: videoObj.videoId || vidKey });
                     const formatted = toFreeTubeFormat(internal);
@@ -4848,7 +4830,7 @@ background: var(--ypp-danger);
                 freeTubeData.push(formatted);
                 if (internal.videoType === 'shorts' || internal.videoType === 'preview_shorts') {
                     shortCount++;
-                    log('exportToFreeTubeFormat', `Short detectado: ${formatted.videoId} | videoType: ${internal.videoType}`);
+                    logLog('exportToFreeTubeFormat', `Short detectado: ${formatted.videoId} | videoType: ${internal.videoType}`);
                 } else {
                     videoCount++;
                 }
@@ -4857,7 +4839,7 @@ background: var(--ypp-danger);
             if ((++iter % 50) === 0) { await new Promise(r => setTimeout(r, 0)); }
         }
 
-        log('exportToFreeTubeFormat', `Exportando ${freeTubeData.length} items: ${videoCount} videos, ${shortCount} shorts`);
+        logLog('exportToFreeTubeFormat', `Exportando ${freeTubeData.length} items: ${videoCount} videos, ${shortCount} shorts`);
         return freeTubeData;
     }
 
@@ -4872,7 +4854,7 @@ background: var(--ypp-danger);
 
         // Validar que los datos sean un array
         if (!Array.isArray(freeTubeData)) {
-            conError('importFromFreeTubeFormat', 'Los datos no son un array válido');
+            logError('importFromFreeTubeFormat', 'Los datos no son un array válido');
             return { imported: 0, failed: 0, total: 0 };
         }
 
@@ -4880,20 +4862,20 @@ background: var(--ypp-danger);
             try {
                 // Validar que el video tenga los campos mínimos requeridos
                 if (!video || typeof video !== 'object') {
-                    conError('importFromFreeTubeFormat', 'Video inválido: no es un objeto');
+                    logError('importFromFreeTubeFormat', 'Video inválido: no es un objeto');
                     failed++;
                     continue;
                 }
 
                 if (!video.videoId) {
-                    conError('importFromFreeTubeFormat', 'Video inválido: no tiene videoId');
+                    logError('importFromFreeTubeFormat', 'Video inválido: no tiene videoId');
                     failed++;
                     continue;
                 }
 
                 // Validar que el videoId tenga un formato válido
                 if (typeof video.videoId !== 'string' || video.videoId.length < 5) {
-                    conError('importFromFreeTubeFormat', `VideoId inválido: ${video.videoId}`);
+                    logError('importFromFreeTubeFormat', `VideoId inválido: ${video.videoId}`);
                     failed++;
                     continue;
                 }
@@ -4902,7 +4884,7 @@ background: var(--ypp-danger);
 
                 // Validación adicional del formato interno
                 if (!internalFormat || !internalFormat.videoId) {
-                    conError('importFromFreeTubeFormat', 'Error al convertir formato interno');
+                    logError('importFromFreeTubeFormat', 'Error al convertir formato interno');
                     failed++;
                     continue;
                 }
@@ -4938,14 +4920,14 @@ background: var(--ypp-danger);
 
                 await Storage.set(video.videoId, internalFormat);
                 imported++;
-                log('importFromFreeTubeFormat', `✅ Importado: ${video.videoId} - ${video.title || 'Sin título'}`);
+                logLog('importFromFreeTubeFormat', `✅ Importado: ${video.videoId} - ${video.title || 'Sin título'}`);
             } catch (error) {
-                conError('importFromFreeTubeFormat', `Error importando ${video?.videoId || 'desconocido'}:`, error);
+                logError('importFromFreeTubeFormat', `Error importando ${video?.videoId || 'desconocido'}:`, error);
                 failed++;
             }
         }
 
-        log('importFromFreeTubeFormat', `Importación completada: ${imported} exitosos, ${failed} fallidos, total ${freeTubeData.length}`);
+        logLog('importFromFreeTubeFormat', `Importación completada: ${imported} exitosos, ${failed} fallidos, total ${freeTubeData.length}`);
         return { imported, failed, total: freeTubeData.length };
     }
 
@@ -4955,7 +4937,7 @@ background: var(--ypp-danger);
      */
     async function internalSaveRegularVideo(currentTime, videoInfo, logContext = 'saveRegularVideo') {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
-        log(logContext, `Guardando video ${videoId} en ${currentTime}s`);
+        logLog(logContext, `Guardando video ${videoId} en ${currentTime}s`);
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
@@ -4964,7 +4946,7 @@ background: var(--ypp-danger);
         // Si tiene tiempo fijo, no sobreescribir
         if (sourceData && sourceData.forceResumeTime > 0) {
             if (isFinished) {
-                log(logContext, `Video ${videoId} completado, manteniendo tiempo fijo`);
+                logLog(logContext, `Video ${videoId} completado, manteniendo tiempo fijo`);
                 const base = { ...sourceData, isCompleted: true, lastUpdated: now, timestamp: 0 };
                 await Storage.set(videoId, base);
             }
@@ -4992,7 +4974,7 @@ background: var(--ypp-danger);
         };
 
         const storageResult = await Storage.set(videoId, videoData);
-        log(logContext, `✅ Video guardado (${logContext}):`, {
+        logLog(logContext, `✅ Video guardado (${logContext}):`, {
             ...videoData,
             description: videoData.description
                 ? videoData.description.slice(0, 12) +
@@ -5035,7 +5017,7 @@ background: var(--ypp-danger);
      */
     async function saveShortsVideo(currentTime, videoInfo) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
-        log('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
+        logLog('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
 
         const now = Date.now();
         const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
@@ -5060,8 +5042,8 @@ background: var(--ypp-danger);
         };
 
         const storageResult = await Storage.set(videoId, videoData);
-        // log('saveShortsVideo', `✅ Short guardado:`, videoData);
-        log('saveShortsVideo', '✅ Short guardado:', {
+        // logLog('saveShortsVideo', `✅ Short guardado:`, videoData);
+        logLog('saveShortsVideo', '✅ Short guardado:', {
             ...videoData,
             description: videoData.description
                 ? videoData.description.slice(0, 12) +
@@ -5086,7 +5068,7 @@ background: var(--ypp-danger);
      */
     async function savePreview(currentTime, videoInfo, previewType) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
-        log('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
+        logLog('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
@@ -5095,7 +5077,7 @@ background: var(--ypp-danger);
         const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
 
         // Log de debug intensivo para detectar flickering y completions prematuros
-        log('savePreview', `Saving Preview: videoId=${videoId}, cur=${currentTime.toFixed(2)}, dur=${duration.toFixed(2)}, isFinished=${isFinished}`);
+        logLog('savePreview', `Saving Preview: videoId=${videoId}, cur=${currentTime.toFixed(2)}, dur=${duration.toFixed(2)}, isFinished=${isFinished}`);
 
         // Verificación de seguridad adicional: no marcar como completado si el tiempo es sospechosamente bajo
         // o si la duración parece ser un placeholder (YouTube a veces pone 0.1 o similar al inicio)
@@ -5127,8 +5109,8 @@ background: var(--ypp-danger);
         };
 
         const storageResult = await Storage.set(videoId, videoData);
-        // log('savePreview', `✅ Preview guardado:`, videoData);
-        log('savePreview', '✅ Preview guardado:', {
+        // logLog('savePreview', `✅ Preview guardado:`, videoData);
+        logLog('savePreview', '✅ Preview guardado:', {
             ...videoData,
             description: videoData.description
                 ? videoData.description.slice(0, 12) +
@@ -5152,7 +5134,7 @@ background: var(--ypp-danger);
      */
     async function saveLivestream(currentTime, videoInfo) {
         const { videoId, lengthSeconds: duration } = videoInfo;
-        log('saveLivestream', `Guardando livestream ${videoId} en ${currentTime}s`);
+        logLog('saveLivestream', `Guardando livestream ${videoId} en ${currentTime}s`);
 
         const now = Date.now();
 
@@ -5176,8 +5158,8 @@ background: var(--ypp-danger);
         };
 
         const storageResult = await Storage.set(videoId, videoData);
-        // log('saveLivestream', `✅ Livestream guardado:`, videoData);
-        log('saveLivestream', '✅ Livestream guardado:', {
+        // logLog('saveLivestream', `✅ Livestream guardado:`, videoData);
+        logLog('saveLivestream', '✅ Livestream guardado:', {
             ...videoData,
             description: videoData.description
                 ? videoData.description.slice(0, 12) +
@@ -5217,7 +5199,7 @@ background: var(--ypp-danger);
     * @returns {Object|null} - Datos guardados o null si no se encuentra
     */
     async function getSavedVideoData(videoId, playlistId = null) {
-        log('getSavedVideoData', `Buscando datos guardados para ID: ${videoId} | Playlist ID: ${playlistId}`);
+        logLog('getSavedVideoData', `Buscando datos guardados para ID: ${videoId} | Playlist ID: ${playlistId}`);
         if (!videoId) return null;
 
         let videoData = await Storage.get(videoId);
@@ -5226,7 +5208,7 @@ background: var(--ypp-danger);
         if (!videoData && playlistId) {
             const oldPlaylistData = await Storage.get(playlistId);
             if (oldPlaylistData?.videos?.[videoId]) {
-                log('getSavedVideoData', `✅ Video encontrado en formato antiguo (playlist anidada)`);
+                logLog('getSavedVideoData', `✅ Video encontrado en formato antiguo (playlist anidada)`);
                 videoData = oldPlaylistData.videos[videoId];
             }
         }
@@ -5236,7 +5218,7 @@ background: var(--ypp-danger);
             const keys = (await Storage.keys?.()) || [];
             const altKey = keys.find(k => (k.endsWith(videoId) || k.includes(videoId)) && !isNonVideoStorageKey(k));
             if (altKey) {
-                log('getSavedVideoData', `✅ Video encontrado con clave alternativa: ${altKey}`);
+                logLog('getSavedVideoData', `✅ Video encontrado con clave alternativa: ${altKey}`);
                 videoData = await Storage.get(altKey);
             }
         }
@@ -5253,13 +5235,43 @@ background: var(--ypp-danger);
             };
         }
 
-        log('getSavedVideoData', `✗ No se encontraron datos para el video`);
+        logLog('getSavedVideoData', `✗ No se encontraron datos para el video`);
         return null;
     }
 
+    // MARK: 📺 Get Player Video ID
+    /**
+     * Obtiene el ID del video desde el reproductor de YouTube.
+     * @param {HTMLDivElement} player - Elemento del reproductor de YouTube.
+     * @returns {string|null} - ID del video o null si no se pudo obtener.
+     */
+    const getPlayerVideoId = (player) => {
+        if (typeof player?.getPlayerResponse === 'function') {
+            const resp = player.getPlayerResponse()
+            const videoDetailsVideoId = resp?.videoDetails?.videoId
+            const microformatVideoId = resp?.microformat?.playerMicroformatRenderer?.externalVideoId
+            logInfo('getPlayerVideoId', `getPlayerResponse DETECTADO
+                videoDetailsVideoId: ${videoDetailsVideoId}
+                microformatVideoId: ${microformatVideoId}`)
+            const id = videoDetailsVideoId || microformatVideoId
+            if (id) return id
+        }
 
+        if (typeof player?.getVideoData === 'function') {
+            const id = player.getVideoData()?.video_id
+            logInfo('getPlayerVideoId', 'getVideoData DETECTADO', id)
+            if (id) return id
+        }
 
+        if (currentPageType === 'watch' || currentPageType === 'shorts') {
+            const id = extractOrNormalizeVideoId(location.href)?.id
+            logInfo('getPlayerVideoId', 'Usando fallback desde URL', id)
+            if (id) return id
+        }
 
+        logWarn('getPlayerVideoId', '❌ no se pudo obtener videoId')
+        return null
+    }
 
 
 
@@ -5598,14 +5610,14 @@ background: var(--ypp-danger);
                 path.startsWith('/playlist') && !url.searchParams.get('list')
             );
             if (isYouTube && isNonVideoPath) {
-                log('extractOrNormalizeVideoId', 'No es página de video, omitiendo:', input);
+                logLog('extractOrNormalizeVideoId', 'No es página de video, omitiendo:', input);
                 return null;
             }
         } catch { }
 
         // Caso general: advertencia (solo si no es homepage/feed ya manejado)
         if (trimmed && !trimmed.includes('youtube.com/')) {
-            warn('extractOrNormalizeVideoId: no se pudo determinar video_id para', input);
+            logWarn('extractOrNormalizeVideoId: no se pudo determinar video_id para', input);
         }
         return null;
     }
@@ -5668,14 +5680,14 @@ background: var(--ypp-danger);
             const cachedTitle = playlistNameCache.get(playlistId);
             // Si el cache tiene un título válido (no genérico), usarlo directamente
             if (cachedTitle && cachedTitle !== playlistId) {
-                log('getPlaylistName', `✅ Usando título cacheado válido para ${playlistId}: "${cachedTitle}"`);
+                logLog('getPlaylistName', `✅ Usando título cacheado válido para ${playlistId}: "${cachedTitle}"`);
                 return cachedTitle;
             }
         }
 
         // 2. Verificar si hay una petición en curso
         if (pendingPlaylistRequests.has(playlistId)) {
-            log('getPlaylistName', `⏳ Ya existe una petición en curso para ${playlistId}, reutilizando promesa...`);
+            logLog('getPlaylistName', `⏳ Ya existe una petición en curso para ${playlistId}, reutilizando promesa...`);
             return pendingPlaylistRequests.get(playlistId);
         }
 
@@ -5722,11 +5734,11 @@ background: var(--ypp-danger);
 
             // Solo hacer HTTP request si no hay cache válido o si el cache es genérico
             if (shouldThrottlePlaylistNameFetch(playlistId)) {
-                log('getPlaylistName', `⏳ Cooldown activo para ${playlistId}, evitando nueva solicitud`);
+                logLog('getPlaylistName', `⏳ Cooldown activo para ${playlistId}, evitando nueva solicitud`);
                 return playlistNameCache.get(playlistId) || playlistId;
             }
             return new Promise((resolve) => {
-                log('getPlaylistName', `🌐 Making HTTP request for playlist ${playlistId}`);
+                logLog('getPlaylistName', `🌐 Making HTTP request for playlist ${playlistId}`);
                 playlistNameFetchCooldowns.set(playlistId, Date.now());
                 GM_xmlhttpRequest({
                     method: 'GET',
@@ -5909,14 +5921,14 @@ background: var(--ypp-danger);
         // Si existe una referencia previa pero se desconectó, la limpiamos para recrearla fresca
         if (watchTimeDisplay) watchTimeDisplay = null;
 
-        log('initTimeDisplay', 'playerContainer', playerContainer);
+        logLog('initTimeDisplay', 'playerContainer', playerContainer);
 
         // Soporte para el rediseño "Delhi": el contenedor es un pill wrapper (.ytp-time-wrapper)
         const timeWrapper = DOMHelpers.get('player:timeWrapper', () =>
             playerContainer.querySelector('.ytp-time-wrapper')
             ?? document.querySelector('.ytp-time-wrapper'), 100);
 
-        log('initTimeDisplay', 'timeWrapper seleccionado:', timeWrapper);
+        logLog('initTimeDisplay', 'timeWrapper seleccionado:', timeWrapper);
 
         watchTimeDisplay = createElement('span', {
             id: 'ypp-time-display-indicator',
@@ -5930,7 +5942,7 @@ background: var(--ypp-danger);
             timeWrapper.insertAdjacentElement('beforeend', watchTimeDisplay);
         }
 
-        log('initTimeDisplay', '✅ Creada visualización de tiempo en la barra de reproducción');
+        logLog('initTimeDisplay', '✅ Creada visualización de tiempo en la barra de reproducción');
         clearPlaybackBarMessage();
     }
     /**
@@ -6013,7 +6025,7 @@ background: var(--ypp-danger);
             DOMHelpers.getShortsPlayer() ||
             document.querySelector(`${S.IDS.YTD_SHORTS}`);
 
-        log('initShortsTimeDisplay', 'shortsPlayerControls encontrado:', shortsPlayerControls)
+        logLog('initShortsTimeDisplay', 'shortsPlayerControls encontrado:', shortsPlayerControls)
 
         // Si el metapanel aún no existe, preparar fallback flotante en overlay/body
         if (!shortsPlayerControls) {
@@ -6030,7 +6042,7 @@ background: var(--ypp-danger);
             try { shortsTimeDisplay.classList.add('ypp-floating'); } catch (_) { }
             // Iniciar observador para re-ancorar cuando aparezca el metapanel
             startShortsPanelObserver();
-            log('initShortsTimeDisplay', 'Metapanel no disponible; usando fallback flotante en overlay/body');
+            logLog('initShortsTimeDisplay', 'Metapanel no disponible; usando fallback flotante en overlay/body');
             return;
         }
 
@@ -6055,7 +6067,7 @@ background: var(--ypp-danger);
             shortsPlayerControls.appendChild(shortsTimeDisplay);
         }
 
-        log('initShortsTimeDisplay', 'Creada visualización de tiempo para Shorts dentro del player');
+        logLog('initShortsTimeDisplay', 'Creada visualización de tiempo para Shorts dentro del player');
         clearShortsMessage();
     }
 
@@ -6102,7 +6114,7 @@ background: var(--ypp-danger);
         if (!watchTimeDisplay?.isConnected) return;
 
         if (!watchTimeDisplay) {
-            warn('updateWatchPlaybackBarMessage', '⚠️ No se pudo inicializar watchTimeDisplay');
+            logWarn('updateWatchPlaybackBarMessage', '⚠️ No se pudo inicializar watchTimeDisplay');
             return;
         }
 
@@ -6111,7 +6123,7 @@ background: var(--ypp-danger);
 
         // No programar limpieza automática para mensajes seek si el video está pausado
         const isVideoPaused = videoEl?.paused ?? false;
-        log('updateWatchPlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}`);
+        logLog('updateWatchPlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}`);
 
         if (isSeek && isVideoPaused) return;
         // Si el video está pausado y el display actual ya muestra un seek, no sobreescribir ni limpiar
@@ -6161,12 +6173,12 @@ background: var(--ypp-danger);
         }
 
         if (!shortsTimeDisplay) {
-            warn('updateShortsMessage', '⚠️ No se pudo inicializar el display de Shorts');
+            logWarn('updateShortsMessage', '⚠️ No se pudo inicializar el display de Shorts');
             return;
         }
 
         if (currentPageType !== 'shorts') {
-            warn('updateShortsMessage', '⚠️ No se pudo inicializar el display de Shorts, currentPageType:', currentPageType);
+            logWarn('updateShortsMessage', '⚠️ No se pudo inicializar el display de Shorts, currentPageType:', currentPageType);
             return;
         }
 
@@ -6227,15 +6239,15 @@ background: var(--ypp-danger);
         shortsTimeDisplay.classList.remove('ypp-d-none');
         // Si está en overlayRoot (no metapanel visible), marcar flotante
         try {
-            log('updateShortsMessage', 'shortsTimeDisplay.parentElement:', shortsTimeDisplay.parentElement)
-            log('updateShortsMessage', 'activePanel:', activePanel)
+            logLog('updateShortsMessage', 'shortsTimeDisplay.parentElement:', shortsTimeDisplay.parentElement)
+            logLog('updateShortsMessage', 'activePanel:', activePanel)
             shortsTimeDisplay.classList.toggle('ypp-floating', shortsTimeDisplay.parentElement !== activePanel);
         } catch (_) { }
 
         // No programar limpieza automática para mensajes seek si el video está pausado
         const isSeekMessage = message.includes('svgPlayOrPauseIcon');
         const isVideoPaused = videoEl?.paused ?? false;
-        log('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}`);
+        logLog('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}`);
 
         if (isSeekMessage && isVideoPaused) return;
 
@@ -6282,7 +6294,7 @@ background: var(--ypp-danger);
         });
 
         controls.appendChild(miniplayerTimeDisplay);
-        log('initMiniplayerTimeDisplay', '✅ Visualización de tiempo inicializada en Miniplayer');
+        logLog('initMiniplayerTimeDisplay', '✅ Visualización de tiempo inicializada en Miniplayer');
         clearMiniplayerMessage();
     }
 
@@ -6348,7 +6360,7 @@ background: var(--ypp-danger);
         });
 
         previewPlayer.appendChild(inlinePreviewTimeDisplay);
-        log('initInlinePreviewTimeDisplay', '✅ Visualización de tiempo inicializada en Inline Preview');
+        logLog('initInlinePreviewTimeDisplay', '✅ Visualización de tiempo inicializada en Inline Preview');
         clearInlinePreviewMessage();
     }
 
@@ -6404,7 +6416,7 @@ background: var(--ypp-danger);
         if (!container) {
             container = createElement('div', { className: 'ypp-toast-container' });
             document.body.appendChild(container);
-            log('createToastContainer', 'Contenedor de toasts creado');
+            logLog('createToastContainer', 'Contenedor de toasts creado');
         }
 
         return container;
@@ -6521,7 +6533,7 @@ background: var(--ypp-danger);
 
         if (!options.keep && !options.persistent) fadeAndRemoveToast(toast, duration);
 
-        log('showFloatingToast', 'Toast mostrado', { message, options });
+        logLog('showFloatingToast', 'Toast mostrado', { message, options });
     }
 
     // ------------------------------------------
@@ -6842,7 +6854,7 @@ background: var(--ypp-danger);
         // Mostrar/ocultar área de playlist y botones del footer
         updatePlaylistArea();
 
-        log('toggleSelectionMode', `Modo de selección: ${isSelectionMode ? 'ACTIVADO' : 'DESACTIVADO'}`);
+        logLog('toggleSelectionMode', `Modo de selección: ${isSelectionMode ? 'ACTIVADO' : 'DESACTIVADO'}`);
     }
 
     /**
@@ -6948,9 +6960,9 @@ background: var(--ypp-danger);
                 button.className = 'ypp-btn ypp-btn-primary';
             }, 2000);
 
-            log('copyToClipboard', 'Enlace copiado al portapapeles');
+            logLog('copyToClipboard', 'Enlace copiado al portapapeles');
         } catch (err) {
-            conError('copyToClipboard', 'Error al copiar al portapapeles:', err);
+            logError('copyToClipboard', 'Error al copiar al portapapeles:', err);
             // Fallback para navegadores que no soportan clipboard API
             const textarea = createElement('textarea', {
                 value: text
@@ -6976,10 +6988,10 @@ background: var(--ypp-danger);
     function toggleVideoSelection(videoId) {
         if (selectedVideos.has(videoId)) {
             selectedVideos.delete(videoId);
-            log('toggleVideoSelection', `Video ${videoId} deseleccionado`);
+            logLog('toggleVideoSelection', `Video ${videoId} deseleccionado`);
         } else {
             selectedVideos.add(videoId);
-            log('toggleVideoSelection', `Video ${videoId} seleccionado`);
+            logLog('toggleVideoSelection', `Video ${videoId} seleccionado`);
         }
 
         // Actualizar el checkbox específico
@@ -7028,7 +7040,7 @@ background: var(--ypp-danger);
                 // Si el video ya no tiene src, ignorar
                 if (!video.src) return;
 
-                info('VideoObserverManager', `🎥 Procesando video tipo: ${type}`, { src: video.src });
+                logInfo('VideoObserverManager', `🎥 Procesando video tipo: ${type}`, { src: video.src });
 
                 switch (type) {
                     case 'watch':
@@ -7062,7 +7074,7 @@ background: var(--ypp-danger);
             const body = document.body;
             if (!body) return;
 
-            info('VideoObserverManager', `🔍 Realizando bootstrap de videos existentes...${force ? ' (FORZADO)' : ''}`);
+            logInfo('VideoObserverManager', `🔍 Realizando bootstrap de videos existentes...${force ? ' (FORZADO)' : ''}`);
 
             // 1. Buscar video en Watch
             if (currentPageType === 'watch') {
@@ -7122,7 +7134,7 @@ background: var(--ypp-danger);
             if (!videoElement) return;
             // Protección: No encolar videos que son detectados como anuncios
             if (AdDetector.isNodeWithinAdContainer(videoElement)) {
-                warn('VideoObserverManager', `🚫 Omitiendo video [${type}] detectado como anuncio por AdDetector`);
+                logWarn('VideoObserverManager', `🚫 Omitiendo video [${type}] detectado como anuncio por AdDetector`);
 
                 // Si el anuncio finaliza en este mismo contenedor, re-encolamos para no perder su progreso
                 if (!activeAdWaiters.has(videoElement)) {
@@ -7138,7 +7150,7 @@ background: var(--ypp-danger);
                             videoElement.removeEventListener('timeupdate', onAdWait);
                             videoElement.removeEventListener('play', onAdWait);
                             activeAdWaiters.delete(videoElement);
-                            info('VideoObserverManager', `✅ Video [${type}] liberado de anuncios, re-evaluando...`);
+                            logInfo('VideoObserverManager', `✅ Video [${type}] liberado de anuncios, re-evaluando...`);
                             enqueueVideo(videoElement, type);
                         }
                     };
@@ -7153,7 +7165,7 @@ background: var(--ypp-danger);
                 return;
             }
 
-            log('VideoObserverManager', `📥 Encolando video [${type}] para procesar (Total pend: ${pendingVideos.size + 1})`);
+            logLog('VideoObserverManager', `📥 Encolando video [${type}] para procesar (Total pend: ${pendingVideos.size + 1})`);
             videoTypeCache.set(videoElement, type);
             pendingVideos.add(videoElement);
 
@@ -7203,7 +7215,7 @@ background: var(--ypp-danger);
 
                             // Log en consola para depuración
                             // Indica que el src del video cambió y se reiniciará la sesión
-                            log(
+                            logLog(
                                 'VideoObserverManager',
                                 '📺 Watch: cambio de src detectado, reiniciando sesión y encolando'
                             );
@@ -7303,7 +7315,7 @@ background: var(--ypp-danger);
                     if (m.type === 'attributes' && m.attributeName === 'src' && m.target instanceof HTMLVideoElement) {
                         const videoEl = m.target;
                         if (videoEl.closest(S.IDS.SHORTS_PLAYER)) {
-                            log('VideoObserverManager', '📱 Shorts: cambio de src detectado, reiniciando sesión y encolando');
+                            logLog('VideoObserverManager', '📱 Shorts: cambio de src detectado, reiniciando sesión y encolando');
                             videoTypeCache.delete(videoEl);
                             const prevSession = activeProcessingSessions.get(videoEl);
                             if (prevSession?.intervalId) clearInterval(prevSession.intervalId);
@@ -7364,7 +7376,7 @@ background: var(--ypp-danger);
                     const newState = !!document.querySelector(S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE);
                     if (newState !== isMiniplayerActive) {
                         isMiniplayerActive = newState;
-                        log('VideoObserverManager', `📱 Miniplayer visibilidad cambió: ${isMiniplayerActive}`);
+                        logLog('VideoObserverManager', `📱 Miniplayer visibilidad cambió: ${isMiniplayerActive}`);
                     }
                 }
 
@@ -7377,7 +7389,7 @@ background: var(--ypp-danger);
                         const newSrc = videoEl.src;
                         if (videoEl.closest(S.ELEMENTS.MINIPLAYER_ELEMENT) && newSrc && newSrc !== lastMiniplayerSrc) {
                             lastMiniplayerSrc = newSrc;
-                            log('VideoObserverManager', '📱 Miniplayer: cambio de src detectado, reiniciando sesión y encolando');
+                            logLog('VideoObserverManager', '📱 Miniplayer: cambio de src detectado, reiniciando sesión y encolando');
                             // Limpiar sesión previa y forzar reprocessing
                             videoTypeCache.delete(videoEl); // IMPORTANTE: permitir re-encolar
                             const prevSession = activeProcessingSessions.get(videoEl);
@@ -7397,7 +7409,7 @@ background: var(--ypp-danger);
                 // document.querySelector(".html5-video-player")?.classList.contains("ytp-player-minimized")
 
                 if (!isMiniplayerActive) return;
-                log('VideoObserverManager', '👀 Miniplayer visible (cache state)');
+                logLog('VideoObserverManager', '👀 Miniplayer visible (cache state)');
 
                 mutations.forEach(m => {
                     const nodes = m.type === 'childList'
@@ -7459,7 +7471,7 @@ background: var(--ypp-danger);
 
                         if (isPreview && newSrc && newSrc !== lastPreviewSrc) {
                             lastPreviewSrc = newSrc;
-                            log('VideoObserverManager', '👁️ Preview: cambio de src detectado, reiniciando sesión y encolando');
+                            logLog('VideoObserverManager', '👁️ Preview: cambio de src detectado, reiniciando sesión y encolando');
                             // Limpiar sesión previa y forzar reprocessing
                             videoTypeCache.delete(videoEl); // IMPORTANTE: permitir re-encolar
                             const prevSession = activeProcessingSessions.get(videoEl);
@@ -7507,29 +7519,29 @@ background: var(--ypp-danger);
                 const playerContainer = document.querySelector(S.IDS.MOVIE_PLAYER);
                 if (playerContainer) {
                     observers.watch.observe(playerContainer, config);
-                    info('VideoObserverManager', '✅ Observador de Watch inicializado');
+                    logInfo('VideoObserverManager', '✅ Observador de Watch inicializado');
                 }
 
                 // Observar el contenedor principal de Shorts
                 const shorts = document.querySelector(S.IDS.SHORTS_PLAYER);
                 if (shorts) {
                     observers.shorts.observe(shorts, config);
-                    info('VideoObserverManager', '✅ Observador de Shorts inicializado');
+                    logInfo('VideoObserverManager', '✅ Observador de Shorts inicializado');
                 }
 
                 // Observar el contenedor principal de previews
                 const previewEl = document.querySelector(S.IDS.VIDEO_PREVIEW_MAIN_CONTAINER);
                 if (previewEl) {
                     observers.preview.observe(previewEl, config);
-                    log('VideoObserverManager', 'previewEl', previewEl);
-                    info('VideoObserverManager', '✅ Observador de Previews inicializado');
+                    logLog('VideoObserverManager', 'previewEl', previewEl);
+                    logInfo('VideoObserverManager', '✅ Observador de Previews inicializado');
                 }
 
                 // Observar el contenedor principal del miniplayer
                 const miniContainer = document.querySelector(S.ELEMENTS.MINIPLAYER_ELEMENT);
                 if (miniContainer) {
                     observers.miniplayer.observe(miniContainer, config);
-                    info('VideoObserverManager', '✅ Observador de Miniplayer inicializado');
+                    logInfo('VideoObserverManager', '✅ Observador de Miniplayer inicializado');
                 }
 
                 // Asegurar que el tipo de página sea correcto antes del bootstrap inicial
@@ -7538,7 +7550,7 @@ background: var(--ypp-danger);
                 // Realizar bootstrap inicial
                 bootstrap(forceBootstrap);
             } catch (e) {
-                conError('VideoObserverManager', '❌ Error al iniciar observadores', e);
+                logError('VideoObserverManager', '❌ Error al iniciar observadores', e);
             }
         };
 
@@ -7554,11 +7566,11 @@ background: var(--ypp-danger);
             pendingVideos.clear();
             globalNavigationId++; // Invalidar sesiones en vuelo
             stopAllSessions();
-            log('VideoObserverManager', '🧹 Observadores y sesiones desconectadas');
+            logLog('VideoObserverManager', '🧹 Observadores y sesiones desconectadas');
         };
 
         const clearCache = () => {
-            log('VideoObserverManager', '🧹 Reiniciando cache de tipos de video');
+            logLog('VideoObserverManager', '🧹 Reiniciando cache de tipos de video');
             videoTypeCache = new WeakMap();
             pendingVideos.clear();
         };
@@ -7569,35 +7581,6 @@ background: var(--ypp-danger);
     // ------------------------------------------
     // MARK: Specialized Processing Functions
     // ------------------------------------------
-
-
-
-    const getVideoId = (player) => {
-        if (typeof player?.getPlayerResponse === 'function') {
-            const resp = player.getPlayerResponse()
-            const videoDetailsVideoId = resp?.videoDetails?.videoId
-            const microformatVideoId = resp?.microformat?.playerMicroformatRenderer?.externalVideoId
-            info('getVideoId', `getPlayerResponse DETECTADO ${videoDetailsVideoId} - ${microformatVideoId}`)
-            const id = videoDetailsVideoId || microformatVideoId
-            if (id) return id
-        }
-
-        if (typeof player?.getVideoData === 'function') {
-            const id = player.getVideoData()?.video_id
-            info('getVideoId', 'getVideoData DETECTADO', id)
-            if (id) return id
-        }
-
-        if (currentPageType === 'watch' || currentPageType === 'shorts') {
-            const id = extractOrNormalizeVideoId(location.href)?.id
-            info('getVideoId', 'Usando fallback desde URL', id)
-            if (id) return id
-        }
-
-        warn('getVideoId', '❌ no se pudo obtener videoId')
-        return null
-    }
-
 
     /**
      * Almacena las sesiones de procesamiento activas por cada elemento de video
@@ -7614,7 +7597,7 @@ background: var(--ypp-danger);
         const sessionCount = activeProcessingSessions.size;
         if (sessionCount === 0) return;
 
-        info('process', `🧹 Deteniendo todas las sesiones activas (${sessionCount})`);
+        logInfo('process', `🧹 Deteniendo todas las sesiones activas (${sessionCount})`);
         for (const [videoEl, session] of activeProcessingSessions.entries()) {
             if (session.intervalId) {
                 clearInterval(session.intervalId);
@@ -7649,7 +7632,7 @@ background: var(--ypp-danger);
             clearInterval(currentSession.intervalId);
         }
 
-        info('process', `🚀 Iniciando sesión de seguimiento para [${type}] - ${videoId}`);
+        logInfo('process', `🚀 Iniciando sesión de seguimiento para [${type}] - ${videoId}`);
 
         // Obtener metadatos base una sola vez al inicio de la sesión
         let cachedVideoInfo = null;
@@ -7658,20 +7641,20 @@ background: var(--ypp-danger);
 
             // Protección crítica: Si hubo navegación durante el await, abortar el inicio de la sesión
             if (navIdAtStart !== globalNavigationId) {
-                warn('process', `🛑 Abortando inicio de sesión [${type}] - ${videoId}: Navegación detectada durante fetch`);
+                logWarn('process', `🛑 Abortando inicio de sesión [${type}] - ${videoId}: Navegación detectada durante fetch`);
                 return;
             }
 
-            info('process', `💾 Metadatos cacheados inicialmente para sesión de [${type}] - ${videoId}`);
+            logInfo('process', `💾 Metadatos cacheados inicialmente para sesión de [${type}] - ${videoId}`);
         } catch (e) {
-            warn('process', `⚠️ Error obteniendo metadatos base, se delegará la obtención al guardado:`, e);
+            logWarn('process', `⚠️ Error obteniendo metadatos base, se delegará la obtención al guardado:`, e);
         }
 
         // 1. Intentar reanudar inmediatamente
         // getSavedVideoData usa el playlistId del objeto de metadatos si está disponible
         getSavedVideoData(videoId, cachedVideoInfo?.lastViewedPlaylistId).then(savedData => {
             if (savedData && (savedData.watchProgress > 1 || savedData.forceResumeTime > 0)) {
-                PlaybackController.resume(player, videoId, videoEl, savedData, type);
+                PlaybackController.resume(player, videoId, videoEl, savedData, type, cachedVideoInfo);
             }
         });
 
@@ -7680,12 +7663,12 @@ background: var(--ypp-danger);
             // Kill Switch: Condiciones para detener el seguimiento de esta sesión
             const isDisconnected = !document.contains(videoEl);
             const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
-            const currentVideoId = getVideoId(player);
+            const currentVideoId = getPlayerVideoId(player);
             const hasIdChanged = currentVideoId !== videoId;
 
             if (isDisconnected || isAdNow || hasIdChanged) {
                 const reason = isDisconnected ? 'Elemento removido' : (isAdNow ? 'Anuncio detectado' : `ID cambiado: ${currentVideoId}`);
-                info('process', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${reason}`);
+                logInfo('process', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${reason}`);
 
                 clearInterval(intervalId);
                 activeProcessingSessions.delete(videoEl);
@@ -7703,33 +7686,33 @@ background: var(--ypp-danger);
         if (!cachedSettings?.saveRegularVideos) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
-            warn('processWatchVideo', '🚫 Anuncio detectado en Watch, omitiendo procesamiento.');
+            logWarn('processWatchVideo', '🚫 Anuncio detectado en Watch, omitiendo procesamiento.');
             return;
         }
 
         // Safeguard: Solo procesar como Watch si la URL es realmente de video
         // (Previene que el miniplayer en el Home active el procesador de Watch por error)
         if (currentPageType !== 'watch') {
-            log('processWatchVideo', '⚠️ Abortando: No estamos en /watch (posible Miniplayer en Home)');
+            logLog('processWatchVideo', '⚠️ Abortando: No estamos en /watch (posible Miniplayer en Home)');
             return;
         }
 
         const player = DOMHelpers.getWatchPlayer();
         if (!player) {
-            warn('processWatchVideo', '⚠️ Player de Watch no encontrado, omitiendo procesamiento.');
+            logWarn('processWatchVideo', '⚠️ Player de Watch no encontrado, omitiendo procesamiento.');
             return;
         }
 
-        const videoId = player ? getVideoId(player) : null;
+        const videoId = player ? getPlayerVideoId(player) : null;
         if (!videoId) {
-            warn('processWatchVideo', '⚠️ ID del video no encontrado en Watch, omitiendo procesamiento.');
+            logWarn('processWatchVideo', '⚠️ ID del video no encontrado en Watch, omitiendo procesamiento.');
             return;
         }
 
         // Inicializar display proactivamente pasando el player ya resuelto
         initTimeDisplay(player);
 
-        info('processWatchVideo', `📝 Procesando video de Watch: ${videoId}`);
+        logInfo('processWatchVideo', `📝 Procesando video de Watch: ${videoId}`);
         startProcessingSession(videoEl, 'watch', videoId, player);
     }
 
@@ -7737,29 +7720,29 @@ background: var(--ypp-danger);
         if (!cachedSettings?.saveShorts) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
-            warn('processShortsVideo', '🚫 Anuncio detectado en Shorts, omitiendo procesamiento.');
+            logWarn('processShortsVideo', '🚫 Anuncio detectado en Shorts, omitiendo procesamiento.');
             return;
         }
 
         if (currentPageType !== 'shorts') {
-            log('processShortsVideo', '⚠️ Abortando: No estamos en /shorts');
+            logLog('processShortsVideo', '⚠️ Abortando: No estamos en /shorts');
             return;
         }
 
         const player = DOMHelpers.getShortsPlayer();
         if (!player) {
-            warn('processShortsVideo', '⚠️ Player de Shorts no encontrado, omitiendo procesamiento.');
+            logWarn('processShortsVideo', '⚠️ Player de Shorts no encontrado, omitiendo procesamiento.');
             return;
         }
 
-        const videoId = player ? getVideoId(player) : null;
+        const videoId = player ? getPlayerVideoId(player) : null;
         if (!videoId) {
-            warn('processShortsVideo', '⚠️ ID del video no encontrado en Shorts, omitiendo procesamiento.');
+            logWarn('processShortsVideo', '⚠️ ID del video no encontrado en Shorts, omitiendo procesamiento.');
             return;
         }
 
         initShortsTimeDisplay()
-        info('processShortsVideo', `📱 Procesando video de Shorts: ${videoId}`);
+        logInfo('processShortsVideo', `📱 Procesando video de Shorts: ${videoId}`);
         startProcessingSession(videoEl, 'shorts', videoId, player);
     }
 
@@ -7767,7 +7750,7 @@ background: var(--ypp-danger);
         if (!cachedSettings?.saveMiniplayerVideos) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
-            warn('processMiniplayerVideo', '🚫 Anuncio detectado en miniplayer, omitiendo procesamiento.');
+            logWarn('processMiniplayerVideo', '🚫 Anuncio detectado en miniplayer, omitiendo procesamiento.');
             return;
         }
 
@@ -7777,20 +7760,20 @@ background: var(--ypp-danger);
         const player =
             document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT}${S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE} ${S.IDS.MOVIE_PLAYER}`);
         if (!player) {
-            warn('processMiniplayerVideo', '⚠️ Player del miniplayer no encontrado, omitiendo procesamiento.');
+            logWarn('processMiniplayerVideo', '⚠️ Player del miniplayer no encontrado, omitiendo procesamiento.');
             return;
         }
 
-        const videoId = player ? getVideoId(player) : null;
+        const videoId = player ? getPlayerVideoId(player) : null;
         if (!videoId) {
-            warn('processMiniplayerVideo', '⚠️ ID del video no encontrado en miniplayer, omitiendo procesamiento.');
+            logWarn('processMiniplayerVideo', '⚠️ ID del video no encontrado en miniplayer, omitiendo procesamiento.');
             return;
         }
 
         // Inicializar display del miniplayer proactivamente
         initMiniplayerTimeDisplay(player);
 
-        info('processMiniplayerVideo', `📺 Procesando video de Miniplayer: ${videoId}`);
+        logInfo('processMiniplayerVideo', `📺 Procesando video de Miniplayer: ${videoId}`);
         startProcessingSession(videoEl, 'miniplayer', videoId, player);
     }
 
@@ -7798,26 +7781,26 @@ background: var(--ypp-danger);
         if (!cachedSettings?.saveInlinePreviews) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
-            warn('processPreviewVideo', '🚫 Anuncio detectado en Preview, omitiendo procesamiento.');
+            logWarn('processPreviewVideo', '🚫 Anuncio detectado en Preview, omitiendo procesamiento.');
             return;
         }
 
         const player = DOMHelpers.getInlinePreviewPlayer();
         if (!player) {
-            warn('processPreviewVideo', '⚠️ Player de Preview no encontrado, omitiendo procesamiento.');
+            logWarn('processPreviewVideo', '⚠️ Player de Preview no encontrado, omitiendo procesamiento.');
             return;
         }
 
-        const videoId = player ? getVideoId(player) : null;
+        const videoId = player ? getPlayerVideoId(player) : null;
         if (!videoId) {
-            warn('processPreviewVideo', '⚠️ ID del video no encontrado para Preview, omitiendo procesamiento.');
+            logWarn('processPreviewVideo', '⚠️ ID del video no encontrado para Preview, omitiendo procesamiento.');
             return;
         }
 
         // Inicializar display de preview proactivamente con referencia al player ya resuelta
         initInlinePreviewTimeDisplay(player);
 
-        info('processPreviewVideo', `👁️ Procesando video de Preview: ${videoId}`);
+        logInfo('processPreviewVideo', `👁️ Procesando video de Preview: ${videoId}`);
         startProcessingSession(videoEl, 'preview', videoId, player);
     }
 
@@ -7911,19 +7894,18 @@ background: var(--ypp-danger);
          * @param {HTMLVideoElement} videoEl - Elemento de video
          * @param {object} savedData - Datos recuperados del Storage
          * @param {string} type - Contexto (watch, shorts, etc)
+         * @param {object|null} cachedVideoInfo - Metadatos opcionales ya resueltos
          */
-        async resume(player, videoId, videoEl, savedData, type) {
+        async resume(player, videoId, videoEl, savedData, type, cachedVideoInfo = null) {
             if (!savedData || !videoId || !videoEl) return;
 
             const timeToSeek = savedData.forceResumeTime > 0 ? savedData.forceResumeTime : savedData.watchProgress;
             if (timeToSeek <= 1) return;
 
-            log('PlaybackController', `🎬 Intentando reanudar ${videoId} en ${formatTime(timeToSeek)} (${type})`);
+            logLog('PlaybackController', `🎬 Intentando reanudar ${videoId} en ${formatTime(timeToSeek)} (${type})`);
 
-            // Esperar a que el video tenga duración válida
-            const isReady = () => {
-
-                // Priorizar APIs internas de YouTube para la duración
+            const getExpectedDuration = () => {
+                if (cachedVideoInfo?.lengthSeconds > 0) return cachedVideoInfo.lengthSeconds;
                 let dur = 0;
                 try {
                     dur =
@@ -7934,9 +7916,12 @@ background: var(--ypp-danger);
                 } catch (e) {
                     dur = videoEl.duration;
                 }
+                return Number(dur) || 0;
+            };
 
-                // Normalizar duración si viene como string
-                dur = Number(dur);
+            // Esperar a que el video tenga duración válida
+            const isReady = () => {
+                const dur = getExpectedDuration();
 
                 // Para livestreams o casos especiales donde la duración es 0/infinita, 
                 // consideramos que está listo si el videoEl tiene un readyState suficiente
@@ -7948,7 +7933,7 @@ background: var(--ypp-danger);
             };
 
             if (!isReady()) {
-                log('PlaybackController', '⏳ Esperando condiciones óptimas para seek...');
+                logLog('PlaybackController', '⏳ Esperando condiciones óptimas para seek...');
                 let attempts = 0;
                 while (!isReady() && attempts < 20) {
                     await new Promise(r => setTimeout(r, 500));
@@ -7957,17 +7942,7 @@ background: var(--ypp-danger);
             }
 
             if (isReady()) {
-                let finalDuration = 0;
-                try {
-                    finalDuration =
-                        player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds ||
-                        player?.getDuration?.() ||
-                        player?.getVideoData?.()?.length_seconds ||
-                        videoEl.duration;
-                } catch (e) {
-                    finalDuration = videoEl.duration;
-                }
-                finalDuration = Number(finalDuration);
+                const finalDuration = getExpectedDuration();
 
                 // Si la duración es 0 o inválida (común en Shorts inicial o Lives), confiar en timeToSeek
                 const safeTime = (finalDuration > 0 && timeToSeek >= finalDuration)
@@ -7981,12 +7956,12 @@ background: var(--ypp-danger);
                     } else {
                         videoEl.currentTime = safeTime;
                     }
-                    log('PlaybackController', `✅ Seek aplicado exitosamente a ${formatTime(safeTime)}`);
+                    logLog('PlaybackController', `✅ Seek aplicado exitosamente a ${formatTime(safeTime)}`);
 
                     // Notificar al usuario (Toast/PlaybackBar)
                     notifySeekOrProgress(safeTime, 'seek', { videoType: type, isForced: savedData.forceResumeTime > 0, videoEl });
                 } catch (e) {
-                    conError('PlaybackController', '❌ Error al aplicar seek:', e);
+                    logError('PlaybackController', '❌ Error al aplicar seek:', e);
                 }
             }
         },
@@ -8011,7 +7986,7 @@ background: var(--ypp-danger);
             if (!isFinite(currentTime) || currentTime < 0.1 || !isFinite(duration) || duration <= 0) return;
 
             if (videoEl.paused) {
-                warn('saveStatus', `Video ${type} - ${videoId} pausado`)
+                logWarn('saveStatus', `Video ${type} - ${videoId} pausado`)
                 const prevSavedTime = parseFloat(videoEl.dataset.lastSavedTime || '0');
                 if (Math.abs(currentTime - prevSavedTime) < CONFIG.minSeekDiff) {
                     // El video está pausado y su tiempo no se movió lo suficiente como para justificar un guardado (no fue un seek)
@@ -8022,18 +7997,6 @@ background: var(--ypp-danger);
             // Registrar el último tiempo guardado exitosamente para el próximo tick
             videoEl.dataset.lastSavedTime = currentTime;
 
-            // Video que el player reporta debe coincidir con el que intentamos guardar
-            // Esto evita contaminación si el player cambió de video pero el intervalo viejo sigue corriendo
-            try {
-                const currentPlayerVideoId =
-                    player?.getPlayerResponse?.()?.videoDetails?.videoId ||
-                    player?.getVideoData?.()?.video_id ||
-                    YTHelper?.videoEl?.id
-                if (currentPlayerVideoId && currentPlayerVideoId !== videoId) {
-                    // console.warn(`[PlaybackController] ID mismatch: esperada=${videoId}, actual=${currentPlayerVideoId}. Abortando.`);
-                    return { success: false, reason: 'id_mismatch' };
-                }
-            } catch (_) { }
 
             // Refresco dinámico: Si no hay cache, o si la cache existe pero no tiene vistas (timing de carga),
             // intentamos extraer de nuevo para completar los datos.
@@ -8066,10 +8029,10 @@ background: var(--ypp-danger);
             if (finalType === 'miniplayer' && !cachedSettings?.saveMiniplayerVideos) return { success: false, reason: 'disabled_by_settings' };
             if (finalType === 'watch' && !cachedSettings?.saveRegularVideos) return { success: false, reason: 'disabled_by_settings' };
 
-            log('PlaybackController', ` Guardando progreso para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType})`);
+            logLog('PlaybackController', ` Guardando progreso para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType})`);
 
             if (finalType === 'preview') {
-                info('PlaybackController', `saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);
+                logInfo('PlaybackController', `saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);
             }
 
             // Consolidar metadatos en videoInfo antes de delegar
@@ -8109,7 +8072,7 @@ background: var(--ypp-danger);
                         break;
                 }
             } catch (e) {
-                conError('PlaybackController', `❌ Error inesperado guardando ${videoId}:`, e);
+                logError('PlaybackController', `❌ Error inesperado guardando ${videoId}:`, e);
                 result = { success: false, reason: e.message };
             }
 
@@ -8181,17 +8144,17 @@ background: var(--ypp-danger);
              * @type {Object|HTMLElement}
              */
             let player = initialPlayer;
-            log('getCascadedVideoInfo', 'Player:', player);
+            logLog('getCascadedVideoInfo', 'Player:', player);
 
             // A: getPlayerResponse (Fuente más rica de datos)
             const playerResponse = player?.getPlayerResponse?.();
             if (playerResponse?.videoDetails) {
                 const details = playerResponse.videoDetails;
 
-                log('getCascadedVideoInfo', 'PlayerResponse.videoDetails:', details);
-                log('getCascadedVideoInfo', 'playerResponse?.microformat?.playerMicroformatRenderer:', playerResponse?.microformat?.playerMicroformatRenderer);
-                log('getCascadedVideoInfo', 'visitas microformat', playerResponse?.microformat.playerMicroformatRenderer.viewCount)
-                log('getCascadedVideoInfo', 'PlaylistId:', player.getPlaylistId?.());
+                logLog('getCascadedVideoInfo', 'PlayerResponse.videoDetails:', details);
+                logLog('getCascadedVideoInfo', 'playerResponse?.microformat?.playerMicroformatRenderer:', playerResponse?.microformat?.playerMicroformatRenderer);
+                logLog('getCascadedVideoInfo', 'visitas microformat', playerResponse?.microformat.playerMicroformatRenderer.viewCount)
+                logLog('getCascadedVideoInfo', 'PlaylistId:', player.getPlaylistId?.());
 
                 info.lengthSeconds = parseInt(details.lengthSeconds, 10) || 0;
 
@@ -8281,7 +8244,7 @@ background: var(--ypp-danger);
             }
 
         } catch (e) {
-            log('getCascadedVideoInfo', '⚠️ Error en Nivel 1 (Internal API):', e);
+            logLog('getCascadedVideoInfo', '⚠️ Error en Nivel 1 (Internal API):', e);
         }
 
         // 🔵 Nivel 2: YouTube Helper API
@@ -8295,8 +8258,8 @@ background: var(--ypp-danger);
             )) {
                 const helperId = YTHelper.video.id /* extractOrNormalizeVideoId(location.href).id */;
 
-                log('getCascadedVideoInfo', 'Helper ID:', helperId);
-                log('getCascadedVideoInfo', 'Video ID:', videoId);
+                logLog('getCascadedVideoInfo', 'Helper ID:', helperId);
+                logLog('getCascadedVideoInfo', 'Video ID:', videoId);
                 if (helperId === videoId) {
                     info.title = info.title || YTHelper.video.title;
                     info.author = info.author || YTHelper.video.channel;
@@ -8380,7 +8343,7 @@ background: var(--ypp-danger);
                         let viewCountFromFetch = await fetchShortsViews();
                         if (viewCountFromFetch) {
                             viewCountFromFetch = Number(viewCountFromFetch.replace(/[^\d]/g, ''));
-                            log('getCascadedVideoInfo', 'Vistas shorts obtenidas mediante fetch: ' + viewCountFromFetch);
+                            logLog('getCascadedVideoInfo', 'Vistas shorts obtenidas mediante fetch: ' + viewCountFromFetch);
                             info.viewCount = viewCountFromFetch;
                         } else {
                             // view-count-factoid-renderer es un singleton en el panel compartido
@@ -8395,7 +8358,7 @@ background: var(--ypp-danger);
                                 const match = viewEl?.match(/[\d.,\s]+/)?.[0] || '';
                                 let cleanMatch = Number(match.replace(/[^\d]/g, ''));
 
-                                log('getCascadedVideoInfo', 'Vistas shorts obtenidas 1er intento ', cleanMatch);
+                                logLog('getCascadedVideoInfo', 'Vistas shorts obtenidas 1er intento ', cleanMatch);
 
                                 // chequear que no siga en cero
                                 if (cleanMatch === 0) {
@@ -8403,12 +8366,12 @@ background: var(--ypp-danger);
                                         // 519,586
                                         shortContainer.querySelector('span.yt-core-attributed-string[role="text"]')?.textContent;
                                     cleanMatch = Number((viewEl2 ?? '').replace(/[^\d]/g, ''));
-                                    log('getCascadedVideoInfo', 'Vistas shorts obtenidas 2do intento ', cleanMatch);
+                                    logLog('getCascadedVideoInfo', 'Vistas shorts obtenidas 2do intento ', cleanMatch);
                                 }
 
                                 info.viewCount = cleanMatch; // número limpio
                             } else {
-                                warn('getCascadedVideoInfo', 'No se encontró el contenedor de vistas de shorts');
+                                logWarn('getCascadedVideoInfo', 'No se encontró el contenedor de vistas de shorts');
                             }
                         }
                     }
@@ -8430,7 +8393,7 @@ background: var(--ypp-danger);
                             const listId = url.searchParams.get('list');
                             if (listId && !info.lastViewedPlaylistId) {
                                 info.lastViewedPlaylistId = listId;
-                                info('getCascadedVideoInfo', `📂 Playlist detectada en ${isCurrentlyHovered ? 'HOVER' : 'contexto'} de Preview: ${listId}`);
+                                logInfo('getCascadedVideoInfo', `📂 Playlist detectada en ${isCurrentlyHovered ? 'HOVER' : 'contexto'} de Preview: ${listId}`);
                             }
                         }
 
@@ -8441,7 +8404,7 @@ background: var(--ypp-danger);
                         }
                     }
                 } catch (err) {
-                    conError('getCascadedVideoInfo', 'Error extrayendo playlist de Preview:', err);
+                    logError('getCascadedVideoInfo', 'Error extrayendo playlist de Preview:', err);
                 }
             }
 
@@ -8480,7 +8443,7 @@ background: var(--ypp-danger);
             // VIEWS: '.view-count, view-count-factoid-renderer .ytwFactoidRendererFactoid[role="text"], ytd-watch-info-text div#tooltip.tp-yt-paper-tooltip, yt-formatted-string.view-count'
 
         } catch (e) {
-            log('getCascadedVideoInfo', '⚠️ Error en Nivel 3 (DOM Fallbacks):', e);
+            logLog('getCascadedVideoInfo', '⚠️ Error en Nivel 3 (DOM Fallbacks):', e);
         }
 
         // Limpieza final
@@ -8578,7 +8541,7 @@ background: var(--ypp-danger);
             const merged = { ...CONFIG.defaultFilters, ...saved };
             return merged;
         } catch (e) {
-            conError('getSavedFilters', 'Error parsing filtros guardados:', e);
+            logError('getSavedFilters', 'Error parsing filtros guardados:', e);
             return { ...CONFIG.defaultFilters };
         }
     }
@@ -8630,10 +8593,10 @@ background: var(--ypp-danger);
                             return '[unprintable]';
                         }
                     })();
-                    warn('fixThumbnailsInStorage', `Entrada inválida en Storage (se eliminará). key="${key}", data="${preview}"`);
+                    logWarn('fixThumbnailsInStorage', `Entrada inválida en Storage (se eliminará). key="${key}", data="${preview}"`);
                     await Storage.del(key);
                 } catch (e) {
-                    conError('fixThumbnailsInStorage', `Error al intentar eliminar clave corrupta ${key}:`, e);
+                    logError('fixThumbnailsInStorage', `Error al intentar eliminar clave corrupta ${key}:`, e);
                 }
                 continue;
             }
@@ -8732,7 +8695,7 @@ background: var(--ypp-danger);
             if (data.videos) {
                 const playlistTitle = data.title || key;
                 const lastWatchedVideoId = data.lastWatchedVideoId || null;
-                log('updateVideoList', `🔍 Formato antiguo detectado: playlist ${key} con ${Object.keys(data.videos).length} videos`);
+                logLog('updateVideoList', `🔍 Formato antiguo detectado: playlist ${key} con ${Object.keys(data.videos).length} videos`);
                 Object.entries(data.videos).forEach(([videoId, info]) => {
                     allItems.push({
                         type: 'playlist-video',
@@ -8948,7 +8911,7 @@ background: var(--ypp-danger);
         });
 
 
-        log('updateVideoList', `✅ VirtualScroller inicializado con ${filteredItems.length} items`);
+        logLog('updateVideoList', `✅ VirtualScroller inicializado con ${filteredItems.length} items`);
     }
 
     function closeModalVideos() {
@@ -9484,7 +9447,7 @@ background: var(--ypp-danger);
         const rawDuration = info.lengthSeconds ?? 0;
 
         if (duration === 0 && rawDuration === 0) {
-            log('createVideoEntry', `⚠️ Video ${videoId} sin duración guardada`);
+            logLog('createVideoEntry', `⚠️ Video ${videoId} sin duración guardada`);
         }
         const remaining = Math.max(duration - watched, 0);
         const percent = duration ? Math.min(100, Math.round((watched / duration) * 100)) : null;
@@ -9604,7 +9567,7 @@ background: var(--ypp-danger);
             clearedData[k] = await Storage.get(k);
         }
 
-        log('clearAllData', '🗑️ Datos a eliminar:', allKeys, clearedData);
+        logLog('clearAllData', '🗑️ Datos a eliminar:', allKeys, clearedData);
 
         // Eliminar todos los datos (excepto userSettings)
         for (const k of allKeys) {
@@ -9631,7 +9594,7 @@ background: var(--ypp-danger);
             return;
         }
 
-        log('undoClearAll', '⏪ Restaurando datos:', clearedData);
+        logLog('undoClearAll', '⏪ Restaurando datos:', clearedData);
 
         // Restaurar todos los datos
         for (const [key, value] of Object.entries(clearedData)) {
@@ -9658,7 +9621,7 @@ background: var(--ypp-danger);
                 } else {
                     await showSettingsUI();
                 }
-            } catch (e) { conError('registerMenuCommands', 'Error abriendo Settings UI:', e); }
+            } catch (e) { logError('registerMenuCommands', 'Error abriendo Settings UI:', e); }
         });
         /* GM_registerMenuCommand(`📋 ${t('savedVideos')}`, () => { try { showSavedVideosList(); } catch (_) { } }); */
         GM_registerMenuCommand(`📚 ${t('viewAllHistory')}`, async () => {
@@ -9666,12 +9629,12 @@ background: var(--ypp-danger);
             await saveFilters({ filterBy: 'all', searchQuery: '' });
             // Establecer filtro global y mostrar lista
             currentFilterBy = 'all';
-            try { showSavedVideosList(); } catch (e) { conError('registerMenuCommands', 'Error abriendo listado de historial:', e); }
+            try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error abriendo listado de historial:', e); }
         });
         GM_registerMenuCommand(`✅ ${t('viewCompletedVideos')}`, async () => {
             await saveFilters({ filterBy: 'completed' });
             currentFilterBy = 'completed';
-            try { showSavedVideosList(); } catch (e) { conError('registerMenuCommands', 'Error abriendo listado de completados:', e); }
+            try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error abriendo listado de completados:', e); }
         });
     }
 
@@ -9753,11 +9716,11 @@ background: var(--ypp-danger);
         // Verificar si la migración ya se realizó para esta versión
         const lastMigrationVersion = await GM_getValue(MIGRATION_KEY, 0);
         if (lastMigrationVersion >= MIGRATION_VERSION) {
-            log('migrateToFreeTubeFormat', `✅ Migración ya aplicada (versión ${lastMigrationVersion})`);
+            logLog('migrateToFreeTubeFormat', `✅ Migración ya aplicada (versión ${lastMigrationVersion})`);
             return { migrated: 0, skipped: 0 };
         }
 
-        log('migrateToFreeTubeFormat', `🔄 Iniciando migración v${MIGRATION_VERSION} (última: v${lastMigrationVersion})...`);
+        logLog('migrateToFreeTubeFormat', `🔄 Iniciando migración v${MIGRATION_VERSION} (última: v${lastMigrationVersion})...`);
 
         // Mostrar alerta al usuario sobre la migración
         showFloatingToast(
@@ -9807,7 +9770,7 @@ background: var(--ypp-danger);
                 }
             }
         } catch (e) {
-            warn('migrateToFreeTubeFormat', 'Error en rescate legacy:', e);
+            logWarn('migrateToFreeTubeFormat', 'Error en rescate legacy:', e);
         }
 
         // FASE 2: Normalización Consolidada (Format Limpio)
@@ -9845,7 +9808,7 @@ background: var(--ypp-danger);
                         migrated++;
                     }
                     await Storage.del(key);
-                    log('migrateToFreeTubeFormat', `✅ Playlist ${key} desanidada`);
+                    logLog('migrateToFreeTubeFormat', `✅ Playlist ${key} desanidada`);
                 }
                 // Caso B: Entrada de video (individual)
                 else {
@@ -9881,7 +9844,7 @@ background: var(--ypp-danger);
                     }
                 }
             } catch (e) {
-                conError('migrateToFreeTubeFormat', `Error en clave ${key}:`, e);
+                logError('migrateToFreeTubeFormat', `Error en clave ${key}:`, e);
             }
 
             if ((++batchCount % 50) === 0) {
@@ -9891,7 +9854,7 @@ background: var(--ypp-danger);
         }
 
         await GM_setValue(MIGRATION_KEY, MIGRATION_VERSION);
-        log('migrateToFreeTubeFormat', `✅ Migración v${MIGRATION_VERSION} completada: ${migrated} migrados`);
+        logLog('migrateToFreeTubeFormat', `✅ Migración v${MIGRATION_VERSION} completada: ${migrated} migrados`);
 
         if (migrated > 0) {
             showFloatingToast(t('migrationComplete', { migrated: migrated }), 5000);
@@ -9912,17 +9875,17 @@ background: var(--ypp-danger);
     // Inicialización global (solo una vez)
     const initializeGlobal = async () => {
         if (isGloballyInitialized) {
-            info('initializeGlobal', '✅ Ya inicializado globalmente, omitiendo...');
+            logInfo('initializeGlobal', '✅ Ya inicializado globalmente, omitiendo...');
             return;
         }
 
         if (initializationPromise) {
-            info('initializeGlobal', '⏳ Inicialización en progreso, esperando...');
+            logInfo('initializeGlobal', '⏳ Inicialización en progreso, esperando...');
             return await initializationPromise;
         }
 
         initializationPromise = (async () => {
-            info('initializeGlobal', '🚀 Iniciando inicialización global...');
+            logInfo('initializeGlobal', '🚀 Iniciando inicialización global...');
             let hadLanguageInStorage = false;
             let loadedSettings = null;
             let loadedSettingsMeta = null;
@@ -9935,11 +9898,11 @@ background: var(--ypp-danger);
             try {
                 [externalTranslations, loadedSettingsMeta] = await Promise.all([
                     loadTranslations().catch((err) => {
-                        conError('initializeGlobal', '❌ Error al cargar traducciones:', err);
+                        logError('initializeGlobal', '❌ Error al cargar traducciones:', err);
                         return null;
                     }),
                     Settings.getWithMeta().catch((err) => {
-                        conError('initializeGlobal', '❌ Error al cargar settings:', err);
+                        logError('initializeGlobal', '❌ Error al cargar settings:', err);
                         return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
                     })
                 ]);
@@ -9948,21 +9911,21 @@ background: var(--ypp-danger);
                 hadLanguageInStorage = !!loadedSettingsMeta?.hadLanguageInStorage;
 
                 if (externalTranslations && Object.keys(externalTranslations).length > 0) {
-                    info('initializeGlobal', ' Traducciones externas cargadas correctamente');
+                    logInfo('initializeGlobal', ' Traducciones externas cargadas correctamente');
                     const extFlags = externalTranslations.LANGUAGE_FLAGS || externalTranslations.flags || {};
                     const extTranslations = externalTranslations.TRANSLATIONS || externalTranslations.translations || {};
                     LANGUAGE_FLAGS = { ...FALLBACK_FLAGS, ...extFlags };
                     TRANSLATIONS = deepMergeTranslations(FALLBACK_TRANSLATIONS, extTranslations);
                 } else {
-                    warn('initializeGlobal', ' Traducciones externas incompletas, usando fallback');
+                    logWarn('initializeGlobal', ' Traducciones externas incompletas, usando fallback');
                     LANGUAGE_FLAGS = FALLBACK_FLAGS;
                     TRANSLATIONS = FALLBACK_TRANSLATIONS;
                 }
                 cachedSettings = { ...CONFIG.defaultSettings, ...(loadedSettings || {}) };
-                info('initializeGlobal', 'Settings cargados:', cachedSettings);
+                logInfo('initializeGlobal', 'Settings cargados:', cachedSettings);
 
             } catch (error) {
-                conError('initializeGlobal', ' Error al preparar traducciones/settings:', error);
+                logError('initializeGlobal', ' Error al preparar traducciones/settings:', error);
                 LANGUAGE_FLAGS = FALLBACK_FLAGS;
                 TRANSLATIONS = FALLBACK_TRANSLATIONS;
                 cachedSettings = { ...CONFIG.defaultSettings };
@@ -9975,16 +9938,16 @@ background: var(--ypp-danger);
                 if (cachedSettings?.language && TRANSLATIONS[cachedSettings.language] && cachedSettings.language !== CONFIG.defaultSettings.language) {
                     // Idioma guardado por el usuario y válido
                     langToUse = cachedSettings.language;
-                    info('initializeGlobal', `Idioma guardado válido: ${langToUse}`);
+                    logInfo('initializeGlobal', `Idioma guardado válido: ${langToUse}`);
                 } else {
                     // Primera carga o idioma no configurado, usar navegador si existe
                     const browserLang = detectBrowserLanguage();
                     langToUse = TRANSLATIONS[browserLang] ? browserLang : CONFIG.defaultSettings.language;
-                    info('initializeGlobal', `Idioma detectado o fallback: ${langToUse}`);
+                    logInfo('initializeGlobal', `Idioma detectado o fallback: ${langToUse}`);
                 }
 
                 await setLanguage(langToUse, { persist: false });
-                info('initializeGlobal', ` Idioma configurado: ${langToUse}`);
+                logInfo('initializeGlobal', ` Idioma configurado: ${langToUse}`);
 
                 // Actualizar siempre cachedSettings.language con el idioma detectado/seleccionado
                 cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
@@ -9995,28 +9958,28 @@ background: var(--ypp-danger);
                 // Guardar preferencia si era primera carga o si el idioma cambió
                 if (!hadLanguageInStorage || (loadedSettings?.language !== langToUse)) {
                     await Settings.set(cachedSettings);
-                    info('initializeGlobal', `Idioma guardado/actualizado en settings: ${langToUse}`);
+                    logInfo('initializeGlobal', `Idioma guardado/actualizado en settings: ${langToUse}`);
                 }
             } catch (error) {
-                conError('initializeGlobal', '❌ Error al establecer idioma:', error);
+                logError('initializeGlobal', '❌ Error al establecer idioma:', error);
             }
 
             // --- Inicializar StorageAsync (migración a IndexedDB) ---
             try {
                 await StorageAsync.initialize();
-                info('initializeGlobal', '✅ StorageAsync inicializado');
+                logInfo('initializeGlobal', '✅ StorageAsync inicializado');
             } catch (err) {
-                conError('initializeGlobal', '❌ Error al inicializar StorageAsync:', err);
+                logError('initializeGlobal', '❌ Error al inicializar StorageAsync:', err);
             }
 
             // --- Migrar datos al formato FreeTube ---
             try {
                 const migrationResult = await migrateToFreeTubeFormat();
                 if (migrationResult.migrated > 0) {
-                    info('initializeGlobal', `✅ Migración completada: ${migrationResult.migrated} videos migrados`);
+                    logInfo('initializeGlobal', `✅ Migración completada: ${migrationResult.migrated} videos migrados`);
                 }
             } catch (err) {
-                conError('initializeGlobal', '❌ Error durante la migración de datos:', err);
+                logError('initializeGlobal', '❌ Error durante la migración de datos:', err);
             }
 
             // --- Registrar comandos e inyectar estilos ---
@@ -10024,13 +9987,13 @@ background: var(--ypp-danger);
                 registerMenuCommands();
                 injectStyles();
                 injectProgressBarCSS();
-                info('initializeGlobal', '✅ Comandos y estilos registrados');
+                logInfo('initializeGlobal', '✅ Comandos y estilos registrados');
                 // Crear botón flotante si está habilitado en settings
                 if (typeof createFloatingButton === 'function') {
                     await createFloatingButton();
                 }
             } catch (error) {
-                conError('initializeGlobal', '❌ Error al registrar menú o inyectar estilos:', error);
+                logError('initializeGlobal', '❌ Error al registrar menú o inyectar estilos:', error);
             }
 
 
@@ -10042,7 +10005,7 @@ background: var(--ypp-danger);
             */
             const handleNavigation = () => {
                 currentPageType = getYouTubePageType();
-                info('handleNavigation', `🌐 Navegación detectada: ${currentPageType}`);
+                logInfo('handleNavigation', `🌐 Navegación detectada: ${currentPageType}`);
 
                 // Limpiar cachés de DOM para asegurar que el siguiente procesamiento use elementos frescos
                 DOMHelpers.clearAll();
@@ -10063,7 +10026,7 @@ background: var(--ypp-danger);
             try {
                 VideoObserverManager.init();
             } catch (error) {
-                conError('initializeGlobal', '❌ Error al inicializar VideoObserverManager:', error);
+                logError('initializeGlobal', '❌ Error al inicializar VideoObserverManager:', error);
             }
 
 
@@ -10078,9 +10041,9 @@ background: var(--ypp-danger);
     const init = async () => {
         try {
             await initializeGlobal();
-            info('init', '✨ Script completamente inicializado');
+            logInfo('init', '✨ Script completamente inicializado');
         } catch (error) {
-            conError('init', '❌ Error durante la inicialización:', error);
+            logError('init', '❌ Error durante la inicialización:', error);
         }
     };
 

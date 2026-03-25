@@ -7893,7 +7893,7 @@ background: var(--ypp-danger);
          * @param {string} videoId - Id del video
          * @param {HTMLVideoElement} videoEl - Elemento de video
          * @param {object} savedData - Datos recuperados del Storage
-         * @param {string} type - Contexto (watch, shorts, etc)
+         * @param {string} type - Contexto (watch, shorts, miniplayer, preview)
          * @param {object|null} cachedVideoInfo - Metadatos opcionales ya resueltos
          */
         async resume(player, videoId, videoEl, savedData, type, cachedVideoInfo = null) {
@@ -9935,7 +9935,7 @@ background: var(--ypp-danger);
             try {
                 let langToUse;
 
-                if (cachedSettings?.language && TRANSLATIONS[cachedSettings.language] && cachedSettings.language !== CONFIG.defaultSettings.language) {
+                if (hadLanguageInStorage && cachedSettings?.language && TRANSLATIONS[cachedSettings.language]) {
                     // Idioma guardado por el usuario y válido
                     langToUse = cachedSettings.language;
                     logInfo('initializeGlobal', `Idioma guardado válido: ${langToUse}`);
@@ -9952,8 +9952,6 @@ background: var(--ypp-danger);
                 // Actualizar siempre cachedSettings.language con el idioma detectado/seleccionado
                 cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
                 cachedSettings.language = langToUse;
-
-
 
                 // Guardar preferencia si era primera carga o si el idioma cambió
                 if (!hadLanguageInStorage || (loadedSettings?.language !== langToUse)) {

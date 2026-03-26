@@ -4368,14 +4368,15 @@ background: var(--ypp-danger);
                 }
 
                 for (const key of validKeys) {
-                    const value = data[key];
+                    // Normalizar los datos antes de guardarlos para asegurar Format A
+                    const normalized = normalizeVideoData(data[key]);
 
-                    // Validar que el valor tenga estructura mínima de video
-                    if (value && typeof value === 'object' && (value.videoId || value.timestamp !== undefined)) {
-                        await Storage.set(key, value);
+                    // Validar que el valor tenga estructura mínima de video después de normalizar
+                    if (normalized && typeof normalized === 'object' && normalized.videoId) {
+                        await Storage.set(key, normalized);
                         importCount++;
                     } else {
-                        logLog('importDataFromFile', `Entrada inválida ignorada: ${key}`);
+                        logLog('importDataFromFile', `Entrada inválida ignorada (o sin videoId): ${key}`);
                         skipped++;
                     }
                 }
@@ -4598,44 +4599,41 @@ background: var(--ypp-danger);
         inputFile.click();
     };
 
+    /**
+     * Normaliza los datos de un video al formato interno.
+     * Convierte campos legacy (Format B) a modernos (Format A) y asegura consistencia.
+     * @param {Object} data - Datos a normalizar
+     * @returns {Object} Datos normalizados con esquema moderno y sin campos obsoletos
+     */
+    function normalizeVideoData(data) {
+        if (!data || typeof data !== 'object') return data;
 
+        const result = {
+            videoId: data.videoId || '',
+            title: data.title || '',
+            author: data.author || '',
+            authorId: data.authorId || '',
+            published: data.published || 0,
+            description: data.description || '',
+            watchProgress: data.watchProgress ?? data.timestamp ?? 0,
+            lengthSeconds: data.lengthSeconds ?? data.duration ?? 0,
+            timeWatched: data.timeWatched ?? data.lastUpdated ?? data.savedAt ?? Date.now(),
+            type: normalizeVideoType(data.type ?? data.videoType),
+            viewCount: data.viewCount ?? (parseInt(data.viewsNumber?.toString().replace(/[,\.\s]/g, '')) || 0),
+            isLive: data.isLive || false,
+            isCompleted: data.isCompleted || false,
+            playlistTitle: data.playlistTitle ?? null,
+            // Conservar campos de navegación/playlist si existen
+            lastViewedPlaylistId: data.lastViewedPlaylistId ?? null,
+            lastViewedPlaylistType: '',
+            lastViewedPlaylistItemId: data.lastViewedPlaylistItemId ?? null,
+            ...(data.forceResumeTime ? { forceResumeTime: data.forceResumeTime } : {}),
+            // Conservar el _id de FreeTube si existe (importante para compatibilidad)
+            ...(data._id ? { _id: data._id } : {})
+        };
 
-    /* Formato de exportado que realiza freetube
-    {
-        "videoId": "VxoB4vM1pUM",
-        "title": "Apple’s Co-Founder Left to Make THIS??",
-        "author": "Linus Tech Tips",
-        "authorId": "UCXuqSBlHAE6Xw-yeJA0Tunw",
-        "published": 1773252997000,
-        "description": "Get a 15% discount",
-        "viewCount": 92915,
-        "lengthSeconds": 968,
-        "watchProgress": 967.742999,
-        "timeWatched": 1773258438942,
-        "isLive": false,
-        "type": "video",
-        "lastViewedPlaylistType": "",
-        "lastViewedPlaylistItemId": null
-    },
-    {
-        "videoId": "2psXxetNpoo",
-        "title": "I Couldn't Wait! I Made My Own DREAM Steam Machine",
-        "author": "Linus Tech Tips",
-        "authorId": "UCXuqSBlHAE6Xw-yeJA0Tunw",
-        "published": 1769451239000,
-        "description": "Click this link https://boot.dev/?promo=LTT and use my code LTT to get 25% off",
-        "viewCount": 2102746,
-        "lengthSeconds": 1517,
-        "watchProgress": 1499.646,
-        "timeWatched": 1773260012737,
-        "isLive": false,
-        "type": "video",
-        "lastViewedPlaylistId": "PL8mG-RkN2uTxUDsa3bIr1ppk8oBMJqn32",    // referente a: https://www.youtube.com/watch?v=2psXxetNpoo&list=PL8mG-RkN2uTxUDsa3bIr1ppk8oBMJqn32
-        "lastViewedPlaylistType": "local",
-        "lastViewedPlaylistItemId": null
-    } 
-        */
-
+        return result;
+    }
 
     /**
     * Convierte el formato interno de YouTube Playback Plox a formato FreeTube
@@ -4643,9 +4641,12 @@ background: var(--ypp-danger);
     * @returns {Object} Datos en formato FreeTube
     */
     function toFreeTubeFormat(internalData) {
+        // Asegurar que los datos internos estén normalizados antes de la conversión
+        const normalized = normalizeVideoData(internalData);
+
         // Redondear valores de tiempo para que FreeTube los muestre correctamente
-        const progress = internalData.watchProgress ?? internalData.timestamp ?? 0;
-        const duration = internalData.lengthSeconds ?? internalData.duration ?? 0;
+        const progress = normalized.watchProgress;
+        const duration = normalized.lengthSeconds;
 
         // Redondear watchProgress a 2 decimales
         const watchProgress = Math.round(progress * 100) / 100;
@@ -4653,28 +4654,76 @@ background: var(--ypp-danger);
         const lengthSeconds = Math.round(duration);
 
         const result = {
-            videoId: internalData.videoId,
-            title: internalData.title || t('unknown'),
-            author: internalData.author || t('unknown'),
-            authorId: internalData.authorId || '',
-            published: internalData.published || null,
-            description: internalData.description || '',
-            viewCount: internalData.viewCount ?? (parseInt(internalData.viewsNumber?.replace(/[,\.\s]/g, '')) || 0),
+            videoId: normalized.videoId,
+            title: normalized.title || t('unknown'),
+            author: normalized.author || t('unknown'),
+            authorId: normalized.authorId || '',
+            published: normalized.published || null,
+            description: normalized.description || '',
+            viewCount: normalized.viewCount,
             lengthSeconds: lengthSeconds,
             watchProgress: watchProgress,
-            timeWatched: internalData.timeWatched || Date.now(),
-            isLive: internalData.isLive || false,
-            // FreeTube usa 'video' para todo en su tipo en exportación historial.db
-            // ultima revision la hice con la version: v0.23.14 Beta 
+            timeWatched: normalized.timeWatched,
+            isLive: normalized.isLive || false,
+            // FreeTube usa 'video' para todo en su tipo en exportación historial.db, última revisión: v0.23.15 Beta
             type: 'video',
+
+            // Durante la importación desde FreeTube, estos campos se consideran opcionales
+            // https://github.com/FreeTubeApp/FreeTube/blob/fa842985/src/renderer/components/DataSettings/DataSettings.vue#L832-L839
+            /* 
+            const optionalKeys = [
+                // `_id` absent if marked as watched manually
+                '_id',
+                'lastViewedPlaylistId',
+                'lastViewedPlaylistItemId',
+                'lastViewedPlaylistType',
+                'viewCount',
+            ]
+            */
+
             // Metadatos de playlist (FreeTube los incluye siempre, aunque sean null)
-            lastViewedPlaylistId: internalData.lastViewedPlaylistId || null,
-            lastViewedPlaylistType: internalData.lastViewedPlaylistType || '',
-            lastViewedPlaylistItemId: internalData.lastViewedPlaylistItemId || null
+            lastViewedPlaylistId: normalized.lastViewedPlaylistId || null,
+
+            /* 
+            Valores posibles para `lastViewedPlaylistType`
+            https://github.com/FreeTubeApp/FreeTube/blob/fa842985/src/renderer/views/Watch/Watch.js#L1188-L1200
+                - **`"user"`**: Cuando el video se reproduce desde una playlist creada por el usuario
+                - **`""`** (cadena vacía): Cuando no hay playlist asociada o es una playlist remota
+                - **`null`**: Cuando no hay información de playlist
+            */
+            lastViewedPlaylistType: '',
+
+            /* 
+            Valores posibles para `lastViewedPlaylistItemId`
+            https://github.com/FreeTubeApp/FreeTube/blob/fa842985/src/renderer/views/Watch/Watch.js#L1230-1273
+                - **String**: Identificador único del item dentro de la playlist (para playlists de usuario)
+                - **`null`**: Cuando no hay item de playlist específico (como en playlists remotas)
+            */
+            lastViewedPlaylistItemId: normalized.lastViewedPlaylistItemId || null,
+            // Preservar _id si existe
+            ...(normalized._id ? { _id: normalized._id } : {})
         };
 
         return result;
     }
+
+    // freetube v0.23.15 Beta guarda asi un livestream...
+    /* 
+        {
+            "videoId":"YnSRyzVme58",
+            "title":"🔴LIVE | CS2 | OPENING CASES | HUTCH x CLOAKZY x DRAC x NICKMERCS | #BUNGULATE",
+            "author":"TheBurntPeanut",
+            "authorId":"UCMNEVbszv8ZyvSXoTn3yhpQ",
+            "published":1774483849000,
+            "description":"",
+            "viewCount":93265,
+            "lengthSeconds":0,
+            "watchProgress":0,
+            "timeWatched":1774487172973,
+            "isLive":false,       <- bruh
+            "type":"video"
+        }
+    */
 
     /**
     * Parsea un archivo SQLite de FreeTube para extraer el historial
@@ -4687,70 +4736,47 @@ background: var(--ypp-danger);
             const uint8Array = new Uint8Array(arrayBuffer);
             let text = '';
 
-            // Extraer texto legible del archivo binario
-            for (let i = 0; i < uint8Array.length; i++) {
-                const byte = uint8Array[i];
-                if (byte >= 32 && byte <= 126) { // Caracteres imprimibles
-                    text += String.fromCharCode(byte);
-                } else {
-                    text += ' '; // Reemplazar bytes no imprimibles
+            // Intentar decodificar como UTF-8 primero por si es un archivo de texto (JSON-L) 
+            // que llegó aquí como arrayBuffer
+            try {
+                const decoder = new TextDecoder('utf-8');
+                text = decoder.decode(uint8Array);
+            } catch (e) {
+                // Fallback a extracción manual de caracteres imprimibles si falla la decodificación
+                for (let i = 0; i < uint8Array.length; i++) {
+                    const byte = uint8Array[i];
+                    text += (byte >= 32 && byte <= 126) ? String.fromCharCode(byte) : ' ';
                 }
             }
 
-            // Buscar patrones JSON en el texto
             const jsonObjects = [];
-            const jsonPattern = /\{[^}]*"videoId"[^}]*\}/g;
 
-            let match;
-            while ((match = jsonPattern.exec(text)) !== null) {
+            // 1. Intentar parsear como JSON directo o JSON-L
+            const trimmed = text.trim();
+            if (trimmed.startsWith('[') && (trimmed.endsWith(']') || trimmed.includes(']'))) {
                 try {
-                    // Limpiar y parsear el objeto JSON
-                    let cleanJson = match[0];
-
-                    // Intentar parsear directamente
-                    const obj = JSON.parse(cleanJson);
-                    if (obj.videoId) {
-                        jsonObjects.push(obj);
-                    }
-                } catch (e) {
-                    // Si falla, intentar reparar JSON común
-                    try {
-                        let cleanJson = match[0]
-                            .replace(/,\s*}/g, '}') // Remove trailing commas
-                            .replace(/,\s*]/g, ']'); // Remove trailing commas in arrays
-
-                        const obj = JSON.parse(cleanJson);
-                        if (obj.videoId) {
-                            jsonObjects.push(obj);
-                        }
-                    } catch (e2) {
-                        // Ignorar objetos que no se pueden parsear
-                    }
-                }
+                    // Extraer solo la parte del array si hay basura alrededor (común en binarios)
+                    const arrayMatch = trimmed.match(/\[.*\]/s);
+                    if (arrayMatch) jsonObjects.push(...JSON.parse(arrayMatch[0]));
+                } catch (e) { /* continuar */ }
             }
 
-            // Si no se encontraron objetos con el patrón anterior, buscar más ampliamente
+            // 2. Si falló o no es array, buscar objetos individuales (NDJSON o escaneo de binario)
             if (jsonObjects.length === 0) {
-                // Buscar cualquier objeto que parezca un video de YouTube
-                const broaderPattern = /\{[^}]*"videoId"\s*:\s*"[^"]*"[^}]*\}/g;
-                let broaderMatch;
-                while ((broaderMatch = broaderPattern.exec(text)) !== null) {
+                const jsonPattern = /\{[^}]*"videoId"[^}]*\}/g;
+                let match;
+                while ((match = jsonPattern.exec(text)) !== null) {
                     try {
-                        const obj = JSON.parse(broaderMatch[0]);
-                        if (obj.videoId && obj.videoId.length > 5) {
-                            jsonObjects.push(obj);
-                        }
-                    } catch (e) {
-                        // Ignorar errores
-                    }
+                        const obj = JSON.parse(match[0].replace(/,\s*}/g, '}'));
+                        if (obj.videoId) jsonObjects.push(obj);
+                    } catch (e) { /* ignorar línea/segmento corrupto */ }
                 }
             }
 
-            logLog('parseFreeTubeDB', `Encontrados ${jsonObjects.length} videos en la base de datos`);
+            logLog('parseFreeTubeDB', `Procesados ${jsonObjects.length} posibles videos`);
             return jsonObjects;
-
         } catch (error) {
-            logError('parseFreeTubeDB', 'Error parseando DB:', error);
+            logError('parseFreeTubeDB', 'Error fatal parseando DB:', error);
             return [];
         }
     }
@@ -4761,15 +4787,18 @@ background: var(--ypp-danger);
      * @returns {Object} Datos en formato interno del script
      */
     function fromFreeTubeFormat(freeTubeData) {
-        // Generar thumbnail URL directamente si el videoId es válido
-        const videoId = freeTubeData.videoId;
+        if (!freeTubeData || !freeTubeData.videoId) return null;
+
+        // Normalizar para asegurar Format A y limpiar campos legacy
+        const normalized = normalizeVideoData(freeTubeData);
+        const videoId = normalized.videoId;
 
         // Determinar si el video está completado basado en el progreso
-        const watchProgress = freeTubeData.watchProgress || 0;
-        const lengthSeconds = freeTubeData.lengthSeconds || 0;
-        let isCompleted = false;
+        let isCompleted = normalized.isCompleted || false;
+        const watchProgress = normalized.watchProgress;
+        const lengthSeconds = normalized.lengthSeconds;
 
-        if (lengthSeconds > 0) {
+        if (!isCompleted && lengthSeconds > 0) {
             // Considerar completado si el progreso es >= 95% o si quedan menos de 30 segundos
             const progressPercent = (watchProgress / lengthSeconds) * 100;
             const remainingSeconds = lengthSeconds - watchProgress;
@@ -4777,23 +4806,10 @@ background: var(--ypp-danger);
         }
 
         return {
-            videoId: freeTubeData.videoId,
-            title: freeTubeData.title,
-            author: freeTubeData.author,
-            authorId: freeTubeData.authorId,
-            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`, // Campo temporal compatible con UI legacy que aún busque thumb
-            viewCount: freeTubeData.viewCount || 0,
-            watchProgress: freeTubeData.watchProgress || 0,
-            lengthSeconds: freeTubeData.lengthSeconds || 0,
-            timeWatched: freeTubeData.timeWatched || Date.now(),
-            type: normalizeVideoType(freeTubeData.type === 'short' ? 'shorts' : 'video'),
-            isCompleted: isCompleted,
-            published: freeTubeData.published,
-            description: freeTubeData.description,
-            isLive: freeTubeData.isLive || false,
-            lastViewedPlaylistId: freeTubeData.lastViewedPlaylistId || null,
-            lastViewedPlaylistType: freeTubeData.lastViewedPlaylistType || '',
-            lastViewedPlaylistItemId: freeTubeData.lastViewedPlaylistItemId || null
+            ...normalized,
+            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+            type: normalizeVideoType(normalized.type === 'short' ? 'shorts' : normalized.type),
+            isCompleted: isCompleted
         };
     }
 
@@ -4849,86 +4865,55 @@ background: var(--ypp-danger);
     * @returns {Object} Resultado de la importación { imported: number, failed: number }
     */
     async function importFromFreeTubeFormat(freeTubeData) {
-        let imported = 0;
-        let failed = 0;
+        let importedCount = 0;
+        let failedCount = 0;
 
-        // Validar que los datos sean un array
         if (!Array.isArray(freeTubeData)) {
             logError('importFromFreeTubeFormat', 'Los datos no son un array válido');
             return { imported: 0, failed: 0, total: 0 };
         }
 
-        for (const video of freeTubeData) {
-            try {
-                // Validar que el video tenga los campos mínimos requeridos
-                if (!video || typeof video !== 'object') {
-                    logError('importFromFreeTubeFormat', 'Video inválido: no es un objeto');
-                    failed++;
-                    continue;
-                }
+        // 1. Deduplicar por videoId: quedarse con la entrada de tiempo más reciente
+        // Esto maneja exports de FreeTube Beta que permiten duplicados via _id
+        const uniqueVideos = new Map();
+        for (const entry of freeTubeData) {
+            if (!entry || !entry.videoId) continue;
 
-                if (!video.videoId) {
-                    logError('importFromFreeTubeFormat', 'Video inválido: no tiene videoId');
-                    failed++;
-                    continue;
-                }
+            const internal = fromFreeTubeFormat(entry);
+            if (!internal) continue;
 
-                // Validar que el videoId tenga un formato válido
-                if (typeof video.videoId !== 'string' || video.videoId.length < 5) {
-                    logError('importFromFreeTubeFormat', `VideoId inválido: ${video.videoId}`);
-                    failed++;
-                    continue;
-                }
-
-                const internalFormat = fromFreeTubeFormat(video);
-
-                // Validación adicional del formato interno
-                if (!internalFormat || !internalFormat.videoId) {
-                    logError('importFromFreeTubeFormat', 'Error al convertir formato interno');
-                    failed++;
-                    continue;
-                }
-
-                // Si ya existe el video en Storage, conservar el mayor viewCount como más reciente
-                try {
-                    const existing = await Storage.get(video.videoId);
-                    if (existing && (existing.viewsNumber != null || internalFormat.viewsNumber != null)) {
-                        const parseViews = (val) => {
-                            if (typeof val === 'number') return val;
-                            if (typeof val === 'string') {
-                                const cleaned = val.replace(/[^0-9]/g, '');
-                                if (!cleaned) return null;
-                                const n = parseInt(cleaned, 10);
-                                return Number.isNaN(n) ? null : n;
-                            }
-                            return null;
-                        };
-
-                        const existingViews = parseViews(existing.viewsNumber);
-                        const importedViews = parseViews(internalFormat.viewsNumber);
-                        const winner = (existingViews || 0) > (importedViews || 0) ? existingViews : importedViews;
-
-                        if (winner != null && winner > 0) {
-                            try {
-                                internalFormat.viewsNumber = winner.toLocaleString();
-                            } catch (_) {
-                                internalFormat.viewsNumber = String(winner);
-                            }
-                        }
-                    }
-                } catch (_) { }
-
-                await Storage.set(video.videoId, internalFormat);
-                imported++;
-                logLog('importFromFreeTubeFormat', `✅ Importado: ${video.videoId} - ${video.title || 'Sin título'}`);
-            } catch (error) {
-                logError('importFromFreeTubeFormat', `Error importando ${video?.videoId || 'desconocido'}:`, error);
-                failed++;
+            const existing = uniqueVideos.get(internal.videoId);
+            if (!existing || internal.timeWatched > existing.timeWatched) {
+                uniqueVideos.set(internal.videoId, internal);
             }
         }
 
-        logLog('importFromFreeTubeFormat', `Importación completada: ${imported} exitosos, ${failed} fallidos, total ${freeTubeData.length}`);
-        return { imported, failed, total: freeTubeData.length };
+        // 2. Procesar e importar de forma secuencial
+        for (const [vId, internalFormat] of uniqueVideos) {
+            try {
+                // Mezclar con datos existentes si los hay (ej. preservar mayor viewCount)
+                const existingInStorage = await Storage.get(vId);
+                let finalData = internalFormat;
+
+                if (existingInStorage) {
+                    finalData = normalizeVideoData({
+                        ...existingInStorage,
+                        ...internalFormat,
+                        viewCount: Math.max(existingInStorage.viewCount || 0, internalFormat.viewCount || 0)
+                    });
+                }
+
+                await Storage.set(vId, finalData);
+                importedCount++;
+                if (importedCount % 20 === 0) logLog('importFromFreeTubeFormat', `Progreso: ${importedCount} importados...`);
+            } catch (error) {
+                logError('importFromFreeTubeFormat', `Error al importar ${vId}:`, error);
+                failedCount++;
+            }
+        }
+
+        logLog('importFromFreeTubeFormat', `Importación completa: ${importedCount} éxitos, ${failedCount} fallos de ${uniqueVideos.size} únicos.`);
+        return { imported: importedCount, failed: failedCount, total: freeTubeData.length };
     }
 
     /**
@@ -4947,33 +4932,25 @@ background: var(--ypp-danger);
         if (sourceData && sourceData.forceResumeTime > 0) {
             if (isFinished) {
                 logLog(logContext, `Video ${videoId} completado, manteniendo tiempo fijo`);
-                const base = { ...sourceData, isCompleted: true, lastUpdated: now, timestamp: 0 };
+                // Normalizar para asegurar Format A y marcar como completado
+                const base = normalizeVideoData({ ...sourceData, isCompleted: true, watchProgress: 0 });
                 await Storage.set(videoId, base);
             }
             return { success: false, reason: 'fixed_time_no_overwrite' };
         }
 
         const videoData = {
-            videoId,
-            title: videoInfo.title || sourceData?.title,
-            author: videoInfo.author || sourceData?.author,
-            authorId: videoInfo.authorId || sourceData?.authorId,
-            published: videoInfo.published || sourceData?.published,
-            description: videoInfo.description || sourceData?.description,
-            isLive: videoInfo.isLive || sourceData?.isLive || false,
+            ...sourceData,
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([_, v]) => v != null)),
             watchProgress: currentTime,
-            lengthSeconds: duration,
             timeWatched: now,
             type: 'video',
-            isCompleted: isFinished,
-            viewCount: videoInfo.viewCount || 0,
-            lastViewedPlaylistId: playlistId || null,
-            lastViewedPlaylistType: playlistId ? 'channel' : '',
-            lastViewedPlaylistItemId: null,
-            playlistTitle: videoInfo.playlistTitle || sourceData?.playlistTitle
+            isCompleted: isFinished
         };
 
-        const storageResult = await Storage.set(videoId, videoData);
+        // Normalizar antes de guardar para asegurar Format A y limpieza de legacy
+        const normalizedData = normalizeVideoData(videoData);
+        const storageResult = await Storage.set(videoId, normalizedData);
         logLog(logContext, `✅ Video guardado (${logContext}):`, {
             ...videoData,
             description: videoData.description
@@ -5019,29 +4996,21 @@ background: var(--ypp-danger);
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
         logLog('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
 
+        const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
         const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
 
         const videoData = {
-            videoId,
-            title: videoInfo.title,
-            author: videoInfo.author,
-            authorId: videoInfo.authorId,
-            published: videoInfo.published,
-            description: videoInfo.description,
-            isLive: false,
+            ...sourceData,
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([_, v]) => v != null)),
             watchProgress: currentTime,
-            lengthSeconds: duration,
-            viewCount: videoInfo.viewCount || 0,
             timeWatched: now,
             type: 'shorts',
-            isCompleted: isFinished,
-            lastViewedPlaylistId: playlistId,
-            lastViewedPlaylistType: '',
-            lastViewedPlaylistItemId: null
+            isCompleted: isFinished
         };
 
-        const storageResult = await Storage.set(videoId, videoData);
+        const normalizedData = normalizeVideoData(videoData);
+        const storageResult = await Storage.set(videoId, normalizedData);
         // logLog('saveShortsVideo', `✅ Short guardado:`, videoData);
         logLog('saveShortsVideo', '✅ Short guardado:', {
             ...videoData,
@@ -5091,24 +5060,16 @@ background: var(--ypp-danger);
 
         // Preservar datos previos para previews
         const videoData = {
-            videoId,
-            title: videoInfo.title,
-            author: videoInfo.author,
-            authorId: videoInfo.authorId,
-            published: videoInfo.published,
-            description: videoInfo.description,
-            isLive: videoInfo.isLive || false,
+            ...sourceData,
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([_, v]) => v != null)),
             watchProgress: currentTime,
-            lengthSeconds: isFinite(duration) ? duration : (sourceData?.lengthSeconds || 0),
-            viewCount: videoInfo.viewCount || 0,
             timeWatched: now,
             type: resolvedVideoType,
-            isCompleted: safeIsFinished,
-            lastViewedPlaylistId: playlistId,
-            playlistTitle: videoInfo.playlistTitle || sourceData?.playlistTitle
+            isCompleted: safeIsFinished
         };
 
-        const storageResult = await Storage.set(videoId, videoData);
+        const normalizedData = normalizeVideoData(videoData);
+        const storageResult = await Storage.set(videoId, normalizedData);
         // logLog('savePreview', `✅ Preview guardado:`, videoData);
         logLog('savePreview', '✅ Preview guardado:', {
             ...videoData,
@@ -5136,28 +5097,21 @@ background: var(--ypp-danger);
         const { videoId, lengthSeconds: duration } = videoInfo;
         logLog('saveLivestream', `Guardando livestream ${videoId} en ${currentTime}s`);
 
+        const sourceData = await getSavedVideoData(videoId);
         const now = Date.now();
 
         const videoData = {
-            videoId,
-            title: videoInfo.title,
-            author: videoInfo.author,
-            authorId: videoInfo.authorId,
-            published: videoInfo.published,
-            description: videoInfo.description,
-            isLive: true,
+            ...sourceData,
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([_, v]) => v != null)),
             watchProgress: currentTime,
-            lengthSeconds: isFinite(duration) && duration > 0 ? duration : 0,
-            viewCount: videoInfo.viewCount || 0,
             timeWatched: now,
             type: 'live',
-            isCompleted: false,
-            lastViewedPlaylistId: null,
-            lastViewedPlaylistType: '',
-            lastViewedPlaylistItemId: null
+            isLive: true,
+            isCompleted: false
         };
 
-        const storageResult = await Storage.set(videoId, videoData);
+        const normalizedData = normalizeVideoData(videoData);
+        const storageResult = await Storage.set(videoId, normalizedData);
         // logLog('saveLivestream', `✅ Livestream guardado:`, videoData);
         logLog('saveLivestream', '✅ Livestream guardado:', {
             ...videoData,
@@ -5769,6 +5723,7 @@ background: var(--ypp-danger);
                             title = (title && title !== 'null' && title !== 'undefined') ? title : playlistId;
                             playlistNameCache.set(playlistId, title);
                             resolve(title);
+                            warn('aaaaa', title)
                         } catch (e) {
                             resolve(playlistId);
                         }
@@ -8118,14 +8073,14 @@ background: var(--ypp-danger);
     async function getCascadedVideoInfo(initialPlayer, videoId, videoEl, type) {
         let info = {
             videoId: videoId,
-            title: '',
-            author: '',
-            authorId: '',
+            title: null,
+            author: null,
+            authorId: null,
             isLive: false,
-            published: 0,
-            description: '',
-            viewCount: 0,
-            lengthSeconds: 0,
+            published: null,
+            description: null,
+            viewCount: null,
+            lengthSeconds: null,
             lastViewedPlaylistId: null,
             playlistTitle: null,
             lastViewedPlaylistType: '',
@@ -8156,37 +8111,40 @@ background: var(--ypp-danger);
                 logLog('getCascadedVideoInfo', 'visitas microformat', playerResponse?.microformat.playerMicroformatRenderer.viewCount)
                 logLog('getCascadedVideoInfo', 'PlaylistId:', player.getPlaylistId?.());
 
-                info.lengthSeconds = parseInt(details.lengthSeconds, 10) || 0;
+                info.lengthSeconds = parseInt(details.lengthSeconds, 10) ?? info.lengthSeconds;
 
-                info.title = details.title || info.title;
-                info.author = details.author || info.author;
-                info.authorId = details.channelId || info.authorId;
-                info.description = details.shortDescription || info.description;
+                info.title = details.title ?? info.title;
+                info.author = details.author ?? info.author;
+                info.authorId = details.channelId ?? info.authorId;
+                info.description = details.shortDescription ?? info.description;
 
                 const rawViews = details.viewCount;
                 if (rawViews) {
-                    info.viewCount = rawViews.length > 0 ? parseInt(rawViews, 10) : 0;
+                    info.viewCount = rawViews.length > 0 ? parseInt(rawViews, 10) : info.viewCount;
                 }
 
-                info.isLive = details.isLiveContent || info.isLive;
+                info.isLive = details.isLiveContent ?? info.isLive;
             }
 
             // B: getVideoData (Fallback de nivel 1)
             const internalData = player?.getVideoData?.();
             if (internalData) {
-                info.title = info.title || internalData.title;
-                info.author = info.author || internalData.author;
-                info.authorId = info.authorId || internalData.channelId; // Algunos players lo incluyen aquí
-                info.isLive = info.isLive || internalData.isLive;
+                info.title = info.title ?? internalData.title;
+                info.author = info.author ?? internalData.author;
+                info.authorId = info.authorId ?? internalData.channelId; // Algunos players lo incluyen aquí
+                info.isLive = info.isLive ?? internalData.isLive;
             }
 
             // C: Microformat (Metadatos de renderizado)
             if (playerResponse?.microformat?.playerMicroformatRenderer) {
 
-
-
                 const micro = playerResponse.microformat.playerMicroformatRenderer;
                 info.published = micro.publishDate ? new Date(micro.publishDate).getTime() : info.published;
+                // Extraer viewCount de microformat (frecuente en Previews y Shorts)
+                if (micro.viewCount) {
+                    const parsedViews = parseInt(micro.viewCount, 10);
+                    info.viewCount = !isNaN(parsedViews) ? parsedViews : info.viewCount;
+                }
             }
 
             // D: Playlist ID (Búsqueda exhaustiva en metadatos, DOM y retries por SPA)
@@ -8235,12 +8193,12 @@ background: var(--ypp-danger);
                 }
             }
 
-            info.lastViewedPlaylistId = currentPlaylistId || info.lastViewedPlaylistId;
+            info.lastViewedPlaylistId = currentPlaylistId ?? info.lastViewedPlaylistId;
 
             // Nivel 1.5: Si hay playlistId, obtener título (maneja cache automáticamente)
             if (info.lastViewedPlaylistId) {
                 // Si estamos en Watch, el título de la playlist suele estar ya cacheado o disponible en el DOM
-                info.playlistTitle = await getPlaylistName(info.lastViewedPlaylistId);
+                info.playlistTitle = await getPlaylistName(info.lastViewedPlaylistId) ?? info.playlistTitle;
             }
 
         } catch (e) {
@@ -8249,24 +8207,27 @@ background: var(--ypp-danger);
 
         // 🔵 Nivel 2: YouTube Helper API
         try {
-            if (YTHelper?.video && (!info.title
-                || !info.author
-                || !info.authorId
-                || !info.published
-                || !info.description
-                || !info.viewCount
-            )) {
+            if (
+                YTHelper?.video &&
+                (
+                    info.title == null ||
+                    info.author == null ||
+                    info.authorId == null ||
+                    info.published == null ||
+                    info.description == null ||
+                    info.viewCount == null
+                )) {
                 const helperId = YTHelper.video.id /* extractOrNormalizeVideoId(location.href).id */;
 
                 logLog('getCascadedVideoInfo', 'Helper ID:', helperId);
                 logLog('getCascadedVideoInfo', 'Video ID:', videoId);
                 if (helperId === videoId) {
-                    info.title = info.title || YTHelper.video.title;
-                    info.author = info.author || YTHelper.video.channel;
-                    info.authorId = info.authorId || YTHelper.video.channelId;
-                    info.published = info.published || (YTHelper.video.publishDate ? YTHelper.video.publishDate.getTime() : 0);
-                    info.description = info.description || YTHelper.video.rawDescription;
-                    info.viewCount = YTHelper.video.viewCount
+                    info.title = info.title ?? YTHelper.video.title;
+                    info.author = info.author ?? YTHelper.video.channel;
+                    info.authorId = info.authorId ?? YTHelper.video.channelId;
+                    info.published = info.published ?? (YTHelper.video.publishDate ? YTHelper.video.publishDate.getTime() : 0);
+                    info.description = info.description ?? YTHelper.video.rawDescription;
+                    info.viewCount = info.viewCount ?? (parseInt(YTHelper.video.viewCount, 10) || 0);
                 }
             }
         } catch (_) { }
@@ -8293,7 +8254,7 @@ background: var(--ypp-danger);
 
                 if (metapanel) {
                     // Título (Solo si no tenemos uno válido de Nivel 1/2)
-                    if (!info.title || info.title === videoId) {
+                    if (info.title == null) {
                         const titleEl =
                             metapanel.querySelector('yt-shorts-video-title-view-model') ||
                             metapanel.querySelector('h2') ||
@@ -8303,13 +8264,13 @@ background: var(--ypp-danger);
                     }
 
                     // Autor (Solo si no tenemos uno de Nivel 1/2)
-                    if (!info.author || info.author === t('unknown')) {
+                    if (info.author == null || info.author === t('unknown')) {
                         const authorEl = metapanel.querySelector('#channel-name a') || metapanel.querySelector('a[href*="/@"]');
                         info.author = authorEl?.textContent?.trim() || info.author;
                     }
 
                     // Channel ID
-                    if (!info.authorId) {
+                    if (info.authorId == null) {
                         const channelLink = metapanel.querySelector('a[href*="/channel/"]');
                         if (channelLink) {
                             info.authorId = channelLink.href.split('/channel/')[1]?.split(/[/?#]/)[0];
@@ -8320,7 +8281,7 @@ background: var(--ypp-danger);
                     }
 
                     // Vistas - Shorts focus ya que primeros fallbacks no lo añaden
-                    if (info.viewCount === 0 || !info.viewCount) {
+                    if (info.viewCount === 0 || info.viewCount == null) {
                         async function fetchShortsViews() {
                             if (!videoId) return null;
 
@@ -8378,7 +8339,7 @@ background: var(--ypp-danger);
                 }
             }
 
-            if (type === 'preview' && (!info.lastViewedPlaylistId || !info.title || info.title === videoId)) {
+            if (type === 'preview' && (info.lastViewedPlaylistId == null || info.title == null)) {
                 // Para previews, el contexto del DOM es vital para la playlist
                 try {
                     const richItem = videoEl.closest('ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-rich-grid-media, ytd-video-renderer');
@@ -8391,16 +8352,15 @@ background: var(--ypp-danger);
                         if (linkWithList) {
                             const url = new URL(linkWithList.href, window.location.origin);
                             const listId = url.searchParams.get('list');
-                            if (listId && !info.lastViewedPlaylistId) {
+                            if (listId && info.lastViewedPlaylistId == null) {
                                 info.lastViewedPlaylistId = listId;
                                 logInfo('getCascadedVideoInfo', `📂 Playlist detectada en ${isCurrentlyHovered ? 'HOVER' : 'contexto'} de Preview: ${listId}`);
                             }
                         }
 
-                        // Título y Autor si faltan
-                        if (!info.title || info.title === videoId) {
+                        if (info.title == null) {
                             const titleA = richItem.querySelector('#video-title, .yt-lockup-metadata-view-model__title');
-                            if (titleA) info.title = titleA.textContent.trim();
+                            info.title = titleA?.textContent.trim() ?? info.title;
                         }
                     }
                 } catch (err) {
@@ -8409,7 +8369,7 @@ background: var(--ypp-danger);
             }
 
             // Fallbacks genéricos para otros tipos o si Shorts falló
-            if (!info.title || info.title === videoId) {
+            if (info.title == null) {
                 let titleEl = null;
                 if (type === 'watch') {
                     titleEl = DOMHelpers.get(`video:titleWatch:${videoId}`, () =>
@@ -8424,19 +8384,14 @@ background: var(--ypp-danger);
                         document.querySelector(`${S.IDS.INLINE_PREVIEW_PLAYER} .ytp-title-link`), 250);
                 }
 
-                info.title = titleEl?.textContent?.trim() || info.title;
-
-                // Fallback definitivo al título del documento si nada funcionó
-                if (!info.title || info.title === videoId) {
-                    info.title = document.title.replace(/ - YouTube$/, '') || videoId;
-                }
+                info.title = titleEl?.textContent?.trim() ?? info.title;
             }
 
-            if (!info.author || info.author === t('unknown')) {
+            if (info.author == null || info.author === t('unknown')) {
                 const authorEl = DOMHelpers.get(`video:author:${videoId}`, () =>
                     document.querySelector('#channel-name a') ||
                     document.querySelector('link[itemprop="name"]'), 250);
-                info.author = authorEl?.textContent?.trim() || authorEl?.content || info.author;
+                info.author = authorEl?.textContent?.trim() ?? info.author;
             }
 
 
@@ -8447,8 +8402,23 @@ background: var(--ypp-danger);
         }
 
         // Limpieza final
-        if (!info.title || info.title === 'undefined') info.title = videoId;
-        if (!info.author || info.author === 'undefined') info.author = t('unknown');
+        info.title = info.title ?? (
+            (currentPageType === 'watch' || currentPageType === 'shorts')
+                ? document.title.replace(/ - YouTube$/, '')
+                : ''
+        );
+
+        info.author = info.author ?? t('unknown');
+        info.authorId = info.authorId ?? '';
+        info.published = info.published ?? 0;
+        info.description = info.description ?? '';
+        info.viewCount = info.viewCount ?? 0;
+        info.lengthSeconds = info.lengthSeconds ?? 0;
+        info.lastViewedPlaylistId = info.lastViewedPlaylistId ?? null;
+        info.playlistTitle = info.playlistTitle ?? null;
+
+
+
 
         return info;
     }
@@ -9327,7 +9297,7 @@ background: var(--ypp-danger);
         const data = await Storage.get(videoId);
         if (data) {
             data.lastViewedPlaylistId = null;
-            data.lastViewedPlaylistType = null;
+            data.lastViewedPlaylistType = '';
             data.lastViewedPlaylistItemId = null;
             await Storage.set(videoId, data);
             showFloatingToast(`${SVG_ICONS.check} ${t('playlistAssociationRemoved')}`);
@@ -9336,7 +9306,7 @@ background: var(--ypp-danger);
     }
 
     async function handleDeleteEntryAction(videoId, playlistKey, titleCache) {
-        const title = titleCache || videoId;
+        const title = titleCache;
 
         // Cargar info original por si deshace
         let itemInfo = null;
@@ -9466,7 +9436,7 @@ background: var(--ypp-danger);
 
         const thumbUrl = `https://i.ytimg.com/vi/${escapeHTML(videoId)}/hqdefault.jpg`;
 
-        const titleText = escapeHTML(info.title || videoId);
+        const titleText = escapeHTML(info.title);
         const authorText = escapeHTML(info.author || t('unknown'));
 
         const viewCount = info.viewCount ?? 0;
@@ -9662,7 +9632,7 @@ background: var(--ypp-danger);
     function normalizeVideoType(rawType) {
         if (!rawType || typeof rawType !== 'string') return 'video';
         const type = rawType.trim().toLowerCase();
-        // Mapa de conversión de tipos legacy → actuales
+        // Mapa de conversión de tipos legacy
         const LEGACY_TYPE_MAP = {
             'watch': 'video',
             'regular': 'video',
@@ -9689,7 +9659,7 @@ background: var(--ypp-danger);
      * @returns {Promise<{migrated: number, skipped: number}>}
      */
     async function migrateToFreeTubeFormat() {
-        const MIGRATION_VERSION = 3;
+        const MIGRATION_VERSION = 4;
         const MIGRATION_KEY = 'ypp_migration_freetube_format_version';
 
         /**
@@ -9786,22 +9756,12 @@ background: var(--ypp-danger);
                 if (data.videos && typeof data.videos === 'object') {
                     const playlistId = key;
                     for (const [vId, vData] of Object.entries(data.videos)) {
+                        // Normalizar y desanidar video de la playlist antigua
+                        const normalizedVData = normalizeVideoData({ ...vData, videoId: vData.videoId || vId });
                         await Storage.set(vId, {
-                            videoId: vId,
-                            title: vData.title,
-                            author: vData.author,
-                            authorId: vData.authorId,
-                            published: vData.published,
-                            description: vData.description,
-                            isLive: vData.isLive || false,
-                            watchProgress: vData.watchProgress ?? vData.timestamp ?? 0,
-                            lengthSeconds: vData.lengthSeconds ?? vData.duration ?? 0,
-                            timeWatched: vData.timeWatched ?? vData.lastUpdated ?? vData.savedAt ?? Date.now(),
-                            type: normalizeVideoType(vData.videoType || vData.type),
-                            viewCount: typeof vData.viewsNumber === 'string' ? (parseInt(vData.viewsNumber.replace(/[,\.\s]/g, '')) || 0) : (vData.viewCount ?? (parseInt(vData.viewsNumber) || 0)),
-                            isCompleted: vData.isCompleted || false,
+                            ...normalizedVData,
                             lastViewedPlaylistId: playlistId,
-                            lastViewedPlaylistType: 'channel',
+                            lastViewedPlaylistType: '',
                             lastViewedPlaylistItemId: null,
                             forceResumeTime: vData.forceResumeTime
                         });
@@ -9812,32 +9772,16 @@ background: var(--ypp-danger);
                 }
                 // Caso B: Entrada de video (individual)
                 else {
-                    const hasLegacyFields = data.timestamp !== undefined || data.duration !== undefined || data.videoType !== undefined || data.thumb !== undefined;
+                    // Migración v4: Normalización agresiva de todos los campos legacy
+                    // Incluso si no parece tener campos legacy, pasamos por normalizeVideoData 
+                    // para asegurar que el objeto tenga exactamente la estructura Format A en IndexedDB
+                    const normalized = normalizeVideoData(data);
 
-                    if (hasLegacyFields) {
-                        const cleanData = {
-                            videoId: data.videoId || key,
-                            title: data.title,
-                            author: data.author,
-                            authorId: data.authorId,
-                            published: data.published,
-                            description: data.description,
-                            isLive: data.isLive || false,
-                            watchProgress: data.watchProgress ?? data.timestamp ?? 0,
-                            lengthSeconds: data.lengthSeconds ?? data.duration ?? 0,
-                            timeWatched: data.timeWatched ?? data.lastUpdated ?? data.savedAt ?? Date.now(),
-                            type: data.type ?? normalizeVideoType(data.videoType || data.type),
-                            viewCount: typeof data.viewsNumber === 'string' ? (parseInt(data.viewsNumber.replace(/[,\.\s]/g, '')) || 0) : (data.viewCount ?? (parseInt(data.viewsNumber) || 0)),
-                            isCompleted: data.isCompleted || false,
-                            playlistTitle: data.playlistTitle,
-                            lastViewedPlaylistId: data.lastViewedPlaylistId ?? null,
-                            lastViewedPlaylistType: data.lastViewedPlaylistType ?? '',
-                            lastViewedPlaylistItemId: data.lastViewedPlaylistItemId ?? null
-                        };
+                    // Verificar si hubo cambios reales o si forzamos limpieza (v4 fuerza limpieza de campos legacy)
+                    const hadLegacy = data.timestamp !== undefined || data.duration !== undefined || data.lastUpdated !== undefined || data.viewsNumber !== undefined;
 
-                        if (data.forceResumeTime !== undefined) cleanData.forceResumeTime = data.forceResumeTime;
-
-                        await Storage.set(key, cleanData);
+                    if (hadLegacy || lastMigrationVersion < 4) {
+                        await Storage.set(key, normalized);
                         migrated++;
                     } else {
                         skipped++;

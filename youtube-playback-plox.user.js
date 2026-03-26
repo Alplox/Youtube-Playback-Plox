@@ -4941,7 +4941,7 @@ background: var(--ypp-danger);
 
         const videoData = {
             ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([_, v]) => v != null)),
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v != null || k.startsWith('lastViewed') || k === 'playlistTitle')),
             watchProgress: currentTime,
             timeWatched: now,
             type: 'video',
@@ -5002,7 +5002,7 @@ background: var(--ypp-danger);
 
         const videoData = {
             ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([_, v]) => v != null)),
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v != null || k.startsWith('lastViewed') || k === 'playlistTitle')),
             watchProgress: currentTime,
             timeWatched: now,
             type: 'shorts',
@@ -5061,7 +5061,7 @@ background: var(--ypp-danger);
         // Preservar datos previos para previews
         const videoData = {
             ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([_, v]) => v != null)),
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v != null || k.startsWith('lastViewed') || k === 'playlistTitle')),
             watchProgress: currentTime,
             timeWatched: now,
             type: resolvedVideoType,
@@ -5102,7 +5102,7 @@ background: var(--ypp-danger);
 
         const videoData = {
             ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([_, v]) => v != null)),
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v != null || k.startsWith('lastViewed') || k === 'playlistTitle')),
             watchProgress: currentTime,
             timeWatched: now,
             type: 'live',

@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.8-1
+// @version      0.0.9
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -128,7 +128,7 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1733676/YouTube%20Helper%20API.js
+// @require      https://update.greasyfork.org/scripts/549881/1783571/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 // ------------------------------------------
@@ -2769,7 +2769,7 @@ background: var(--ypp-danger);
         '_test_',
         'idb_migrated'
     ]);
-    const STORAGE_MIGRATION_STATE_KEY = `${CONFIG.storagePrefix} idb_migrated`;
+    const STORAGE_MIGRATION_STATE_KEY = `${CONFIG.storagePrefix}idb_migrated`;
     const storageCache = new Map();
 
     // Nueva capa asíncrona de almacenamiento (IndexedDB primario + caché en memoria + fallback)
@@ -2838,7 +2838,11 @@ background: var(--ypp-danger);
                         }
 
                         // Filtrar: solo claves del script, excluyendo metaclaves
-                        const filteredKeys = (allKeys || []).filter(k => isScriptKey(k) && !STORAGE_META_KEYS.has(k));
+                        const filteredKeys = (allKeys || []).filter(k => {
+                            if (!isScriptKey(k)) return false;
+                            const normalized = stripStoragePrefix(k);
+                            return !STORAGE_META_KEYS.has(normalized);
+                        });
                         logInfo(`Migración: ${filteredKeys.length} claves del script encontradas(de ${allKeys.length} totales)`);
 
                         for (const rawKey of filteredKeys) {
@@ -3275,12 +3279,12 @@ background: var(--ypp-danger);
     // ------------------------------------------
 
     // Variables para controlar el estado de inicialización
-    let YTHelper = null; // YouTube Helper API, Redeclarada en waitForHelper
-    let currentPageType = null; // Tipo de página actual (home, watch, playlist, etc.)
-    let cachedSettings = null; // Configuración del usuario
+    let YTHelper = null;          // YouTube Helper API, obtenida de waitForHelper
+    let currentPageType = null;   // Tipo de página actual (home, watch, shorts, playlist, etc.)
+    let cachedSettings = null;    // Configuración del usuario (obtenida de GM_getValue)
 
     // ------------------------------------------
-    // MARK: 📢 Ad Selectors / Ad Detector
+    // MARK: 📢 Ad Selectors
     // ------------------------------------------
 
     const AdSelectors = Object.freeze({
@@ -3421,7 +3425,7 @@ background: var(--ypp-danger);
         clickableAdBadgesWithinRichItem: AdSelectors.clickableAdBadgesWithinRichItem.join(', '),
     });
 
-
+    // MARK: 📢 Ad Detector
     const AdDetector = Object.freeze({
         /**
          * @param {Element|null|undefined} node
@@ -3656,32 +3660,6 @@ background: var(--ypp-danger);
         if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
 
         return 0;
-    };
-
-    /**
-     * Convierte una duración en formato ISO 8601 (PT4M35S) a segundos
-     * @param {string} isoDuration - Duración en formato ISO (ej: "PT4M35S", "PT1H2M3S")
-     * @returns {number} Duración en segundos
-     * @example
-     * parseISODuration("PT4M35S");    // → 275
-     * parseISODuration("PT1H2M3S");   // → 3723
-     * parseISODuration("PT30S");      // → 30
-     * parseISODuration("invalid");    // → 0
-     */
-    const parseISODuration = (isoDuration) => {
-        if (typeof isoDuration !== 'string' || !isoDuration.startsWith('PT')) return 0;
-
-        // Expresión regular para extraer horas, minutos y segundos
-        const regex = /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/;
-        const matches = isoDuration.match(regex);
-
-        if (!matches) return 0;
-
-        const hours = parseInt(matches[1]) || 0;
-        const minutes = parseInt(matches[2]) || 0;
-        const seconds = parseInt(matches[3]) || 0;
-
-        return hours * 3600 + minutes * 60 + seconds;
     };
 
     /**
@@ -4291,7 +4269,7 @@ background: var(--ypp-danger);
     }
 
     // MARK: 📤 Import/Export JSON
-    // Exportación/Importación JSON nativo del userscript (preserva videoType de shorts)
+    // Exportación/Importación JSON nativo del userscript (preserva videoTypes)
     const exportDataToFile = async () => {
         try {
             const exportData = {};
@@ -4400,8 +4378,7 @@ background: var(--ypp-danger);
         inputFile.click();
     };
 
-    // MARK: 📤 Import/Export FreeTube
-    // Exportación/Importación FreeTube (no preserva videoType de shorts)
+    // MARK: 📤 Import/Export FreeTube options
     const exportToFreeTube = () => {
         // Usar la función centralizada para exportar en formato FreeTube
         // para asegurar que todos los campos estén correctamente mapeados
@@ -4599,6 +4576,7 @@ background: var(--ypp-danger);
         inputFile.click();
     };
 
+    // MARK: 🔄 Normalize Video Data
     /**
      * Normaliza los datos de un video al formato interno.
      * Convierte campos legacy (Format B) a modernos (Format A) y asegura consistencia.
@@ -4635,6 +4613,7 @@ background: var(--ypp-danger);
         return result;
     }
 
+    // MARK: 🔄 Convert To FreeTube
     /**
     * Convierte el formato interno de YouTube Playback Plox a formato FreeTube
     * @param {Object} internalData - Datos en formato interno del script
@@ -4725,6 +4704,7 @@ background: var(--ypp-danger);
         }
     */
 
+    // MARK: Parse FreeTube DB
     /**
     * Parsea un archivo SQLite de FreeTube para extraer el historial
     * @param {ArrayBuffer} arrayBuffer - Datos del archivo .db
@@ -4781,6 +4761,7 @@ background: var(--ypp-danger);
         }
     }
 
+    // MARK: 🔄 Convert From FreeTube
     /**
      * Convierte el formato FreeTube a formato interno
      * @param {Object} freeTubeData - Datos en formato FreeTube
@@ -4813,6 +4794,7 @@ background: var(--ypp-danger);
         };
     }
 
+    // MARK: ⬆ Export To FreeTube
     /**
     * Exporta todos los videos guardados en formato FreeTube
     * @returns {Array} Array de videos en formato FreeTube
@@ -4859,6 +4841,7 @@ background: var(--ypp-danger);
         return freeTubeData;
     }
 
+    // MARK: ⬇ Import From FreeTube
     /**
     * Importa videos desde formato FreeTube
     * @param {Array} freeTubeData - Array de videos en formato FreeTube
@@ -4916,6 +4899,7 @@ background: var(--ypp-danger);
         return { imported: importedCount, failed: failedCount, total: freeTubeData.length };
     }
 
+    // MARK: 💾 Internal Save Regular Video
     /**
      * Lógica interna compartida para guardar videos que no son Shorts ni Directos (Watch o Miniplayer).
      * @private
@@ -4966,6 +4950,7 @@ background: var(--ypp-danger);
         return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'video', savedData: videoData };
     }
 
+    // MARK: 💾 Save Regular Video
     /**
      * Guarda progreso para videos regulares (Página de Watch)
      * @param {number} currentTime - Tiempo actual
@@ -4976,6 +4961,7 @@ background: var(--ypp-danger);
         return await internalSaveRegularVideo(currentTime, videoInfo, 'saveRegularVideo');
     }
 
+    // MARK: 💾 Save Miniplayer
     /**
      * Guarda progreso para videos en el Miniplayer
      * @param {number} currentTime - Tiempo actual
@@ -4986,6 +4972,7 @@ background: var(--ypp-danger);
         return await internalSaveRegularVideo(currentTime, videoInfo, 'saveMiniplayer');
     }
 
+    // MARK: 💾 Save Shorts
     /**
      * Guarda progreso para Shorts
      * @param {number} currentTime - Tiempo actual
@@ -5028,6 +5015,7 @@ background: var(--ypp-danger);
         return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'shorts', savedData: videoData };
     }
 
+    // MARK: 💾 Save Preview
     /**
      * Guarda progreso para previews (inline playback en home/search)
      * @param {number} currentTime - Tiempo actual
@@ -5087,6 +5075,7 @@ background: var(--ypp-danger);
         return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'preview' };
     }
 
+    // MARK: 💾 Save Livestream
     /**
      * Guarda progreso para livestreams
      * @param {number} currentTime - Tiempo actual
@@ -5891,6 +5880,7 @@ background: var(--ypp-danger);
             onClickEvent: showSavedVideosList,
             atribute: { title: `${t('savedVideos')}` }
         });
+        delete watchTimeDisplay.dataset.isFixedTime;
 
         // En Delhi UI, insertar al final (después del badge de directo)
         if (timeWrapper) {
@@ -5990,6 +5980,7 @@ background: var(--ypp-danger);
                     onClickEvent: showSavedVideosList,
                     atribute: { title: `${t('savedVideos')}` }
                 });
+                delete shortsTimeDisplay.dataset.isFixedTime;
             }
             if (!shortsTimeDisplay.isConnected) {
                 try { (overlayRoot || document.body).appendChild(shortsTimeDisplay); } catch (_) { }
@@ -6065,34 +6056,39 @@ background: var(--ypp-danger);
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
-    function updateWatchPlaybackBarMessage(message, videoEl, isSeek = false) {
+    function updateWatchPlaybackBarMessage(message, videoEl, isSeek = false, isFixedTime = false) {
         if (!watchTimeDisplay?.isConnected) return;
 
-        if (!watchTimeDisplay) {
-            logWarn('updateWatchPlaybackBarMessage', '⚠️ No se pudo inicializar watchTimeDisplay');
-            return;
+        // No sobreescribir mensajes importantes (seek/fixed) con progreso si está pausado
+        const isVideoPaused = videoEl?.paused ?? false;
+        const hasActiveSeek = watchTimeDisplay.dataset.activeSeek === 'true';
+        const hasFixedTime = watchTimeDisplay.dataset.isFixedTime === 'true';
+
+        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime)) {
+            return; // Preservar el mensaje importante
         }
 
+        // Actualizar contenido y visibilidad
         setInnerHTML(watchTimeDisplay, message);
         watchTimeDisplay.classList.remove('ypp-d-none');
 
-        // No programar limpieza automática para mensajes seek si el video está pausado
-        const isVideoPaused = videoEl?.paused ?? false;
-        logLog('updateWatchPlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}`);
+        // Actualizar metadatos de estado
+        if (isSeek) watchTimeDisplay.dataset.activeSeek = 'true';
+        else if (!isVideoPaused) delete watchTimeDisplay.dataset.activeSeek;
 
+        if (isFixedTime) watchTimeDisplay.dataset.isFixedTime = 'true';
+        else delete watchTimeDisplay.dataset.isFixedTime;
+
+        logLog('updateWatchPlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}, isFixed=${isFixedTime}`);
+
+        // No limpiar si está pausado y es seek/fixed, o si es fixed (permanente)
+        if (isFixedTime) return;
         if (isSeek && isVideoPaused) return;
-        // Si el video está pausado y el display actual ya muestra un seek, no sobreescribir ni limpiar
+
+        // Si no es seek/fixed y está pausado, limpiar inmediatamente (comportamiento legacy para progreso si llegara aquí)
         if (!isSeek && isVideoPaused) {
-            const hasActiveSeek = watchTimeDisplay.dataset.activeSeek === 'true';
-            if (hasActiveSeek) return; // preservar el seek hasta que el usuario reanude
             clearPlaybackBarMessage();
             return;
-        }
-
-        if (isSeek) {
-            watchTimeDisplay.dataset.activeSeek = 'true';
-        } else {
-            delete watchTimeDisplay.dataset.activeSeek;
         }
 
         scheduleDisplayClear('watch', clearPlaybackBarMessage, 1600);
@@ -6100,9 +6096,12 @@ background: var(--ypp-danger);
 
     function clearPlaybackBarMessage() {
         if (watchTimeDisplay) {
-            // Dejar siempre el botón de carpeta visible para abrir la lista de guardados
+            const hasFixedTime = watchTimeDisplay.dataset.isFixedTime === 'true';
+            // Si hay tiempo fijo, mostrar el Pin en lugar de la Carpeta
+            const icon = hasFixedTime ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : (SVG_ICONS.folder || '');
+
             try {
-                setInnerHTML(watchTimeDisplay, SVG_ICONS.folder || '');
+                setInnerHTML(watchTimeDisplay, icon);
             } catch (_) {
                 setInnerHTML(watchTimeDisplay, '');
             }
@@ -6121,7 +6120,7 @@ background: var(--ypp-danger);
     * @param {string} message - Mensaje a mostrar en Shorts
     * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
-    function updateShortsMessage(message, videoEl) {
+    function updateShortsMessage(message, videoEl, isSeek = false, isFixedTime = false) {
         // Verificar si shortsTimeDisplay existe y está en el DOM, si no, reinicializar
         if (!shortsTimeDisplay || !document.contains(shortsTimeDisplay)) {
             initShortsTimeDisplay();
@@ -6134,6 +6133,15 @@ background: var(--ypp-danger);
 
         if (currentPageType !== 'shorts') {
             logWarn('updateShortsMessage', '⚠️ No se pudo inicializar el display de Shorts, currentPageType:', currentPageType);
+            return;
+        }
+
+        // No sobreescribir mensajes importantes (seek/fixed) con progreso si está pausado
+        const isVideoPaused = videoEl?.paused ?? false;
+        const hasActiveSeek = shortsTimeDisplay.dataset.activeSeek === 'true';
+        const hasFixedTime = shortsTimeDisplay.dataset.isFixedTime === 'true';
+
+        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime)) {
             return;
         }
 
@@ -6194,17 +6202,21 @@ background: var(--ypp-danger);
         shortsTimeDisplay.classList.remove('ypp-d-none');
         // Si está en overlayRoot (no metapanel visible), marcar flotante
         try {
-            logLog('updateShortsMessage', 'shortsTimeDisplay.parentElement:', shortsTimeDisplay.parentElement)
-            logLog('updateShortsMessage', 'activePanel:', activePanel)
             shortsTimeDisplay.classList.toggle('ypp-floating', shortsTimeDisplay.parentElement !== activePanel);
         } catch (_) { }
 
-        // No programar limpieza automática para mensajes seek si el video está pausado
-        const isSeekMessage = message.includes('svgPlayOrPauseIcon');
-        const isVideoPaused = videoEl?.paused ?? false;
-        logLog('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeekMessage=${isSeekMessage}`);
+        // Actualizar metadatos de estado
+        if (isSeek) shortsTimeDisplay.dataset.activeSeek = 'true';
+        else if (!isVideoPaused) delete shortsTimeDisplay.dataset.activeSeek;
 
-        if (isSeekMessage && isVideoPaused) return;
+        if (isFixedTime) shortsTimeDisplay.dataset.isFixedTime = 'true';
+        else delete shortsTimeDisplay.dataset.isFixedTime;
+
+        logLog('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}, isFixed=${isFixedTime}`);
+
+        // No limpiar si está pausado y es seek/fixed, o si es fixed (permanente)
+        if (isFixedTime) return;
+        if (isSeek && isVideoPaused) return;
 
         const baseMinSeconds = cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves || 1;
         const ttlMs = Math.max((baseMinSeconds * 1000) + 1500, 1600);
@@ -6213,9 +6225,14 @@ background: var(--ypp-danger);
 
     function clearShortsMessage() {
         if (shortsTimeDisplay) {
-            setInnerHTML(shortsTimeDisplay, SVG_ICONS.folder || '');
+            const hasFixedTime = shortsTimeDisplay.dataset.isFixedTime === 'true';
+            const icon = hasFixedTime ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : (SVG_ICONS.folder || '');
+
+            setInnerHTML(shortsTimeDisplay, icon);
             shortsTimeDisplay.classList.remove('ypp-d-none');
             shortsTimeDisplay.classList.remove('ypp-floating');
+
+            delete shortsTimeDisplay.dataset.activeSeek;
             // Al limpiar el mensaje, también vaciar el caché para evitar reusar mensajes de Shorts anteriores
             lastShortsMessageHtml = '';
         }
@@ -6259,7 +6276,7 @@ background: var(--ypp-danger);
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video
     */
-    function updateMiniplayerMessage(message, videoEl) {
+    function updateMiniplayerMessage(message, videoEl, isSeek = false, isFixedTime = false) {
         // Fallback reactivo: si el display fue removido (ej: miniplayer cerrado y reabierto)
         if (!miniplayerTimeDisplay?.isConnected) {
             const player = DOMHelpers.getMiniplayerActive();
@@ -6268,25 +6285,40 @@ background: var(--ypp-danger);
 
         if (!miniplayerTimeDisplay) return;
 
+        // No sobreescribir mensajes importantes (seek/fixed) con progreso si está pausado
+        const isVideoPaused = videoEl?.paused ?? false;
+        const hasActiveSeek = miniplayerTimeDisplay.dataset.activeSeek === 'true';
+        const hasFixedTime = miniplayerTimeDisplay.dataset.isFixedTime === 'true';
+
+        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime)) {
+            return;
+        }
+
         setInnerHTML(miniplayerTimeDisplay, message);
         miniplayerTimeDisplay.classList.remove('ypp-d-none');
 
-        // No limpiar automáticamente si es seek y está pausado
-        const isSeekMessage = message.includes('svgPlayOrPauseIcon');
-        const isVideoPaused = videoEl?.paused ?? false;
-        if (isSeekMessage && isVideoPaused) return;
-        // Si hay un seek activo en el display, no sobreescribir ni disparar clear
-        if (!isSeekMessage && isVideoPaused) {
-            if (miniplayerTimeDisplay.innerHTML.includes('svgPlayOrPauseIcon')) return;
-        }
+        // Actualizar metadatos de estado
+        if (isSeek) miniplayerTimeDisplay.dataset.activeSeek = 'true';
+        else if (!isVideoPaused) delete miniplayerTimeDisplay.dataset.activeSeek;
+
+        if (isFixedTime) miniplayerTimeDisplay.dataset.isFixedTime = 'true';
+        else delete miniplayerTimeDisplay.dataset.isFixedTime;
+
+        // No limpiar si está pausado y es seek/fixed, o si es fixed (permanente)
+        if (isFixedTime) return;
+        if (isSeek && isVideoPaused) return;
 
         scheduleDisplayClear('mini', clearMiniplayerMessage, 1600);
     }
 
     function clearMiniplayerMessage() {
         if (miniplayerTimeDisplay) {
-            setInnerHTML(miniplayerTimeDisplay, SVG_ICONS.folder || '');
+            const hasFixedTime = miniplayerTimeDisplay.dataset.isFixedTime === 'true';
+            const icon = hasFixedTime ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : (SVG_ICONS.folder || '');
+
+            setInnerHTML(miniplayerTimeDisplay, icon);
             miniplayerTimeDisplay.classList.remove('ypp-d-none');
+            delete miniplayerTimeDisplay.dataset.activeSeek;
         }
 
         const prev = displayClearTimeouts.get('mini');
@@ -6325,7 +6357,7 @@ background: var(--ypp-danger);
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video
     */
-    function updateInlinePreviewMessage(message, videoEl) {
+    function updateInlinePreviewMessage(message, videoEl, isSeek = false, isFixedTime = false) {
         // Fallback reactivo si fue removido del DOM
         if (!inlinePreviewTimeDisplay?.isConnected) {
             const player = DOMHelpers.getInlinePreviewPlayer();
@@ -6334,25 +6366,40 @@ background: var(--ypp-danger);
 
         if (!inlinePreviewTimeDisplay) return;
 
+        // No sobreescribir mensajes importantes (seek/fixed) con progreso si está pausado
+        const isVideoPaused = videoEl?.paused ?? false;
+        const hasActiveSeek = inlinePreviewTimeDisplay.dataset.activeSeek === 'true';
+        const hasFixedTime = inlinePreviewTimeDisplay.dataset.isFixedTime === 'true';
+
+        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime)) {
+            return;
+        }
+
         setInnerHTML(inlinePreviewTimeDisplay, message);
         inlinePreviewTimeDisplay.classList.remove('ypp-d-none');
 
-        // No limpiar automáticamente si es seek y está pausado
-        const isSeekMessage = message.includes('svgPlayOrPauseIcon');
-        const isVideoPaused = videoEl?.paused ?? false;
-        if (isSeekMessage && isVideoPaused) return;
-        // Si hay un seek activo en el display, no sobreescribir ni disparar clear
-        if (!isSeekMessage && isVideoPaused) {
-            if (inlinePreviewTimeDisplay.querySelector('.svgPlayOrPauseIcon')) return;
-        }
+        // Actualizar metadatos de estado
+        if (isSeek) inlinePreviewTimeDisplay.dataset.activeSeek = 'true';
+        else if (!isVideoPaused) delete inlinePreviewTimeDisplay.dataset.activeSeek;
+
+        if (isFixedTime) inlinePreviewTimeDisplay.dataset.isFixedTime = 'true';
+        else delete inlinePreviewTimeDisplay.dataset.isFixedTime;
+
+        // No limpiar si está pausado y es seek/fixed, o si es fixed (permanente)
+        if (isFixedTime) return;
+        if (isSeek && isVideoPaused) return;
 
         scheduleDisplayClear('preview', clearInlinePreviewMessage, 1600);
     }
 
     function clearInlinePreviewMessage() {
         if (inlinePreviewTimeDisplay) {
-            setInnerHTML(inlinePreviewTimeDisplay, SVG_ICONS.folder || '');
+            const hasFixedTime = inlinePreviewTimeDisplay.dataset.isFixedTime === 'true';
+            const icon = hasFixedTime ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : (SVG_ICONS.folder || '');
+
+            setInnerHTML(inlinePreviewTimeDisplay, icon);
             inlinePreviewTimeDisplay.classList.remove('ypp-d-none');
+            delete inlinePreviewTimeDisplay.dataset.activeSeek;
         }
 
         const prev = displayClearTimeouts.get('preview');
@@ -6753,7 +6800,8 @@ background: var(--ypp-danger);
             );
 
         const isSeek = context === 'seek';
-        handlers[videoType]?.(message, videoEl, isSeek);
+        const isFixedTime = options.isForced === true;
+        handlers[videoType]?.(message, videoEl, isSeek, isFixedTime);
     }
 
 
@@ -7534,7 +7582,7 @@ background: var(--ypp-danger);
     })();
 
     // ------------------------------------------
-    // MARK: Specialized Processing Functions
+    // MARK: Processing Functions
     // ------------------------------------------
 
     /**
@@ -7854,8 +7902,9 @@ background: var(--ypp-danger);
         async resume(player, videoId, videoEl, savedData, type, cachedVideoInfo = null) {
             if (!savedData || !videoId || !videoEl) return;
 
-            const timeToSeek = savedData.forceResumeTime > 0 ? savedData.forceResumeTime : savedData.watchProgress;
-            if (timeToSeek <= 1) return;
+            const isForced = savedData.forceResumeTime > 0;
+            const timeToSeek = isForced ? savedData.forceResumeTime : savedData.watchProgress;
+            if (timeToSeek <= 1 && !isForced) return;
 
             logLog('PlaybackController', `🎬 Intentando reanudar ${videoId} en ${formatTime(timeToSeek)} (${type})`);
 
@@ -8082,22 +8131,13 @@ background: var(--ypp-danger);
             viewCount: null,
             lengthSeconds: null,
             lastViewedPlaylistId: null,
-            playlistTitle: null,
-            lastViewedPlaylistType: '',
-            lastViewedPlaylistItemId: null
+            playlistTitle: null,              // Solo se usa en formato interno, campo no usado en FreeTube
+            lastViewedPlaylistType: '',       // No se asigna, es una cadena vacía por defecto para compatibilidad con FreeTube
+            lastViewedPlaylistItemId: null    // No se asigna, es null por defecto para compatibilidad con FreeTube
         };
 
         // 🟢 Nivel 1: YouTube Internal API - getPlayerResponse() y getVideoData()
         try {
-            /** 
-             * Referencia mutable al componente del reproductor de YouTube para este contexto.
-             * 
-             * Se inicializa con la instancia detectada, pero permite la re-resolución dinámica
-             * mediante candidatos específicos del DOM si el ID del video no coincide con la
-             * referencia inicial (común en transiciones rápidas de YouTube SPA).
-             * 
-             * @type {Object|HTMLElement}
-             */
             let player = initialPlayer;
             logLog('getCascadedVideoInfo', 'Player:', player);
 
@@ -8407,7 +8447,6 @@ background: var(--ypp-danger);
                 ? document.title.replace(/ - YouTube$/, '')
                 : ''
         );
-
         info.author = info.author ?? t('unknown');
         info.authorId = info.authorId ?? '';
         info.published = info.published ?? 0;
@@ -8416,9 +8455,6 @@ background: var(--ypp-danger);
         info.lengthSeconds = info.lengthSeconds ?? 0;
         info.lastViewedPlaylistId = info.lastViewedPlaylistId ?? null;
         info.playlistTitle = info.playlistTitle ?? null;
-
-
-
 
         return info;
     }
@@ -8631,6 +8667,7 @@ background: var(--ypp-danger);
         return false;
     };
 
+    // MARK: 📁 Update Video List
     /**
      * Actualiza la lista de videos usando virtualización para rendimiento óptimo.
      * Solo renderiza los items visibles en el viewport, ideal para miles de videos.
@@ -9953,12 +9990,8 @@ background: var(--ypp-danger);
                 DOMHelpers.clearAll();
 
                 // Forzar escaneo de videos después de la navegación y reinicializar observers
-                if (typeof VideoObserverManager?.clearCache === 'function') {
-                    VideoObserverManager.clearCache();
-                }
-                if (typeof VideoObserverManager?.init === 'function') {
-                    VideoObserverManager.init(true);
-                }
+                if (typeof VideoObserverManager?.clearCache === 'function') VideoObserverManager.clearCache();
+                if (typeof VideoObserverManager?.init === 'function') VideoObserverManager.init(true);
             };
             const debouncedNavigation = debounce(handleNavigation, 50);
             window.addEventListener('yt-navigate-finish', debouncedNavigation);

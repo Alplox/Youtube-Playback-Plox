@@ -139,7 +139,7 @@
     'use strict';
 
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    const level = L.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const S = {
         debug: 'color:#6a9955;',
@@ -3278,6 +3278,7 @@ background: var(--ypp-danger);
     // MARK: 📊 Variables Globales
     // ------------------------------------------
 
+    const SCRIPT_VERSION = '0.0.9';
     // Variables para controlar el estado de inicialización
     let YTHelper = null;          // YouTube Helper API, obtenida de waitForHelper
     let currentPageType = null;   // Tipo de página actual (home, watch, shorts, playlist, etc.)
@@ -4291,7 +4292,7 @@ background: var(--ypp-danger);
             const a = document.createElement('a');
             a.href = url;
             const timestamp = new Date().toISOString().split('T')[0];
-            a.download = `youtube-playback-plox-backup-${timestamp}.json`;
+            a.download = `youtube-playback-plox-v${SCRIPT_VERSION}-backup-${timestamp}.json`;
             document.body.appendChild(a);
             a.click();
             a.remove();
@@ -4408,7 +4409,7 @@ background: var(--ypp-danger);
                 a.href = url;
                 const timestamp = new Date().toISOString().split('T')[0];
                 // Usar extensión .db porque FreeTube a veces espera ese sufijo (incluso si es JSONL)
-                a.download = `youtube-playback-plox-backup-${timestamp}-freetube-compatible.db`;
+                a.download = `youtube-playback-plox-v${SCRIPT_VERSION}-backup-${timestamp}-freetube-compatible.db`;
                 document.body.appendChild(a);
                 a.click();
                 a.remove();
@@ -8693,6 +8694,7 @@ background: var(--ypp-danger);
 
         // Cargar todos los datos en lotes paralelos
         const allData = await batchLoadStorageData(keys);
+        if (!listContainer) return;
 
         let allItems = [];
         for (const [key, data] of allData) {
@@ -8821,6 +8823,7 @@ background: var(--ypp-danger);
 
         DOMHelpers.removeExact('ui:storageUsage');
         try { await updateStorageUsageIndicator(); } catch (_) { }
+        if (!listContainer) return;
 
         // Crear contenedor para el scroller virtual
         const scrollerContainer = createElement('div', {
@@ -9696,7 +9699,7 @@ background: var(--ypp-danger);
      * @returns {Promise<{migrated: number, skipped: number}>}
      */
     async function migrateToFreeTubeFormat() {
-        const MIGRATION_VERSION = 4;
+        const MIGRATION_VERSION = 3; // Incrementar solo si cambia la lógica/estructura de migración
         const MIGRATION_KEY = 'ypp_migration_freetube_format_version';
 
         /**

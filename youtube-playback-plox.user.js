@@ -2125,6 +2125,7 @@ background: var(--ypp-danger);
 }
 
 .ypp-toast {
+  position: relative;
   display: flex;
   gap: 10px;
   justify-content: center;
@@ -2140,6 +2141,18 @@ background: var(--ypp-danger);
   transition: opacity 0.2s ease;
   backdrop-filter: blur(10px);
   pointer-events: auto;
+  overflow: hidden; /* Para que la barra de progreso no se salga de los bordes redondeados */
+}
+
+.ypp-toast-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 4px;
+  background: var(--ypp-primary);
+  width: 100%;
+  transform-origin: left;
+  transform: scaleX(1);
 }
 
 .ypp-toast.persistent {
@@ -2159,7 +2172,6 @@ background: var(--ypp-danger);
   cursor: pointer;
   transition: background-color 0.2s ease;
   font-size: 12px;
-  padding: 0;
 }
 
 .ypp-toast-close:hover {
@@ -6316,7 +6328,11 @@ background: var(--ypp-danger);
     *   - keep: boolean (no se auto elimina)
     *   - action: { label: string, callback: function }
     */
-    function showFloatingToast(message, duration = 2500, options = {}) {
+    function showFloatingToast(message, duration, options = {}) {
+        // Fallback robusto para saber si se envió un tiempo o se usa el default
+        const isDurationExplicit = duration !== undefined;
+        const actualDuration = isDurationExplicit ? duration : 2500;
+
         const container = createToastContainer();
         let toast;
 
@@ -6370,7 +6386,23 @@ background: var(--ypp-danger);
             toast.appendChild(closeBtn);
         }
 
-        if (!options.keep && !options.persistent) fadeAndRemoveToast(toast, duration);
+        // Si no es keep, desvanecer por defecto si no es persistente,
+        // o si es persistente pero se le especificó una duración explícita mayor a 0.
+        if (!options.keep) {
+            if (!options.persistent || (options.persistent && isDurationExplicit && actualDuration > 0)) {
+                // Agregar barra indicadora de tiempo restante
+                const progress = createElement('div', { className: 'ypp-toast-progress' });
+                toast.appendChild(progress);
+
+                // Forzar el repintado del navegador antes de animar (imprescindible para que CSS procese start-state)
+                void progress.offsetWidth;
+
+                progress.style.transition = `transform ${actualDuration}ms linear`;
+                progress.style.transform = 'scaleX(0)';
+
+                fadeAndRemoveToast(toast, actualDuration);
+            }
+        }
 
         logLog('showFloatingToast', 'Toast mostrado', { message, options });
     }
@@ -9300,7 +9332,7 @@ background: var(--ypp-danger);
         await deleteFromStorage();
         await updateVideoList();
 
-        showFloatingToast(`${SVG_ICONS.trash} "${escapeHTML(title)}" ${t('itemDeleted')}`, 5000, {
+        showFloatingToast(`${SVG_ICONS.trash} "${escapeHTML(title)}" ${t('itemDeleted')}`, 10000, {
             action: {
                 label: t('undo'),
                 callback: undoDelete
@@ -9484,8 +9516,7 @@ background: var(--ypp-danger);
         }
 
         // Mostrar toast con opción de deshacer (usar la propiedad "callback" que espera showFloatingToast)
-        showFloatingToast(`${SVG_ICONS.check} ${t('allDataCleared')}`, 10000, {
-            persistent: true,
+        showFloatingToast(`${SVG_ICONS.check} ${t('allDataCleared')}`, {
             keep: true,
             action: {
                 label: t('undo'),
@@ -9634,8 +9665,7 @@ background: var(--ypp-danger);
         // Mostrar alerta al usuario sobre la migración
         showFloatingToast(
             t('migratingData', 'Migrando datos guardados desde versión anterior...'),
-            0, // No auto-desaparecer
-            { persistent: true } // Reutilizar mismo toast
+            5000
         );
 
         let migrated = 0;
@@ -9740,7 +9770,8 @@ background: var(--ypp-danger);
         logLog('migrateToFreeTubeFormat', `✅ Migración v${MIGRATION_VERSION} completada: ${migrated} migrados`);
 
         if (migrated > 0) {
-            showFloatingToast(t('migrationComplete', { migrated: migrated }), 5000);
+            // mostrar solo por 30 segundos y luego ocultar
+            showFloatingToast(`${SVG_ICONS.check} ${t('migrationComplete', { migrated: migrated })}`, 30000, { persistent: true });
         } else {
             showFloatingToast(t('migrationNoData'), 3000);
         }

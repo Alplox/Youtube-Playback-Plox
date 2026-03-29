@@ -8882,6 +8882,8 @@ background: var(--ypp-danger);
             clearInterval(storageUsageRefreshIntervalId);
             storageUsageRefreshIntervalId = null;
         }
+        isSelectionMode = false;
+        selectedVideos.clear();
         document.body.style.overflow = '';
     }
 

@@ -116,13 +116,26 @@ YouTube
 │ 
 └── ⚙️ Estados Globales
     ├── 🎛️ Miniplayer
-    │   ├── Activo al volver al Home / Search / Shorts / desde un video o playlist
-    │   ├── Persistente al navegar entre Home, Shorts y Búsqueda
-    │   ├── Puede coexistir con Shorts (reproducción dual)
-    │   ├── Su contenido puede cambiarse desde Shorts sin abandonar la vista
-    │   ├── Cerrado al abrir video nuevo fuera del contexto
-    │   ├── Cerrado al abrir video nuevo fuera del contexto o manualmente
+    │   ├── ✅Permite activarse desde:
+    │   │   ├── Videos regulares: `/watch` (Se puede iniciar con video como tal o antes. Es decir desde anuncio inicial si se pulsa tecla [i])
+    │   ├── ❌ No permite activarse desde:
+    │   │   ├── Shorts: `/shorts`
+    │   │   ├── Playlist: `/playlist`
+    │   │   ├── Resultados: `/results`
+    │   │   ├── Feeds: `/feed/subscriptions`, `/feed/trending`, `/feed/history`, `/feed/library`, `/feed/you`
+    │   │   └── Canales: `/@[handle]` (incluye videos trailers canales: `Pestaña "Principal"`)
+    │   ├── Persistente al navegar entre:
+    │   │   ├── Home: `/`
+    │   │   ├── Videos regulares: `/watch`
+    │   │   ├── Playlist: `/playlist`
+    │   │   ├── Shorts: `/shorts` (Puede coexistir con Shorts; Reproducción paralela. Pero primera carga provoca que miniplayer se pause para favorecer la carga y reproducción del Short, lo inverzo pasa luego si se cambia de video en miniplayer)
+    │   │   ├── Resultados: `/results`
+    │   │   ├── Feeds: `/feed/subscriptions`, `/feed/trending`, `/feed/history`, `/feed/library`, `/feed/you`
+    │   │   └── Canales: `/@[handle]` (Todas las pestañas)
+    │   ├── Su contenido puede cambiarse desde Shorts sin abandonar la vista, SOLO si video era miembro de una playlist o mix. Ya que de este modo videos siguientes son mostrados a usuario, de lo contrario si se trata de un solo video y este finaliza, usuario tendria que volver a Home para dar clic en otro para ser cargado.
+    │   ├── Una vez abierto se mantiene abierto hasta que el usuario lo cierre manualmente o cuando se expanda de regreso a pagina `/watch` de video actual en el.
     │   ├── Cerrar → detiene reproducción
+    │   │   ├── Elimina contenido del DOM, junto a la clase `.ytdMiniplayerComponentVisible` que es la que permite que el miniplayer se mantenga abierto/visible.
     │   └── Mantiene playlist / Mix si el video proviene de ella
     │
     ├── ⏸️ Pausa / Reanudación

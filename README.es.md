@@ -16,20 +16,55 @@ Ideal para quienes:
 
 ## ✨ Características
 
-- 🔐 Funciona sin cuenta de Google; todo se almacena localmente en tu navegador.
-- 🕒 Guarda el tiempo y retoma automáticamente desde ese punto cuando vuelves al mismo video.
-    - `Videos`
-        - `Miniplayer`
-    - `Shorts` (por defecto desactivado)
-    - `Transmisiones en directo` (por defecto desactivado)
-    - `Previsualizaciones en inicio` (por defecto desactivado)
-- 🛑 Detiene guardado durante anuncios.
-- 🔔 Mensajes integrados en la barra del reproductor mostrando cuándo se ha retomado o se está guardando progreso.
-- 🟢 Botón flotante para acceso rápido a configuraciones.
-- 🗂 Modal con lista de videos guardados, miniaturas, autor, porcentaje visto y tiempo restante.
-    - ⏱ Establecer un "tiempo de inicio fijo" por video para que siempre comience desde un punto concreto.
-    - 📦 Exporta/Importa todos los datos guardados a un JSON o DB (Compatible con historial de Freetube).
-    - 🔀 Crea playlists públicas a partir de videos vistos.
+- 🔐 **100% Privado y Local:** Funciona sin cuenta de Google; todo se guarda utilizando `IndexedDB` en tu navegador.
+- 🕒 **Guardado automático e inteligente:** Guarda el tiempo y reanuda automáticamente el progreso al volver gracias a detectores aislados por contexto. Desactívalos individualmente desde las opciones:
+    - `Videos Regulares`
+    - `Miniplayer` 
+    - `Shorts` (desactivado por defecto)
+    - `Directos` (desactivado por defecto)
+    - `Previsualizaciones en inicio` (desactivado por defecto)
+- 🛑 **Anti-Ads:** Evita guardar falsos tiempos e identificadores durante los anuncios. (el script no bloquea anuncios)
+- ⚡ **Rápido Rendimiento:** Modal de videos guardados reforzado con "Virtual Scrolling" para manejar listas de miles de vídeos al instante y sin consumir memoria extra.
+- 🔔 **Notificaciones UI:** Mensajes nativos en la barra del reproductor informando su restauración y guardado sin estorbar tu visión.
+- 🟢 **Botón flotante:** Acceso rápido a la configuración.
+- 🗂 **Gestor de Videos Avanzado:** Modal completo con lista de reproducciones, miniaturas pre-cargadas, autores, porcentajes vistos y tiempo restante.
+    - ⏱ Fija un "tiempo de inicio" por cada video para comenzar siempre desde un punto predecible (ideal para saltar intros).
+    - 🔗 Desvincula videos de listas de reproducción arbitrarias en solo 1 click.
+    - 📦 Importa/Exporta tu copia de seguridad a JSON o Bases de Datos SQLite (100% Compatible con FreeTube).
+    - 📊 Observa cuanta cuota de almacenamiento disponible queda en tu navegador.
+    - 🔀 Crea `playlists` de YouTube públicas sobre la marcha con tus videos guardados.
+- 🌍 **Soporte Global:** Opciones e interfaz completamente traducidas a más de 50 idiomas nativos.
+
+## 🛠️ Requisitos
+
+Necesitas un gestor de scripts de usuario como:
+
+- [Violentmonkey](https://violentmonkey.github.io/)
+- [Tampermonkey](https://www.tampermonkey.net/)
+- [Greasemonkey](https://www.greasespot.net/)
+
+## 📦 Instalación
+
+1. Instala un gestor de userscripts (ver arriba)
+2. 📥 [Haz clic aquí para instalar el script](https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js) o [Ir a Greasyfork](https://greasyfork.org/es/scripts/553387-youtube-playback-plox)
+
+## ¿Cómo funciona?
+
+Este script escucha los eventos del reproductor de YouTube para guardar el tiempo de reproducción cada cierto intervalo o al salir de la página. Cuando visitas nuevamente el mismo video, detecta el ID y busca el último progreso guardado para hacer que el video se reanude automáticamente desde ese punto.
+
+## Privacidad
+
+Toda la información se almacena localmente en tu navegador. **No se envía ningún dato a servidores externos.**
+
+## 📸 Capturas de pantalla
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-alerta-guardado.png" alt="Ejemplo de alerta de tiempo guardado">
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-videos.png" alt="Ejemplo de modal para ver videos guardados">
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-config.png" alt="Ejemplo de modal de configuración">
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-crear-playlist.png" alt="Ejemplo de creación de playlist">
 
 ## 🌐 Lenguajes Disponibles
 
@@ -90,37 +125,6 @@ Ideal para quienes:
 | 🇵🇰 | `ur` | اردو |
 | 🇿🇦 | `zu` | isiZulu |
 
-## 🛠️ Requisitos
-
-Necesitas un gestor de scripts de usuario como:
-
-- [Violentmonkey](https://violentmonkey.github.io/)
-- [Tampermonkey](https://www.tampermonkey.net/)
-- [Greasemonkey](https://www.greasespot.net/)
-
-## 📦 Instalación
-
-1. Instala un gestor de userscripts (ver arriba)
-2. 📥 [Haz clic aquí para instalar el script](https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js) o [Ir a Greasyfork](https://greasyfork.org/es/scripts/553387-youtube-playback-plox)
-
-## ¿Cómo funciona?
-
-Este script escucha los eventos del reproductor de YouTube para guardar el tiempo de reproducción cada cierto intervalo o al salir de la página. Cuando visitas nuevamente el mismo video, detecta el ID y busca el último progreso guardado para hacer que el video se reanude automáticamente desde ese punto.
-
-## Privacidad
-
-Toda la información se almacena localmente en tu navegador. **No se envía ningún dato a servidores externos.**
-
-## 📸 Capturas de pantalla
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-alerta-guardado.png" alt="Ejemplo de alerta de tiempo guardado">
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-videos.png" alt="Ejemplo de modal para ver videos guardados">
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-config.png" alt="Ejemplo de modal de configuración">
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-crear-playlist.png" alt="Ejemplo de creación de playlist">
-
 ## 📄 Licencia
 
 Este proyecto está bajo la licencia MIT. Consulta el archivo [LICENSE](./LICENSE) para más detalles.
@@ -133,7 +137,7 @@ Este proyecto está bajo la licencia MIT. Consulta el archivo [LICENSE](./LICENS
 
 Este proyecto no está afiliado con Google o YouTube.
 
-## Traducciones
+## Traducciones README
 
 - [English](README.md)
 - [Spanish](README.es.md)

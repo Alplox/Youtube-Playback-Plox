@@ -1302,7 +1302,8 @@ html[dark], body.dark-theme {
 .ypp-svgSaveIcon,
 .ypp-svgPinIcon,
 .ypp-svgTimerIcon,
-.ypp-svgPlayOrPauseIcon {
+.ypp-svgPlayOrPauseIcon,
+.ypp-svgPlaylistRemove {
   vertical-align: middle;
   height: 100%;
   margin: 0 0px 2px 0px;
@@ -1750,7 +1751,7 @@ html[dark], body.dark-theme {
   font-weight: 600;
   border: 1px solid rgba(255, 255, 255, 0.2);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  white-space: nowrap;
+ /*  white-space: nowrap; */
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
@@ -1993,6 +1994,12 @@ html[dark], body.dark-theme {
   border: 1px solid #065fd4;
     color: inherit;
 
+    svg {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+    }
+
   &:hover {
     background: rgba(6, 95, 212, 0.3);
     color: inherit;
@@ -2003,6 +2010,12 @@ html[dark], body.dark-theme {
   background: transparent;
   border: 1px solid var(--ypp-success);
     color: inherit;
+
+    svg {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+    }
 
   &:hover {
     background: rgba(22, 212, 6, 0.3);
@@ -2406,6 +2419,7 @@ background: var(--ypp-danger);
         upload: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>',
         externalLink: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>',
         playlist: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>',
+        playlistRemove: '<svg class="ypp-svgPlaylistRemove" xmlns="http://www.w3.org/2000/svg"><path fill="#000" d="M15.964 4.634h-12v2h12zM15.964 8.634h-12v2h12zM3.964 12.634h8v2h-8zM12.965 13.71l1.414-1.415 2.121 2.121 2.121-2.12 1.415 1.413-2.122 2.122 2.122 2.12-1.415 1.415-2.121-2.121-2.121 2.121-1.415-1.414 2.122-2.122z"/></svg>',
         copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>',
         // calendar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>',
         // sort: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>',
@@ -5344,135 +5358,6 @@ background: var(--ypp-danger);
         return cachePageType(path, detectFromURL(path));
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     // ------------------------------------------
     // MARK: 📺 Extraer o Normalizar Video ID
     // ------------------------------------------
@@ -5486,7 +5371,7 @@ background: var(--ypp-danger);
     *  - Embeds: /embed/ID
     *  - IDs directos
     * @param {string} input - URL completa o ID de video.
-    * @returns {string|null} - Video ID o null si no se pudo determinar.
+    * @returns {Object|null} - { type: "video" | "playlist" | "channel" | "live" | "unknown", id: string, list?: string }
     */
     function extractOrNormalizeVideoId(input) {
         if (!input || typeof input !== 'string') return null;
@@ -5567,30 +5452,6 @@ background: var(--ypp-danger);
     }
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     // MARK: 📺 Get Playlist Name
     const playlistNameCache = new Map();
     const pendingPlaylistRequests = new Map(); // Track pending HTTP requests
@@ -5638,37 +5499,49 @@ background: var(--ypp-danger);
         const requestPromise = (async () => {
             const url = new URL(location.href);
             const currentPlaylistId = url.searchParams.get('list');
+            logLog('getPlaylistName', `currentPlaylistId: ${currentPlaylistId}`);
 
             if (currentPlaylistId === playlistId) {
-                // Intentar múltiples selectores para el panel de playlist
-                const playlistName = DOMHelpers.get(`playlist:name:${playlistId}`, () => (
-                    // Playlist panel en el reproductor (Watch Page Sidebar)
-                    document.querySelector('ytd-playlist-panel-renderer #header-description h3 a')?.textContent?.trim() ||
-                    document.querySelector('ytd-playlist-panel-renderer #header-description h3')?.textContent?.trim() ||
 
-                    // YouTube Mix y estructuras antiguas
-                    document.querySelector('ytd-playlist-panel-renderer yt-formatted-string.title')?.textContent?.trim() ||
-                    document.querySelector('#header-description yt-formatted-string.title')?.textContent?.trim() ||
+                if (currentPageType !== 'watch' && currentPageType !== 'playlist') {
+                    logLog('getPlaylistName', `No estamos en watch o playlist, saltando busqueda en DOM`);
+                    return null;
+                }
 
-                    // Alternativas adicionales
-                    document.querySelector('#container #header-description yt-formatted-string')?.textContent?.trim() ||
-                    document.querySelector('yt-formatted-string.title:nth-child(1)')?.textContent?.trim() ||
+                let playlistName = null;
 
-                    // Overlay del reproductor
-                    document.querySelector('.byline-title')?.textContent?.trim()
-                ), 250);
+                if (currentPageType === 'watch') {
+                    // Intentar múltiples selectores para el panel de playlist solo en watch
+                    playlistName = DOMHelpers.get(`playlist:name:${playlistId}`, () => (
+                        // Playlist panel en el reproductor (Watch Page Sidebar)
+                        document.querySelector('ytd-playlist-panel-renderer #header-description h3 a') ||
+                        document.querySelector('ytd-playlist-panel-renderer #header-description h3') ||
 
-                // si PAGE TYPE ES PLAYLIST
-                // Header de la página de playlist (si estamos en la página de playlist)
+                        // YouTube Mix y estructuras antiguas
+                        document.querySelector('ytd-playlist-panel-renderer yt-formatted-string.title') ||
+                        document.querySelector('#header-description yt-formatted-string.title') ||
 
-                const ptNow = getYouTubePageType();
-                const browsePlaylistName = ptNow === 'playlist' ? DOMHelpers.get(`playlist:browseName:${playlistId}`, () => (
-                    document.querySelector('#header .ytd-playlist-header-renderer h1 yt-formatted-string')?.textContent?.trim() ||
-                    document.querySelector('ytd-browse[page-subtype="playlist"] ytd-playlist-header-renderer #title')?.textContent?.trim() ||
-                    document.querySelector('ytd-playlist-header-renderer h1.title')?.textContent?.trim()
-                ), 250) : null;
+                        // Alternativas adicionales
+                        document.querySelector('#container #header-description yt-formatted-string') ||
+                        document.querySelector('yt-formatted-string.title:nth-child(1)') ||
 
-                const finalDomName = playlistName || browsePlaylistName;
+                        // Overlay del reproductor
+                        document.querySelector('.byline-title')
+                    ), 250);
+                }
+
+
+                if (currentPageType === 'playlist') {
+                    // si estamos en la página de la playlist, escenario miniplayer
+                    playlistName = DOMHelpers.get(`playlist:browseName:${playlistId}`, () => (
+                        document.querySelector('.yt-page-header-view-model__page-header-title h1') ||
+                        document.querySelector('yt-page-header-view-model h1.dynamicTextViewModelH1')
+                    ), 250);
+                }
+
+
+                const finalDomName = playlistName?.textContent?.trim();
+                logLog('getPlaylistName', `finalDomName: ${finalDomName}`);
 
                 if (finalDomName && finalDomName !== playlistId) {
                     playlistNameCache.set(playlistId, finalDomName);
@@ -5713,7 +5586,7 @@ background: var(--ypp-danger);
                             title = (title && title !== 'null' && title !== 'undefined') ? title : playlistId;
                             playlistNameCache.set(playlistId, title);
                             resolve(title);
-                            warn('aaaaa', title)
+
                         } catch (e) {
                             resolve(playlistId);
                         }
@@ -5729,61 +5602,7 @@ background: var(--ypp-danger);
         });
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // MARK: TIME DISPLAY
+    // MARK: 🕒 Time Display
 
     let watchTimeDisplay;
     let shortsTimeDisplay;
@@ -5859,6 +5678,8 @@ background: var(--ypp-danger);
             └─ span.ytp-clip-watch-full-video-button
         */
 
+        // Cleanup defensivo: si el miniplayer dejó su span en esta misma barra de controles, eliminarlo
+        destroyMiniplayerTimeDisplay();
 
         // Si el player no existe o el display ya está conectado (ya esta en el DOM), no hacer nada
         if (!playerContainer || watchTimeDisplay?.isConnected) return;
@@ -6326,6 +6147,21 @@ background: var(--ypp-danger);
         if (prev) { clearTimeout(prev); displayClearTimeouts.delete('mini'); }
     }
 
+    /**
+     * Destruye el display del Miniplayer: lo desconecta del DOM y nullea la referencia.
+     * Debe llamarse cuando el miniplayer colapsa de vuelta al player regular (Watch),
+     * ya que YouTube reutiliza el mismo #movie_player DOM y el span quedaría huérfano en la barra Watch.
+     */
+    function destroyMiniplayerTimeDisplay() {
+        if (miniplayerTimeDisplay) {
+            try { miniplayerTimeDisplay.remove(); } catch (_) { }
+            miniplayerTimeDisplay = null;
+            logLog('destroyMiniplayerTimeDisplay', '🗑️ miniplayerTimeDisplay eliminado del DOM');
+        }
+        const prev = displayClearTimeouts.get('mini');
+        if (prev) { clearTimeout(prev); displayClearTimeouts.delete('mini'); }
+    }
+
     // MARK: 📢 Inline Preview Messages
     /**
     * Inicializa la visualización de tiempo para Inline Previews.
@@ -6708,12 +6544,12 @@ background: var(--ypp-danger);
         const footer = createElement('div', { className: 'ypp-btnGroup' });
         const viewBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-outlined ypp-sombra',
-            text: t('savedVideos'),
+            html: `${SVG_ICONS.folder} ${t('savedVideos')}`,
             onClickEvent: async () => { overlay.remove(); await showSavedVideosList(); }
         });
         const saveBtn = createElement('button', {
             className: 'ypp-btn ypp-save-button ypp-sombra',
-            text: t('save'),
+            html: `${SVG_ICONS.save} ${t('save')}`,
             onClickEvent: async () => {
                 const getVal = (name) => modal.querySelector(`[name="${name}"]`)?.value;
                 const isChecked = (name) => modal.querySelector(`[name="${name}"]`)?.checked;
@@ -7366,9 +7202,11 @@ background: var(--ypp-danger);
             let lastMiniplayerSrc = '';
 
             observers.miniplayer = new MutationObserver((mutations) => {
-                // miniplayer no puede existir en /watch
-                if (currentPageType === 'watch') return;
-
+                // miniplayer no puede existir en /watch — destruir su display si quedó huérfano
+                if (currentPageType === 'watch') {
+                    destroyMiniplayerTimeDisplay();
+                    return;
+                }
 
                 // 1. Actualizar estado de visibilidad si el cambio es en root (html/body)
                 const visibilityMutation = mutations.find(m =>
@@ -8090,7 +7928,7 @@ background: var(--ypp-danger);
         }
     };
 
-    // MARK: 📋 Metadata Helpers
+    // MARK: 📋 Get Cascaded Video Info
     /**
      * Extrae y normaliza metadatos del video mediante una estrategia de resolución en cascada ("Waterfall").
      * 
@@ -8137,279 +7975,215 @@ background: var(--ypp-danger);
             lastViewedPlaylistItemId: null    // No se asigna, es null por defecto para compatibilidad con FreeTube
         };
 
-        // 🟢 Nivel 1: YouTube Internal API - getPlayerResponse() y getVideoData()
+        let player = initialPlayer;
+
+        logLog('getCascadedVideoInfo', `Playlist id getPlaylistId: [${player?.getPlaylistId()}] en type: [${type}]`);
+
+        // 🟢 Nivel 1: YouTube Internal API - 
+        // getPlayerResponse().videoDetails
+        // getPlayerResponse().microformat.playerMicroformatRenderer
+        // getVideoData()
         try {
-            let player = initialPlayer;
-            logLog('getCascadedVideoInfo', 'Player:', player);
-
-            // A: getPlayerResponse (Fuente más rica de datos)
+            // A: getPlayerResponse
             const playerResponse = player?.getPlayerResponse?.();
-            if (playerResponse?.videoDetails) {
-                const details = playerResponse.videoDetails;
-
-                logLog('getCascadedVideoInfo', 'PlayerResponse.videoDetails:', details);
-                logLog('getCascadedVideoInfo', 'playerResponse?.microformat?.playerMicroformatRenderer:', playerResponse?.microformat?.playerMicroformatRenderer);
-                logLog('getCascadedVideoInfo', 'visitas microformat', playerResponse?.microformat.playerMicroformatRenderer.viewCount)
-                logLog('getCascadedVideoInfo', 'PlaylistId:', player.getPlaylistId?.());
-
-                info.lengthSeconds = parseInt(details.lengthSeconds, 10) ?? info.lengthSeconds;
-
+            const details = playerResponse?.videoDetails;
+            logLog('getCascadedVideoInfo', 'PlayerResponse.videoDetails:', details);
+            if (details?.videoId === videoId) {
+                // info.videoId: videoId (ya viene desde parametros de funcion y fue comprobado ya para llegar a este punto)
                 info.title = details.title ?? info.title;
                 info.author = details.author ?? info.author;
                 info.authorId = details.channelId ?? info.authorId;
-                info.description = details.shortDescription ?? info.description;
-
-                const rawViews = details.viewCount;
-                if (rawViews) {
-                    info.viewCount = rawViews.length > 0 ? parseInt(rawViews, 10) : info.viewCount;
-                }
-
                 info.isLive = details.isLiveContent ?? info.isLive;
+                // info.published: null (no obtenible mediante este metodo)
+                info.description = details.shortDescription ?? info.description;
+                info.viewCount = !isNaN(parseInt(details.viewCount, 10))
+                    ? parseInt(details.viewCount, 10)
+                    : info.viewCount;
+                info.lengthSeconds = !isNaN(parseInt(details.lengthSeconds, 10))
+                    ? parseInt(details.lengthSeconds, 10)
+                    : info.lengthSeconds;
+                // info.lastViewedPlaylistId: null (no obtenible mediante este metodo)
+                // info.playlistTitle: null (no obtenible mediante este metodo)
+                // info.lastViewedPlaylistType: '' (No se asigna)
+                // info.lastViewedPlaylistItemId: null (No se asigna)
+                logInfo('getCascadedVideoInfo', 'info after getPlayerResponse:', { ...info });
             }
 
-            // B: getVideoData (Fallback de nivel 1)
+            // B: getVideoData
             const internalData = player?.getVideoData?.();
-            if (internalData) {
+            if (internalData?.video_id === videoId) {
+                // info.videoId: videoId (ya viene desde parametros de funcion y fue comprobado ya para llegar a este punto)
                 info.title = info.title ?? internalData.title;
                 info.author = info.author ?? internalData.author;
-                info.authorId = info.authorId ?? internalData.channelId; // Algunos players lo incluyen aquí
+                // info.authorId = null (no obtenible mediante este metodo)
                 info.isLive = info.isLive ?? internalData.isLive;
+                // info.published = null (no obtenible mediante este metodo)
+                // info.description = null (no obtenible mediante este metodo)
+                // info.viewCount = null (no obtenible mediante este metodo)
+                // info.lengthSeconds = null (no obtenible mediante este metodo)
+                if (info.lastViewedPlaylistId == null && internalData?.list != null) {
+                    info.lastViewedPlaylistId = internalData.list;  // Elemento no existe si video no esta en una playlist
+                }
+                // info.playlistTitle: null (no obtenible mediante este metodo)
+                // info.lastViewedPlaylistType: '' (No se asigna)
+                // info.lastViewedPlaylistItemId: null (No se asigna)
+                logInfo('getCascadedVideoInfo', 'info after getVideoData:', { ...info });
             }
 
             // C: Microformat (Metadatos de renderizado)
-            if (playerResponse?.microformat?.playerMicroformatRenderer) {
-
-                const micro = playerResponse.microformat.playerMicroformatRenderer;
-                info.published = micro.publishDate ? new Date(micro.publishDate).getTime() : info.published;
-                // Extraer viewCount de microformat (frecuente en Previews y Shorts)
-                if (micro.viewCount) {
-                    const parsedViews = parseInt(micro.viewCount, 10);
-                    info.viewCount = !isNaN(parsedViews) ? parsedViews : info.viewCount;
-                }
+            const microformat = playerResponse?.microformat?.playerMicroformatRenderer;
+            if (microformat?.externalVideoId === videoId) {
+                // info.videoId: videoId (ya viene desde parametros de funcion y fue comprobado ya para llegar a este punto)
+                info.title = microformat.title?.simpleText ?? info.title;
+                info.author = microformat.ownerChannelName ?? info.author;
+                info.authorId = microformat.externalChannelId ?? info.authorId;
+                // info.isLive = null (no obtenible mediante este metodo)
+                info.published = microformat.publishDate
+                    ? new Date(microformat.publishDate).getTime()
+                    : info.published;
+                info.description = microformat.description?.simpleText
+                    ?? info.description;
+                info.viewCount = !isNaN(parseInt(microformat.viewCount, 10))
+                    ? parseInt(microformat.viewCount, 10)
+                    : info.viewCount;
+                info.lengthSeconds = !isNaN(parseInt(microformat.lengthSeconds, 10))
+                    ? parseInt(microformat.lengthSeconds, 10)
+                    : info.lengthSeconds;
+                // info.lastViewedPlaylistId: null (no obtenible mediante este metodo)
+                // info.playlistTitle: null (no obtenible mediante este metodo)
+                // info.lastViewedPlaylistType: '' (No se asigna)
+                // info.lastViewedPlaylistItemId: null (No se asigna)
+                logInfo('getCascadedVideoInfo', 'info after microformat:', { ...info });
             }
-
-            // D: Playlist ID (Búsqueda exhaustiva en metadatos, DOM y retries por SPA)
-            let currentPlaylistId = null;
-            let retryCount = 0;
-            const maxRetries = 5; // Total 5 * 200ms = 1s timeout
-
-            while (!currentPlaylistId && retryCount < maxRetries) {
-                const refreshedPlayerResponse = (typeof player?.getPlayerResponse === 'function') ? player.getPlayerResponse() : playerResponse;
-                const refreshedInternalData = (typeof player?.getVideoData === 'function') ? player.getVideoData() : internalData;
-
-                // 1. Extraer directo de las APIs internas (si se actualizaron)
-                currentPlaylistId =
-                    refreshedPlayerResponse?.playlistId ||
-                    refreshedInternalData?.list ||
-                    (typeof player?.getPlaylistId === 'function' ? player.getPlaylistId() : null);
-
-                // 2. Si no está, buscar en el DOM de la cola de reproducción (.ytp-next-button, etc)
-                if (!currentPlaylistId) {
-                    try {
-                        const anchors = [
-                            player?.querySelector?.('.ytp-next-button'),
-                            player?.querySelector?.('.ytp-prev-button')
-                        ];
-                        for (const anchor of anchors) {
-                            if (anchor && anchor.href) {
-                                const listParam = new URLSearchParams(new URL(anchor.href, window.location.origin).search).get('list');
-                                if (listParam) {
-                                    currentPlaylistId = listParam;
-                                    break;
-                                }
-                            }
-                        }
-                    } catch (e) { }
-                }
-
-                if (currentPlaylistId) break;
-
-                // 3. Fallback en fast-transitions: Si seguimos en null, es posible que el DOM/API aún no se hayan propagado. 
-                // Hacer un breve delay solo para miniplayer/watch porque YouTube SPA toma ~100-300ms en actualizar la info de Playlists
-                if (type === 'miniplayer' || type === 'watch') {
-                    await new Promise(r => setTimeout(r, 200));
-                    retryCount++;
-                } else {
-                    break;
-                }
-            }
-
-            info.lastViewedPlaylistId = currentPlaylistId ?? info.lastViewedPlaylistId;
-
-            // Nivel 1.5: Si hay playlistId, obtener título (maneja cache automáticamente)
-            if (info.lastViewedPlaylistId) {
-                // Si estamos en Watch, el título de la playlist suele estar ya cacheado o disponible en el DOM
-                info.playlistTitle = await getPlaylistName(info.lastViewedPlaylistId) ?? info.playlistTitle;
-            }
-
         } catch (e) {
-            logLog('getCascadedVideoInfo', '⚠️ Error en Nivel 1 (Internal API):', e);
+            logError('getCascadedVideoInfo', '⚠️ Error en Nivel 1 (Internal API):', e);
         }
 
         // 🔵 Nivel 2: YouTube Helper API
         try {
-            if (
-                YTHelper?.video &&
-                (
-                    info.title == null ||
-                    info.author == null ||
-                    info.authorId == null ||
-                    info.published == null ||
-                    info.description == null ||
-                    info.viewCount == null
-                )) {
-                const helperId = YTHelper.video.id /* extractOrNormalizeVideoId(location.href).id */;
+            if (YTHelper?.video?.id === videoId) {
+                // info.videoId: videoId (ya viene desde parametros de funcion y fue comprobado ya para llegar a este punto)
+                info.title = info.title ?? YTHelper.video.title;
+                info.author = info.author ?? YTHelper.video.channel;
+                info.authorId = info.authorId ?? YTHelper.video.channelId;
+                info.isLive = info.isLive ?? YTHelper.video.isCurrentlyLive;
+                info.published = info.published ?? (YTHelper.video.publishDate ? YTHelper.video.publishDate.getTime() : null);
+                info.description = info.description ?? YTHelper.video.rawDescription;
+                info.viewCount = info.viewCount ?? (parseInt(YTHelper.video.viewCount, 10) || null);
+                info.lengthSeconds = info.lengthSeconds ?? YTHelper.video.lengthSeconds;
+                info.lastViewedPlaylistId = info.lastViewedPlaylistId ?? YTHelper.video.playlistId;  // No confiable, suele fallar deteccion
+                // info.playlistTitle: null (no obtenible mediante este metodo)
+                // info.lastViewedPlaylistType: '' (No se asigna)
+                // info.lastViewedPlaylistItemId: null (No se asigna)
 
-                logLog('getCascadedVideoInfo', 'Helper ID:', helperId);
-                logLog('getCascadedVideoInfo', 'Video ID:', videoId);
-                if (helperId === videoId) {
-                    info.title = info.title ?? YTHelper.video.title;
-                    info.author = info.author ?? YTHelper.video.channel;
-                    info.authorId = info.authorId ?? YTHelper.video.channelId;
-                    info.published = info.published ?? (YTHelper.video.publishDate ? YTHelper.video.publishDate.getTime() : 0);
-                    info.description = info.description ?? YTHelper.video.rawDescription;
-                    info.viewCount = info.viewCount ?? (parseInt(YTHelper.video.viewCount, 10) || 0);
-                }
+                logInfo('getCascadedVideoInfo', 'info after YTHelper.video:', { ...info });
             }
-        } catch (_) { }
+        } catch (e) {
+            logError('getCascadedVideoInfo', '⚠️ Error en Nivel 2 (YouTube Helper API):', e);
+        }
 
-        // 🟡 Nivel 3: DOM Fallbacks + Fetch para vistas shorts
+        // 🟡 Nivel 3: DOM Fallbacks + Fetchs
         try {
-            /*    
-             videoId: videoId,
-             title: '',
-             author: '',
-             authorId: '',
-             isLive: false,
-             published: 0,
-             description: '',
-             viewCount: 0,
-             lengthSeconds: 0,
-             lastViewedPlaylistId: null,
-             playlistTitle: null
-            */
-
-            // Si es Shorts, usar metapanel del Short ACTIVO
             if (type === 'shorts') {
+                // Si es Shorts, usar metapanel del Short ACTIVO
                 const metapanel = getActiveShortsControlsContainer();
 
                 if (metapanel) {
-                    // Título (Solo si no tenemos uno válido de Nivel 1/2)
                     if (info.title == null) {
                         const titleEl =
                             metapanel.querySelector('yt-shorts-video-title-view-model') ||
                             metapanel.querySelector('h2') ||
                             // De sidebar
                             document.querySelector('ytd-video-description-header-renderer #title');
-                        info.title = titleEl?.textContent?.trim() || info.title;
+
+                        const extractedTitle = titleEl?.textContent?.trim();
+                        if (extractedTitle) {
+                            info.title = extractedTitle;
+                        }
                     }
 
-                    // Autor (Solo si no tenemos uno de Nivel 1/2)
                     if (info.author == null || info.author === t('unknown')) {
-                        const authorEl = metapanel.querySelector('#channel-name a') || metapanel.querySelector('a[href*="/@"]');
-                        info.author = authorEl?.textContent?.trim() || info.author;
+                        const authorEl =
+                            metapanel.querySelector('#channel-name a') ||
+                            metapanel.querySelector('a[href*="/@"]');
+
+                        const extractedAuthor = authorEl?.textContent?.trim();
+                        if (extractedAuthor) {
+                            info.author = extractedAuthor;
+                        }
                     }
 
-                    // Channel ID
                     if (info.authorId == null) {
-                        const channelLink = metapanel.querySelector('a[href*="/channel/"]');
-                        if (channelLink) {
-                            info.authorId = channelLink.href.split('/channel/')[1]?.split(/[/?#]/)[0];
-                        } else {
-                            let channelLink = document.querySelector(`${S.IDS.SHORTS_PLAYER} a[href*="/channel/"]`);
-                            info.authorId = channelLink?.href?.split('/channel/')?.[1]?.split(/[/?#]/)?.[0]
+                        const channelLink =
+                            metapanel.querySelector('a[href*="/channel/"]') ||
+                            document.querySelector(`${S.IDS.SHORTS_PLAYER} a[href*="/channel/"]`);
+
+                        const extractedChannelLink = channelLink?.href?.split('/channel/')?.[1]?.split(/[/?#]/)?.[0];
+                        if (extractedChannelLink) {
+                            info.authorId = extractedChannelLink;
                         }
                     }
+                }
 
-                    // Vistas - Shorts focus ya que primeros fallbacks no lo añaden
-                    if (info.viewCount === 0 || info.viewCount == null) {
-                        async function fetchShortsViews() {
-                            if (!videoId) return null;
+                if (info.viewCount === 0 || info.viewCount == null) {
+                    async function fetchShortsViews() {
+                        if (!videoId) return null;
 
-                            const res = await fetch(
-                                "https://www.youtube.com/youtubei/v1/player?key=" + ytcfg.get("INNERTUBE_API_KEY"),
-                                {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({
-                                        context: ytcfg.get("INNERTUBE_CONTEXT"),
-                                        videoId
-                                    })
-                                }
-                            );
-
-                            const data = await res.json();
-                            return data.videoDetails?.viewCount;
-                        }
-
-                        let viewCountFromFetch = await fetchShortsViews();
-                        if (viewCountFromFetch) {
-                            viewCountFromFetch = Number(viewCountFromFetch.replace(/[^\d]/g, ''));
-                            logLog('getCascadedVideoInfo', 'Vistas shorts obtenidas mediante fetch: ' + viewCountFromFetch);
-                            info.viewCount = viewCountFromFetch;
-                        } else {
-                            // view-count-factoid-renderer es un singleton en el panel compartido
-                            // que se actualiza con ~2s de retraso al navegar entre Shorts.
-                            let shortContainer = document.querySelector('ytd-shorts #shorts-panel-container view-count-factoid-renderer');
-
-                            if (shortContainer && shortContainer.isConnected) {
-                                const viewEl =
-                                    // "1,167,872 vistas"
-                                    shortContainer.querySelector('.ytwFactoidRendererFactoid')?.getAttribute?.('aria-label');
-
-                                const match = viewEl?.match(/[\d.,\s]+/)?.[0] || '';
-                                let cleanMatch = Number(match.replace(/[^\d]/g, ''));
-
-                                logLog('getCascadedVideoInfo', 'Vistas shorts obtenidas 1er intento ', cleanMatch);
-
-                                // chequear que no siga en cero
-                                if (cleanMatch === 0) {
-                                    const viewEl2 =
-                                        // 519,586
-                                        shortContainer.querySelector('span.yt-core-attributed-string[role="text"]')?.textContent;
-                                    cleanMatch = Number((viewEl2 ?? '').replace(/[^\d]/g, ''));
-                                    logLog('getCascadedVideoInfo', 'Vistas shorts obtenidas 2do intento ', cleanMatch);
-                                }
-
-                                info.viewCount = cleanMatch; // número limpio
-                            } else {
-                                logWarn('getCascadedVideoInfo', 'No se encontró el contenedor de vistas de shorts');
+                        const res = await fetch(
+                            "https://www.youtube.com/youtubei/v1/player?key=" + ytcfg.get("INNERTUBE_API_KEY"),
+                            {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                    context: ytcfg.get("INNERTUBE_CONTEXT"),
+                                    videoId
+                                })
                             }
+                        );
+
+                        const data = await res.json();
+                        return data.videoDetails?.viewCount;
+                    }
+
+                    let viewCountFromFetch = await fetchShortsViews();
+                    if (viewCountFromFetch) {
+                        info.viewCount = !isNaN(parseInt(viewCountFromFetch, 10))
+                            ? parseInt(viewCountFromFetch, 10)
+                            : info.viewCount;
+                        logLog('getCascadedVideoInfo', 'Vistas shorts obtenidas mediante fetch: ' + info.viewCount);
+                    } else {
+                        // view-count-factoid-renderer es un singleton en el panel compartido
+                        // que se actualiza con ~2s de retraso al navegar entre Shorts.
+                        let shortContainer = document.querySelector(`${S.ELEMENTS.YTD_SHORTS} #shorts-panel-container view-count-factoid-renderer`);
+
+                        if (shortContainer && shortContainer.isConnected) {
+                            const viewEl =
+                                // "1,167,872 vistas"
+                                shortContainer.querySelector('.ytwFactoidRendererFactoid')?.getAttribute?.('aria-label');
+
+                            const match = viewEl?.match(/[\d.,\s]+/)?.[0] || '';
+                            let cleanMatch = Number(match.replace(/[^\d]/g, ''));
+
+                            logLog('getCascadedVideoInfo', 'Vistas shorts obtenidas 1er intento ', cleanMatch);
+
+                            // chequear que no siga en cero
+                            if (cleanMatch === 0) {
+                                const viewEl2 =
+                                    // 519,586
+                                    shortContainer.querySelector('span.yt-core-attributed-string[role="text"]')?.textContent;
+                                cleanMatch = Number((viewEl2 ?? '').replace(/[^\d]/g, ''));
+                                logLog('getCascadedVideoInfo', 'Vistas shorts obtenidas 2do intento ', cleanMatch);
+                            }
+
+                            info.viewCount = cleanMatch || info.viewCount; // número limpio
+                        } else {
+                            logWarn('getCascadedVideoInfo', 'No se encontró el contenedor de vistas de shorts');
                         }
                     }
                 }
             }
 
-            if (type === 'preview' && (info.lastViewedPlaylistId == null || info.title == null)) {
-                // Para previews, el contexto del DOM es vital para la playlist
-                try {
-                    const richItem = videoEl.closest('ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-rich-grid-media, ytd-video-renderer');
-                    if (richItem) {
-                        // Cue de hover para confirmar que este es el elemento activo
-                        const isCurrentlyHovered = !!richItem.querySelector('.yt-spec-touch-feedback-shape--hovered');
 
-                        // Buscar link con playlist
-                        const linkWithList = richItem.querySelector('a[href*="list="]');
-                        if (linkWithList) {
-                            const url = new URL(linkWithList.href, window.location.origin);
-                            const listId = url.searchParams.get('list');
-                            if (listId && info.lastViewedPlaylistId == null) {
-                                info.lastViewedPlaylistId = listId;
-                                logInfo('getCascadedVideoInfo', `📂 Playlist detectada en ${isCurrentlyHovered ? 'HOVER' : 'contexto'} de Preview: ${listId}`);
-                            }
-                        }
-
-                        if (info.title == null) {
-                            const titleA = richItem.querySelector('#video-title, .yt-lockup-metadata-view-model__title');
-                            info.title = titleA?.textContent.trim() ?? info.title;
-                        }
-                    }
-                } catch (err) {
-                    logError('getCascadedVideoInfo', 'Error extrayendo playlist de Preview:', err);
-                }
-            }
-
-            // Fallbacks genéricos para otros tipos o si Shorts falló
             if (info.title == null) {
                 let titleEl = null;
                 if (type === 'watch') {
@@ -8422,27 +8196,155 @@ background: var(--ypp-danger);
                         document.querySelector('ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span[role="text"]'), 250);
                 } else if (type === 'preview') {
                     titleEl = DOMHelpers.get(`video:titlePreview:${videoId}`, () =>
+                        document.querySelector(`${S.IDS.INLINE_PREVIEW_PLAYER} .ytp-title-text`) ||
                         document.querySelector(`${S.IDS.INLINE_PREVIEW_PLAYER} .ytp-title-link`), 250);
                 }
-
                 info.title = titleEl?.textContent?.trim() ?? info.title;
             }
 
             if (info.author == null || info.author === t('unknown')) {
-                const authorEl = DOMHelpers.get(`video:author:${videoId}`, () =>
-                    document.querySelector('#channel-name a') ||
-                    document.querySelector('link[itemprop="name"]'), 250);
+                let authorEl;
+                if (type === 'watch') {
+                    authorEl = DOMHelpers.get(`video:authorWatch:${videoId}`, () =>
+                        document.querySelector('#owner #channel-name yt-formatted-string'),
+                        250
+                    );
+                }
                 info.author = authorEl?.textContent?.trim() ?? info.author;
             }
 
+            //  info.authorId: '',
+            //  info.isLive: false,
+            //  info.published: 0,
+            //  info.description: '',
+            //  info.viewCount: 0,
+            //  info.lengthSeconds: 0,
+
+
+            if (info.lastViewedPlaylistId == null) {
+                if (type === 'preview') {
+                    const videoPreviewLink = document.querySelector(`${S.IDS.VIDEO_PREVIEW_CONTAINER} a#media-container-link`);
+                    if (videoPreviewLink?.href && videoPreviewLink?.href.includes('list=')) {
+
+                        logLog('getCascadedVideoInfo', `Video preview link: [${videoPreviewLink?.href}]`);
+                        const videoPreviewPlaylistId = extractOrNormalizeVideoId(`https://www.youtube.com${videoPreviewLink?.href}`)?.list;
+                        logLog('getCascadedVideoInfo', `Video preview playlist id: [${videoPreviewPlaylistId}]`);
+
+                        if (videoPreviewPlaylistId) {
+                            info.lastViewedPlaylistId = videoPreviewPlaylistId;
+                        }
+                    } else {
+                        logInfo('getCascadedVideoInfo', 'No se encontró referencia a playlist en el video preview');
+                    }
+                }
+
+                // 1. Intentar obtener del objeto Player (si está disponible)
+                if (typeof player?.getPlaylistId === 'function') {
+                    const playerPlaylistId = player.getPlaylistId();
+                    if (playerPlaylistId) {
+                        currentPlaylistId = playerPlaylistId;
+                        logLog('getCascadedVideoInfo', `Playlist id obtenido del objeto Player: [${currentPlaylistId}]`);
+                    }
+                }
+
+                if (type === 'miniplayer') {
+                    logLog('getCascadedVideoInfo', `Miniplayer playlist id: [${info.lastViewedPlaylistId}]`);
+                    let currentPlaylistId = null;
+                    let retryCount = 0;
+                    const maxRetries = 5;
+
+                    while (!currentPlaylistId && retryCount < maxRetries) {
+                        try {
+                            const selectors = ['.ytp-next-button', '.ytp-prev-button'];
+
+                            for (const selector of selectors) {
+                                const anchor = player?.querySelector?.(selector);
+                                if (anchor?.href) {
+                                    // los selectores al ser de botones se avanzar/retroceder del dropdown de playlist miniplayer, 
+                                    // su videoId no hacen match con video actualmente reproduciendose
+                                    logLog('getCascadedVideoInfo', `Anchor href: [${anchor?.href}] extrac id: ${extractOrNormalizeVideoId(anchor?.href).id} list: ${extractOrNormalizeVideoId(anchor?.href).list}`);
+                                    const listParam = extractOrNormalizeVideoId(anchor?.href)?.list;
+
+                                    if (listParam) {
+                                        logLog('getCascadedVideoInfo', `List param: [${listParam}]`);
+                                        currentPlaylistId = listParam;
+                                        break;
+                                    }
+                                }
+                            }
+                        } catch (e) {
+                            logError('getCascadedVideoInfo', 'Error al obtener playlist id:', e);
+                        }
+
+                        if (currentPlaylistId) break;
+
+                        await new Promise(r => setTimeout(r, 200));
+                        retryCount++;
+                    }
+
+                    info.lastViewedPlaylistId = currentPlaylistId ?? info.lastViewedPlaylistId;
+                }
+
+
+            }
+
+
+            // Playlist Title - Fetch fallback via Innertube /next
+            if (
+                info.lastViewedPlaylistId && info.lastViewedPlaylistId !== '' && !info.lastViewedPlaylistId.startsWith('RD') &&
+                (info.playlistTitle == null || info.playlistTitle === '') &&
+                (type === 'watch' || type === 'miniplayer')
+            ) {
+                // Nivel 1: Si hay playlistId, obtener título (maneja cache automáticamente)
+                // Si estamos en Watch, el título de la playlist suele estar ya cacheado o disponible en el DOM
+                info.playlistTitle = await getPlaylistName(info.lastViewedPlaylistId) ?? info.playlistTitle;
+
+
+                // Nivel 2: Fallback en fast-transitions: Si seguimos en null, es posible que el DOM/API aún no se hayan propagado. 
+                async function fetchPlaylistTitle() {
+                    if (!info.lastViewedPlaylistId) return null;
+
+                    try {
+                        const res = await fetch(
+                            'https://www.youtube.com/youtubei/v1/next?key=' + ytcfg.get('INNERTUBE_API_KEY'),
+                            {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    context: ytcfg.get('INNERTUBE_CONTEXT'),
+                                    videoId,
+                                    playlistId: info.lastViewedPlaylistId
+                                })
+                            }
+                        );
+                        const data = await res.json();
+                        return (
+                            data?.contents?.twoColumnWatchNextResults?.playlist?.playlist?.titleText?.runs?.[0]?.text ??
+                            data?.playerOverlays?.playerOverlayRenderer?.autoplay?.playerOverlayAutoplayRenderer?.playlistTitle?.simpleText ??
+                            null
+                        );
+                    } catch (e) {
+                        logWarn('getCascadedVideoInfo', 'fetchPlaylistTitle: Error al obtener título de playlist:', e);
+                        return null;
+                    }
+                }
+
+                if (info.playlistTitle == null || info.playlistTitle === '') {
+                    const titleFromFetch = await fetchPlaylistTitle();
+                    if (titleFromFetch) {
+                        logLog('getCascadedVideoInfo', 'playlistTitle obtenido mediante fetch /next: ' + titleFromFetch);
+                        info.playlistTitle = titleFromFetch;
+                    }
+                }
+            }
 
             // VIEWS: '.view-count, view-count-factoid-renderer .ytwFactoidRendererFactoid[role="text"], ytd-watch-info-text div#tooltip.tp-yt-paper-tooltip, yt-formatted-string.view-count'
 
         } catch (e) {
-            logLog('getCascadedVideoInfo', '⚠️ Error en Nivel 3 (DOM Fallbacks):', e);
+            logError('getCascadedVideoInfo', '⚠️ Error en Nivel 3 (DOM Fallbacks):', e);
         }
 
-        // Limpieza final
+        // Limpieza final 
         info.title = info.title ?? (
             (currentPageType === 'watch' || currentPageType === 'shorts')
                 ? document.title.replace(/ - YouTube$/, '')
@@ -8884,7 +8786,7 @@ background: var(--ypp-danger);
 
                     setInnerHTML(header, `
                         <a href="${playlistUrl}" target="_blank" rel="noopener noreferrer">
-                            ${SVG_ICONS.folder} ${item.playlistTitle}
+                            ${SVG_ICONS.playlist} ${item.playlistTitle}
                         </a>
                     `);
                     return header;
@@ -9517,7 +9419,7 @@ background: var(--ypp-danger);
 
                     ${isPlaylistItem && finalPlaylistTitle ? `
                         <div class="ypp-playlist-indicator" title="${escapeHTML(t('playlist'))}: ${escapeHTML(finalPlaylistTitle)} (${escapeHTML(playlistKey)})" style="color: ${escapeHTML(generatePlaylistBorderColor(playlistKey))}; font-weight: bold; font-size: 0.85em; margin-top: 2px;">
-                            ${SVG_ICONS.folder} ${escapeHTML(finalPlaylistTitle)}
+                            ${SVG_ICONS.playlist} ${escapeHTML(finalPlaylistTitle)}
                             <a class="ypp-playlist-link" title="${escapeHTML(t('openPlaylist'))}: ${escapeHTML(finalPlaylistTitle)}" href="${playlistUrl}" target="_blank" rel="noopener noreferrer" style="margin-left: 8px; color: ${escapeHTML(generatePlaylistBorderColor(playlistKey))}; text-decoration: none; font-size: 0.9em;">
                                 ${SVG_ICONS.externalLink}
                             </a>
@@ -9543,10 +9445,7 @@ background: var(--ypp-danger);
 
                     ${info.lastViewedPlaylistId ? `
                         <button class="ypp-btn ypp-btn-small" data-action="unlink-playlist" title="${escapeHTML(t('removeFromPlaylist'))}">
-                            <div style="position:relative; display:flex; align-items:center;">
-                                ${SVG_ICONS.folder}
-                                <span style="position:absolute; bottom:-4px; right:-4px; color:#ffdddd; background:rgba(255,0,0,0.8); border-radius:50%; width:12px; height:12px; font-size:9px; display:flex; align-items:center; justify-content:center; font-weight:bold;">✕</span>
-                            </div>
+                            ${SVG_ICONS.playlistRemove}
                         </button>
                     ` : ''}
 

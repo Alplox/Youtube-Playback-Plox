@@ -16,20 +16,55 @@ Ideal for those who:
 
 ## ✨ Features
 
-- 🔐 Works without Google account; everything is stored locally in your browser.
-- 🕒 Saves the time and automatically resumes from that point when you return to the same video.
-    - `Videos`
-        - `Miniplayer`
-    - `Shorts` (by default disabled)
-    - `Live streams` (by default disabled)
-    - `Previews on home` (by default disabled)
-- 🛑 Stops saving during ads.
-- 🔔 Integrated messages in the player bar showing when it has been resumed or progress is being saved.
-- 🟢 Floating button for quick access to settings.
-- 🗂 Modal with list of saved videos, thumbnails, author, percentage watched and remaining time.
-    - ⏱ Set a "fixed start time" per video to always start from a specific point.
-    - 📦 Export/Import all saved data to a JSON or DB (Compatible with Freetube history).
-    - 🔀 Create public playlists from watched videos.
+- 🔐 **100% Private and Local:** Works without a Google account; everything is stored locally using `IndexedDB` in your browser.
+- 🕒 **Smart Auto-Save:** Saves the time and automatically resumes from that point when you return, thanks to context-isolated detectors. Toggle tracking individually in settings:
+    - `Regular Videos`
+    - `Miniplayer`
+    - `Shorts` (disabled by default)
+    - `Live streams` (disabled by default)
+    - `Previews on home` (disabled by default)
+- 🛑 **Anti-Ads:** Prevents saving false playback times and IDs during ads. (the script does not block ads)
+- ⚡ **Fast Performance:** Employs "Virtual Scrolling" in the modal of saved videos to instantly handle lists of thousands of videos without consuming extra memory.
+- 🔔 **UI Notifications:** Native, unobtrusive messages in the player bar showing when a video is being resumed or saved.
+- 🟢 **Floating button:** Quick access to settings.
+- 🗂 **Advanced Video Manager:** Full modal with playlists, pre-loaded thumbnails, authors, percentages watched and remaining time.
+    - ⏱ Set a "fixed start time" per video to always start from a predictable point (ideal for skipping intros).
+    - 🔗 Unlink videos from arbitrary playlists with a single click.
+    - 📦 Export/Import your backup to JSON or SQLite databases (100% FreeTube compatible).
+    - 📊 Observe your browser's available storage quota.
+    - 🔀 Create public YouTube `playlists` on the fly from your watched videos.
+- 🌍 **Global Support:** Settings and UI fully translated into 50+ native languages.
+
+## 🛠️ Requirements
+
+You need a userscript manager like:
+
+- [Violentmonkey](https://violentmonkey.github.io/)
+- [Tampermonkey](https://www.tampermonkey.net/)
+- [Greasemonkey](https://www.greasespot.net/)
+
+## 📦 Installation
+
+1. Install a userscript manager (see above)
+2. 📥 [Click here to install the script](https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js) or [Go to Greasyfork](https://greasyfork.org/es/scripts/553387-youtube-playback-plox)
+
+## How it works?
+
+This script listens to the events of the YouTube player to save the playback time at certain intervals or when leaving the page. When you visit the same video again, it detects the ID and searches for the last saved progress to automatically resume the video from that point.
+
+## Privacy
+
+All information is stored locally in your browser. **No data is sent to external servers.**
+
+## 📸 Screenshots
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-alerta-guardado.png" alt="Example of alert time saved">
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-videos.png" alt="Example of modal to view saved videos">
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-config.png" alt="Example of configuration modal">
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-crear-playlist.png" alt="Example of playlist creation">
 
 ## 🌐 Languages
 
@@ -90,38 +125,6 @@ Ideal for those who:
 | 🇵🇰 | `ur` | اردو |
 | 🇿🇦 | `zu` | isiZulu |
 
-## 🛠️ Requirements
-
-You need a userscript manager like:
-
-- [Violentmonkey](https://violentmonkey.github.io/)
-- [Tampermonkey](https://www.tampermonkey.net/)
-- [Greasemonkey](https://www.greasespot.net/)
-
-## 📦 Installation
-
-1. Install a userscript manager (see above)
-2. 📥 [Click here to install the script](https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js) or [Go to Greasyfork](https://greasyfork.org/es/scripts/553387-youtube-playback-plox)
-
-## How it works?
-
-This script listens to the events of the YouTube player to save the playback time at certain intervals or when leaving the page. When you visit the same video again, it detects the ID and searches for the last saved progress to automatically resume the video from that point.
-
-## Privacy
-
-All information is stored locally in your browser. **No data is sent to external servers.**
-
-## 📸 Screenshots
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-alerta-guardado.png" alt="Example of alert time saved">
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-videos.png" alt="Example of modal to view saved videos">
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-config.png" alt="Example of configuration modal">
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-crear-playlist.png" alt="Example of playlist creation">
-
-
 ## 📄 License
 
 This project is under the MIT license. Consult the file [LICENSE](./LICENSE) for more details.
@@ -134,7 +137,7 @@ This project is under the MIT license. Consult the file [LICENSE](./LICENSE) for
 
 This project is not affiliated with Google or YouTube.
 
-## Translations
+## Translations README
 
 - [English](README.md)
 - [Spanish](README.es.md)

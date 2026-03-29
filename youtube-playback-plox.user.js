@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9
+// @version      0.0.9-1
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -172,6 +172,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 (() => {
     'use strict';
 
+    const SCRIPT_VERSION = '0.0.9-1';
+
     /**
      * Polyfill ligero para CustomEvent en navegadores antiguos.
      * Crea window.CustomEvent si no existe o no es una función nativa.
@@ -200,7 +202,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     // URL del archivo de traducciones
     const TRANSLATIONS_URL = 'https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/translations.json';
     const TRANSLATIONS_URL_BACKUP = 'https://cdn.jsdelivr.net/gh/Alplox/Youtube-Playback-Plox@refs/heads/main/translations.json';
-    const TRANSLATIONS_EXPECTED_VERSION = '0.0.8-1';
+    const TRANSLATIONS_EXPECTED_VERSION = SCRIPT_VERSION;
 
     // Variables globales para las traducciones
     let TRANSLATIONS = {};
@@ -747,10 +749,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     //          └─ <div.reel-video-in-sequence-new.style-scope.ytd-shorts>                  -> Existen multiples de estos divs donde cada short va asignado a un incremental numero en su id (id="1", id="2", etc) Son indistingibles de no ser por sus ids
     //              └─ <ytd-reel-video-renderer#reel-video-renderer>
     //                  └─ <div#short-video-container>                                      -> Contenedor interno donde se renderiza el video de Shorts Activo
-    //                      └─ <div.player-wrapper.style-scope.ytd-reel-video-renderer> 
+    //                      └─ <div.player-wrapper.style-scope.ytd-reel-video-renderer>
     //                          └─ <div#player-container>                                   -> id="player-container" puede exitir 3 veces en DOM; dentro de #video-preview, #masthead-player y #shorts-container
     //                              └─ <ytd-player#player                                   -> id="player" Existe 2 veces en DOM; en anuncios homepage #masthead-player
-    //                              🟢 └─ <div#shorts-player.html5-video-player>           -> Elemento que representa el Short activo (video actual) 
+    //                              🟢 └─ <div#shorts-player.html5-video-player>           -> Elemento que representa el Short activo (video actual)
     //                                      └─ <div.html5-video-container>                  -> Existe 2 veces en DOM; una dentro de #movie_player (Por miniplayer) y la otra en #shorts-player (puede existir igual en anuncios homepage #masthead-player)
     //                                          └─ <video.video-stream html5-main-video>    -> Video activo (Existe 2 veces en DOM; una dentro de #movie_player > div.html5-video-container (Por miniplayer) y la otra en #shorts-player > div.html5-video-container) (puede existir igual en anuncios homepage #masthead-player > div.html5-video-container)
 
@@ -789,7 +791,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
     // ELEMENTS (Elementos simples <element></element>)
     const ELEMENTS = {
-        // === SHORTS ===   
+        // === SHORTS ===
         YTD_SHORTS: 'ytd-shorts',
         REEL_VIDEO_RENDERER: 'ytd-reel-video-renderer', // Elemento que contiene el video de Shorts Activo
 
@@ -855,7 +857,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
     };
 
-    /*    
+    /*
         'ytd-rich-grid-renderer',              // Grid de videos en home
         'ytd-video-renderer',                  // Video individual
         'ytd-playlist-video-renderer',         // Videos en playlist
@@ -1011,17 +1013,17 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             /**
              * Metodo para poder realizar consultas libres desde el exterior aprovechando el cache (Ej: Anuncios).
              * Garantiza eficiencia sin volver el objeto gigantesco.
-             * 
+             *
              * @template T
              * @param {string} key Nombre unico para la llave en la memoria Map interna.
              * @param {() => T} getter Metodo que devolvera un valor si el TTL se ha rebasado o llave no existe.
              * @param {number} ttlMs Cantidad en MS de retencion para este guardado especifico (Sobrescribe defecto: 125ms).
              * @returns {T} Resultado evaluado al instante o guardado.
-             * 
+             *
              * @example
              * // Buscar si el botón de "Saltar anuncio" existe en el DOM (caché válido por 300ms)
              * const skipButton = DOMHelpers.get('ad:SkipButton', () => document.querySelector('.ytp-ad-skip-button'), 300);
-             * 
+             *
              * @example
              * // Buscar una propiedad de video compleja sin afectar el rendimiento si se llama muchas veces seguidas
              * const movieTitle = DOMHelpers.get('movie:title', () => document.querySelector('h1.title')?.textContent?.trim(), 500);
@@ -1033,11 +1035,11 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
              * Utilícese cuando se está seguro de qué nodo actualizar de forma individual (Por defecto: 125ms de vida).
              *
              * @param {string} key - Clave exacta usada al llamar `.get()`.
-             * 
+             *
              * @example
              * // Fuerza la actualización del registro de la caja de anuncios
              * DOMHelpers.removeExact('ad:skipButton');
-             * // Si en la memoria tienes guardado "ad:skipButton", "ad:banner" y "ad:video", 
+             * // Si en la memoria tienes guardado "ad:skipButton", "ad:banner" y "ad:video",
              * // la función solo borrará "ad:skipButton", y dejará el resto intacto.
              */
             removeExact: (key) => cache.delete(key),
@@ -1047,18 +1049,18 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
              * Ideal cuando ocurre un cambio rotundo de estado, como un cambio de video.
              *
              * @param {string} prefix - Prefijo en común de los elementos guardados.
-             * 
+             *
              * @example
              * // Cuando pasamos al siguiente video, borramos todos los identificadores viejos relacionados con anuncios
              * DOMHelpers.removeByCategory('ad:');
-             * // Si en la memoria tienes guardado "ad:skipButton", "ad:banner" y "ad:video", 
+             * // Si en la memoria tienes guardado "ad:skipButton", "ad:banner" y "ad:video",
              * // al ejecutar este código en masa, como todos empiezan por "ad:", borrará los tres de un solo golpe.
              */
             removeByCategory: (prefix) => clear(prefix),
 
             /**
              * Formatea por completo el registro en memoria del caché perdiendo toda referencia existente.
-             * 
+             *
              * @example
              * // Al ocurrir la desinstalación en vivo del UserScript, vaciamos la memoria caché
              * DOMHelpers.clearAll();
@@ -3304,7 +3306,6 @@ background: var(--ypp-danger);
     // MARK: 📊 Variables Globales
     // ------------------------------------------
 
-    const SCRIPT_VERSION = '0.0.9';
     // Variables para controlar el estado de inicialización
     let YTHelper = null;          // YouTube Helper API, obtenida de waitForHelper
     let currentPageType = null;   // Tipo de página actual (home, watch, shorts, playlist, etc.)
@@ -4305,6 +4306,7 @@ background: var(--ypp-danger);
             // Early exit si no hay datos que exportar
             if (keys.length === 0) {
                 logLog('exportDataToFile', 'No hay datos para exportar');
+                showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
                 return;
             }
 
@@ -4412,6 +4414,10 @@ background: var(--ypp-danger);
         (async () => {
             try {
                 const exportData = await exportToFreeTubeFormat();
+                if (!exportData || exportData.length === 0) {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
+                    return;
+                }
                 // FreeTube imports as JSON Lines / .db where each line is a JSON object.
                 // Generar JSON Lines (NDJSON) - cada línea debe ser un objeto JSON completo
                 // JSON.stringify serializa sin saltos de línea por defecto, pero nos aseguramos
@@ -4676,7 +4682,7 @@ background: var(--ypp-danger);
 
             // Durante la importación desde FreeTube, estos campos se consideran opcionales
             // https://github.com/FreeTubeApp/FreeTube/blob/fa842985/src/renderer/components/DataSettings/DataSettings.vue#L832-L839
-            /* 
+            /*
             const optionalKeys = [
                 // `_id` absent if marked as watched manually
                 '_id',
@@ -4690,7 +4696,7 @@ background: var(--ypp-danger);
             // Metadatos de playlist (FreeTube los incluye siempre, aunque sean null)
             lastViewedPlaylistId: normalized.lastViewedPlaylistId || null,
 
-            /* 
+            /*
             Valores posibles para `lastViewedPlaylistType`
             https://github.com/FreeTubeApp/FreeTube/blob/fa842985/src/renderer/views/Watch/Watch.js#L1188-L1200
                 - **`"user"`**: Cuando el video se reproduce desde una playlist creada por el usuario
@@ -4699,7 +4705,7 @@ background: var(--ypp-danger);
             */
             lastViewedPlaylistType: '',
 
-            /* 
+            /*
             Valores posibles para `lastViewedPlaylistItemId`
             https://github.com/FreeTubeApp/FreeTube/blob/fa842985/src/renderer/views/Watch/Watch.js#L1230-1273
                 - **String**: Identificador único del item dentro de la playlist (para playlists de usuario)
@@ -4714,7 +4720,7 @@ background: var(--ypp-danger);
     }
 
     // freetube v0.23.15 Beta guarda asi un livestream...
-    /* 
+    /*
         {
             "videoId":"YnSRyzVme58",
             "title":"🔴LIVE | CS2 | OPENING CASES | HUTCH x CLOAKZY x DRAC x NICKMERCS | #BUNGULATE",
@@ -4743,7 +4749,7 @@ background: var(--ypp-danger);
             const uint8Array = new Uint8Array(arrayBuffer);
             let text = '';
 
-            // Intentar decodificar como UTF-8 primero por si es un archivo de texto (JSON-L) 
+            // Intentar decodificar como UTF-8 primero por si es un archivo de texto (JSON-L)
             // que llegó aquí como arrayBuffer
             try {
                 const decoder = new TextDecoder('utf-8');
@@ -5652,8 +5658,8 @@ background: var(--ypp-danger);
      * @param {HTMLElement} playerContainer - Referencia al player root (#movie_player).
      */
     function initTimeDisplay(playerContainer) {
-        /* 
-        
+        /*
+
         <div class="ytp-time-display notranslate" style="">
           <div class="ytp-time-wrapper ytp-time-wrapper-delhi">
             <div class="ytp-time-contents" role="button" tabindex="0"
@@ -5671,8 +5677,8 @@ background: var(--ypp-danger);
           </div><span class="ytp-clip-watch-full-video-button-separator">•</span><span
             class="ytp-clip-watch-full-video-button">Mirar video completo</span>
         </div>
-        
-        
+
+
         └─ div.ytp-time-display.notranslate
             ├─ div.ytp-time-wrapper.ytp-time-wrapper-delhi
             │   ├─ div.ytp-time-contents
@@ -6329,6 +6335,11 @@ background: var(--ypp-danger);
     *   - action: { label: string, callback: function }
     */
     function showFloatingToast(message, duration, options = {}) {
+        // Si el segundo argumento es un objeto, asumimos que son las opciones
+        if (typeof duration === 'object' && duration !== null) {
+            options = duration;
+            duration = undefined;
+        }
         // Fallback robusto para saber si se envió un tiempo o se usa el default
         const isDurationExplicit = duration !== undefined;
         const actualDuration = isDurationExplicit ? duration : 2500;
@@ -6373,18 +6384,18 @@ background: var(--ypp-danger);
             toast.appendChild(actionBtn);
         }
 
-        // Agregar botón de cerrar para toasts persistentes
-        if (options.persistent) {
-            const closeBtn = createElement('button', {
-                className: 'ypp-toast-close',
-                html: SVG_ICONS.close,
-                atribute: { 'aria-label': t('close'), title: t('close'), type: 'button' },
-                onClickEvent: () => {
-                    fadeAndRemoveToast(toast, 0);
-                }
-            });
-            toast.appendChild(closeBtn);
-        }
+        // Agregar botón de cerrar para toasts persistentes o de tipo keep
+        /*  if (options.persistent || options.keep) { */
+        const closeBtn = createElement('button', {
+            className: 'ypp-toast-close',
+            html: SVG_ICONS.close,
+            atribute: { 'aria-label': t('close'), title: t('close'), type: 'button' },
+            onClickEvent: () => {
+                fadeAndRemoveToast(toast, 0);
+            }
+        });
+        toast.appendChild(closeBtn);
+        /*  } */
 
         // Si no es keep, desvanecer por defecto si no es persistente,
         // o si es persistente pero se le especificó una duración explícita mayor a 0.
@@ -7798,7 +7809,7 @@ background: var(--ypp-danger);
             const isReady = () => {
                 const dur = getExpectedDuration();
 
-                // Para livestreams o casos especiales donde la duración es 0/infinita, 
+                // Para livestreams o casos especiales donde la duración es 0/infinita,
                 // consideramos que está listo si el videoEl tiene un readyState suficiente
                 if (type === 'live' || type === 'shorts') {
                     return dur > 0 || videoEl.readyState >= 1;
@@ -7963,13 +7974,13 @@ background: var(--ypp-danger);
     // MARK: 📋 Get Cascaded Video Info
     /**
      * Extrae y normaliza metadatos del video mediante una estrategia de resolución en cascada ("Waterfall").
-     * 
+     *
      * El proceso garantiza la integridad de los datos intentando obtener la información desde múltiples fuentes
      * en orden de fiabilidad:
      * 1. APIs Internas de YouTube: Acceso directo a `getPlayerResponse()` y `getVideoData()` del reproductor.
      * 2. YouTube Helper API: Consulta a la interfaz global del script (YTHelper).
      * 3. DOM Fallbacks: Heurísticas basadas en selectores CSS y atributos de elementos según el contexto.
-     * 
+     *
      * @async
      * @param {Object} initialPlayer - Instancia del reproductor de YouTube (Elemento DOM o API object).
      * @param {string} videoId - Identificador único de 11 caracteres del video.
@@ -8011,7 +8022,7 @@ background: var(--ypp-danger);
 
         logLog('getCascadedVideoInfo', `Playlist id getPlaylistId: [${player?.getPlaylistId()}] en type: [${type}]`);
 
-        // 🟢 Nivel 1: YouTube Internal API - 
+        // 🟢 Nivel 1: YouTube Internal API -
         // getPlayerResponse().videoDetails
         // getPlayerResponse().microformat.playerMicroformatRenderer
         // getVideoData()
@@ -8292,7 +8303,7 @@ background: var(--ypp-danger);
                             for (const selector of selectors) {
                                 const anchor = player?.querySelector?.(selector);
                                 if (anchor?.href) {
-                                    // los selectores al ser de botones se avanzar/retroceder del dropdown de playlist miniplayer, 
+                                    // los selectores al ser de botones se avanzar/retroceder del dropdown de playlist miniplayer,
                                     // su videoId no hacen match con video actualmente reproduciendose
                                     logLog('getCascadedVideoInfo', `Anchor href: [${anchor?.href}] extrac id: ${extractOrNormalizeVideoId(anchor?.href).id} list: ${extractOrNormalizeVideoId(anchor?.href).list}`);
                                     const listParam = extractOrNormalizeVideoId(anchor?.href)?.list;
@@ -8332,7 +8343,7 @@ background: var(--ypp-danger);
                 info.playlistTitle = await getPlaylistName(info.lastViewedPlaylistId) ?? info.playlistTitle;
 
 
-                // Nivel 2: Fallback en fast-transitions: Si seguimos en null, es posible que el DOM/API aún no se hayan propagado. 
+                // Nivel 2: Fallback en fast-transitions: Si seguimos en null, es posible que el DOM/API aún no se hayan propagado.
                 async function fetchPlaylistTitle() {
                     if (!info.lastViewedPlaylistId) return null;
 
@@ -8376,7 +8387,7 @@ background: var(--ypp-danger);
             logError('getCascadedVideoInfo', '⚠️ Error en Nivel 3 (DOM Fallbacks):', e);
         }
 
-        // Limpieza final 
+        // Limpieza final
         info.title = info.title ?? (
             (currentPageType === 'watch' || currentPageType === 'shorts')
                 ? document.title.replace(/ - YouTube$/, '')
@@ -8835,7 +8846,7 @@ background: var(--ypp-danger);
                 const statsEl = document.querySelector('#ypp-render-stats');
                 if (statsEl) {
                     // Para que las estadísticas sean coherentes con el total de "Videos" de arriba,
-                    // filtramos los headers de la cuenta total y renderizada. 
+                    // filtramos los headers de la cuenta total y renderizada.
                     const totalVideos = filteredItems.length;
                     let renderedVideos = 0;
                     if (virtualScroller) {
@@ -9499,6 +9510,13 @@ background: var(--ypp-danger);
     let clearedData = null; // Para almacenar datos eliminados y poder deshacer
 
     async function clearAllData() {
+        // Verificar si hay datos relevantes antes de pedir confirmación
+        const videoKeys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
+        if (videoKeys.length === 0) {
+            showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
+            return;
+        }
+
         if (!confirm(t('clearAllDataConfirm'))) return;
 
         // Guardar datos para posible deshacer
@@ -9744,7 +9762,7 @@ background: var(--ypp-danger);
                 // Caso B: Entrada de video (individual)
                 else {
                     // Migración v4: Normalización agresiva de todos los campos legacy
-                    // Incluso si no parece tener campos legacy, pasamos por normalizeVideoData 
+                    // Incluso si no parece tener campos legacy, pasamos por normalizeVideoData
                     // para asegurar que el objeto tenga exactamente la estructura Format A en IndexedDB
                     const normalized = normalizeVideoData(data);
 

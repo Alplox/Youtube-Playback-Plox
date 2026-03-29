@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-1
+// @version      0.0.9-2
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -172,7 +172,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = '0.0.9-1';
+    const SCRIPT_VERSION = '0.0.9-2';
 
     /**
      * Polyfill ligero para CustomEvent en navegadores antiguos.
@@ -7518,6 +7518,7 @@ background: var(--ypp-danger);
         }
 
         logInfo('process', `🚀 Iniciando sesión de seguimiento para [${type}] - ${videoId}`);
+        videoEl.dataset.sessionStartTime = Date.now().toString();
 
         // Obtener metadatos base una sola vez al inicio de la sesión
         let cachedVideoInfo = null;
@@ -7844,6 +7845,11 @@ background: var(--ypp-danger);
                     }
                     logLog('PlaybackController', `✅ Seek aplicado exitosamente a ${formatTime(safeTime)}`);
 
+                    // Marcar el tiempo esperado y el momento de la reanudación para evitar "backwards jumps" falsos durante carga
+                    videoEl.dataset.lastSavedTime = safeTime.toString();
+                    videoEl.dataset.lastResumedTime = safeTime.toString();
+                    videoEl.dataset.lastResumeTimestamp = Date.now().toString();
+
                     // Notificar al usuario (Toast/PlaybackBar)
                     notifySeekOrProgress(safeTime, 'seek', { videoType: type, isForced: savedData.forceResumeTime > 0, videoEl });
                 } catch (e) {
@@ -7874,7 +7880,20 @@ background: var(--ypp-danger);
             if (videoEl.paused) {
                 logWarn('saveStatus', `Video ${type} - ${videoId} pausado`)
                 const prevSavedTime = parseFloat(videoEl.dataset.lastSavedTime || '0');
-                if (Math.abs(currentTime - prevSavedTime) < CONFIG.minSeekDiff) {
+                const diff = currentTime - prevSavedTime;
+
+                // Si hay un salto hacia atrás significativo (ej. > 5s) justo después de iniciar o reanudar, 
+                // es probable que sea el player de YouTube reseteándose durante la carga.
+                const sessionStartTime = parseInt(videoEl.dataset.sessionStartTime || '0', 10);
+                const lastResumeTimestamp = parseInt(videoEl.dataset.lastResumeTimestamp || '0', 10);
+                const timeSinceRelevantStart = Date.now() - Math.max(sessionStartTime, lastResumeTimestamp);
+
+                if (diff < -5 && timeSinceRelevantStart < 3000) {
+                    logWarn('saveStatus', `⚠️ Saltando guardado: Posible reset del player tras carga/resume (diff: ${diff.toFixed(2)}s, age: ${timeSinceRelevantStart}ms)`);
+                    return { success: false, reason: 'player_reset_detected' };
+                }
+
+                if (Math.abs(diff) < CONFIG.minSeekDiff) {
                     // El video está pausado y su tiempo no se movió lo suficiente como para justificar un guardado (no fue un seek)
                     return { success: false, reason: 'paused_no_seek' };
                 }

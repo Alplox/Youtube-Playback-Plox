@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-3
+// @version      0.0.9-4
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -172,7 +172,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = '0.0.9-3';
+    const SCRIPT_VERSION = '0.0.9-4';
 
     /**
      * Polyfill ligero para CustomEvent en navegadores antiguos.
@@ -1370,22 +1370,44 @@ html[dark], body.dark-theme {
   }
 }
 
-.ypp-container {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--ypp-bg);
-  border-radius: 8px;
-  box-shadow: var(--ypp-shadow-md);
-  padding: 0; /* Padding manejado por hijos */
-  z-index: var(--ypp-z-modal);
-  width: 550px; /* Un poco más ancho para los nuevos botones */
-  max-height: 80vh;
-  display: flex;
-  flex-direction: column;
-  font-family: var(--ypp-font-base);
-  color: var(--ypp-text);
+
+/* =========================
+   Boton script en barra reproducción
+ ========================= */
+.ytp-delhi-modern .ytp-time-wrapper:not(.ytp-miniplayer-ui *) {
+    min-width: 0;
+    position: relative;
+    display: flex !important;
+    height: var(--yt-delhi-pill-height, 48px);
+    border-radius: 28px;
+    padding: 0 16px;
+    -webkit-backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override, blur(16px));
+    backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override, blur(16px));
+    background: var(--yt-spec-overlay-background-medium-light, rgba(0,0,0,.3));
+    text-shadow: 0 0 2px #000;
+    align-items: center;
+    gap: 8px;
+    cursor: default;
+    /* No interceptar clicks que no son nuestros */
+    pointer-events: auto;
+}
+
+/* Corregir orden en el rediseño Delhi: el botón del script debe ir al final */
+.ytp-delhi-modern .ytp-time-wrapper .ytp-time-current,
+.ytp-delhi-modern .ytp-time-wrapper .ytp-time-separator,
+.ytp-delhi-modern .ytp-time-wrapper .ytp-time-duration {
+    order: 1;
+    /* El tiempo debe estar visible para que YouTube calcule bien los offsets de click */
+    display: inline-block !important;
+}
+
+.ytp-delhi-modern .ytp-time-wrapper .ytp-live-badge,
+.ytp-delhi-modern .ytp-time-wrapper .live-badge {
+    order: 2 !important;
+    margin-left: 4px;
+    /* Asegurar que el badge sea clickeable */
+    pointer-events: auto !important;
+    cursor: pointer !important;
 }
 
 .ypp-time-display {
@@ -1404,13 +1426,23 @@ html[dark], body.dark-theme {
   }
 }
 
-
-/* .ytp-time-current,
-.ytp-time-separator,
-.ytp-time-duration {
-  display: none !important;
-    visibility: hidden !important;
-} */
+.ytp-delhi-modern .ytp-time-wrapper .ypp-time-display {
+    order: 3 !important;
+    margin-left: 4px !important;
+    white-space: nowrap;
+    pointer-events: auto;
+    align-self: center !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: 24px !important;
+    line-height: 20px !important;
+    padding: 2px 8px !important;
+    border-radius: 999px !important;
+    box-sizing: border-box !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    overflow: hidden !important;
+}
 
 .ytp-live .ytp-time-current,
 .ytp-live .ytp-time-separator,
@@ -1490,7 +1522,7 @@ html[dark], body.dark-theme {
 /* Estilo específico para Inline Previews */
 .ypp-inline-preview-display {
   position: absolute;
-  bottom: 30px;
+  top: 20px;
   left: 8px;
   z-index: var(--ypp-z-toast, 10001);
   background: hsla(109.7, 56.1%, 22.4%, 0.8);
@@ -2657,77 +2689,6 @@ background: var(--ypp-danger);
 
             .ytp-scrubber-button {
                 background: var(--ytp-progress-color) !important;
-            }
-            /* Soporte para el rediseño Moderno (Delhi) */
-            .ytp-delhi-modern .ytp-time-wrapper:not(.ytp-miniplayer-ui *) {
-                min-width: 0;
-                position: relative;
-                display: flex !important;
-                height: var(--yt-delhi-pill-height, 48px);
-                border-radius: 28px;
-                padding: 0 16px;
-                -webkit-backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override, blur(16px));
-                backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override, blur(16px));
-                background: var(--yt-spec-overlay-background-medium-light, rgba(0,0,0,.3));
-                text-shadow: 0 0 2px #000;
-                align-items: center;
-                gap: 8px;
-                cursor: default;
-                /* No interceptar clicks que no son nuestros */
-                pointer-events: auto;
-            }
-
-            /* Corregir orden en el rediseño Delhi: el botón del script debe ir al final */
-            .ytp-delhi-modern .ytp-time-wrapper .ytp-time-current,
-            .ytp-delhi-modern .ytp-time-wrapper .ytp-time-separator,
-            .ytp-delhi-modern .ytp-time-wrapper .ytp-time-duration {
-                order: 1;
-                /* El tiempo debe estar visible para que YouTube calcule bien los offsets de click */
-                display: inline-block !important;
-            }
-
-            .ytp-delhi-modern .ytp-time-wrapper .ytp-live-badge,
-            .ytp-delhi-modern .ytp-time-wrapper .live-badge {
-                order: 2 !important;
-                margin-left: 4px;
-                /* Asegurar que el badge sea clickeable */
-                pointer-events: auto !important;
-                cursor: pointer !important;
-            }
-
-            .ytp-delhi-modern .ytp-time-wrapper .ypp-time-display {
-                order: 3 !important;
-                margin-left: 4px !important;
-                white-space: nowrap;
-                pointer-events: auto;
-                align-self: center !important;
-                height: auto !important;
-                min-height: 0 !important;
-                max-height: 24px !important;
-                line-height: 20px !important;
-                padding: 2px 8px !important;
-                border-radius: 999px !important;
-                box-sizing: border-box !important;
-                display: inline-flex !important;
-                align-items: center !important;
-                overflow: hidden !important;
-            }
-
-            /* Estilos generales para el botón del script en la barra */
-            .ypp-time-display {
-                cursor: pointer;
-                font-weight: bold;
-                color: #fff;
-                padding: 2px 6px;
-                border-radius: 4px;
-                background: rgba(255, 255, 255, 0.1);
-                transition: background 0.2s;
-                display: inline-flex;
-                align-items: center;
-                gap: 4px;
-            }
-            .ypp-time-display:hover {
-                background: rgba(255, 255, 255, 0.2);
             }
         `;
 

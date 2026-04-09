@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-4
+// @version      0.0.9-5
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -172,7 +172,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = '0.0.9-4';
+    const SCRIPT_VERSION = '0.0.9-5';
 
     /**
      * Polyfill ligero para CustomEvent en navegadores antiguos.
@@ -263,7 +263,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "export": "Export",
             "import": "Import",
             "progressSaved": "Progress saved",
-            "storageFull": "Storage full - Unable to save progress",
+            "storageFull": "Storage full - Progress cannot be saved",
             "dataExported": "Data exported",
             "itemsImported": "Imported {count} items",
             "importError": "Error importing. Make sure the file is valid.",
@@ -287,6 +287,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "videosImportedFromFreeTubeDB": "videos imported from FreeTube database",
             "noVideosImportedFromFreeTubeDB": "no videos could be imported from FreeTube database",
             "fileEmpty": "File is empty",
+            "errorSaving": "Error saving progress",
             "processingFile": "Processing file...",
             "configurationSaved": "Configuration saved",
             "startTimeSet": "Start time set to",
@@ -332,17 +333,58 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "selectAtLeastOne": "Select at least one video",
             "tooManyVideos": "Too many videos selected (max 200)",
             "miniplayerVideos": "Miniplayer videos",
-            "inlinePreviews": "Inline previews (Home)",
+            "inlinePreviews": "Inline previews on Home",
+            "manualSaveMode": "Manual save mode",
+            "manualSaveModeTooltip": "If enabled, progress will only be saved when clicking the save button.",
             "removeFromPlaylist": "Remove from playlist",
-            "confirmRemoveFromPlaylist": "Are you sure you want to remove this video from the playlist? It will be kept as an individual video.",
+            "confirmRemoveFromPlaylist": "Are you sure you want to remove this video from the playlist? It will remain as an individual video.",
             "playlistAssociationRemoved": "Playlist association removed",
             "loading": "Loading",
-            "rendered": "rendered",
+            "rendered": "Rendered",
             "previews": "Previews",
             "migratingData": "Migrating saved data from previous version...",
             "migratingDataProgress": "Migrating data... {count} entries processed",
             "migrationComplete": "Migration completed: {migrated} videos successfully migrated",
-            "migrationNoData": "No data found to migrate"
+            "migrationNoData": "No data found to migrate",
+            "githubBackup": "GitHub Backup",
+            "githubToken": "Personal Access Token",
+            "githubGistId": "Gist ID",
+            "githubAutoBackup": "Enable automatic backup",
+            "githubInterval": "Backup interval (hours 1-24)",
+            "githubBackupNow": "Backup Now",
+            "githubLastSync": "Last sync",
+            "githubGistView": "View Gist",
+            "githubBackupSuccess": "Backup successful",
+            "githubBackupError": "Backup error",
+            "githubTokenRequired": "GitHub Token required",
+            "githubInvalidToken": "Invalid GitHub Token",
+            "githubHelp": "How to configure?",
+            "githubHelpStep1": "1. Go to GitHub Settings > Developer settings > Personal access tokens > Tokens (classic).",
+            "githubHelpStep2Gist": "2. Generate a new token with only the 'gist' scope.",
+            "githubHelpStep2Repo": "2. Generate a new token with the 'repo' scope (required for private repositories).",
+            "githubHelpStep3": "3. Paste the token generated below.",
+            "githubHelpStep4Repo": "4. Create a private repository on your GitHub account and enter the Owner and Name below.",
+            "githubHelpImportant": "Important: Never share your token or gist ID with anyone outside of this script.",
+            "githubGistIdPlaceholder": "ID (empty for new)",
+            "githubGistIdExample": "Example Gist ID: https://gist.github.com/Alplox/123456789 -> ID: 123456789",
+            "githubSelectRepo": "Gist created/updated successfully",
+            "githubBackupNowInfo": "This will create a backup of all saved videos in JSON format. The file will be uploaded as a secret Gist on GitHub. Keep in mind that, while it’s not public, anyone with the Gist ID could access its contents. This behavior is inherent to how GitHub Gists work and is outside the control of this userscript.",
+            "githubRepoBackupNowInfo": "This will create a backup of all saved videos in JSON format. The file will be uploaded to your private repository as 'youtube-playback-plox-backup.json'. Your backup history will be maintained through Git commits.",
+            "githubBackupType": "Backup storage",
+            "githubBackupTypeGist": "GitHub Gist (Secret but not entirely private)",
+            "githubBackupTypeRepo": "GitHub Repository (Private)",
+            "githubRepoOwner": "Repository Owner",
+            "githubRepoOwnerPlaceholder": "Your GitHub username",
+            "githubRepoName": "Repository Name",
+            "githubRepoNamePlaceholder": "E.g.: ypp-backups",
+            "githubAutoDeleteToken": "Auto-delete token from script after manual backup",
+            "githubGistSafe": "Gists only require 'gist' scope (minimal privilege).",
+            "githubCleanupGuide": "Accidental Backup Cleanup",
+            "githubCleanupStep1": "To remove data completely, you can delete the Gist or Repository directly on GitHub.",
+            "githubCleanupStep2": "For repositories, deleting the backup file leaves history in previous commits. Deleting the entire repository is the only way to purge all traces.",
+            "githubRepoPrivacyError": "Error: The repository must be private to perform the backup.",
+            "githubRepoCheck": "Verifying repository privacy...",
+            "saveAs": "Save as"
         },
         "es-ES": {
             "settings": "Configuración",
@@ -403,6 +445,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "videosImportedFromFreeTubeDB": "videos importados desde la base de datos de FreeTube",
             "noVideosImportedFromFreeTubeDB": "no se pudo importar ningún video desde la base de datos de FreeTube",
             "fileEmpty": "El archivo está vacío",
+            "errorSaving": "Error guardando progreso",
             "processingFile": "Procesando archivo...",
             "configurationSaved": "Configuración guardada",
             "startTimeSet": "Tiempo de inicio establecido en",
@@ -447,18 +490,59 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "linkCopied": "Enlace copiado al portapapeles",
             "selectAtLeastOne": "Selecciona al menos un video",
             "tooManyVideos": "Demasiados videos seleccionados (máx 200)",
-            "miniplayerVideos": "Videos en miniplayer",
-            "inlinePreviews": "Previsualizaciones en inicio (Home)",
-            "removeFromPlaylist": "Quitar de la playlist",
-            "confirmRemoveFromPlaylist": "¿Estás seguro de que quieres quitar este video de la playlist? Se mantendrá como video individual.",
-            "playlistAssociationRemoved": "Asociación de playlist eliminada",
+            "miniplayerVideos": "Vídeos en minirreproductor",
+            "inlinePreviews": "Previsualizaciones en la página de inicio",
+            "manualSaveMode": "Modo de guardado manual",
+            "manualSaveModeTooltip": "Si está activado, el progreso solo se guardará al pulsar el botón de guardado.",
+            "removeFromPlaylist": "Quitar de la lista de reproducción",
+            "confirmRemoveFromPlaylist": "¿Estás seguro de que quieres quitar este vídeo de la lista de reproducción? Se mantendrá como vídeo individual.",
+            "playlistAssociationRemoved": "Asociación de la lista de reproducción eliminada",
             "loading": "Cargando",
-            "rendered": "renderizados",
+            "rendered": "Renderizados",
             "previews": "Previsualizaciones",
             "migratingData": "Migrando datos guardados desde versión anterior...",
             "migratingDataProgress": "Migrando datos... {count} entradas procesadas",
             "migrationComplete": "Migración completada: {migrated} videos migrados correctamente",
-            "migrationNoData": "No se encontraron datos para migrar"
+            "migrationNoData": "No se encontraron datos para migrar",
+            "githubBackup": "Copia de seguridad de GitHub",
+            "githubToken": "Token de acceso personal",
+            "githubGistId": "ID del Gist",
+            "githubAutoBackup": "Activar copia de seguridad automática",
+            "githubInterval": "Intervalo de copia (horas 1-24)",
+            "githubBackupNow": "Crear copia ahora",
+            "githubLastSync": "Última sincronización",
+            "githubGistView": "Ver Gist",
+            "githubBackupSuccess": "Copia de seguridad completada",
+            "githubBackupError": "Error en la copia de seguridad",
+            "githubTokenRequired": "Se requiere un token de GitHub",
+            "githubInvalidToken": "Token de GitHub no válido",
+            "githubHelp": "¿Cómo configurarlo?",
+            "githubHelpStep1": "1. Ve a Configuración de GitHub > Configuración de desarrollador > Tokens de acceso personal > Tokens (clásicos).",
+            "githubHelpStep2Gist": "2. Genera un nuevo token con solo el alcance 'gist'.",
+            "githubHelpStep2Repo": "2. Genera un nuevo token con el alcance 'repo' (necesario para repositorios privados).",
+            "githubHelpStep3": "3. Pega el token generado abajo.",
+            "githubHelpStep4Repo": "4. Crea un repositorio privado en tu cuenta de GitHub e introduce el propietario y el nombre abajo.",
+            "githubHelpImportant": "Importante: Nunca compartas tu token o ID de Gist con nadie fuera de este script.",
+            "githubGistIdPlaceholder": "ID (vacío para nuevo)",
+            "githubGistIdExample": "Ejemplo de ID de Gist: https://gist.github.com/Alplox/123456789 -> ID: 123456789",
+            "githubSelectRepo": "Gist creado/actualizado correctamente",
+            "githubBackupNowInfo": "Esto creará una copia de seguridad de todos los vídeos guardados en formato JSON. El archivo se subirá como un Gist secreto en GitHub. Ten en cuenta que, aunque no es público, cualquiera con el ID del Gist puede acceder a su contenido. Este comportamiento es propio de GitHub Gists y está fuera del control de este script.",
+            "githubRepoBackupNowInfo": "Esto creará una copia de seguridad de todos los vídeos guardados en formato JSON. El archivo se subirá a tu repositorio privado como 'youtube-playback-plox-backup.json'. El historial de copias se mantendrá mediante commits de Git.",
+            "githubBackupType": "Almacenamiento de copia",
+            "githubBackupTypeGist": "GitHub Gist (secreto pero no completamente privado)",
+            "githubBackupTypeRepo": "Repositorio de GitHub (privado)",
+            "githubRepoOwner": "Propietario del repositorio",
+            "githubRepoOwnerPlaceholder": "Tu usuario de GitHub",
+            "githubRepoName": "Nombre del repositorio",
+            "githubRepoNamePlaceholder": "Ej.: ypp-backups",
+            "githubAutoDeleteToken": "Eliminar automáticamente el token del script tras copia manual",
+            "githubGistSafe": "Los Gists solo requieren el alcance 'gist' (privilegios mínimos).",
+            "githubCleanupGuide": "Limpieza de copias accidentales",
+            "githubCleanupStep1": "Para eliminar los datos completamente, puedes borrar el Gist o el repositorio directamente en GitHub.",
+            "githubCleanupStep2": "En repositorios, eliminar el archivo deja historial en commits anteriores. Borrar todo el repositorio es la única forma de eliminar todos los rastros.",
+            "githubRepoPrivacyError": "Error: El repositorio debe ser privado para realizar la copia.",
+            "githubRepoCheck": "Verificando privacidad del repositorio...",
+            "saveAs": "Guardar como"
         },
         "fr": {
             "settings": "Paramètres",
@@ -472,7 +556,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "regularVideos": "Vidéos régulières",
             "shorts": "Shorts",
             "liveStreams": "Diffusions en direct",
-            "live": "Diffusions en direct",
+            "live": "Diffusion en direct",
             "showNotifications": "Afficher les notifications de sauvegarde",
             "minSecondsBetweenSaves": "Secondes minimales entre les sauvegardes",
             "showFloatingButton": "Afficher le bouton flottant",
@@ -495,6 +579,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "export": "Exporter",
             "import": "Importer",
             "progressSaved": "Progrès enregistré",
+            "storageFull": "Stockage plein - Impossible d’enregistrer la progression",
             "dataExported": "Données exportées",
             "itemsImported": "{count} éléments importés",
             "importError": "Erreur lors de l'importation. Assurez-vous que le fichier est valide.",
@@ -518,6 +603,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "videosImportedFromFreeTubeDB": "vidéos importées depuis la base de données FreeTube",
             "noVideosImportedFromFreeTubeDB": "aucune vidéo n'a pu être importée depuis la base de données FreeTube",
             "fileEmpty": "Le fichier est vide",
+            "errorSaving": "Erreur lors de l'enregistrement de la progression",
             "processingFile": "Traitement du fichier...",
             "configurationSaved": "Configuration enregistrée",
             "startTimeSet": "Heure de début définie à",
@@ -562,18 +648,59 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "linkCopied": "Lien copié dans le presse-papiers",
             "selectAtLeastOne": "Sélectionnez au moins une vidéo",
             "tooManyVideos": "Trop de vidéos sélectionnées (max 200)",
-            "miniplayerVideos": "Vidéos en miniplayer",
-            "inlinePreviews": "Aperçus intégrés (Accueil)",
+            "miniplayerVideos": "Vidéos en mini-lecteur",
+            "inlinePreviews": "Aperçus intégrés sur l’accueil (Home)",
+            "manualSaveMode": "Mode de sauvegarde manuelle",
+            "manualSaveModeTooltip": "Si activé, la progression ne sera sauvegardée qu'en cliquant sur le bouton de sauvegarde.",
             "removeFromPlaylist": "Retirer de la playlist",
-            "confirmRemoveFromPlaylist": "Êtes-vous sûr de vouloir retirer cette vidéo de la playlist ? Elle sera conservée comme vidéo individuelle.",
-            "playlistAssociationRemoved": "Association de playlist supprimée",
+            "confirmRemoveFromPlaylist": "Êtes-vous sûr de vouloir retirer cette vidéo de la playlist ? Elle restera comme vidéo individuelle.",
+            "playlistAssociationRemoved": "Association à la playlist supprimée",
             "loading": "Chargement",
-            "rendered": "rendus",
+            "rendered": "Rendus",
             "previews": "Aperçus",
             "migratingData": "Migration des données enregistrées depuis la version précédente...",
             "migratingDataProgress": "Migration des données... {count} éléments traités",
             "migrationComplete": "Migration terminée : {migrated} vidéos migrées avec succès",
-            "migrationNoData": "Aucune donnée trouvée à migrer"
+            "migrationNoData": "Aucune donnée trouvée à migrer",
+            "githubBackup": "Sauvegarde GitHub",
+            "githubToken": "Jeton d'accès personnel",
+            "githubGistId": "ID du Gist",
+            "githubAutoBackup": "Activer la sauvegarde automatique",
+            "githubInterval": "Intervalle de sauvegarde (heures 1-24)",
+            "githubBackupNow": "Sauvegarder maintenant",
+            "githubLastSync": "Dernière synchronisation",
+            "githubGistView": "Voir le Gist",
+            "githubBackupSuccess": "Sauvegarde réussie",
+            "githubBackupError": "Erreur de sauvegarde",
+            "githubTokenRequired": "Jeton GitHub requis",
+            "githubInvalidToken": "Jeton GitHub invalide",
+            "githubHelp": "Comment configurer ?",
+            "githubHelpStep1": "1. Allez dans Paramètres GitHub > Paramètres développeur > Jetons d'accès personnel > Jetons (classiques).",
+            "githubHelpStep2Gist": "2. Générez un nouveau jeton avec uniquement le scope 'gist'.",
+            "githubHelpStep2Repo": "2. Générez un nouveau jeton avec le scope 'repo' (nécessaire pour les dépôts privés).",
+            "githubHelpStep3": "3. Collez le jeton généré ci-dessous.",
+            "githubHelpStep4Repo": "4. Créez un dépôt privé sur votre compte GitHub et entrez le propriétaire et le nom ci-dessous.",
+            "githubHelpImportant": "Important : Ne partagez jamais votre jeton ou l'ID du Gist avec qui que ce soit en dehors de ce script.",
+            "githubGistIdPlaceholder": "ID (vide pour nouveau)",
+            "githubGistIdExample": "Exemple d'ID Gist : https://gist.github.com/Alplox/123456789 -> ID : 123456789",
+            "githubSelectRepo": "Gist créé/mis à jour avec succès",
+            "githubBackupNowInfo": "Cela créera une sauvegarde de toutes les vidéos enregistrées au format JSON. Le fichier sera téléchargé comme un Gist secret sur GitHub. Notez que, bien qu'il ne soit pas public, toute personne disposant de l'ID du Gist peut accéder à son contenu.",
+            "githubRepoBackupNowInfo": "Cela créera une sauvegarde de toutes les vidéos enregistrées au format JSON. Le fichier sera téléchargé dans votre dépôt privé sous le nom 'youtube-playback-plox-backup.json'. L'historique sera conservé via les commits Git.",
+            "githubBackupType": "Stockage de sauvegarde",
+            "githubBackupTypeGist": "GitHub Gist (secret mais pas totalement privé)",
+            "githubBackupTypeRepo": "Dépôt GitHub (privé)",
+            "githubRepoOwner": "Propriétaire du dépôt",
+            "githubRepoOwnerPlaceholder": "Votre nom d'utilisateur GitHub",
+            "githubRepoName": "Nom du dépôt",
+            "githubRepoNamePlaceholder": "Ex. : ypp-backups",
+            "githubAutoDeleteToken": "Supprimer automatiquement le jeton du script après sauvegarde manuelle",
+            "githubGistSafe": "Les Gists nécessitent uniquement le scope 'gist' (privilège minimal).",
+            "githubCleanupGuide": "Nettoyage des sauvegardes accidentelles",
+            "githubCleanupStep1": "Pour supprimer complètement les données, vous pouvez supprimer le Gist ou le dépôt directement sur GitHub.",
+            "githubCleanupStep2": "Pour les dépôts, supprimer le fichier laisse un historique dans les commits précédents. Supprimer le dépôt entier est la seule façon d'effacer toutes les traces.",
+            "githubRepoPrivacyError": "Erreur : Le dépôt doit être privé pour effectuer la sauvegarde.",
+            "githubRepoCheck": "Vérification de la confidentialité du dépôt...",
+            "saveAs": "Enregistrer sous"
         }
     };
 
@@ -695,6 +822,30 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         /** Clave para guardar configuraciones del usuario en GM_* */
         userSettingsKey: 'YT_PLAYBACK_PLOX_userSettings',
 
+        /** Clave para guardar configuraciones de GitHub en GM_* */
+        githubSettingsKey: 'YT_PLAYBACK_PLOX_githubSettings',
+
+        defaultGithubSettings: {
+            gist: {
+                token: "",
+                id: "",
+                url: "",
+                autoBackup: false,
+                interval: 24, // horas
+                lastSync: 0
+            },
+            repo: {
+                token: "",
+                owner: "",
+                name: "",
+                autoBackup: false,
+                interval: 24, // horas
+                lastSync: 0
+            },
+            autoDeleteToken: true,
+            lastViewedType: 'gist'
+        },
+
         /** Valores predeterminados para configuraciones del usuario */
         defaultSettings: {
             showNotifications: true,
@@ -709,6 +860,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             staticFinishPercent: 95,         // Porcentaje desde el final para considerar video como completado (95% = 5% antes del final)
             saveInlinePreviews: false,       // Guardar previsualizaciones inline (Homepage) desactivado por defecto
             saveMiniplayerVideos: true,      // Guardar videos en miniplayer (default: activo)
+            manualSaveMode: false,           // Modo de guardado manual (default: desactivado)
         },
 
         /** Clave para guardar filtros del usuario en GM_* */
@@ -837,6 +989,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         SHORTS_VIDEO_CONTAINER: 'short-video-container',
         SHORTS_PLAYER: 'shorts-player',
         METAPANEL: 'metapanel',                          // Panel de información del short (nombre canal, boton sub, descripción, etc)
+        METADATA_CONTAINER: 'metadata-container',        // Alternativa moderna para el metapanel
 
         // === INLINE PREVIEW ===
         VIDEO_PREVIEW_MAIN_CONTAINER: 'video-preview',
@@ -960,7 +1113,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
              */
             getWatchPlayerVideo: () =>
                 get('watchPlayerVideo', () =>
-                    document.querySelector(`${S.IDS.MOVIE_PLAYER} video${S.CLASSES.HTML5_VIDEO_STREAM}${S.CLASSES.HTML5_MAIN_VIDEO}`)),
+                    DOMHelpers.getWatchPlayer()?.querySelector(`video${S.CLASSES.HTML5_VIDEO_STREAM}${S.CLASSES.HTML5_MAIN_VIDEO}`) ?? null
+                ),
+
 
             /**
              * Obtiene el contenedor del reproductor de Shorts.
@@ -975,37 +1130,45 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
              */
             getShortsPlayerVideo: () =>
                 get('shortsPlayerVideo', () =>
-                    document.querySelector(`${S.IDS.SHORTS_PLAYER} video${S.CLASSES.HTML5_VIDEO_STREAM}${S.CLASSES.HTML5_MAIN_VIDEO}`)),
+                    DOMHelpers.getShortsPlayer()?.querySelector(`video${S.CLASSES.HTML5_VIDEO_STREAM}${S.CLASSES.HTML5_MAIN_VIDEO}`) ?? null
+                ),
 
-            /**
-             * Obtiene el contenedor base del Miniplayer (cuadro emergente).
-             * @returns {Element|null} Contenedor general del Miniplayer.
-             */
-            getMiniplayerElement: () =>
-                get('miniplayerElement', () =>
-                    document.querySelector(
-                        S.ELEMENTS.MINIPLAYER_ELEMENT
-                    )),
-            /**
-             * Obtiene el elemento de video que reproduce contenido dentro del Miniplayer.
-             * @returns {HTMLVideoElement|null} Etiqueta <video> del minireproductor.
-             */
-            getMiniplayerPlayerVideo: () =>
-                get('miniplayerPlayerVideo', () =>
-                    document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT} video`)),
+
+
             /**
              * Comprueba o devuelve la instancia de Miniplayer especificando si esta posee sus componentes visuales activos
              * que validan que el Miniplayer está funcionalmente abierto.
              * @returns {Element|null} Elemento validado con atributos en activo, o null de no encontrarse.
              */
-            getMiniplayerActive: () =>
-                get('miniplayerActive', () => {
+            getMiniplayerElementActive: () =>
+                get('miniplayerElementActive', () => {
                     const miniContainer = document.querySelector(S.ELEMENTS.MINIPLAYER_ELEMENT);
                     if (!miniContainer) return null;
+                    // Usamos .matches() porque S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE y S.ATTR.MINIPLAYER_ACTIVE_ATTR
+                    // contienen selectores CSS (. y []) que no son compatibles con classList.contains() o hasAttribute().
                     const isVisible = miniContainer.matches(S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE) ||
-                        document.querySelector('ytd-app')?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR);
+                        document.querySelector('ytd-app')?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR) ||
+                        isVisiblyDisplayed(miniContainer);
                     return isVisible ? miniContainer : null;
                 }),
+            /**
+             * Obtiene el elemento reproductor interno alojado en el Miniplayer.
+             * @returns {Element|null} Player en el miniplayer.
+             */
+            getMiniplayerPlayer: () =>
+                get('miniplayerPlayer', () =>
+                    DOMHelpers.getMiniplayerElementActive()
+                        ?.querySelector(S.IDS.MOVIE_PLAYER) ?? null
+                ),
+            /**
+             * Obtiene el elemento de video del reproductor interno alojado en el Miniplayer.
+             * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor interno del Miniplayer.
+             */
+            getMiniplayerPlayerVideo: () =>
+                get('miniplayerPlayerVideo', () =>
+                    DOMHelpers.getMiniplayerPlayer()?.querySelector('video') ?? null
+                ),
+
 
             /**
              * Obtiene el elemento reproductor interno alojado en el Inline Preview.
@@ -1014,6 +1177,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             getInlinePreviewPlayer: () =>
                 get('inlinePreviewPlayer', () =>
                     document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER)),
+            /**
+             * Obtiene el elemento de video del reproductor interno alojado en el Inline Preview.
+             * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor interno del Inline Preview.
+             */
+            getInlinePreviewPlayerVideo: () =>
+                get('inlinePreviewPlayerVideo', () =>
+                    DOMHelpers.getInlinePreviewPlayer()?.querySelector('video') ?? null
+                ),
 
             /**
              * Metodo para poder realizar consultas libres desde el exterior aprovechando el cache (Ej: Anuncios).
@@ -1126,12 +1297,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             // Si no hay traducción, intentar con el idioma por defecto (ej: en-US)
             const fallbackLang = CONFIG.defaultSettings.language;
             if (TRANSLATIONS[fallbackLang] && TRANSLATIONS[fallbackLang][key]) {
-                return replaceParams(TRANSLATIONS[fallbackLang][key], actualParams);
+                return escapeHTML(replaceParams(TRANSLATIONS[fallbackLang][key], actualParams));
             }
             // Si no hay ni en el idioma por defecto, devolver el valor por defecto
-            return replaceParams(actualDefaultText, actualParams);
+            return escapeHTML(replaceParams(actualDefaultText, actualParams));
         }
-        return replaceParams(TRANSLATIONS[currentLanguage][key], actualParams);
+        return escapeHTML(replaceParams(TRANSLATIONS[currentLanguage][key], actualParams));
     }
 
     // Función para reemplazar parámetros en las traducciones
@@ -1247,6 +1418,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
   --ypp-border: #cccccc;
   --ypp-playlist-bg: #f0f8ff; /* Fondo sutil para items de playlist */
   --ypp-bg-secondary: #f5f5f5;
+  --ypp-bg-time-display: rgba(17, 17, 17, 0.45);
+  --ypp-bg-time-display-hover: rgba(0, 0, 0, 1);
 
   /* Tipografía */
   --ypp-white: #ffffff;
@@ -1305,6 +1478,22 @@ html[dark], body.dark-theme {
         24px 24px 80px rgba(0, 0, 0, 0.2);
 }
 
+.ypp-m0 {
+    margin: 0 !important;
+}
+
+.ypp-link {
+    color: var(--ypp-link);
+    text-decoration: none;
+    display: flex;
+    align-items: center;
+    gap: var(--ypp-spacing-sm);
+
+    &:hover {
+        text-decoration: underline;
+    }
+}
+
 .ypp-svgFolderIcon,
 .ypp-svgSaveIcon,
 .ypp-svgPinIcon,
@@ -1317,7 +1506,7 @@ html[dark], body.dark-theme {
 }
 
 .ypp-d-flex {
-  display: flex;
+  display: flex !important;
 }
 
 .ypp-d-none {
@@ -1372,8 +1561,37 @@ html[dark], body.dark-theme {
 
 
 /* =========================
-   Boton script en barra reproducción
+   Boton group script en barras reproducción
  ========================= */
+.ypp-time-display,
+.ypp-shorts-time-display {
+    display: inline-flex;
+    align-items: center;
+    /* justify-content: center; */
+    transition: all 0.2s ease;
+
+    background: var(--ypp-bg-time-display);
+    border-radius: var(--ypp-spacing-lg);
+    overflow: hidden;
+    padding: 0;
+    gap: 0;
+    height: 28px;
+    min-width: fit-content;
+
+    order: 3 !important; /* para que se muestre a la derecha en livestreams /watch */
+
+    svg {
+        width: 16px;
+        height: 16px;
+        margin: 0;
+    }
+
+    &:hover {
+        background: var(--ypp-bg-time-display-hover);
+    }
+}
+
+/* Livestreams */
 .ytp-delhi-modern .ytp-time-wrapper:not(.ytp-miniplayer-ui *) {
     min-width: 0;
     position: relative;
@@ -1393,55 +1611,21 @@ html[dark], body.dark-theme {
 }
 
 /* Corregir orden en el rediseño Delhi: el botón del script debe ir al final */
-.ytp-delhi-modern .ytp-time-wrapper .ytp-time-current,
-.ytp-delhi-modern .ytp-time-wrapper .ytp-time-separator,
-.ytp-delhi-modern .ytp-time-wrapper .ytp-time-duration {
+#movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-time-current,
+#movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-time-separator,
+#movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-time-duration {
     order: 1;
     /* El tiempo debe estar visible para que YouTube calcule bien los offsets de click */
     display: inline-block !important;
 }
 
-.ytp-delhi-modern .ytp-time-wrapper .ytp-live-badge,
-.ytp-delhi-modern .ytp-time-wrapper .live-badge {
+#movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-live-badge,
+#movie_player .ytp-delhi-modern .ytp-time-wrapper .live-badge {
     order: 2 !important;
     margin-left: 4px;
     /* Asegurar que el badge sea clickeable */
     pointer-events: auto !important;
     cursor: pointer !important;
-}
-
-.ypp-time-display {
-  color: var(--ypp-white);
-  font-weight: bold;
-  margin-left: 10px;
-  font-size: 1.4rem;
-  background: /* #4a4a4a91; */ hsla(0,0%,6.7%,0.4);
-  padding: var(--ypp-spacing-sm) var(--ypp-spacing-md);
-  border-radius: 14px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: var(--ypp-success-dark);
-  }
-}
-
-.ytp-delhi-modern .ytp-time-wrapper .ypp-time-display {
-    order: 3 !important;
-    margin-left: 4px !important;
-    white-space: nowrap;
-    pointer-events: auto;
-    align-self: center !important;
-    height: auto !important;
-    min-height: 0 !important;
-    max-height: 24px !important;
-    line-height: 20px !important;
-    padding: 2px 8px !important;
-    border-radius: 999px !important;
-    box-sizing: border-box !important;
-    display: inline-flex !important;
-    align-items: center !important;
-    overflow: hidden !important;
 }
 
 .ytp-live .ytp-time-current,
@@ -1451,98 +1635,97 @@ html[dark], body.dark-theme {
   visibility: visible !important;
 }
 
-
-/* Estilo específico para mensajes en Shorts - integrado en el player */
+/* Estilo específico para Shorts */
 .ypp-shorts-time-display {
-  background: hsla(109.7, 56.1%, 22.4%, 0.7);
-  color: #fff;
-  padding: 4px 0px;
-  font-size: 13px;
-  font-weight: 700;
-  /* backdrop-filter: blur(10px); */
-  cursor: pointer;
-  transition: all 0.2s ease;
-  pointer-events: auto;
-  justify-content: center;
-  display: flex;
-  gap: 6px;
-  position: relative; /* asegurar stacking context */
-  z-index: var(--ypp-z-toast, 10001); /* asegurar visibilidad por encima de overlays transitorios */
-  margin: 4px auto 0; /* centrar en metapanel */
-  border-radius: var(--ypp-spacing-md);
-
-  /* Truncado de texto */
-  white-space: nowrap;
-  overflow: hidden;
-
-  &:hover {
-    background: var(--ypp-success-dark, #15803d);
-    transform: translateY(-1px);
-  }
+  margin: 4px auto 0;
 }
 
-/* Fallback flotante cuando el metapanel está oculto */
+/* Fallback flotante para Shorts cuando el metapanel no se encuentra */
 .ypp-shorts-time-display.ypp-floating {
   position: absolute;
   left: 50%;
   transform: translateX(-50%);
   bottom: 64px; /* por encima de botones de acción */
   z-index: var(--ypp-z-toast, 10001);
+  pointer-events: auto;
 }
 
-
-/* Estilo específico para mensajes en Miniplayer */
+/* Estilo específico para Miniplayer */
 .ypp-miniplayer-time-display {
-  background: hsla(109.7, 56.1%, 22.4%, 0.7);
-  color: #fff;
-  padding: 2px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  pointer-events: auto;
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  position: relative;
-  z-index: var(--ypp-z-toast, 10001);
-  border-radius: var(--ypp-spacing-md);
-  margin-left: auto; /* alinear a la derecha en el control bar */
-  margin-right: 8px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+    pointer-events: auto;
+}
 
-  &:hover {
-    background: var(--ypp-success-dark, #15803d);
-    transform: scale(1.05);
-  }
+.ytdMiniplayerComponentVisible .ytp-time-wrapper.ytp-time-wrapper-delhi {
+    display: flex !important;   /* Para poner botones al lado de tiempo */
+    align-items: center !important;
+    gap: 8px !important;
+    margin-bottom: 10px !important;   /* Para que no se tape con heatmaps */
+}
+
+.ytdMiniplayerComponentVisible .ytp-live-badge {
+    order: 2 !important;
+    margin: 0 17px 0 0;
 }
 
 /* Estilo específico para Inline Previews */
-.ypp-inline-preview-display {
-  position: absolute;
-  top: 20px;
-  left: 8px;
-  z-index: var(--ypp-z-toast, 10001);
-  background: hsla(109.7, 56.1%, 22.4%, 0.8);
-  color: #fff;
-  padding: 4px 8px;
-  font-size: 12px;
-  font-weight: 700;
-  cursor: pointer;
-  pointer-events: auto;
-  border-radius: var(--ypp-spacing-md);
-  display: flex;
-  gap: 4px;
-  align-items: center;
-  transition: all 0.2s ease;
-  white-space: nowrap;
+.ypp-inline-preview-time-display {
+    position: absolute;
+    bottom: 77px;
+    left: 8px;
+    z-index: var(--ypp-z-toast, 10001);
+}
 
-  &:hover {
-    background: var(--ypp-success-dark, #15803d);
-    transform: scale(1.05);
-  }
+/* =========================
+   Botones dentro de ypp-time-display
+   ========================= */
+.ypp-btn-list,
+.ypp-btn-save {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    background: transparent;
+    border: none;
+    color: var(--ypp-white);
+    padding: 0 10px;
+    cursor: pointer;
+   
+    transition: background 0.2s;
+    height: 100%;
+    min-width: 32px;
+    outline: none;
+    box-shadow: none;
+
+    &:hover {
+        background: var(--ypp-primary);
+    }
+
+    &:active {
+        background: var(--ypp-success-dark);
+    }
+
+    &:focus-visible {
+        outline: 4px solid var(--ypp-success-dark);
+    }
+}
+
+.ypp-time-display-message {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+
+    padding: 0 12px 0 7px;
+    white-space: nowrap;
+    overflow: hidden;
+    cursor: default;
+    text-shadow: none !important;
+
+   /*  max-width: 180px; */
+    font-size: var(--ypp-font-size-sm);
+    font-weight: var(--ypp-font-weight-medium);
+    color: var(--ypp-white);
+    border-left: 2px solid var(--ypp-bg);
 }
 
 
@@ -1806,20 +1989,22 @@ html[dark], body.dark-theme {
   align-items: center;
   margin: 4px 0;
   font-size: 0.85em;
-  opacity: 1;
-  background: rgba(0, 0, 0, 0.75);
-  color: #ffffff;
+ 
+ /*  background: rgba(0, 0, 0, 0.75); */
+
+  background: var(--ypp-bg-secondary);
   padding: 3px 8px;
-  border-radius: 6px;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+  border-radius: var(--ypp-spacing-sm);;
+
   backdrop-filter: blur(3px);
-  font-weight: 600;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+
+  
+  
  /*  white-space: nowrap; */
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 100%;
+  font-weight: bold; 
 }
 
 .ypp-videoWrapper {
@@ -1829,9 +2014,10 @@ html[dark], body.dark-theme {
 .ypp-playlist-link {
   display: inline-flex;
   align-items: center;
-  margin-left: 8px;
+  color: var(--ypp-text);
   opacity: 0.7;
   transition: opacity 0.2s ease;
+  text-decoration: none; 
 }
 
 .ypp-playlist-link:hover {
@@ -2292,6 +2478,43 @@ background: var(--ypp-danger);
   animation: modalSlideIn 0.3s ease-out forwards;
 }
 
+/* Tabs para GitHub Backup */
+.ypp-github-tabs {
+  display: flex;
+  gap: 5px;
+  margin: 15px 0;
+  border-bottom: 1px solid var(--ypp-border, #303030);
+  background: rgba(255, 255, 255, 0.03);
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.ypp-github-tab {
+  flex: 1;
+  padding: 8px;
+  text-align: center;
+  cursor: pointer;
+  border-radius: 6px;
+  font-size: 0.9em;
+  font-weight: 500;
+  transition: all 0.2s;
+  color: var(--ypp-text-secondary, #aaaaaa);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.ypp-github-tab.active {
+  background: var(--ypp-primary, #ff0000);
+  color: white;
+}
+
+.ypp-github-tab:not(.active):hover {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--ypp-text, #f1f1f1);
+}
+
 @keyframes modalSlideIn {
   to {
     opacity: 1;
@@ -2354,6 +2577,13 @@ background: var(--ypp-danger);
   transition: color 0.2s ease;
   white-space: nowrap;
   margin: 8px 0;
+  gap: 4px;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
 }
 
 .ypp-label input[type="checkbox"] {
@@ -2373,8 +2603,7 @@ background: var(--ypp-danger);
 
 .ypp-input {
   width: 100%;
-  padding: 12px 16px;
-  margin-bottom: 16px;
+  padding: 6px;
   background: var(--ypp-input, #1a1a1a);
   border: 1px solid var(--ypp-input-border, #303030);
   border-radius: 8px;
@@ -2453,6 +2682,68 @@ background: var(--ypp-danger);
   font-size: 1.2em;
   margin-right: 5px;
 }
+
+
+/* =========================
+   GitHub Backup
+========================= */
+.ypp-github-options {
+    display: flex;
+    flex-direction: column;
+    background: var(--ypp-border);
+    border-radius: var(--ypp-spacing-sm);
+    padding: 10px;
+    margin-top: 10px;
+}
+
+.ypp-github-settings-header {
+    margin-bottom: 10px;
+}
+
+.ypp-github-help-toggle {
+    cursor: pointer;
+    color: var(--ypp-primary);
+    font-size: 0.85em;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 5px;
+    opacity: 0.8;
+}
+.ypp-github-help-toggle:hover { opacity: 1; }
+.ypp-github-help-content {
+    font-size: 0.8em;
+    color: var(--ypp-text-secondary);
+    background: var(--ypp-bg-secondary);
+    padding: 8px;
+    border-radius: 4px;
+    margin-top: 5px;
+    display: none;
+}
+.ypp-github-help-toggle.active + .ypp-github-help-content {
+    display: block;
+}
+
+.ypp-github-token-container {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    background: var(--ypp-bg-secondary);
+    border-radius: var(--ypp-spacing-sm);
+    padding: var(--ypp-spacing-md);
+}
+
+.ypp-github-help-important {
+    margin: 0;
+
+    color: #ff9800;
+    background: var(--ypp-bg);
+    border-radius: var(--ypp-spacing-sm);
+    padding: 5px;
+    width: fit-content;
+    font-weight: bold;
+    text-transform: uppercase;
+}
 `;
         document.head.appendChild(style);
     }
@@ -2486,7 +2777,11 @@ background: var(--ypp-danger);
         folder: '<svg class="ypp-svgFolderIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/></svg>',
         timer: '<svg class="ypp-svgTimerIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9a9 9 0 0 0 7.03-14.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>',
         check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="var(--ypp-success)"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
+        checkCircular: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#4bd37b"/><path fill="#fff" d="M46 14 25 35.6l-7-7.2-7 7.2L25 50l28-28.8z"/></svg>',
         save: '<svg class="ypp-svgSaveIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>',
+        saveWithCheckCircular: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="#fff" d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V7zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3m3-10H5V5h10z"/><circle cx="17.5" cy="17.5" r="4.5" fill="#4bd37b"/><path fill="#fff" d="m19.5 15.5-2.3 2.6-1.2-1.2-.9.9 2.1 2.1 3.2-3.6z"/></svg>',
+        bookmark: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M4 4a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v16.943c0 1.668-1.923 2.603-3.236 1.572L12 18.772l-4.764 3.743C5.923 23.546 4 22.611 4 20.942zm3-1a1 1 0 0 0-1 1v16.943l6-4.715 6 4.714V4a1 1 0 0 0-1-1z" clip-rule="evenodd"/></svg>',
+        bookmarkFill: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><path fill="var(--ypp-success)" d="M5 6c0-1.4 0-2.1.272-2.635a2.5 2.5 0 0 1 1.093-1.093C6.9 2 7.6 2 9 2h6c1.4 0 2.1 0 2.635.272a2.5 2.5 0 0 1 1.092 1.093C19 3.9 19 4.6 19 6v13.208c0 1.056 0 1.583-.217 1.856a1 1 0 0 1-.778.378c-.349.002-.764-.324-1.593-.976L12 17l-4.411 3.466c-.83.652-1.245.978-1.594.976a1 1 0 0 1-.778-.378C5 20.791 5 20.264 5 19.208z"/></svg>',
         chart: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>',
         settings: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>',
         close: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" style="vertical-align: text-bottom;"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
@@ -2507,7 +2802,10 @@ background: var(--ypp-danger);
         warning: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#FFCC4D" d="M2.65 35C.81 35 0 33.66.85 32.03l15.6-30.06c.86-1.63 2.24-1.63 3.1 0l15.6 30.06c.85 1.63.04 2.97-1.8 2.97H2.65z"/><path fill="#231F20" d="M15.58 28.95A2.42 2.42 0 0 1 18 26.53a2.42 2.42 0 0 1 2.42 2.42A2.42 2.42 0 0 1 18 31.37a2.42 2.42 0 0 1-2.42-2.42zm.19-18.29c0-1.3.96-2.1 2.23-2.1 1.24 0 2.23.83 2.23 2.1V22.6c0 1.27-.99 2.1-2.23 2.1-1.27 0-2.23-.8-2.23-2.1V10.66z"/></svg>',
         import: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v10m0 0 3-3m-3 3-3-3"/></svg>',
         export: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 14V4m0 0 3 3m-3-3L9 7"/></svg>',
-        error: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14"><path fill="red" d="M13 10.66q0 .4-.28.68l-1.38 1.38q-.28.28-.68.28t-.69-.28L7 9.75l-2.97 2.97q-.28.28-.69.28-.4 0-.68-.28l-1.38-1.38Q1 11.06 1 10.66t.28-.69L4.25 7 1.28 4.03Q1 3.75 1 3.34q0-.4.28-.68l1.38-1.38Q2.94 1 3.34 1t.69.28L7 4.25l2.97-2.97q.28-.28.69-.28.4 0 .68.28l1.38 1.38q.28.28.28.68t-.28.69L9.75 7l2.97 2.97q.28.28.28.69z"/></svg>'
+        error: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14"><path fill="red" d="M13 10.66q0 .4-.28.68l-1.38 1.38q-.28.28-.68.28t-.69-.28L7 9.75l-2.97 2.97q-.28.28-.69.28-.4 0-.68-.28l-1.38-1.38Q1 11.06 1 10.66t.28-.69L4.25 7 1.28 4.03Q1 3.75 1 3.34q0-.4.28-.68l1.38-1.38Q2.94 1 3.34 1t.69.28L7 4.25l2.97-2.97q.28-.28.69-.28.4 0 .68.28l1.38 1.38q.28.28.28.68t-.28.69L9.75 7l2.97 2.97q.28.28.28.69z"/></svg>',
+        github: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>',
+        info: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
+        eye: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><path fill="var(--ypp-text)" fill-rule="evenodd" d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5M9.75 12a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0" clip-rule="evenodd"/><path fill="var(--ypp-text)" fill-rule="evenodd" d="M12 3.25c-4.514 0-7.555 2.704-9.32 4.997l-.031.041c-.4.519-.767.996-1.016 1.56-.267.605-.383 1.264-.383 2.152s.116 1.547.383 2.152c.25.564.617 1.042 1.016 1.56l.032.041C4.445 18.046 7.486 20.75 12 20.75s7.555-2.704 9.32-4.997l.031-.041c.4-.518.767-.996 1.016-1.56.267-.605.383-1.264.383-2.152s-.116-1.547-.383-2.152c-.25-.564-.617-1.041-1.016-1.56l-.032-.041C19.555 5.954 16.514 3.25 12 3.25M3.87 9.162C5.498 7.045 8.15 4.75 12 4.75s6.501 2.295 8.13 4.412c.44.57.696.91.865 1.292.158.358.255.795.255 1.546s-.097 1.188-.255 1.546c-.169.382-.426.722-.864 1.292C18.5 16.955 15.85 19.25 12 19.25s-6.501-2.295-8.13-4.412c-.44-.57-.696-.91-.865-1.292-.158-.358-.255-.795-.255-1.546s.097-1.188.255-1.546c.169-.382.426-.722.864-1.292" clip-rule="evenodd"/></svg>'
     };
 
     // ------------------------------------------
@@ -3636,13 +3934,17 @@ background: var(--ypp-danger);
             return '00:00';
         }
 
-        const hours = Math.floor(seconds / 3600);
-        const minutes = Math.floor((seconds % 3600) / 60);
-        const secs = Math.floor(seconds % 60);
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
 
-        return hours > 0
-            ? `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} `
-            : `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')} `;
+        const hours = h.toString().padStart(2, '0');
+        const minutes = m.toString().padStart(2, '0');
+        const secs = s.toString().padStart(2, '0');
+
+        return h > 0
+            ? `${hours}:${minutes}:${secs}`
+            : `${minutes}:${secs}`;
     };
 
     /**
@@ -4029,7 +4331,7 @@ background: var(--ypp-danger);
      *     container: listContainer,
      *     items: videoItems,
      *     itemHeight: 120,
-     *     renderItem: async (item) => createVideoEntry(item.videoId, item.info),
+     *     renderItem: async (item) => createVideoEntry(item),
      *     bufferSize: 5
      * });
      */
@@ -4323,23 +4625,50 @@ background: var(--ypp-danger);
         }
     }
 
+    // ------------------------------------------
     // MARK: 📤 Import/Export JSON
-    // Exportación/Importación JSON nativo del userscript (preserva videoTypes)
-    const exportDataToFile = async () => {
+    // ------------------------------------------
+
+    /**
+     * Recopila todos los datos de videos almacenados para sincronización o exportación.
+     * @returns {Promise<Object|null>} Objeto con todos los datos o null si no hay datos.
+     */
+    const getSyncData = async (method = 'export') => {
         try {
             const exportData = {};
             const keys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
 
-            // Early exit si no hay datos que exportar
-            if (keys.length === 0) {
-                logLog('exportDataToFile', 'No hay datos para exportar');
-                showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
-                return;
-            }
+            if (keys.length === 0) return null;
+
+            // Añadir metadatos al inicio
+            exportData['__metadata__'] = {
+                version: SCRIPT_VERSION,
+                date: new Date().toISOString(),
+                totalEntries: keys.length,
+                backupMethod: method
+            };
 
             for (const k of keys) {
                 const data = await Storage.get(k);
                 if (data) exportData[k] = data;
+            }
+            return exportData;
+        } catch (error) {
+            logError('getSyncData', 'Error al recopilar datos:', error);
+            return null;
+        }
+    };
+
+    // Exportación/Importación JSON nativo del userscript (preserva videoTypes)
+    const exportDataToFile = async () => {
+        try {
+            const exportData = await getSyncData();
+
+            // Early exit si no hay datos que exportar
+            if (!exportData) {
+                logLog('exportDataToFile', 'No hay datos para exportar');
+                showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
+                return;
             }
 
             const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
@@ -4392,7 +4721,8 @@ background: var(--ypp-danger);
                 // Early filtering para evitar procesar claves inválidas
                 const validKeys = Object.keys(data).filter(key =>
                     !key.startsWith('userSettings') &&
-                    !key.startsWith('userFilters')
+                    !key.startsWith('userFilters') &&
+                    key !== '__metadata__'
                 );
 
                 if (validKeys.length === 0) {
@@ -4432,6 +4762,282 @@ background: var(--ypp-danger);
         };
 
         inputFile.click();
+    };
+
+    // ------------------------------------------
+    // MARK: ☁️ GitHub Backup
+    // ------------------------------------------
+
+    /**
+     * Realiza un respaldo de los datos en un Gist de GitHub.
+     */
+    const backupToGitHub = (data, githubSettings, isManual) => {
+        return new Promise((resolve) => {
+            const fileName = 'youtube-playback-plox-backup.json';
+            const gistData = {
+                description: `YouTube Playback Plox Backup v${SCRIPT_VERSION} - ${new Date().toLocaleString()}`,
+                public: false,
+                files: {
+                    [fileName]: {
+                        content: JSON.stringify(data, null, 2)
+                    }
+                }
+            };
+
+            const gistId = githubSettings.gistId;
+            const url = gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists';
+            const method = gistId ? 'PATCH' : 'POST';
+
+            GM_xmlhttpRequest({
+                method: method,
+                url: url,
+                headers: {
+                    'Authorization': `token ${githubSettings.token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify(gistData),
+                onload: async (response) => {
+                    if (response.status >= 200 && response.status < 300) {
+                        const result = JSON.parse(response.responseText);
+
+                        // Actualizar el objeto actual para feedback en la UI si el modal está abierto
+                        githubSettings.gistId = result.id;
+                        githubSettings.gistUrl = result.html_url;
+                        githubSettings.lastSync = Date.now();
+
+                        // Persistir metadatos de sincronización
+                        let storedSettings = await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings);
+
+                        storedSettings.gist.id = result.id;
+                        storedSettings.gist.url = result.html_url;
+                        storedSettings.gist.lastSync = Date.now();
+
+                        // Auto-eliminar token si aplica
+                        if (githubSettings.autoDeleteToken) {
+                            storedSettings.gist.token = '';
+                        }
+
+                        await GM_setValue(CONFIG.githubSettingsKey, storedSettings);
+
+                        logInfo('backupToGitHub', 'Respaldo en GitHub exitoso:', result.id.slice(0, 10) + '...');
+                        resolve(true);
+                    } else {
+                        logError('backupToGitHub', 'Error en respaldo GitHub:', response.status, response.responseText);
+                        if (isManual) {
+                            const errorMsg = response.status === 401 ? t('githubInvalidToken') : t('githubBackupError');
+                            showFloatingToast(`${SVG_ICONS.error} ${errorMsg} (${response.status})`);
+                        }
+                        resolve(false);
+                    }
+                },
+                onerror: (err) => {
+                    logError('backupToGitHub', 'Error de red en respaldo GitHub:', err);
+                    resolve(false);
+                }
+            });
+        });
+    };
+
+    /**
+     * Realiza un respaldo de los datos en un repositorio privado de GitHub.
+     */
+    const backupToRepository = (data, githubSettings, isManual) => {
+        return new Promise((resolve) => {
+            const { repoOwner, repoName, token } = githubSettings;
+            if (!repoOwner || !repoName) {
+                if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubBackupError')}`);
+                return resolve(false);
+            }
+
+            const fileName = 'youtube-playback-plox-backup.json';
+            const baseUrl = `https://api.github.com/repos/${repoOwner}/${repoName}`;
+            const headers = {
+                'Authorization': `token ${token}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            };
+
+            if (isManual) showFloatingToast(`⏳ ${t('githubRepoCheck')}...`);
+
+            // 1. Verificar privacidad del repositorio
+            GM_xmlhttpRequest({
+                method: 'GET',
+                url: baseUrl,
+                headers: headers,
+                onload: (repoResponse) => {
+                    if (repoResponse.status !== 200) {
+                        logError('backupToRepository', 'No se pudo acceder al repositorio:', repoResponse.status);
+                        if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (${repoResponse.status})`);
+                        return resolve(false);
+                    }
+
+                    const repoInfo = JSON.parse(repoResponse.responseText);
+                    if (!repoInfo.private) {
+                        logError('backupToRepository', 'El repositorio NO es privado.');
+                        if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubRepoPrivacyError')}`);
+                        return resolve(false);
+                    }
+
+                    // 2. Obtener el SHA del archivo si ya existe
+                    GM_xmlhttpRequest({
+                        method: 'GET',
+                        url: `${baseUrl}/contents/${fileName}`,
+                        headers: headers,
+                        onload: (fileResponse) => {
+                            let sha = null;
+                            if (fileResponse.status === 200) {
+                                sha = JSON.parse(fileResponse.responseText).sha;
+                            }
+
+                            // 3. Subir/Actualizar el archivo
+                            const commitMessage = `YouTube Playback Plox Backup v${SCRIPT_VERSION} - ${new Date().toLocaleDateString()}`;
+                            const contentBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+
+                            GM_xmlhttpRequest({
+                                method: 'PUT',
+                                url: `${baseUrl}/contents/${fileName}`,
+                                headers: headers,
+                                data: JSON.stringify({
+                                    message: commitMessage,
+                                    content: contentBase64,
+                                    sha: sha
+                                }),
+                                onload: async (putResponse) => {
+                                    if (putResponse.status >= 200 && putResponse.status < 300) {
+                                        // Persistir metadatos
+                                        let storedSettings = await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings);
+
+                                        storedSettings.repo.lastSync = Date.now();
+
+                                        // Auto-eliminar token si aplica
+                                        if (githubSettings.autoDeleteToken) {
+                                            storedSettings.repo.token = '';
+                                        }
+
+                                        await GM_setValue(CONFIG.githubSettingsKey, storedSettings);
+
+                                        logInfo('backupToRepository', 'Respaldo en repositorio exitoso');
+                                        resolve(true);
+                                    } else {
+                                        logError('backupToRepository', 'Error al subir archivo:', putResponse.status);
+                                        if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (${putResponse.status})`);
+                                        resolve(false);
+                                    }
+                                },
+                                onerror: (err) => {
+                                    logError('backupToRepository', 'Error de red:', err);
+                                    resolve(false);
+                                }
+                            });
+                        },
+                        onerror: (err) => {
+                            logError('backupToRepository', 'Error obteniendo SHA:', err);
+                            resolve(false);
+                        }
+                    });
+                },
+                onerror: (err) => {
+                    logError('backupToRepository', 'Error de red verificando repo:', err);
+                    resolve(false);
+                }
+            });
+        });
+    };
+
+    /**
+     * Punto de entrada unificado para respaldos remotos.
+     */
+    const performRemoteBackup = async (type = 'gist', isManual = false, settingsOverride = null) => {
+        let githubSettings = await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings);
+
+        const modeSettings = settingsOverride
+            ? { autoDeleteToken: githubSettings.autoDeleteToken, ...settingsOverride }
+            : githubSettings[type];
+
+        if (!modeSettings.token) {
+            if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubTokenRequired')}`);
+            return false;
+        }
+
+        const data = await getSyncData(isManual ? 'manual' : 'auto');
+        if (!data) {
+            if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
+            return false;
+        }
+
+        if (isManual) showFloatingToast(`⏳ ${t('githubBackupNow')} (${type})...`);
+
+        let success = false;
+        if (type === 'repo') {
+            success = await backupToRepository(data, modeSettings, isManual);
+        } else {
+            success = await backupToGitHub(data, modeSettings, isManual);
+        }
+
+        if (success) {
+            if (isManual) showFloatingToast(`${SVG_ICONS.check} ${t('githubBackupSuccess')}`);
+
+            // Re-leer settings desde GM para obtener valores actualizados (lastSync, gistId, etc.)
+            const updatedSettings = await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings);
+
+            // Actualizar UI en tiempo real si el modal está abierto
+            const lastSyncEl = document.getElementById(`ypp-github-last-sync-${type}`);
+            if (lastSyncEl) {
+                const syncTime = updatedSettings[type]?.lastSync;
+                setInnerHTML(lastSyncEl, `<strong>${t('githubLastSync')}:</strong> ${syncTime ? new Date(syncTime).toLocaleString() : t('unknown')}`);
+            }
+
+            if (type === 'gist') {
+                const gistContainer = document.getElementById('ypp-github-gist-link-container-gist');
+                if (gistContainer && updatedSettings.gist?.url) {
+                    setInnerHTML(gistContainer, `
+                        <a href="${updatedSettings.gist.url}" class="ypp-link" target="_blank" rel="noopener noreferrer">
+                            ${SVG_ICONS.externalLink} ${t('githubGistView')}
+                        </a>
+                    `);
+                }
+                const gistIdInput = document.querySelector('input[name="gist_id"]');
+                if (gistIdInput && !gistIdInput.value && updatedSettings.gist?.id) {
+                    gistIdInput.value = updatedSettings.gist.id;
+                }
+            }
+
+            // Limpiar input del token de la UI si fue eliminado
+            if (isManual && modeSettings.autoDeleteToken) {
+                const tokenInput = document.querySelector(`input[name="${type}_token"]`);
+                if (tokenInput) tokenInput.value = '';
+                logInfo('performRemoteBackup', `Token (${type}) auto-eliminado de UI tras respaldo manual.`);
+            }
+        }
+
+        return success;
+    };
+
+    /**
+     * Verifica si es necesario realizar un respaldo automático.
+     */
+    const checkGitHubBackup = async () => {
+        let githubSettings = await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings);
+
+        const now = Date.now();
+        const types = ['gist', 'repo'];
+
+        for (const type of types) {
+            const s = githubSettings[type];
+            if (!s.autoBackup || !s.token) continue;
+
+            const intervalMs = (s.interval || 24) * 60 * 60 * 1000;
+            const timeSinceLastSync = now - s.lastSync;
+
+            if (timeSinceLastSync >= intervalMs) {
+                logInfo('checkGitHubBackup', `Iniciando respaldo automático (${type})...`);
+                await performRemoteBackup(type, false);
+            } else {
+                const minutesRemaining = Math.ceil((intervalMs - timeSinceLastSync) / (60 * 1000));
+                logLog('checkGitHubBackup', `Respaldo automático (${type}) omitido. Faltan ${minutesRemaining} min.`);
+            }
+        }
     };
 
     // MARK: 📤 Import/Export FreeTube options
@@ -4848,7 +5454,6 @@ background: var(--ypp-danger);
 
         return {
             ...normalized,
-            thumb: `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
             type: normalizeVideoType(normalized.type === 'short' ? 'shorts' : normalized.type),
             isCompleted: isCompleted
         };
@@ -4964,10 +5569,17 @@ background: var(--ypp-danger);
      * Lógica interna compartida para guardar videos que no son Shorts ni Directos (Watch o Miniplayer).
      * @private
      */
-    async function internalSaveRegularVideo(currentTime, videoInfo, logContext = 'saveRegularVideo') {
+    async function internalSaveRegularVideo(currentTime, videoInfo, logContext = 'saveRegularVideo', options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
-        logLog(logContext, `Guardando video ${videoId} en ${currentTime}s`);
 
+
+        // Ignorar si el modo de guardado manual está activo y no es un guardado manual
+        if (cachedSettings.manualSaveMode && !options.isManual) {
+            logLog(logContext, `No se guardó el video ${videoId} en ${currentTime}s porque el modo de guardado manual está activo`);
+            return { success: false, reason: 'manual_save_mode_active' };
+        }
+
+        logLog(logContext, `Guardando video ${videoId} en ${currentTime}s`);
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
         const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
@@ -5017,8 +5629,8 @@ background: var(--ypp-danger);
      * @param {Object} videoInfo - Información del video
      * @returns {Object} Resultado
      */
-    async function saveRegularVideo(currentTime, videoInfo) {
-        return await internalSaveRegularVideo(currentTime, videoInfo, 'saveRegularVideo');
+    async function saveRegularVideo(currentTime, videoInfo, options = {}) {
+        return await internalSaveRegularVideo(currentTime, videoInfo, 'saveRegularVideo', options);
     }
 
     // MARK: 💾 Save Miniplayer
@@ -5028,8 +5640,8 @@ background: var(--ypp-danger);
      * @param {Object} videoInfo - Información del video
      * @returns {Object} Resultado
      */
-    async function saveMiniplayer(currentTime, videoInfo) {
-        return await internalSaveRegularVideo(currentTime, videoInfo, 'saveMiniplayer');
+    async function saveMiniplayer(currentTime, videoInfo, options = {}) {
+        return await internalSaveRegularVideo(currentTime, videoInfo, 'saveMiniplayer', options);
     }
 
     // MARK: 💾 Save Shorts
@@ -5039,9 +5651,14 @@ background: var(--ypp-danger);
      * @param {Object} videoInfo - Información del short (videoId, title, author, duration, etc.)
      * @returns {Object} Resultado de la operación
      */
-    async function saveShortsVideo(currentTime, videoInfo) {
+    async function saveShortsVideo(currentTime, videoInfo, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
         logLog('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
+
+        // Ignorar si el modo de guardado manual está activo y no es un guardado manual
+        if (cachedSettings.manualSaveMode && !options.isManual) {
+            return { success: false, reason: 'manual_save_mode_active' };
+        }
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
@@ -5083,9 +5700,14 @@ background: var(--ypp-danger);
      * @param {string} previewType - 'preview_watch' o 'preview_shorts'
      * @returns {Object} Resultado de la operación
      */
-    async function savePreview(currentTime, videoInfo, previewType) {
+    async function savePreview(currentTime, videoInfo, previewType, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
         logLog('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
+
+        // Previews suelen ser auto-saves, pero respetamos el modo manual
+        if (cachedSettings.manualSaveMode && !options.isManual) {
+            return { success: false, reason: 'manual_save_mode_active' };
+        }
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
@@ -5142,9 +5764,14 @@ background: var(--ypp-danger);
      * @param {Object} videoInfo - Información del livestream
      * @returns {Object} Resultado de la operación
      */
-    async function saveLivestream(currentTime, videoInfo) {
+    async function saveLivestream(currentTime, videoInfo, options = {}) {
         const { videoId, lengthSeconds: duration } = videoInfo;
         logLog('saveLivestream', `Guardando livestream ${videoId} en ${currentTime}s`);
+
+        // Ignorar si el modo de guardado manual está activo y no es un guardado manual
+        if (cachedSettings.manualSaveMode && !options.isManual) {
+            return { success: false, reason: 'manual_save_mode_active' };
+        }
 
         const sourceData = await getSavedVideoData(videoId);
         const now = Date.now();
@@ -5653,6 +6280,7 @@ background: var(--ypp-danger);
     let shortsTimeDisplay;
     let lastShortsMessageHtml = '';
     let shortsPanelObserver = null;
+    let shortsRetryTimers = [];
     let miniplayerTimeDisplay;
     let inlinePreviewTimeDisplay;
 
@@ -5678,6 +6306,191 @@ background: var(--ypp-danger);
             displayClearTimeouts.delete(context);
         }, delayMs));
     };
+
+    // ------------------------------------------
+    // MARK: 🖼️ Display Button Helpers
+    // ------------------------------------------
+
+    /**
+     * Muestra un mensaje dentro del button-group de un display,
+     * manteniendo los botones de acción visibles y mostrando el span de mensaje al final.
+     * @param {HTMLElement} displayEl - Elemento raíz del display (.ypp-time-display).
+     * @param {string} message - HTML/texto a mostrar en el span de mensaje.
+     */
+    function showDisplayMessage(displayEl, message) {
+        if (!displayEl) return;
+        const messageEl = displayEl.querySelector('.ypp-time-display-message');
+
+        if (messageEl) {
+            setInnerHTML(messageEl, message);
+            messageEl.classList.remove('ypp-d-none');
+        } else {
+            setInnerHTML(displayEl, message);
+        }
+        displayEl.classList.remove('ypp-d-none');
+    }
+
+    /**
+     * Restaura el estado de botones del button-group:
+     * asegura que los botones sean visibles y oculta el span de mensaje.
+     * @param {HTMLElement} displayEl - Elemento raíz del display (.ypp-time-display).
+     * @param {boolean} hasFixedTime - Si true, usa íconos de timer+pin en listBtn.
+     */
+    function restoreDisplayButtons(displayEl, hasFixedTime) {
+        if (!displayEl) return;
+        const listPart = displayEl.querySelector('.ypp-btn-list');
+        const savePart = displayEl.querySelector('.ypp-btn-save');
+        const messageEl = displayEl.querySelector('.ypp-time-display-message');
+
+        if (listPart) {
+            const listIcon = hasFixedTime ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : SVG_ICONS.folder;
+            setInnerHTML(listPart, listIcon);
+            listPart.classList.remove('ypp-d-none');
+        }
+
+        if (savePart) {
+            if (cachedSettings?.manualSaveMode !== false) {
+                savePart.classList.remove('ypp-d-none');
+            } else {
+                savePart.classList.add('ypp-d-none');
+            }
+        }
+
+        if (messageEl) {
+            messageEl.classList.add('ypp-d-none');
+        }
+
+        displayEl.classList.remove('ypp-d-none');
+    }
+
+    /**
+     * Sincroniza el estado de tiempo fijo en todos los displays activos si corresponden al videoId.
+     * @param {string} videoId - ID del video actualizado.
+     * @param {boolean} isFixedTime - Nuevo estado de tiempo fijo.
+     */
+    function syncFixedTimeUI(videoId, isFixedTime) {
+        if (!videoId) return;
+
+        const syncDisplay = (display, player) => {
+            if (!display?.isConnected) return;
+            const currentPlayerId = (typeof player === 'string') ? player : getPlayerVideoId(player);
+            if (currentPlayerId === videoId) {
+                if (isFixedTime) display.dataset.isFixedTime = 'true';
+                else delete display.dataset.isFixedTime;
+                restoreDisplayButtons(display, isFixedTime);
+                logLog('syncFixedTimeUI', `Sincronizada UI (${display.id || 'shorts'}) para ${videoId}: forced=${isFixedTime}`);
+            }
+        };
+
+        syncDisplay(watchTimeDisplay, DOMHelpers.getWatchPlayer());
+        syncDisplay(shortsTimeDisplay, DOMHelpers.getShortsPlayer());
+        syncDisplay(miniplayerTimeDisplay, DOMHelpers.getMiniplayerPlayer());
+        syncDisplay(inlinePreviewTimeDisplay, DOMHelpers.getInlinePreviewPlayer());
+    }
+
+    /**
+     * Sincroniza el ícono de guardado manual en todos los displays activos si corresponden al videoId.
+     * @param {string} videoId - ID del video actualizado.
+     * @param {boolean} isSaved - Si el video se encuentra guardado en la DB.
+     */
+    function syncManualSaveUI(videoId, isSaved) {
+        if (!videoId) return;
+
+        const syncDisplay = (display, player) => {
+            if (!display?.isConnected) return;
+            const currentPlayerId = (typeof player === 'string') ? player : getPlayerVideoId(player);
+            if (currentPlayerId === videoId) {
+                const saveBtn = display.querySelector('.ypp-btn-save');
+                if (saveBtn) {
+                    const targetVal = isSaved ? 'true' : 'false';
+                    if (saveBtn.dataset.isSaved !== targetVal) {
+                        saveBtn.dataset.isSaved = targetVal;
+                        setInnerHTML(saveBtn, isSaved ? SVG_ICONS.bookmarkFill : SVG_ICONS.bookmark);
+                    }
+                }
+            }
+        };
+
+        syncDisplay(watchTimeDisplay, DOMHelpers.getWatchPlayer());
+        syncDisplay(shortsTimeDisplay, DOMHelpers.getShortsPlayer());
+        syncDisplay(miniplayerTimeDisplay, DOMHelpers.getMiniplayerPlayer());
+        syncDisplay(inlinePreviewTimeDisplay, DOMHelpers.getInlinePreviewPlayer());
+    }
+
+
+    /**
+     * Crea la estructura interna (DOM) base de un split-button-group para los displays de tiempo.
+     * Reutilizable en Watch, Miniplayer, Shorts e Inline Preview.
+     *
+     * Estructura generada:
+     *   [listBtn (.ypp-btn-list)] | [message (.ypp-time-display-message)]
+     *
+     * @returns {{ listBtn: HTMLButtonElement, messageEl: HTMLSpanElement }} Nodos creados.
+     */
+    function createSplitButtonGroup() {
+        const listBtn = createElement('button', {
+            className: 'ypp-btn-list',
+            html: SVG_ICONS.folder,
+            atribute: { title: t('savedVideos'), type: 'button' },
+            onClickEvent: (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                showSavedVideosList();
+            }
+        });
+
+        const messageEl = createElement('span', { className: 'ypp-time-display-message ypp-d-none' });
+
+        return { listBtn, messageEl };
+    }
+
+    /**
+     * Configura y añade el botón de guardado manual a un display de tiempo.
+     * Centraliza la lógica de guardado manual evitando callbacks redundantes.
+     *
+     * @param {HTMLElement} displayEl - Elemento raíz del display (.ypp-time-display).
+     * @param {HTMLElement} player - Instancia del player correspondiente.
+     * @param {string} contextType - Contexto ('watch', 'shorts', 'miniplayer', 'preview').
+     */
+    function setupManualSaveButton(displayEl, player, contextType) {
+        if (!cachedSettings?.manualSaveMode || !displayEl) return;
+
+        // Evitar duplicados si ya fue inyectado
+        if (displayEl.querySelector('.ypp-btn-save')) return;
+
+        const saveBtn = createElement('button', {
+            className: 'ypp-btn-save',
+            html: SVG_ICONS.bookmark,
+            atribute: { title: t('save'), type: 'button' },
+            onClickEvent: async (e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                const video =
+                    contextType === 'watch' ? DOMHelpers.getWatchPlayerVideo() :
+                        contextType === 'shorts' ? DOMHelpers.getShortsPlayerVideo() :
+                            contextType === 'miniplayer' ? DOMHelpers.getMiniplayerPlayerVideo() :
+                                contextType === 'preview' ? DOMHelpers.getInlinePreviewPlayerVideo() : null;
+
+                const videoId = getPlayerVideoId(player);
+
+                if (!videoId || !video) {
+                    logWarn('setupManualSaveButton', 'No se pudo determinar video o ID para guardado manual');
+                    return;
+                }
+
+                await PlaybackController.saveStatus(player, video, contextType, videoId, null, { isManual: true });
+
+            }
+        });
+
+        // Insertar después del botón de lista (listBtn)
+        const listPart = displayEl.querySelector('.ypp-btn-list');
+        if (listPart) {
+            listPart.insertAdjacentElement('afterend', saveBtn);
+        } else {
+            displayEl.appendChild(saveBtn);
+        }
+    }
 
     /**
      * Inicializa la visualización de tiempo en la barra de reproducción del player Watch.
@@ -5726,11 +6539,17 @@ background: var(--ypp-danger);
         // Cleanup defensivo: si el miniplayer dejó su span en esta misma barra de controles, eliminarlo
         destroyMiniplayerTimeDisplay();
 
-        // Si el player no existe o el display ya está conectado (ya esta en el DOM), no hacer nada
-        if (!playerContainer || watchTimeDisplay?.isConnected) return;
+        // Si ya está conectado y TIENE la estructura de split button (v2), no hacer nada
+        if (watchTimeDisplay?.isConnected && watchTimeDisplay.querySelector('.ypp-time-display-message')) return;
 
-        // Si existe una referencia previa pero se desconectó, la limpiamos para recrearla fresca
-        if (watchTimeDisplay) watchTimeDisplay = null;
+        // Si el player no existe, no hacer nada
+        if (!playerContainer) return;
+
+        // Si ya existe pero no tiene la estructura v2, limpiarlo para re-crear
+        if (watchTimeDisplay) {
+            try { watchTimeDisplay.remove(); } catch (_) { }
+            watchTimeDisplay = null;
+        }
 
         logLog('initTimeDisplay', 'playerContainer', playerContainer);
 
@@ -5741,12 +6560,19 @@ background: var(--ypp-danger);
 
         logLog('initTimeDisplay', 'timeWrapper seleccionado:', timeWrapper);
 
-        watchTimeDisplay = createElement('span', {
+        watchTimeDisplay = createElement('div', {
             id: 'ypp-time-display-indicator',
-            className: 'ypp-time-display ypp-d-none',
-            onClickEvent: showSavedVideosList,
-            atribute: { title: `${t('savedVideos')}` }
+            className: 'ypp-time-display ypp-d-none'
         });
+
+        // Crear las dos partes del botón usando el helper compartido
+        const { listBtn, messageEl } = createSplitButtonGroup();
+
+        watchTimeDisplay.appendChild(listBtn);
+        // El botón de guardado manual se añade mediante helper si está habilitado
+        setupManualSaveButton(watchTimeDisplay, playerContainer, 'watch');
+        watchTimeDisplay.appendChild(messageEl);
+
         delete watchTimeDisplay.dataset.isFixedTime;
 
         // En Delhi UI, insertar al final (después del badge de directo)
@@ -5780,6 +6606,8 @@ background: var(--ypp-danger);
      * @returns {HTMLElement|null} Contenedor de controles del Short activo o null si no existe aún.
      */
     function getActiveShortsControlsContainer() {
+        // return null; // para testear fallback floating
+
         // En la nueva interfaz de Shorts, pueden existir múltiples de estos contenedores
         // precargados. Iteramos y devolvemos el que realmente es visible.
         const panels = document.querySelectorAll(S.IDS.METAPANEL);
@@ -5806,11 +6634,14 @@ background: var(--ypp-danger);
 
         const selectors = [
             `${S.ELEMENTS.REEL_VIDEO_RENDERER} ${S.IDS.METAPANEL}`,
+            `${S.ELEMENTS.REEL_VIDEO_RENDERER} ${S.IDS.METADATA_CONTAINER}`,
             `ytd-reel-player-overlay-renderer .metadata-container`,
+            `ytd-reel-player-overlay-renderer ${S.IDS.METADATA_CONTAINER}`,
             `ytd-reel-player-overlay-renderer ${S.IDS.METAPANEL}`,
             `#experiment-overlay ${S.IDS.METAPANEL}`,
             `#reel-overlay-container ${S.IDS.METAPANEL}`,
-            `${S.ELEMENTS.YTD_SHORTS} ${S.IDS.METAPANEL}`
+            `${S.ELEMENTS.YTD_SHORTS} ${S.IDS.METAPANEL}`,
+            `${S.ELEMENTS.YTD_SHORTS} ${S.IDS.METADATA_CONTAINER}`
         ];
 
         for (const selector of selectors) {
@@ -5827,7 +6658,8 @@ background: var(--ypp-danger);
     }
 
     /**
-     * Inicializa la visualización de tiempo para videos Shorts
+     * Inicializa la visualización de tiempo para videos Shorts.
+     * Idempotente: retorna sin efecto si el display ya está conectado al DOM y es válido (v2).
      */
     function initShortsTimeDisplay() {
         // Buscar el contenedor de controles dentro del Short ACTIVO
@@ -5839,49 +6671,59 @@ background: var(--ypp-danger);
 
         logLog('initShortsTimeDisplay', 'shortsPlayerControls encontrado:', shortsPlayerControls)
 
-        // Si el metapanel aún no existe, preparar fallback flotante en overlay/body
-        if (!shortsPlayerControls) {
-            if (!shortsTimeDisplay) {
+        // 1. "Find or Create" logic for global reference
+        if (!shortsTimeDisplay || !document.contains(shortsTimeDisplay)) {
+            const existing = document.querySelector('.ypp-shorts-time-display');
+            if (existing) {
+                shortsTimeDisplay = existing;
+            } else {
+                // Crear estructura v2 si no existe en el DOM
                 shortsTimeDisplay = createElement('div', {
-                    className: 'ypp-shorts-time-display ypp-d-none',
-                    onClickEvent: showSavedVideosList,
-                    atribute: { title: `${t('savedVideos')}` }
+                    className: 'ypp-shorts-time-display ypp-d-none'
                 });
-                delete shortsTimeDisplay.dataset.isFixedTime;
+                const { listBtn, messageEl } = createSplitButtonGroup();
+                shortsTimeDisplay.appendChild(listBtn);
+                setupManualSaveButton(shortsTimeDisplay, DOMHelpers.getShortsPlayer(), 'shorts');
+                shortsTimeDisplay.appendChild(messageEl);
+
+                // Inicializar visualmente en estado de reposo (remover clase oculta)
+                clearShortsMessage();
             }
-            if (!shortsTimeDisplay.isConnected) {
-                try { (overlayRoot || document.body).appendChild(shortsTimeDisplay); } catch (_) { }
-            }
-            try { shortsTimeDisplay.classList.add('ypp-floating'); } catch (_) { }
-            // Iniciar observador para re-ancorar cuando aparezca el metapanel
-            startShortsPanelObserver();
-            logLog('initShortsTimeDisplay', 'Metapanel no disponible; usando fallback flotante en overlay/body');
-            return;
         }
 
-        // Si ya existe el display, asegurar que esté en el contenedor activo
-        if (shortsTimeDisplay && shortsTimeDisplay.parentElement !== shortsPlayerControls) {
-            try { shortsPlayerControls.appendChild(shortsTimeDisplay); } catch (_) { }
-        }
-
-        // Crear contenedor específico para Shorts si no existe
-        if (!shortsTimeDisplay) {
-            shortsTimeDisplay = createElement('div', {
-                className: 'ypp-shorts-time-display ypp-d-none',
-                onClickEvent: showSavedVideosList,
-                atribute: {
-                    title: `${t('savedVideos')}`,
-                }
+        // 2. Limpieza agresiva de duplicados en el panel activo
+        if (shortsPlayerControls) {
+            const redundant = shortsPlayerControls.querySelectorAll('.ypp-shorts-time-display');
+            redundant.forEach(el => {
+                if (el !== shortsTimeDisplay) el.remove();
             });
         }
 
-        // Añadir al contenedor del player de Shorts si aún no está conectado
-        if (!shortsTimeDisplay.isConnected) {
-            shortsPlayerControls.appendChild(shortsTimeDisplay);
+        // 3. Re-anclaje (Re-anchoring)
+        const target = shortsPlayerControls || overlayRoot || document.body;
+        if (shortsTimeDisplay.parentElement !== target) {
+            try { target.appendChild(shortsTimeDisplay); } catch (_) { }
         }
 
-        logLog('initShortsTimeDisplay', 'Creada visualización de tiempo para Shorts dentro del player');
-        clearShortsMessage();
+        // 4. Actualizar estado visual (floating vs anchored)
+        shortsTimeDisplay.classList.toggle('ypp-floating', !shortsPlayerControls);
+
+        if (shortsPlayerControls) {
+            logLog('initShortsTimeDisplay', '✅ Visualización de tiempo para Shorts vinculada al Metapanel');
+
+            // Si lo encontramos y se incrustó correctamente, detener operaciones de reintento pendientes
+            shortsRetryTimers.forEach(t => clearTimeout(t));
+            shortsRetryTimers = [];
+
+            // Si lo encontramos, detener el observador si existía
+            if (shortsPanelObserver) {
+                try { shortsPanelObserver.disconnect(); } catch (_) { }
+                shortsPanelObserver = null;
+            }
+        } else {
+            startShortsPanelObserver();
+            logLog('initShortsTimeDisplay', 'Metapanel no disponible; usando fallback flotante');
+        }
     }
 
     /**
@@ -5891,28 +6733,40 @@ background: var(--ypp-danger);
     function startShortsPanelObserver() {
         if (shortsPanelObserver) return;
 
-        shortsPanelObserver = new MutationObserver(() => {
-            const panel = getActiveShortsControlsContainer();
-            if (panel && shortsTimeDisplay && shortsTimeDisplay.parentElement !== panel) {
-                try {
-                    panel.appendChild(shortsTimeDisplay);
-                    shortsTimeDisplay.classList.remove('ypp-floating');
-                    if (lastShortsMessageHtml) {
-                        setInnerHTML(shortsTimeDisplay, lastShortsMessageHtml);
-                    }
-                } catch (_) { }
-            }
+        logLog('startShortsPanelObserver', '🔍 Iniciando observador y reintentos para Metapanel...');
+
+        // Purga segura de reintentos acumulados
+        shortsRetryTimers.forEach(t => clearTimeout(t));
+        shortsRetryTimers = [];
+
+        // 1. Reintentos temporizados (Brute-force para cargas lentas)
+        const checkPoints = [500, 1000, 2000, 4000, 8000];
+        checkPoints.forEach(ms => {
+            const timer = setTimeout(() => {
+                const panel = getActiveShortsControlsContainer();
+                if (panel) {
+                    logInfo('startShortsPanelObserver', `✅ Metapanel encontrado por reintento (${ms}ms)`);
+                    initShortsTimeDisplay();
+                }
+            }, ms);
+            shortsRetryTimers.push(timer);
         });
 
-        // Observar cambios estructurales para detectar nuevos metapanels (scroll de shorts)
-        shortsPanelObserver.observe(document.body, { childList: true, subtree: true });
+        // 2. Observador de mutaciones para cambios dinámicos
+        shortsPanelObserver = new MutationObserver(debounce(() => {
+            const panel = getActiveShortsControlsContainer();
+            if (panel && (shortsTimeDisplay?.parentElement !== panel || shortsTimeDisplay?.classList.contains('ypp-floating'))) {
+                logInfo('startShortsPanelObserver', '✅ Metapanel detectado por MutationObserver, re-anclando...');
+                initShortsTimeDisplay();
+            }
+        }, 150));
+
+        try {
+            shortsPanelObserver.observe(document.body, { childList: true, subtree: true });
+        } catch (e) {
+            logError('startShortsPanelObserver', 'Error al iniciar observador', e);
+        }
     }
-
-
-
-
-
-
 
     // ------------------------------------------
     // MARK: 📢 Playback Bar Messages
@@ -5923,7 +6777,7 @@ background: var(--ypp-danger);
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
-    function updateWatchPlaybackBarMessage(message, videoEl, isSeek = false, isFixedTime = false) {
+    function updateWatchPlaybackBarMessage(message, videoEl, isSeek = false, isFixedTime = false, isManual = false) {
         if (!watchTimeDisplay?.isConnected) return;
 
         // No sobreescribir mensajes importantes (seek/fixed) con progreso si está pausado
@@ -5931,13 +6785,12 @@ background: var(--ypp-danger);
         const hasActiveSeek = watchTimeDisplay.dataset.activeSeek === 'true';
         const hasFixedTime = watchTimeDisplay.dataset.isFixedTime === 'true';
 
-        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime)) {
+        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime) && !isManual) {
             return; // Preservar el mensaje importante
         }
 
-        // Actualizar contenido y visibilidad
-        setInnerHTML(watchTimeDisplay, message);
-        watchTimeDisplay.classList.remove('ypp-d-none');
+        // Actualizar contenido y visibilidad usando helper compartido
+        showDisplayMessage(watchTimeDisplay, message);
 
         // Actualizar metadatos de estado
         if (isSeek) watchTimeDisplay.dataset.activeSeek = 'true';
@@ -5948,12 +6801,11 @@ background: var(--ypp-danger);
 
         logLog('updateWatchPlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}, isFixed=${isFixedTime}`);
 
-        // No limpiar si está pausado y es seek/fixed, o si es fixed (permanente)
+        // No limpiar si es fixed (permanente)
         if (isFixedTime) return;
-        if (isSeek && isVideoPaused) return;
 
         // Si no es seek/fixed y está pausado, limpiar inmediatamente (comportamiento legacy para progreso si llegara aquí)
-        if (!isSeek && isVideoPaused) {
+        if (!isSeek && isVideoPaused && !isManual) {
             clearPlaybackBarMessage();
             return;
         }
@@ -5964,16 +6816,8 @@ background: var(--ypp-danger);
     function clearPlaybackBarMessage() {
         if (watchTimeDisplay) {
             const hasFixedTime = watchTimeDisplay.dataset.isFixedTime === 'true';
-            // Si hay tiempo fijo, mostrar el Pin en lugar de la Carpeta
-            const icon = hasFixedTime ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : (SVG_ICONS.folder || '');
-
-            try {
-                setInnerHTML(watchTimeDisplay, icon);
-            } catch (_) {
-                setInnerHTML(watchTimeDisplay, '');
-            }
+            restoreDisplayButtons(watchTimeDisplay, hasFixedTime);
             delete watchTimeDisplay.dataset.activeSeek;
-            watchTimeDisplay.classList.remove('ypp-d-none');
         }
 
         const prev = displayClearTimeouts.get('watch');
@@ -5987,11 +6831,9 @@ background: var(--ypp-danger);
     * @param {string} message - Mensaje a mostrar en Shorts
     * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
-    function updateShortsMessage(message, videoEl, isSeek = false, isFixedTime = false) {
-        // Verificar si shortsTimeDisplay existe y está en el DOM, si no, reinicializar
-        if (!shortsTimeDisplay || !document.contains(shortsTimeDisplay)) {
-            initShortsTimeDisplay();
-        }
+    function updateShortsMessage(message, videoEl, isSeek = false, isFixedTime = false, isManual = false) {
+        // Asegurar inicialización y anclaje robusto (evita duplicados y re-vincula si es necesario)
+        initShortsTimeDisplay();
 
         if (!shortsTimeDisplay) {
             logWarn('updateShortsMessage', '⚠️ No se pudo inicializar el display de Shorts');
@@ -6008,7 +6850,7 @@ background: var(--ypp-danger);
         const hasActiveSeek = shortsTimeDisplay.dataset.activeSeek === 'true';
         const hasFixedTime = shortsTimeDisplay.dataset.isFixedTime === 'true';
 
-        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime)) {
+        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime) && !isManual) {
             return;
         }
 
@@ -6018,9 +6860,7 @@ background: var(--ypp-danger);
         // Re-anclar al contenedor del Short activo si cambió por scroll
         const activePanel = getActiveShortsControlsContainer();
         const overlayRoot = document.querySelector('ytd-reel-player-overlay-renderer') || DOMHelpers.getShortsPlayer();
-        if (activePanel && shortsTimeDisplay.parentElement !== activePanel) {
-            try { activePanel.appendChild(shortsTimeDisplay); } catch (_) { }
-        }
+
         // Si aún no existe o no es visible (DOM en transición), reintentar en el próximo frame
         if (!activePanel || !isVisiblyDisplayed(activePanel)) {
             try {
@@ -6036,16 +6876,14 @@ background: var(--ypp-danger);
                         return;
                     }
                     lastShortsMessageHtml = message;
-                    setInnerHTML(shortsTimeDisplay, message);
-                    shortsTimeDisplay.classList.remove('ypp-d-none');
+                    showDisplayMessage(shortsTimeDisplay, message);
                     // Post-check: si aún no es visible, forzar fallback al overlayRoot
                     const postCheck = () => {
                         try {
                             if (!isVisiblyDisplayed(shortsTimeDisplay) && overlayRoot) {
                                 try { overlayRoot.appendChild(shortsTimeDisplay); } catch (_) { }
                                 shortsTimeDisplay.classList.add('ypp-floating');
-                                shortsTimeDisplay.classList.remove('ypp-d-none');
-                                setInnerHTML(shortsTimeDisplay, message);
+                                showDisplayMessage(shortsTimeDisplay, message);
                             }
                         } catch (_) { }
                     };
@@ -6065,8 +6903,7 @@ background: var(--ypp-danger);
         }
 
         lastShortsMessageHtml = message;
-        setInnerHTML(shortsTimeDisplay, message);
-        shortsTimeDisplay.classList.remove('ypp-d-none');
+        showDisplayMessage(shortsTimeDisplay, message);
         // Si está en overlayRoot (no metapanel visible), marcar flotante
         try {
             shortsTimeDisplay.classList.toggle('ypp-floating', shortsTimeDisplay.parentElement !== activePanel);
@@ -6081,9 +6918,8 @@ background: var(--ypp-danger);
 
         logLog('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}, isFixed=${isFixedTime}`);
 
-        // No limpiar si está pausado y es seek/fixed, o si es fixed (permanente)
+        // No limpiar si es fixed (permanente)
         if (isFixedTime) return;
-        if (isSeek && isVideoPaused) return;
 
         const baseMinSeconds = cachedSettings?.minSecondsBetweenSaves || CONFIG.defaultSettings.minSecondsBetweenSaves || 1;
         const ttlMs = Math.max((baseMinSeconds * 1000) + 1500, 1600);
@@ -6093,12 +6929,8 @@ background: var(--ypp-danger);
     function clearShortsMessage() {
         if (shortsTimeDisplay) {
             const hasFixedTime = shortsTimeDisplay.dataset.isFixedTime === 'true';
-            const icon = hasFixedTime ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : (SVG_ICONS.folder || '');
-
-            setInnerHTML(shortsTimeDisplay, icon);
-            shortsTimeDisplay.classList.remove('ypp-d-none');
+            restoreDisplayButtons(shortsTimeDisplay, hasFixedTime);
             shortsTimeDisplay.classList.remove('ypp-floating');
-
             delete shortsTimeDisplay.dataset.activeSeek;
             // Al limpiar el mensaje, también vaciar el caché para evitar reusar mensajes de Shorts anteriores
             lastShortsMessageHtml = '';
@@ -6115,11 +6947,16 @@ background: var(--ypp-danger);
     * @param {HTMLElement} playerContainer - Referencia al player miniplayer (#movie_player interno).
     */
     function initMiniplayerTimeDisplay(playerContainer) {
-
-        if (miniplayerTimeDisplay?.isConnected) return;
-        if (miniplayerTimeDisplay) miniplayerTimeDisplay = null;
+        // Si ya está conectado y tiene estructura completa, no hacer nada
+        if (miniplayerTimeDisplay?.isConnected && miniplayerTimeDisplay.querySelector('.ypp-time-display-message')) return;
 
         if (!playerContainer) return;
+
+        // Si ya existe pero estructura vieja, limpiar
+        if (miniplayerTimeDisplay) {
+            try { miniplayerTimeDisplay.remove(); } catch (_) { }
+            miniplayerTimeDisplay = null;
+        }
 
         // Búsqueda ultra-robusta de contenedores de UI en el miniplayer
         // El miniplayer puede tener estructuras variables según el experimento o si es un Mix.
@@ -6137,10 +6974,15 @@ background: var(--ypp-danger);
 
         miniplayerTimeDisplay = createElement('div', {
             id: 'ypp-miniplayer-time-display',
-            className: 'ypp-time-display ypp-miniplayer-time-display ypp-d-none',
-            onClickEvent: showSavedVideosList,
-            atribute: { title: t('savedVideos') }
+            className: 'ypp-time-display ypp-miniplayer-time-display ypp-d-none'
         });
+
+        // Crear estructura del split-button usando el helper compartido
+        const { listBtn, messageEl } = createSplitButtonGroup();
+
+        miniplayerTimeDisplay.appendChild(listBtn);
+        setupManualSaveButton(miniplayerTimeDisplay, playerContainer, 'miniplayer');
+        miniplayerTimeDisplay.appendChild(messageEl);
 
         controls.appendChild(miniplayerTimeDisplay);
         logLog('initMiniplayerTimeDisplay', '✅ Visualización de tiempo inicializada en Miniplayer');
@@ -6153,10 +6995,10 @@ background: var(--ypp-danger);
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video
     */
-    function updateMiniplayerMessage(message, videoEl, isSeek = false, isFixedTime = false) {
+    function updateMiniplayerMessage(message, videoEl, isSeek = false, isFixedTime = false, isManual = false) {
         // Fallback reactivo: si el display fue removido (ej: miniplayer cerrado y reabierto)
         if (!miniplayerTimeDisplay?.isConnected) {
-            const player = DOMHelpers.getMiniplayerActive();
+            const player = DOMHelpers.getMiniplayerElementActive();
             if (player) initMiniplayerTimeDisplay(player);
         }
 
@@ -6167,12 +7009,12 @@ background: var(--ypp-danger);
         const hasActiveSeek = miniplayerTimeDisplay.dataset.activeSeek === 'true';
         const hasFixedTime = miniplayerTimeDisplay.dataset.isFixedTime === 'true';
 
-        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime)) {
+        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime) && !isManual) {
             return;
         }
 
-        setInnerHTML(miniplayerTimeDisplay, message);
-        miniplayerTimeDisplay.classList.remove('ypp-d-none');
+        // Actualizar contenido y visibilidad usando helper compartido
+        showDisplayMessage(miniplayerTimeDisplay, message);
 
         // Actualizar metadatos de estado
         if (isSeek) miniplayerTimeDisplay.dataset.activeSeek = 'true';
@@ -6181,9 +7023,8 @@ background: var(--ypp-danger);
         if (isFixedTime) miniplayerTimeDisplay.dataset.isFixedTime = 'true';
         else delete miniplayerTimeDisplay.dataset.isFixedTime;
 
-        // No limpiar si está pausado y es seek/fixed, o si es fixed (permanente)
+        // No limpiar si es fixed (permanente)
         if (isFixedTime) return;
-        if (isSeek && isVideoPaused) return;
 
         scheduleDisplayClear('mini', clearMiniplayerMessage, 1600);
     }
@@ -6191,10 +7032,7 @@ background: var(--ypp-danger);
     function clearMiniplayerMessage() {
         if (miniplayerTimeDisplay) {
             const hasFixedTime = miniplayerTimeDisplay.dataset.isFixedTime === 'true';
-            const icon = hasFixedTime ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : (SVG_ICONS.folder || '');
-
-            setInnerHTML(miniplayerTimeDisplay, icon);
-            miniplayerTimeDisplay.classList.remove('ypp-d-none');
+            restoreDisplayButtons(miniplayerTimeDisplay, hasFixedTime);
             delete miniplayerTimeDisplay.dataset.activeSeek;
         }
 
@@ -6224,22 +7062,40 @@ background: var(--ypp-danger);
     * @param {HTMLElement} previewPlayerEl - Referencia al preview player resuelta.
     */
     function initInlinePreviewTimeDisplay(previewPlayerEl) {
-        if (inlinePreviewTimeDisplay?.isConnected) return;
-        if (inlinePreviewTimeDisplay) inlinePreviewTimeDisplay = null;
+        // Si ya está conectado y tiene estructura v2, no hacer nada
+        if (inlinePreviewTimeDisplay?.isConnected && inlinePreviewTimeDisplay.querySelector('.ypp-time-display-message')) return;
 
         if (!previewPlayerEl) return;
+
+        // Si ya existe pero estructura vieja, limpiar
+        if (inlinePreviewTimeDisplay) {
+            try { inlinePreviewTimeDisplay.remove(); } catch (_) { }
+            inlinePreviewTimeDisplay = null;
+        }
 
         const previewPlayer = previewPlayerEl;
 
         inlinePreviewTimeDisplay = createElement('div', {
-            id: 'ypp-inline-preview-display',
-            className: 'ypp-time-display ypp-inline-preview-display ypp-d-none ypp-floating',
-            onClickEvent: showSavedVideosList,
-            atribute: { title: t('savedVideos') }
+            id: 'ypp-inline-preview-time-display',
+            className: 'ypp-time-display ypp-inline-preview-time-display ypp-d-none'
         });
 
+        // Crear estructura del split-button usando el helper compartido
+        const { listBtn, messageEl } = createSplitButtonGroup();
+
+        inlinePreviewTimeDisplay.appendChild(listBtn);
+        setupManualSaveButton(inlinePreviewTimeDisplay, previewPlayer, 'preview');
+        inlinePreviewTimeDisplay.appendChild(messageEl);
+
         previewPlayer.appendChild(inlinePreviewTimeDisplay);
-        logLog('initInlinePreviewTimeDisplay', '✅ Visualización de tiempo inicializada en Inline Preview');
+
+        // Bloquear clics accidentales en el contenedor (evitar navegación al video en Previews)
+        inlinePreviewTimeDisplay.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+        }, { passive: false });
+
+        logLog('initInlinePreviewTimeDisplay', '✅ Visualización de tiempo inicializada en Inline Preview (Split Button)');
         clearInlinePreviewMessage();
     }
 
@@ -6249,7 +7105,7 @@ background: var(--ypp-danger);
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video
     */
-    function updateInlinePreviewMessage(message, videoEl, isSeek = false, isFixedTime = false) {
+    function updateInlinePreviewMessage(message, videoEl, isSeek = false, isFixedTime = false, isManual = false) {
         // Fallback reactivo si fue removido del DOM
         if (!inlinePreviewTimeDisplay?.isConnected) {
             const player = DOMHelpers.getInlinePreviewPlayer();
@@ -6263,12 +7119,12 @@ background: var(--ypp-danger);
         const hasActiveSeek = inlinePreviewTimeDisplay.dataset.activeSeek === 'true';
         const hasFixedTime = inlinePreviewTimeDisplay.dataset.isFixedTime === 'true';
 
-        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime)) {
+        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime) && !isManual) {
             return;
         }
 
-        setInnerHTML(inlinePreviewTimeDisplay, message);
-        inlinePreviewTimeDisplay.classList.remove('ypp-d-none');
+        // Actualizar contenido y visibilidad usando helper compartido
+        showDisplayMessage(inlinePreviewTimeDisplay, message);
 
         // Actualizar metadatos de estado
         if (isSeek) inlinePreviewTimeDisplay.dataset.activeSeek = 'true';
@@ -6277,9 +7133,8 @@ background: var(--ypp-danger);
         if (isFixedTime) inlinePreviewTimeDisplay.dataset.isFixedTime = 'true';
         else delete inlinePreviewTimeDisplay.dataset.isFixedTime;
 
-        // No limpiar si está pausado y es seek/fixed, o si es fixed (permanente)
+        // No limpiar si es fixed (permanente)
         if (isFixedTime) return;
-        if (isSeek && isVideoPaused) return;
 
         scheduleDisplayClear('preview', clearInlinePreviewMessage, 1600);
     }
@@ -6287,10 +7142,7 @@ background: var(--ypp-danger);
     function clearInlinePreviewMessage() {
         if (inlinePreviewTimeDisplay) {
             const hasFixedTime = inlinePreviewTimeDisplay.dataset.isFixedTime === 'true';
-            const icon = hasFixedTime ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : (SVG_ICONS.folder || '');
-
-            setInnerHTML(inlinePreviewTimeDisplay, icon);
-            inlinePreviewTimeDisplay.classList.remove('ypp-d-none');
+            restoreDisplayButtons(inlinePreviewTimeDisplay, hasFixedTime);
             delete inlinePreviewTimeDisplay.dataset.activeSeek;
         }
 
@@ -6470,7 +7322,7 @@ background: var(--ypp-danger);
         return `
             <div class="ypp-settings-section">
                 <label class="ypp-label ypp-label-language">
-                    <span>${escapeHTML(t('language'))}: </span>
+                    <span>${t('language')}: </span>
                     <select class="ypp-select" name="language">${optionsHTML}</select>
                 </label>
             </div>
@@ -6481,37 +7333,43 @@ background: var(--ypp-danger);
         <div class="ypp-settings-section">
          <label class="ypp-label">
                 <input type="checkbox" name="showFloatingButtons" ${settings.showFloatingButtons ? 'checked' : ''}>
-                <span>${escapeHTML(t('showFloatingButton'))}</span>
+                <span>${t('showFloatingButton')}</span>
             </label>
             <label class="ypp-label">
                 <input type="checkbox" name="enableProgressBarGradient" ${settings.enableProgressBarGradient ? 'checked' : ''}>
-                <span>${escapeHTML(t('enableProgressBarGradient'))}</span>
+                <span>${t('enableProgressBarGradient')}</span>
             </label>
         </div>
     `;
 
     const renderSavingOptionsSection = (settings) => `
+        <div class="ypp-settings-section">
+            <label class="ypp-label" title="${t('manualSaveModeTooltip')}">
+                <input type="checkbox" name="manualSaveMode" ${settings.manualSaveMode ? 'checked' : ''}>
+                <span>${SVG_ICONS.bookmark}${t('manualSaveMode')}</span>
+            </label>
+        </div>
         <div class="ypp-container-saving-options">
-            <h2 class="ypp-section-title">${escapeHTML(t('enableSavingFor'))}:</h2>
+            <h2 class="ypp-section-title">${t('enableSavingFor')}:</h2>
             <label class="ypp-label-save-type">
                 <input type="checkbox" name="saveRegularVideos" ${settings.saveRegularVideos ? 'checked' : ''}>
-                <span>${escapeHTML(t('regularVideos'))}</span>
+                <span>${t('regularVideos')}</span>
             </label>
             <label class="ypp-label-save-type">
                 <input type="checkbox" name="saveMiniplayerVideos" ${settings.saveMiniplayerVideos !== false ? 'checked' : ''}>
-                <span>${escapeHTML(t('miniplayerVideos'))}</span>
+                <span>${t('miniplayerVideos')}</span>
             </label>
             <label class="ypp-label-save-type">
                 <input type="checkbox" name="saveShorts" ${settings.saveShorts ? 'checked' : ''}>
-                <span>${escapeHTML(t('shorts'))}</span>
+                <span>${t('shorts')}</span>
             </label>
             <label class="ypp-label-save-type">
                 <input type="checkbox" name="saveLiveStreams" ${settings.saveLiveStreams ? 'checked' : ''}>
-                <span>${escapeHTML(t('liveStreams'))}</span>
+                <span>${t('liveStreams')}</span>
             </label>
             <label class="ypp-label-save-type">
                 <input type="checkbox" name="saveInlinePreviews" ${settings.saveInlinePreviews === true ? 'checked' : ''}>
-                <span>${escapeHTML(t('inlinePreviews'))}</span>
+                <span>${t('inlinePreviews')}</span>
             </label>
         </div>
     `;
@@ -6520,14 +7378,14 @@ background: var(--ypp-danger);
         <div class="ypp-settings-section">
         <label class="ypp-label">
                 <input type="checkbox" name="showNotifications" ${settings.showNotifications ? 'checked' : ''}>
-                <span>${escapeHTML(t('showNotifications'))}</span>
+                <span>${t('showNotifications')}</span>
             </label>
             <label class="ypp-label">
-                <span>${escapeHTML(t('minSecondsBetweenSaves'))}: </span>
+                <span>${t('minSecondsBetweenSaves')}: </span>
                 <input type="number" class="ypp-input-small" name="minSecondsBetweenSaves" value="${settings.minSecondsBetweenSaves}" min="1" max="9999">
             </label>
             <label class="ypp-label">
-                <span>${escapeHTML(t('staticFinishPercent'))}: </span>
+                <span>${t('staticFinishPercent')}: </span>
                 <input type="number" class="ypp-input-small" name="staticFinishPercent" value="${settings.staticFinishPercent}" min="1" max="99">
                 <span class="ypp-percent-symbol">%</span>
             </label>
@@ -6536,21 +7394,158 @@ background: var(--ypp-danger);
 
     const renderAlertStyleSection = (settings) => {
         const styles = [
-            { value: 'iconText', text: `🔔📝 ${escapeHTML(t('alertIconText'))}` },
-            { value: 'iconOnly', text: `🔔 ${escapeHTML(t('alertIconOnly'))}` },
-            { value: 'textOnly', text: `📝 ${escapeHTML(t('alertTextOnly'))}` },
-            { value: 'hidden', text: `🚫 ${escapeHTML(t('alertHidden'))}` }
+            { value: 'iconText', text: `🔔📝 ${t('alertIconText')}` },
+            { value: 'iconOnly', text: `🔔 ${t('alertIconOnly')}` },
+            { value: 'textOnly', text: `📝 ${t('alertTextOnly')}` },
+            { value: 'hidden', text: `🚫 ${t('alertHidden')}` }
         ];
         const optionsHTML = styles.map(s => `
-            <option value="${s.value}" ${settings.alertStyle === s.value ? 'selected' : ''}>${escapeHTML(s.text)}</option>
+            <option value="${s.value}" ${settings.alertStyle === s.value ? 'selected' : ''}>${s.text}</option>
         `).join('');
 
         return `
             <div class="ypp-settings-section">
                 <label class="ypp-label">
-                    <span>${escapeHTML(t('alertStyle'))}: </span>
+                    <span>${t('alertStyle')}: </span>
                     <select class="ypp-select" name="alertStyle">${optionsHTML}</select>
                 </label>
+            </div>
+        `;
+    };
+
+    const renderGitHubBackupSection = (rawSettings) => {
+        const githubSettings = rawSettings;
+        const lastViewedType = githubSettings.lastViewedType || 'gist';
+
+        const renderTabContent = (type) => {
+            const s = githubSettings[type];
+            const lastSyncStr = s.lastSync ? new Date(s.lastSync).toLocaleString() : t('unknown');
+            const isGist = type === 'gist';
+
+            return `
+                <div id="ypp-github-${type}-content" class="ypp-github-tab-content" style="display: ${lastViewedType === type ? 'block' : 'none'};">
+                    <div style="margin-bottom: 15px;">
+                        <label class="ypp-label">
+                            <input type="checkbox" name="${type}_autoBackup" ${s.autoBackup ? 'checked' : ''}>
+                            <span style="font-weight: bold;">${t('githubAutoBackup')}</span>
+                        </label>
+                        <label class="ypp-label" style="margin-top: 5px;">
+                            <span>${t('githubInterval')}: </span>
+                            <input type="number" class="ypp-input-small" name="${type}_interval" value="${s.interval || 24}" min="1" max="24" oninput="if(this.value > 24) this.value = 24;">
+                        </label>
+                    </div>
+
+                    <div class="ypp-github-token-container">
+                        <label class="ypp-label ypp-m0">
+                            <span>${t('githubToken')}: </span>
+                            <input type="password" class="ypp-input" name="${type}_token" value="${s.token || ''}" placeholder="ghp_xxxxxxxxxxxx">
+                        </label>
+                        
+                        ${isGist ? `
+                            <div>
+                                <label class="ypp-label ypp-m0">
+                                    <span>${t('githubGistId')}: </span>
+                                    <div style="display: flex; align-items: center; gap: 6px; flex: 1;">
+                                        <input type="password" class="ypp-input" name="gist_id" value="${s.id || ''}" placeholder="${t('githubGistIdPlaceholder')}" style="flex: 1;">
+                                        <button type="button" class="ypp-btn ypp-btn-small ypp-btn-outlined ypp-gist-id-toggle" title="${t('show')}" style="padding: 4px 8px; flex-shrink: 0;">${SVG_ICONS.eye}</button>
+                                    </div>
+                                </label>
+                                <div style="font-size: 0.85em; color: var(--ypp-text-secondary); margin-top: 2px;">${t('githubGistIdExample')}</div>
+                            </div>
+                        ` : `
+                            <div>
+                                <label class="ypp-label">
+                                    <span>${t('githubRepoOwner')}: </span>
+                                    <input type="text" class="ypp-input" name="repo_owner" value="${s.owner || ''}" placeholder="${t('githubRepoOwnerPlaceholder')}">
+                                </label>
+                                <label class="ypp-label">
+                                    <span>${t('githubRepoName')}: </span>
+                                    <input type="text" class="ypp-input" name="repo_name" value="${s.name || ''}" placeholder="${t('githubRepoNamePlaceholder')}">
+                                </label>
+                            </div>
+                            <div style="font-size: 0.85em; color: var(--ypp-text-secondary); margin-top: 5px;">
+                                ${SVG_ICONS.info} ${t('saveAs')}: <code>youtube-playback-plox-backup.json</code>
+                            </div>
+                        `}
+                    </div>
+
+                    <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--ypp-border-color); padding-top: 12px;">
+                        <div style="font-size: 0.85em; color: var(--ypp-text-secondary); line-height: 1.4;">
+                            ${isGist ? t('githubBackupNowInfo') : t('githubRepoBackupNowInfo')}
+                        </div>
+                        <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <button type="button" class="ypp-btn ypp-btn-outlined ypp-github-backup-btn" data-type="${type}" style="width: fit-content; padding: 6px 15px;">
+                                ${SVG_ICONS.upload} ${t('githubBackupNow')}
+                            </button>
+                            <div id="ypp-github-last-sync-${type}" style="font-size: 0.85em; color: var(--ypp-text-secondary);">
+                                <strong>${t('githubLastSync')}:</strong> ${lastSyncStr}
+                            </div>
+                        </div>
+                        <div id="ypp-github-gist-link-container-${type}">
+                            ${isGist && s.url ? `
+                                <a href="${s.url}" class="ypp-link" target="_blank" rel="noopener noreferrer">
+                                    ${SVG_ICONS.externalLink} ${t('githubGistView')}
+                                </a>
+                            ` : ''}
+                        </div>
+                    </div>
+                </div>
+            `;
+        };
+
+        return `
+            <div class="ypp-github-settings-header">
+                <h2 class="ypp-section-title">
+                    <span>${SVG_ICONS.github} ${t('githubBackup')}</span>
+                </h2>
+                <div class="ypp-github-help-toggle" id="ypp-github-help-toggle">
+                    ${SVG_ICONS.info} ${t('githubHelp')}
+                </div>
+                <div class="ypp-github-help-content" id="ypp-github-help-content">
+                    <div style="margin-bottom: 10px; font-weight: bold;">${t('githubHelp')}</div>
+                    
+                    <div id="ypp-github-help-gist" style="display: ${lastViewedType === 'gist' ? 'block' : 'none'};">
+                        <div>${t('githubHelpStep1')} <a href="https://github.com/settings/tokens" class="ypp-link" target="_blank" rel="noopener noreferrer">https://github.com/settings/tokens</a></div>
+                        <div>${t('githubHelpStep2Gist')}</div>
+                        <div>${t('githubHelpStep3')}</div>
+                    </div>
+
+                    <div id="ypp-github-help-repo" style="display: ${lastViewedType === 'repo' ? 'block' : 'none'};">
+                        <div>${t('githubHelpStep1')} <a href="https://github.com/settings/tokens" class="ypp-link" target="_blank" rel="noopener noreferrer">https://github.com/settings/tokens</a></div>
+                        <div>${t('githubHelpStep2Repo')}</div>
+                        <div>${t('githubHelpStep3')}</div>
+                        <div>${t('githubHelpStep4Repo')}</div>
+                    </div>
+
+                    <div style="margin-top: 10px; padding-top: 5px; border-top: 1px solid var(--ypp-border-color); font-size: 0.9em;">
+                        <strong style="color: var(--ypp-primary);">${t('githubCleanupGuide')}:</strong><br>
+                        - ${t('githubCleanupStep1')}<br>
+                        - ${t('githubCleanupStep2')}
+                    </div>
+                </div>
+            </div>
+
+            <div id="ypp-github-repo-warning" class="ypp-github-help-important">
+                    ${SVG_ICONS.warning} ${t('githubHelpImportant')}
+                </div>
+
+            <div class="ypp-github-tabs">
+                <div class="ypp-github-tab ${lastViewedType === 'gist' ? 'active' : ''}" data-type="gist">
+                    ${SVG_ICONS.bookmark} Gist
+                </div>
+                <div class="ypp-github-tab ${lastViewedType === 'repo' ? 'active' : ''}" data-type="repo">
+                    ${SVG_ICONS.folder} Repository
+                </div>
+            </div>
+
+            <div class="ypp-settings-section ypp-github-section" style="border-top: none; border-radius: 0 0 8px 8px; margin-top: -15px;">
+                <input type="hidden" name="githubLastViewedType" value="${lastViewedType}">
+                <label class="ypp-label" style="padding: 10px 0 5px;">
+                    <input type="checkbox" name="githubAutoDeleteToken" ${githubSettings.autoDeleteToken ? 'checked' : ''}>
+                    <span style="font-size: 0.9em; color: var(--ypp-text-secondary);">${t('githubAutoDeleteToken')}</span>
+                </label>
+                ${renderTabContent('gist')}
+                ${renderTabContent('repo')}
             </div>
         `;
     };
@@ -6584,7 +7579,8 @@ background: var(--ypp-danger);
             }
         };
 
-        const settings = await Settings.get();
+        const settings = { ...await Settings.get() };
+        const githubSettings = { ...await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings) };
 
         // Crear overlay
         const overlay = createElement('div', {
@@ -6598,8 +7594,8 @@ background: var(--ypp-danger);
         // Header
         const header = createElement('div', { className: 'ypp-modalHeader' });
         setInnerHTML(header, `
-            <h3 class="ypp-modalTitle">️${SVG_ICONS.settings} ${escapeHTML(t('settings'))}</h3>
-            <button class="ypp-btn ypp-btn-small ypp-btn-close" aria-label="${escapeHTML(t('close'))}" title="${escapeHTML(t('close'))}" type="button">
+            <h3 class="ypp-modalTitle">️${SVG_ICONS.settings} ${t('settings')}</h3>
+            <button class="ypp-btn ypp-btn-small ypp-btn-close" aria-label="${t('close')}" title="${t('close')}" type="button">
                 ${SVG_ICONS.close}
             </button>
         `);
@@ -6615,6 +7611,9 @@ background: var(--ypp-danger);
                     ${renderSavingOptionsSection(settings)}
                     ${renderTimeSettingsSection(settings)}
                     ${renderAlertStyleSection(settings)}
+                </div>
+                <div class="ypp-github-options">
+                    ${renderGitHubBackupSection(githubSettings)}
                 </div>
             </div>
         `;
@@ -6645,16 +7644,100 @@ background: var(--ypp-danger);
                     saveLiveStreams: isChecked('saveLiveStreams'),
                     saveMiniplayerVideos: isChecked('saveMiniplayerVideos'),
                     saveInlinePreviews: isChecked('saveInlinePreviews'),
+                    manualSaveMode: isChecked('manualSaveMode'),
                     language: getVal('language'),
                     alertStyle: getVal('alertStyle'),
                 };
 
-                await Settings.set(newSettings);
+                const newGithubSettings = {
+                    gist: {
+                        token: getVal('gist_token'),
+                        id: getVal('gist_id'),
+                        url: githubSettings.gist?.url || '',
+                        autoBackup: isChecked('gist_autoBackup'),
+                        interval: Math.max(1, parseInt(getVal('gist_interval'), 10) || 24),
+                        lastSync: githubSettings.gist?.lastSync || 0
+                    },
+                    repo: {
+                        token: getVal('repo_token'),
+                        owner: getVal('repo_owner'),
+                        name: getVal('repo_name'),
+                        autoBackup: isChecked('repo_autoBackup'),
+                        interval: Math.max(1, parseInt(getVal('repo_interval'), 10) || 24),
+                        lastSync: githubSettings.repo?.lastSync || 0
+                    },
+                    autoDeleteToken: isChecked('githubAutoDeleteToken'),
+                    lastViewedType: getVal('githubLastViewedType') || 'gist'
+                };
+
+                await Promise.all([
+                    Settings.set(newSettings),
+                    GM_setValue(CONFIG.githubSettingsKey, newGithubSettings)
+                ]);
+
                 cachedSettings = newSettings;
                 await setLanguage(newSettings.language);
                 showFloatingToast(`${SVG_ICONS.check} ${t('configurationSaved')}`);
                 location.reload();
             }
+        });
+
+        // Event listeners para Backup Manual (Delegación)
+        body.querySelectorAll('.ypp-github-backup-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                const type = e.currentTarget.getAttribute('data-type');
+                const getVal = (name) => modal.querySelector(`[name="${name}"]`)?.value;
+                const isChecked = (name) => modal.querySelector(`[name="${name}"]`)?.checked;
+
+                // Preparamos los ajustes actuales de esta pestaña para el respaldo manual
+                const currentModeSettings = {
+                    token: getVal(`${type}_token`),
+                    autoBackup: isChecked(`${type}_autoBackup`),
+                    interval: Math.max(1, parseInt(getVal(`${type}_interval`), 10) || 24),
+                    autoDeleteToken: isChecked('githubAutoDeleteToken')
+                };
+
+                if (type === 'gist') {
+                    currentModeSettings.id = getVal('gist_id');
+                } else {
+                    currentModeSettings.repoOwner = getVal('repo_owner');
+                    currentModeSettings.repoName = getVal('repo_name');
+                }
+
+                // Pasamos los ajustes actuales a performRemoteBackup
+                await performRemoteBackup(type, true, currentModeSettings);
+            });
+        });
+
+        // Lógica de Tabs
+        body.querySelectorAll('.ypp-github-tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const type = tab.getAttribute('data-type');
+
+                // Actualizar clases de tabs
+                body.querySelectorAll('.ypp-github-tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Actualizar visibilidad de contenidos
+                body.querySelectorAll('.ypp-github-tab-content').forEach(c => c.style.display = 'none');
+                const activeContent = body.querySelector(`#ypp-github-${type}-content`);
+                if (activeContent) activeContent.style.display = 'block';
+
+                // Actualizar campo oculto de último tipo visualizado
+                const lastViewedInput = body.querySelector('input[name="githubLastViewedType"]');
+                if (lastViewedInput) lastViewedInput.value = type;
+
+                // Actualizar visibilidad de ayuda y advertencias
+                const helpGist = body.querySelector('#ypp-github-help-gist');
+                const helpRepo = body.querySelector('#ypp-github-help-repo');
+                if (helpGist) helpGist.style.display = type === 'gist' ? 'block' : 'none';
+                if (helpRepo) helpRepo.style.display = type === 'repo' ? 'block' : 'none';
+            });
+        });
+
+        // Event listener para el toggle de ayuda de GitHub
+        body.querySelector('#ypp-github-help-toggle')?.addEventListener('click', (e) => {
+            e.currentTarget.classList.toggle('active');
         });
 
         footer.appendChild(viewBtn);
@@ -6664,6 +7747,16 @@ background: var(--ypp-danger);
         modal.appendChild(body);
         modal.appendChild(footer);
         overlay.appendChild(modal);
+
+        // Toggle para mostrar/ocultar gist_id
+        body.querySelectorAll('.ypp-gist-id-toggle').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const input = btn.closest('div')?.querySelector('input[name="gist_id"]');
+                if (!input) return;
+                const isHidden = input.type === 'password';
+                input.type = isHidden ? 'text' : 'password';
+            });
+        });
 
         document.body.appendChild(overlay);
         document.body.style.overflow = 'hidden';
@@ -6694,7 +7787,7 @@ background: var(--ypp-danger);
         const isSeek = context === 'seek';
 
         if (context === 'progress') {
-            if (!saveResult.success || isForced) return;
+            if (!saveResult.success && !saveResult.isManual) return;
             // Permitir miniplayer incluso en Shorts
             if (currentPageType === 'shorts' && videoType !== 'shorts' && videoType !== 'miniplayer') return;
 
@@ -6704,18 +7797,18 @@ background: var(--ypp-danger);
             else if (videoType === 'miniplayer') display = miniplayerTimeDisplay;
             else if (videoType === 'preview') display = inlinePreviewTimeDisplay;
 
-            if (videoEl?.paused && display?.querySelector('.svgPlayOrPauseIcon')) return;
+            if (videoEl?.paused && display?.querySelector('.svgPlayOrPauseIcon') && !saveResult.isManual) return;
         }
 
         const timeStr = formatTime(normalizeSeconds(time));
 
         const icon = isSeek
             ? (isForced ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : SVG_ICONS.playOrPause)
-            : SVG_ICONS.save;
+            : SVG_ICONS.saveWithCheckCircular;
 
         const text = isSeek
             ? `${t(isForced ? 'alwaysStartFrom' : 'resumedAt')}: ${timeStr}`
-            : `${t('progressSaved')}: ${timeStr}`;
+            : (saveResult.success ? `${t('progressSaved')}: ${timeStr}` : t('errorSaving'));
 
         const message =
             (alertStyles[cachedSettings.alertStyle] || alertStyles[CONFIG.defaultSettings.alertStyle])(
@@ -6725,7 +7818,7 @@ background: var(--ypp-danger);
             );
 
         const isFixedTime = options.isForced === true;
-        handlers[videoType]?.(message, videoEl, isSeek, isFixedTime);
+        handlers[videoType]?.(message, videoEl, isSeek, isFixedTime, saveResult.isManual);
     }
 
 
@@ -7005,45 +8098,34 @@ background: var(--ypp-danger);
 
             // 1. Buscar video en Watch
             if (currentPageType === 'watch') {
-                const watchPlayer = DOMHelpers.getWatchPlayer();
-                if (watchPlayer) {
-                    const watchVideo = watchPlayer.querySelector('video');
-                    if (watchVideo) {
-                        if (force) videoTypeCache.delete(watchVideo);
-                        enqueueVideo(watchVideo, 'watch');
-                    }
+                const watchVideo = DOMHelpers.getWatchPlayerVideo();
+                if (watchVideo) {
+                    if (force) videoTypeCache.delete(watchVideo);
+                    enqueueVideo(watchVideo, 'watch');
                 }
             }
 
             // 2. Buscar video en Shorts
             if (currentPageType === 'shorts') {
-                const shortsPlayer = DOMHelpers.getShortsPlayer();
-                if (shortsPlayer) {
-                    const shortsVideo = shortsPlayer.querySelector('video');
-                    if (shortsVideo) {
-                        if (force) videoTypeCache.delete(shortsVideo);
-                        enqueueVideo(shortsVideo, 'shorts');
-                    }
+                const shortsVideo = DOMHelpers.getShortsPlayerVideo();
+                if (shortsVideo) {
+                    if (force) videoTypeCache.delete(shortsVideo);
+                    enqueueVideo(shortsVideo, 'shorts');
                 }
             }
 
             // 3. Buscar video en Miniplayer
             if (currentPageType !== 'watch') {
-                const miniplayerActive = DOMHelpers.getMiniplayerActive();
-                if (miniplayerActive) {
-                    const miniVideo = miniplayerActive.querySelector('video');
-                    if (miniVideo) {
-                        if (force) videoTypeCache.delete(miniVideo);
-                        enqueueVideo(miniVideo, 'miniplayer');
-                    }
+                const miniplayerVideo = DOMHelpers.getMiniplayerPlayerVideo();
+                if (miniplayerVideo) {
+                    if (force) videoTypeCache.delete(miniplayerVideo);
+                    enqueueVideo(miniplayerVideo, 'miniplayer');
                 } else {
                     // YouTube puede aplicar `miniplayer-is-active` en ytd-app DESPUÉS de la navegación.
                     // Programamos un reintento breve para cubrir ese gap de timing.
                     setTimeout(() => {
                         // El TTL del cache es de 125ms, por lo que a los 600ms re-evaluará el DOM garantizado.
-                        const retryActive = DOMHelpers.getMiniplayerActive();
-                        if (!retryActive) return;
-                        const retryVideo = retryActive.querySelector('video');
+                        const retryVideo = DOMHelpers.getMiniplayerPlayerVideo();
                         if (!retryVideo) return;
                         logLog('VideoObserverManager', '📱 Miniplayer detectado en reintento post-bootstrap, encolando...');
                         videoTypeCache.delete(retryVideo);
@@ -7055,13 +8137,10 @@ background: var(--ypp-danger);
 
             // 4. Buscar video tipo Preview (Home / Search)
             if (currentPageType !== 'shorts') {
-                const previewPlayer = DOMHelpers.getInlinePreviewPlayer();
-                if (previewPlayer) {
-                    const previewVideo = previewPlayer.querySelector('video');
-                    if (previewVideo) {
-                        if (force) videoTypeCache.delete(previewVideo);
-                        enqueueVideo(previewVideo, 'preview');
-                    }
+                const previewVideo = DOMHelpers.getInlinePreviewPlayerVideo();
+                if (previewVideo) {
+                    if (force) videoTypeCache.delete(previewVideo);
+                    enqueueVideo(previewVideo, 'preview');
                 }
             }
         };
@@ -7318,9 +8397,10 @@ background: var(--ypp-danger);
                 );
 
                 if (visibilityMutation) {
+                    logLog('VideoObserverManager', `👀 Miniplayer visibilidad cambió: ${visibilityMutation.attributeName}`);
                     // Detección de visibilidad ultra-robusta combinando clase, atributo y estado de ytd-app
                     const newState = !!(
-                        document.querySelector(S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE) ||
+                        document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT}${S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE}`) ||
                         document.querySelector('ytd-app')?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR)
                     );
 
@@ -7359,7 +8439,7 @@ background: var(--ypp-danger);
                             activeProcessingSessions.delete(videoEl);
 
                             enqueueVideo(videoEl, 'miniplayer');
-                            return; // ya procesamos, salir
+                            return;
                         }
 
                     }
@@ -7371,7 +8451,6 @@ background: var(--ypp-danger);
                 // document.querySelector(".html5-video-player")?.classList.contains("ytp-player-minimized")
 
                 if (!isMiniplayerActive) return;
-                logLog('VideoObserverManager', '👀 Miniplayer visible (cache state)');
 
                 mutations.forEach(m => {
                     const nodes = m.type === 'childList'
@@ -7632,8 +8711,13 @@ background: var(--ypp-danger);
         // 1. Intentar reanudar inmediatamente
         // getSavedVideoData usa el playlistId del objeto de metadatos si está disponible
         getSavedVideoData(videoId, cachedVideoInfo?.lastViewedPlaylistId).then(savedData => {
-            if (savedData && (savedData.watchProgress > 1 || savedData.forceResumeTime > 0)) {
-                PlaybackController.resume(player, videoId, videoEl, savedData, type, cachedVideoInfo);
+            if (savedData) {
+                syncManualSaveUI(videoId, true);
+                if (savedData.watchProgress > 1 || savedData.forceResumeTime > 0) {
+                    PlaybackController.resume(player, videoId, videoEl, savedData, type, cachedVideoInfo);
+                }
+            } else {
+                syncManualSaveUI(videoId, false);
             }
         });
 
@@ -7733,24 +8817,12 @@ background: var(--ypp-danger);
             return;
         }
 
-        // El miniplayer de YouTube suele reutilizar el player principal (#movie_player)
-        // Intentamos encontrar el player dentro del miniplayer de forma más flexible
-        const miniplayerInfo = DOMHelpers.getMiniplayerElement();
-        const player = miniplayerInfo ? miniplayerInfo.querySelector(S.IDS.MOVIE_PLAYER) : null;
+        const isMiniplayerActive = DOMHelpers.getMiniplayerPlayer();
+        const player = isMiniplayerActive ? isMiniplayerActive : null;
 
-        // Verificar si el miniplayer está realmente activo/visible
-        // Usamos .matches() porque S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE y S.ATTR.MINIPLAYER_ACTIVE_ATTR
-        // contienen selectores CSS (. y []) que no son compatibles con classList.contains() o hasAttribute().
-        const isVisible = miniplayerInfo && (
-            miniplayerInfo.matches(S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE) ||
-            document.querySelector('ytd-app')?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR)
-        );
-
-        if (!player || !isVisible) {
+        if (!isMiniplayerActive) {
             logLog('processMiniplayerVideo', '🔍 Omitiendo: Miniplayer detectado pero no está activo/visible todavía.', {
-                hasPlayer: !!player,
-                isVisible: !!isVisible,
-                miniplayerFound: !!miniplayerInfo
+                isMiniplayerActive: !!isMiniplayerActive,
             });
             return;
         }
@@ -7970,15 +9042,16 @@ background: var(--ypp-danger);
          * @param {string} type - Contexto
          * @param {string} videoId - Id del video
          * @param {object|null} videoInfo - Metadatos cacheados
+         * @param {object|null} options - Opciones adicionales, { isManual: true }
          */
-        async saveStatus(player, videoEl, type, videoId, videoInfo = null) {
+        async saveStatus(player, videoEl, type, videoId, videoInfo = null, options = {}) {
             // Protección redundante: No procesar si no hay elementos o es un anuncio
             if (!videoEl || !videoId || AdDetector.isNodeWithinAdContainer(videoEl)) return;
 
             // Si el video está pausado y no hemos cambiado de tiempo tras pausa (seek)
             // entonces no procesamos ninguna lógica de guardado ni metadata para ahorrar recursos.
-            const currentTime = videoEl.currentTime || player.getCurrentTime();
-            const duration = videoEl.duration || player.getDuration();
+            const currentTime = videoEl.currentTime || (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
+            const duration = videoEl.duration || (typeof player?.getDuration === 'function' ? player.getDuration() : 0);
 
             if (!isFinite(currentTime) || currentTime < 0.1 || isNaN(duration) || duration <= 0) return;
 
@@ -7998,7 +9071,7 @@ background: var(--ypp-danger);
                     return { success: false, reason: 'player_reset_detected' };
                 }
 
-                if (Math.abs(diff) < CONFIG.minSeekDiff) {
+                if (Math.abs(diff) < CONFIG.minSeekDiff && !options.isManual) {
                     // El video está pausado y su tiempo no se movió lo suficiente como para justificar un guardado (no fue un seek)
                     return { success: false, reason: 'paused_no_seek' };
                 }
@@ -8021,7 +9094,7 @@ background: var(--ypp-danger);
 
             // Determinar tipo real actual (Transición Watch -> Miniplayer)
             let actualType = type;
-            if (type === 'watch' && DOMHelpers.getMiniplayerActive()) {
+            if (type === 'watch' && DOMHelpers.getMiniplayerElementActive()) {
                 actualType = 'miniplayer';
             }
 
@@ -8038,11 +9111,12 @@ background: var(--ypp-danger);
             if (finalType === 'miniplayer' && !cachedSettings?.saveMiniplayerVideos) return { success: false, reason: 'disabled_by_settings' };
             if (finalType === 'watch' && !cachedSettings?.saveRegularVideos) return { success: false, reason: 'disabled_by_settings' };
 
-            logLog('PlaybackController', ` Guardando progreso para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType})`);
+            logLog('PlaybackController', `Datos obtenidos para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType}) ${options.isManual ? '[MANUAL]' : ''}`);
 
             if (finalType === 'preview') {
                 logInfo('PlaybackController', `saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);
             }
+            const saveOptions = { isManual: !!options.isManual };
 
             // Armonizar con formato FreeTube (Integer): Actualizamos solo si hay cambio real en segundos redondeados.
             const roundedDuration = Math.round(duration);
@@ -8055,10 +9129,10 @@ background: var(--ypp-danger);
             try {
                 switch (finalType) {
                     case 'live':
-                        result = await saveLivestream(currentTime, videoInfo);
+                        result = await saveLivestream(currentTime, videoInfo, saveOptions);
                         break;
                     case 'shorts':
-                        result = await saveShortsVideo(currentTime, videoInfo);
+                        result = await saveShortsVideo(currentTime, videoInfo, saveOptions);
                         break;
                     case 'preview':
                         {
@@ -8066,17 +9140,17 @@ background: var(--ypp-danger);
                             const isShortsPreview =
                                 previewContainer ? previewContainer.querySelector('a[href^="/shorts/"]') !== null : false;
                             const specificPreviewType = isShortsPreview ? 'preview_shorts' : 'preview_watch';
-                            result = await savePreview(currentTime, videoInfo, specificPreviewType);
+                            result = await savePreview(currentTime, videoInfo, specificPreviewType, saveOptions);
                         }
                         break;
                     case 'watch':
-                        result = await saveRegularVideo(currentTime, videoInfo);
+                        result = await saveRegularVideo(currentTime, videoInfo, saveOptions);
                         break;
                     case 'miniplayer':
-                        result = await saveMiniplayer(currentTime, videoInfo);
+                        result = await saveMiniplayer(currentTime, videoInfo, saveOptions);
                         break;
                     default:
-                        result = await saveRegularVideo(currentTime, videoInfo);
+                        result = await saveRegularVideo(currentTime, videoInfo, saveOptions);
                         break;
                 }
             } catch (e) {
@@ -8084,8 +9158,11 @@ background: var(--ypp-danger);
                 result = { success: false, reason: e.message };
             }
 
-            // Notificar progreso si el guardado fue exitoso
-            if (result && result.success) {
+            // Notificar progreso si el guardado fue exitoso o es manual
+            if (result && (result.success || options.isManual)) {
+                // Propagar flag manual al resultado para la visualización
+                if (options.isManual) result.isManual = true;
+                syncManualSaveUI(videoId, true);
                 notifySeekOrProgress(currentTime, 'progress', { saveResult: result, videoType: actualType, videoEl });
             }
 
@@ -8142,8 +9219,6 @@ background: var(--ypp-danger);
 
         let player = initialPlayer;
 
-        logLog('getCascadedVideoInfo', `Playlist id getPlaylistId: [${player?.getPlaylistId()}] en type: [${type}]`);
-
         // 🟢 Nivel 1: YouTube Internal API -
         // getPlayerResponse().videoDetails
         // getPlayerResponse().microformat.playerMicroformatRenderer
@@ -8152,7 +9227,7 @@ background: var(--ypp-danger);
             // A: getPlayerResponse
             const playerResponse = player?.getPlayerResponse?.();
             const details = playerResponse?.videoDetails;
-            logLog('getCascadedVideoInfo', 'PlayerResponse.videoDetails:', details);
+            // logLog('getCascadedVideoInfo', 'PlayerResponse.videoDetails:', details);
             if (details?.videoId === videoId) {
                 // info.videoId: videoId (ya viene desde parametros de funcion y fue comprobado ya para llegar a este punto)
                 info.title = details.title ?? info.title;
@@ -8171,11 +9246,13 @@ background: var(--ypp-danger);
                 // info.playlistTitle: null (no obtenible mediante este metodo)
                 // info.lastViewedPlaylistType: '' (No se asigna)
                 // info.lastViewedPlaylistItemId: null (No se asigna)
-                logInfo('getCascadedVideoInfo', 'info after getPlayerResponse:', { ...info });
+
+                // logInfo('getCascadedVideoInfo', 'info after getPlayerResponse:', { ...info });
             }
 
             // B: getVideoData
             const internalData = player?.getVideoData?.();
+            // logLog('getCascadedVideoInfo', 'InternalData:', internalData);
             if (internalData?.video_id === videoId) {
                 // info.videoId: videoId (ya viene desde parametros de funcion y fue comprobado ya para llegar a este punto)
                 info.title = info.title ?? internalData.title;
@@ -8186,17 +9263,22 @@ background: var(--ypp-danger);
                 // info.description = null (no obtenible mediante este metodo)
                 // info.viewCount = null (no obtenible mediante este metodo)
                 // info.lengthSeconds = null (no obtenible mediante este metodo)
-                if (info.lastViewedPlaylistId == null && internalData?.list != null) {
-                    info.lastViewedPlaylistId = internalData.list;  // Elemento no existe si video no esta en una playlist
+                if (internalData?.list != null) {
+                    // Elemento (internalData?.list) no existe si video no esta en una playlist
+                    // tambien puede no estar listo cuando se ejecuta getVideoData
+                    // por eso comprobar si existe antes de asignar
+                    info.lastViewedPlaylistId ??= internalData.list;
                 }
                 // info.playlistTitle: null (no obtenible mediante este metodo)
                 // info.lastViewedPlaylistType: '' (No se asigna)
                 // info.lastViewedPlaylistItemId: null (No se asigna)
-                logInfo('getCascadedVideoInfo', 'info after getVideoData:', { ...info });
+
+                // logInfo('getCascadedVideoInfo', 'info after getVideoData:', { ...info });
             }
 
             // C: Microformat (Metadatos de renderizado)
             const microformat = playerResponse?.microformat?.playerMicroformatRenderer;
+            // logLog('getCascadedVideoInfo', 'Microformat:', microformat);
             if (microformat?.externalVideoId === videoId) {
                 // info.videoId: videoId (ya viene desde parametros de funcion y fue comprobado ya para llegar a este punto)
                 info.title = microformat.title?.simpleText ?? info.title;
@@ -8218,7 +9300,8 @@ background: var(--ypp-danger);
                 // info.playlistTitle: null (no obtenible mediante este metodo)
                 // info.lastViewedPlaylistType: '' (No se asigna)
                 // info.lastViewedPlaylistItemId: null (No se asigna)
-                logInfo('getCascadedVideoInfo', 'info after microformat:', { ...info });
+
+                // logInfo('getCascadedVideoInfo', 'info after microformat:', { ...info });
             }
         } catch (e) {
             logError('getCascadedVideoInfo', '⚠️ Error en Nivel 1 (Internal API):', e);
@@ -8241,7 +9324,7 @@ background: var(--ypp-danger);
                 // info.lastViewedPlaylistType: '' (No se asigna)
                 // info.lastViewedPlaylistItemId: null (No se asigna)
 
-                logInfo('getCascadedVideoInfo', 'info after YTHelper.video:', { ...info });
+                //logInfo('getCascadedVideoInfo', 'info after YTHelper.video:', { ...info });
             }
         } catch (e) {
             logError('getCascadedVideoInfo', '⚠️ Error en Nivel 2 (YouTube Helper API):', e);
@@ -8348,7 +9431,6 @@ background: var(--ypp-danger);
                 }
             }
 
-
             if (info.title == null) {
                 let titleEl = null;
                 if (type === 'watch') {
@@ -8385,30 +9467,36 @@ background: var(--ypp-danger);
             //  info.viewCount: 0,
             //  info.lengthSeconds: 0,
 
-
             if (info.lastViewedPlaylistId == null) {
-                if (type === 'preview') {
-                    const videoPreviewLink = document.querySelector(`${S.IDS.VIDEO_PREVIEW_CONTAINER} a#media-container-link`);
-                    if (videoPreviewLink?.href && videoPreviewLink?.href.includes('list=')) {
-
-                        logLog('getCascadedVideoInfo', `Video preview link: [${videoPreviewLink?.href}]`);
-                        const videoPreviewPlaylistId = extractOrNormalizeVideoId(`https://www.youtube.com${videoPreviewLink?.href}`)?.list;
-                        logLog('getCascadedVideoInfo', `Video preview playlist id: [${videoPreviewPlaylistId}]`);
-
-                        if (videoPreviewPlaylistId) {
-                            info.lastViewedPlaylistId = videoPreviewPlaylistId;
-                        }
-                    } else {
-                        logInfo('getCascadedVideoInfo', 'No se encontró referencia a playlist en el video preview');
-                    }
-                }
-
-                // 1. Intentar obtener del objeto Player (si está disponible)
+                // Intentar obtener del objeto Player
                 if (typeof player?.getPlaylistId === 'function') {
                     const playerPlaylistId = player.getPlaylistId();
                     if (playerPlaylistId) {
-                        currentPlaylistId = playerPlaylistId;
-                        logLog('getCascadedVideoInfo', `Playlist id obtenido del objeto Player: [${currentPlaylistId}]`);
+                        info.lastViewedPlaylistId = playerPlaylistId;
+                        logLog('getCascadedVideoInfo', `Playlist id obtenida usando getPlaylistId(): [${info.lastViewedPlaylistId}]`);
+                    }
+                }
+
+                if (type === 'watch') {
+                    const { list: urlPlaylistId, id: videoIdFromUrl } = extractOrNormalizeVideoId(window.location.href);
+                    if (urlPlaylistId && videoIdFromUrl === info.videoId) {
+                        info.lastViewedPlaylistId = urlPlaylistId;
+                        logLog('getCascadedVideoInfo', `Playlist id obtenido de URL fallback: [${urlPlaylistId}]`);
+                    }
+                }
+
+                if (type === 'preview') {
+                    const videoPreviewLink = document.querySelector(`${S.IDS.VIDEO_PREVIEW_CONTAINER} a#media-container-link`);
+                    if (videoPreviewLink?.href && videoPreviewLink?.href.includes('list=')) {
+                        logLog('getCascadedVideoInfo', `Video preview link: [${videoPreviewLink?.href}]`);
+                        const { list: videoPreviewPlaylistId } = extractOrNormalizeVideoId(`https://www.youtube.com${videoPreviewLink?.href}`);
+
+                        if (videoPreviewPlaylistId) {
+                            info.lastViewedPlaylistId = videoPreviewPlaylistId;
+                            logLog('getCascadedVideoInfo', `Playlist id obtenido de video preview fallback: [${videoPreviewPlaylistId}]`);
+                        }
+                    } else {
+                        logInfo('getCascadedVideoInfo', 'No se encontró referencia a playlist en el video preview');
                     }
                 }
 
@@ -8449,10 +9537,7 @@ background: var(--ypp-danger);
 
                     info.lastViewedPlaylistId = currentPlaylistId ?? info.lastViewedPlaylistId;
                 }
-
-
             }
-
 
             // Playlist Title - Fetch fallback via Innertube /next
             if (
@@ -8767,24 +9852,6 @@ background: var(--ypp-danger);
         for (const [key, data] of allData) {
             if (!data) continue;
 
-            // Compatibilidad con formato antiguo (playlists anidadas)
-            if (data.videos) {
-                const playlistTitle = data.title || key;
-                const lastWatchedVideoId = data.lastWatchedVideoId || null;
-                logLog('updateVideoList', `🔍 Formato antiguo detectado: playlist ${key} con ${Object.keys(data.videos).length} videos`);
-                Object.entries(data.videos).forEach(([videoId, info]) => {
-                    allItems.push({
-                        type: 'playlist-video',
-                        videoId,
-                        info,
-                        playlistKey: key,
-                        playlistTitle,
-                        lastWatchedVideoId
-                    });
-                });
-                continue;
-            }
-
             // Formato actual: cada video es una entrada independiente con sus metadatos consolidados
             const videoId = data.videoId || key;
             const playlistId = data.lastViewedPlaylistId || null;
@@ -8957,12 +10024,7 @@ background: var(--ypp-danger);
                     return header;
                 }
 
-                return await createVideoEntry(
-                    item.videoId,
-                    item.info,
-                    item.playlistKey,
-                    item.playlistTitle
-                );
+                return await createVideoEntry(item);
             },
             onRender: ({ renderedCount }) => {
                 const statsEl = document.querySelector('#ypp-render-stats');
@@ -9355,15 +10417,26 @@ background: var(--ypp-danger);
     }
 
     async function handleForceTimeAction(videoId, playlistKey) {
-        const itemData = playlistKey ? await Storage.get(playlistKey) : await Storage.get(videoId);
-        let info = itemData;
+        let itemData = null;
+        let isOldFormat = false;
 
-        let isOldFormat = itemData?.videos && typeof itemData.videos === 'object';
-        if (playlistKey && isOldFormat) {
-            info = itemData.videos[videoId];
+        if (playlistKey) {
+            itemData = await Storage.get(playlistKey);
+            isOldFormat = itemData?.videos && typeof itemData.videos === 'object';
         }
 
-        if (!info) return;
+        let info = null;
+        if (isOldFormat) {
+            info = itemData.videos[videoId];
+        } else {
+            info = await Storage.get(videoId);
+        }
+
+        if (!info) {
+            logWarn('handleForceTimeAction', `No se encontró información para el video ${videoId}`);
+            return;
+        }
+
 
         let duration = normalizeSeconds(info.lengthSeconds) || 0;
 
@@ -9398,8 +10471,13 @@ background: var(--ypp-danger);
         } else {
             await Storage.set(videoId, info);
         }
+
+        // Sincronizar UI de reproducción activa
+        syncFixedTimeUI(videoId, !!info.forceResumeTime);
+
         await updateVideoList();
     }
+
 
     async function handleUnlinkPlaylistAction(videoId) {
         if (!confirm(t('confirmRemoveFromPlaylist'))) return;
@@ -9415,7 +10493,7 @@ background: var(--ypp-danger);
     }
 
     async function handleDeleteEntryAction(videoId, playlistKey, titleCache) {
-        const title = titleCache;
+        const title = escapeHTML(titleCache);
 
         // Cargar info original por si deshace
         let itemInfo = null;
@@ -9462,12 +10540,18 @@ background: var(--ypp-danger);
                 await Storage.set(videoId, itemInfo);
             }
             await updateVideoList();
+            // Restaurar estado de tiempo fijo en UI si existía
+            syncFixedTimeUI(videoId, !!itemInfo.forceResumeTime);
+            syncManualSaveUI(videoId, true);
         };
 
         await deleteFromStorage();
+        // Limpiar estado de tiempo fijo en UI si el video estaba activo
+        syncFixedTimeUI(videoId, false);
+        syncManualSaveUI(videoId, false);
         await updateVideoList();
 
-        showFloatingToast(`${SVG_ICONS.trash} "${escapeHTML(title)}" ${t('itemDeleted')}`, 10000, {
+        showFloatingToast(`${SVG_ICONS.trash} "${title}" ${t('itemDeleted')}`, 10000, {
             action: {
                 label: t('undo'),
                 callback: undoDelete
@@ -9512,63 +10596,69 @@ background: var(--ypp-danger);
         });
     };
 
-    async function createVideoEntry(videoId, info, playlistKey = null, playlistTitle = null) {
-        let isCompleted = info.isCompleted || false;
-        // Normalizar usando nuevos campos con fallbacks
-        const duration = normalizeSeconds(info.lengthSeconds);
-        const watched = normalizeSeconds(info.watchProgress);
+    async function createVideoEntry(item) {
+        const { info, playlistKey = null, playlistTitle = null } = item;
 
-        if (watched > 3 && duration > 10) { // Solo autocalcular si hay datos mínimos confiables
-            isCompleted = isCompleted || (watched >= duration - 2);
-        }
+        const {
+            videoId,
+            title,
+            author,
+            authorId,
+            published,
+            description,
+            watchProgress,
+            lengthSeconds,
+            timeWatched,
+            type,
+            viewCount,
+            isLive,
+            isCompleted,
+            lastViewedPlaylistId,
+            lastViewedPlaylistType,
+            lastViewedPlaylistItemId,
+            forceResumeTime
+        } = info;
 
-        const videoTime = formatTime(watched);
-        const rawDuration = info.lengthSeconds ?? 0;
-
-        if (duration === 0 && rawDuration === 0) {
-            logLog('createVideoEntry', `⚠️ Video ${videoId} sin duración guardada`);
-        }
-        const remaining = Math.max(duration - watched, 0);
-        const percent = duration ? Math.min(100, Math.round((watched / duration) * 100)) : null;
+        const remaining = Math.max(lengthSeconds - watchProgress, 0);
+        const percent = lengthSeconds ? Math.min(100, Math.round((watchProgress / lengthSeconds) * 100)) : null;
 
         const isPlaylistItem = !!playlistKey;
-        let finalPlaylistTitle = isPlaylistItem ? (playlistTitle || info.playlistTitle || playlistKey) : null;
-        if (isPlaylistItem && finalPlaylistTitle === playlistKey && playlistKey?.startsWith('RD')) {
-            const seedVideoId = playlistKey.slice(2);
-            finalPlaylistTitle = `Mix - ${modalVideoTitleById.get(seedVideoId) || escapeHTML(info.title) || 'Playlist automática'}`;
-        }
-        if (finalPlaylistTitle && finalPlaylistTitle.includes('undefined')) {
-            finalPlaylistTitle = finalPlaylistTitle.replace(/undefined/g, '').trim();
-        }
+        const finalPlaylistTitle = escapeHTML(playlistTitle || playlistKey || '');
 
-        const isLiveEntry = info.type === 'live' || info.isLive === true;
+        const isLiveEntry = type === 'live' || isLive === true;
+        const viewsText = `${escapeHTML(viewCount.toLocaleString())} ${t('views')}`;
 
-        const thumbUrl = `https://i.ytimg.com/vi/${escapeHTML(videoId)}/hqdefault.jpg`;
+        const playlistUrl =
+            escapeHTML(playlistKey?.startsWith('RD')
+                ? `https://www.youtube.com/watch?v=${videoId}&list=${playlistKey}`
+                : `https://www.youtube.com/playlist?list=${playlistKey}`);
 
-        const titleText = escapeHTML(info.title);
-        const authorText = escapeHTML(info.author || t('unknown'));
+        const hasFixedTime = forceResumeTime > 0;
+        const fixedTimeStr =
+            hasFixedTime
+                ? `${SVG_ICONS.timer} ${t('alwaysStartFrom')}: ${formatTime(normalizeSeconds(forceResumeTime))} ${SVG_ICONS.locked}`
+                : '';
 
-        const viewCount = info.viewCount ?? 0;
-        const viewsText = escapeHTML(`${viewCount.toLocaleString()} ${t('views')}`);
-
-        const playlistUrl = escapeHTML(playlistKey?.startsWith('RD') ? `https://www.youtube.com/watch?v=${videoId}&list=${playlistKey}` : `https://www.youtube.com/playlist?list=${playlistKey}`);
-
-        const hasFixedTime = info.forceResumeTime > 0;
-        const fixedTimeStr = hasFixedTime ? `${SVG_ICONS.timer} ${escapeHTML(t('alwaysStartFrom'))}: ${formatTime(normalizeSeconds(info.forceResumeTime))} ${SVG_ICONS.locked}` : '';
-
-        const progressPrefix = escapeHTML(t('progress'));
-        let timestampClass = isCompleted ? 'completed' : (hasFixedTime ? 'forced' : 'progress');
-        let timestampText = isCompleted ? (hasFixedTime ? `${fixedTimeStr} ${SVG_ICONS.check}` : `${SVG_ICONS.check} ${escapeHTML(t('completed'))}`) : (hasFixedTime ? fixedTimeStr : `${progressPrefix} ${escapeHTML(videoTime)}`);
+        let timestampClass =
+            isCompleted
+                ? 'completed'
+                : (hasFixedTime ? 'forced' : 'progress');
+        let timestampText =
+            isCompleted
+                ? (hasFixedTime ? `${fixedTimeStr} ${SVG_ICONS.check}` : `${SVG_ICONS.check} ${t('completed')}`)
+                : (hasFixedTime ? fixedTimeStr : `${t('progress')} ${escapeHTML(formatTime(watchProgress))} ${isLiveEntry ? '' : `/ ${formatTime(lengthSeconds)}`}`);
 
         let wrapperStyle = '';
+        let playlistBorderColor = '';
+
         if (isPlaylistItem) {
-            const bgColor = generatePlaylistColor(playlistKey);
-            const borderColor = generatePlaylistBorderColor(playlistKey);
-            wrapperStyle = `background-color: ${escapeHTML(bgColor)}; border-left: 4px solid ${escapeHTML(borderColor)}; position: relative;`;
+            const playlistBgColor = generatePlaylistColor(playlistKey);
+            playlistBorderColor = generatePlaylistBorderColor(playlistKey);
+            wrapperStyle = `background-color: ${playlistBgColor}; border-left: 4px solid ${playlistBorderColor}; position: relative;`;
         }
 
-        const liveHtml = `<div class="ypp-progressInfo" style="font-weight: bold;">${SVG_ICONS.chart} ${escapeHTML(t('live'))}</div>`;
-        const percentHtml = `<div class="ypp-progressInfo" style="color: ${escapeHTML(getProgressColor(percent))}; font-weight: bold;">${SVG_ICONS.chart} ${escapeHTML(percent)} ${escapeHTML(t('percentWatched'))} (${formatTime(normalizeSeconds(remaining))} ${escapeHTML(t('remaining'))})</div>`;
+        const liveHtml = `<div class="ypp-progressInfo" style="font-weight: bold;">${SVG_ICONS.chart} ${t('live')}</div>`;
+        const percentHtml = `<div class="ypp-progressInfo" style="color: ${getProgressColor(percent)}; font-weight: bold;">${SVG_ICONS.chart} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds(remaining))} ${t('remaining')})</div>`;
 
         let progressHtml = '';
         if (!isCompleted) {
@@ -9579,23 +10669,22 @@ background: var(--ypp-danger);
         const html = `
             <div class="ypp-videoWrapper ${isPlaylistItem ? 'playlist-item' : 'regular-item'}${isSelectionMode ? ' selection-mode' : ''} ypp-video-item" data-video-id="${escapeHTML(videoId)}" data-playlist-key="${escapeHTML(playlistKey || '')}" style="${wrapperStyle}">
                 ${isSelectionMode ? `<input type="checkbox" data-action="toggle-selection" class="ypp-video-checkbox" data-video-id="${escapeHTML(videoId)}" ${selectedVideos.has(videoId) ? 'checked' : ''}>` : ''}
-                <img class="ypp-thumb" title="${titleText}" alt="${titleText}" src="${thumbUrl}" loading="lazy" width="320" height="180" draggable="false">
+                <img class="ypp-thumb" title="${title}" alt="${title}" src="https://i.ytimg.com/vi_webp/${escapeHTML(videoId)}/maxresdefault.webp" loading="lazy" width="320" height="180" draggable="false">
 
                 <div class="ypp-infoDiv">
-                    <a class="ypp-titleLink" title="${titleText}" href="https://www.youtube.com/watch?v=${escapeHTML(videoId)}${playlistKey ? '&list=' + escapeHTML(playlistKey) : ''}" target="_blank" rel="noopener noreferrer">${titleText}</a>
+                    <a class="ypp-titleLink" title="${title}" href="https://www.youtube.com/watch?v=${escapeHTML(videoId)}${playlistKey ? '&list=' + escapeHTML(playlistKey) : ''}" target="_blank" rel="noopener noreferrer">${title}</a>
 
                     ${isPlaylistItem && finalPlaylistTitle ? `
-                        <div class="ypp-playlist-indicator" title="${escapeHTML(t('playlist'))}: ${escapeHTML(finalPlaylistTitle)} (${escapeHTML(playlistKey)})" style="color: ${escapeHTML(generatePlaylistBorderColor(playlistKey))}; font-weight: bold; font-size: 0.85em; margin-top: 2px;">
-                            ${SVG_ICONS.playlist} ${escapeHTML(finalPlaylistTitle)}
-                            <a class="ypp-playlist-link" title="${escapeHTML(t('openPlaylist'))}: ${escapeHTML(finalPlaylistTitle)}" href="${playlistUrl}" target="_blank" rel="noopener noreferrer" style="margin-left: 8px; color: ${escapeHTML(generatePlaylistBorderColor(playlistKey))}; text-decoration: none; font-size: 0.9em;">
-                                ${SVG_ICONS.externalLink}
+                        <div class="ypp-playlist-indicator ypp-sombra" title="${t('playlist')}: ${finalPlaylistTitle} (${escapeHTML(playlistKey)})" style="color: ${playlistBorderColor};">
+                            <a class="ypp-playlist-link" title="${t('openPlaylist')}: ${finalPlaylistTitle}" href="${playlistUrl}" target="_blank" rel="noopener noreferrer">
+                                ${SVG_ICONS.playlist} ${finalPlaylistTitle}  ${SVG_ICONS.externalLink}
                             </a>
                         </div>
                     ` : ''}
 
-                    ${info.authorId ? `
-                        <a class="ypp-author ypp-author-link" title="${escapeHTML(t('openChannel'))}: ${authorText}" href="https://www.youtube.com/channel/${escapeHTML(info.authorId)}" target="_blank" rel="noopener noreferrer">${authorText}</a>
-                    ` : `<div class="ypp-author">${authorText}</div>`}
+                    ${authorId ? `
+                        <a class="ypp-author ypp-author-link" title="${t('openChannel')}: ${author}" href="https://www.youtube.com/channel/${escapeHTML(authorId)}" target="_blank" rel="noopener noreferrer">${author}</a>
+                    ` : `<div class="ypp-author">${author}</div>`}
 
                     <div class="ypp-views">${viewsText}</div>
                     <div class="ypp-timestamp ${timestampClass}">${timestampText}</div>
@@ -9605,18 +10694,18 @@ background: var(--ypp-danger);
 
                 <div class="ypp-containerButtonsTime">
                     ${!isLiveEntry ? `
-                        <button class="ypp-btn ypp-btn-small" data-action="force-time" title="${hasFixedTime ? escapeHTML(t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(info.forceResumeTime)) })) : escapeHTML(t('setStartTime'))}">
+                        <button class="ypp-btn ypp-btn-small" data-action="force-time" title="${hasFixedTime ? t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(info.forceResumeTime)) }) : t('setStartTime')}">
                             ${SVG_ICONS.timer}
                         </button>
                     ` : ''}
 
-                    ${info.lastViewedPlaylistId ? `
-                        <button class="ypp-btn ypp-btn-small" data-action="unlink-playlist" title="${escapeHTML(t('removeFromPlaylist'))}">
+                    ${lastViewedPlaylistId ? `
+                        <button class="ypp-btn ypp-btn-small" data-action="unlink-playlist" title="${t('removeFromPlaylist')}">
                             ${SVG_ICONS.playlistRemove}
                         </button>
                     ` : ''}
 
-                    <button class="ypp-btn ypp-btn-delete ypp-btn-small" data-action="delete-entry" title="${escapeHTML(t('deleteEntry'))}" data-title="${titleText}">
+                    <button class="ypp-btn ypp-btn-delete ypp-btn-small" data-action="delete-entry" title="${t('deleteEntry')}" data-title="${title}">
                         ${SVG_ICONS.trash}
                     </button>
                 </div>
@@ -9655,6 +10744,7 @@ background: var(--ypp-danger);
         // Eliminar todos los datos (excepto userSettings)
         for (const k of allKeys) {
             await Storage.del(k);
+            syncManualSaveUI(k, false);
         }
 
         // Mostrar toast con opción de deshacer (usar la propiedad "callback" que espera showFloatingToast)
@@ -9681,6 +10771,7 @@ background: var(--ypp-danger);
         // Restaurar todos los datos
         for (const [key, value] of Object.entries(clearedData)) {
             await Storage.set(key, value);
+            syncManualSaveUI(key, true);
         }
 
         // Limpiar referencia
@@ -10079,6 +11170,15 @@ background: var(--ypp-danger);
             // --- Inicializar observadores de video ---
             try {
                 VideoObserverManager.init();
+
+                // --- Backup en GitHub (si está habilitado) ---
+                try {
+                    /** Iniciar verificación de respaldo automático y programar chequeo periódico cada 15 min */
+                    checkGitHubBackup();
+                    setInterval(checkGitHubBackup, 15 * 60 * 1000);
+                } catch (error) {
+                    logError('initializeGlobal', '❌ Error al verificar backup de GitHub:', error);
+                }
             } catch (error) {
                 logError('initializeGlobal', '❌ Error al inicializar VideoObserverManager:', error);
             }

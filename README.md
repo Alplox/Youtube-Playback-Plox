@@ -17,12 +17,14 @@ Ideal for those who:
 ## ✨ Features
 
 - 🔐 **100% Private and Local:** Works without a Google account; everything is stored locally using `IndexedDB` in your browser.
+- ☁️ **Cloud Sync:** Sync your saved videos with your GitHub account, either via Gist (Secret) or Repository (Private). (Can be enabled in settings, disabled by default)
 - 🕒 **Smart Auto-Save:** Saves the time and automatically resumes from that point when you return, thanks to context-isolated detectors. Toggle tracking individually in settings:
     - `Regular Videos`
     - `Miniplayer`
     - `Shorts` (disabled by default)
     - `Live streams` (disabled by default)
     - `Previews on home` (disabled by default)
+- 🔖 **Manual Save Option:** Save the current video time by pressing a button whenever you want. (Can be enabled in settings, disabled by default)
 - 🛑 **Anti-Ads:** Prevents saving false playback times and IDs during ads. (the script does not block ads)
 - ⚡ **Fast Performance:** Employs "Virtual Scrolling" in the modal of saved videos to instantly handle lists of thousands of videos without consuming extra memory.
 - 🔔 **UI Notifications:** Native, unobtrusive messages in the player bar showing when a video is being resumed or saved.
@@ -58,13 +60,15 @@ All information is stored locally in your browser. **No data is sent to external
 
 ## 📸 Screenshots
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-alerta-guardado.png" alt="Example of alert time saved">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-alerta-guardado-automatico.png" alt="Example of alert time saved">
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-videos.png" alt="Example of modal to view saved videos">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-modal-videos.png" alt="Example of modal to view saved videos">
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-config.png" alt="Example of configuration modal">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-modal-config-1.png" alt="Example of configuration modal 1">
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-crear-playlist.png" alt="Example of playlist creation">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-modal-config-2.png" alt="Example of configuration modal 2">
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-crear-playlist.png" alt="Example of playlist creation">
 
 ## 🌐 Languages
 

@@ -17,12 +17,14 @@ Ideal para quienes:
 ## ✨ Características
 
 - 🔐 **100% Privado y Local:** Funciona sin cuenta de Google; todo se guarda utilizando `IndexedDB` en tu navegador.
+- ☁️ **Sincronización en la nube:** Sincroniza tus videos guardados con tu cuenta de GitHub, ya sea mediante Gist (Secreto) o Repositorio (Privado). (Se puede activar desde las opciones, por defecto está desactivado)
 - 🕒 **Guardado automático e inteligente:** Guarda el tiempo y reanuda automáticamente el progreso al volver gracias a detectores aislados por contexto. Desactívalos individualmente desde las opciones:
     - `Videos Regulares`
     - `Miniplayer` 
     - `Shorts` (desactivado por defecto)
     - `Directos` (desactivado por defecto)
     - `Previsualizaciones en inicio` (desactivado por defecto)
+- 🔖 **Opción de guardado manual** Guarda el tiempo actual del video con solo presionar un botón en el momento que desees. (Se puede activar desde las opciones, por defecto está desactivado)
 - 🛑 **Anti-Ads:** Evita guardar falsos tiempos e identificadores durante los anuncios. (el script no bloquea anuncios)
 - ⚡ **Rápido Rendimiento:** Modal de videos guardados reforzado con "Virtual Scrolling" para manejar listas de miles de vídeos al instante y sin consumir memoria extra.
 - 🔔 **Notificaciones UI:** Mensajes nativos en la barra del reproductor informando su restauración y guardado sin estorbar tu visión.
@@ -58,13 +60,15 @@ Toda la información se almacena localmente en tu navegador. **No se envía ning
 
 ## 📸 Capturas de pantalla
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-alerta-guardado.png" alt="Ejemplo de alerta de tiempo guardado">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-alerta-guardado-automatico.png" alt="Ejemplo de alerta de tiempo guardado">
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-videos.png" alt="Ejemplo de modal para ver videos guardados">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-modal-videos.png" alt="Ejemplo de modal para ver videos guardados">
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-modal-config.png" alt="Ejemplo de modal de configuración">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-modal-config-1.png" alt="Ejemplo de modal de configuración 1">
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0-0-7_ejemplo-crear-playlist.png" alt="Ejemplo de creación de playlist">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-modal-config-2.png" alt="Ejemplo de modal de configuración 2">
+
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-crear-playlist.png" alt="Ejemplo de creación de playlist">
 
 ## 🌐 Lenguajes Disponibles
 

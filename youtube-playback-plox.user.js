@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-5
+// @version      0.0.9-6
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -156,12 +156,57 @@
             : noop;
 
     window.MyScriptLogger = {
+        _errorLogs: [],
         log: build('debug', L.debug),
         debug: build('debug', L.debug),
         info: build('info', L.info),
-        warn: build('warn', L.warn),
-        error: build('error', L.error) // Los errores siempre se muestran
+        warn: (c, ...a) => {
+            console.warn(`%c[${c}]`, S.warn, ...a);
+            window.MyScriptLogger._internalPushLog(c, a);
+        },
+        error: (c, ...a) => {
+            console.error(`%c[${c}]`, S.error, ...a);
+            window.MyScriptLogger._internalPushLog(c, a);
+        },
+        _internalPushLog: (c, a) => {
+            const timestamp = new Date().toISOString();
+            const errorDetails = a.map(arg => {
+                if (arg instanceof Error) return arg.stack || arg.message;
+                if (typeof arg === 'object') {
+                    try { return JSON.stringify(arg, null, 2); }
+                    catch (e) { return '[Object (Unstringifiable)]'; }
+                }
+                return String(arg);
+            }).join(' ');
+
+            window.MyScriptLogger._errorLogs.push(`[${timestamp}] [${c}] ${errorDetails}`.trim());
+            if (window.MyScriptLogger._errorLogs.length > 50) window.MyScriptLogger._errorLogs.shift();
+        }
     };
+
+    // Global Error Trackers
+    window.addEventListener('error', (e) => {
+        const msg = (e.message || e.error?.message || '').toLowerCase();
+        if (msg.includes('resizeobserver loop') || msg.includes('undelivered notifications')) {
+            return;
+        }
+
+        if (e.filename && e.filename.includes('youtube-playback-plox')) {
+            window.MyScriptLogger.error('Global Error', e.error || e.message);
+        } else if (!e.filename || e.filename === '') {
+            window.MyScriptLogger.error('DOM Error', e.error || e.message);
+        }
+    });
+
+    window.addEventListener('unhandledrejection', (e) => {
+        if (e.reason && (e.reason instanceof Error) && e.reason.stack && e.reason.stack.includes('youtube-playback-plox')) {
+            window.MyScriptLogger.error('Unhandled Promise', e.reason);
+        } else if (e.reason && e.reason.message && e.reason.message.includes('getCascadedVideoInf')) {
+            window.MyScriptLogger.error('Unhandled Promise', e.reason);
+        } else if (e.reason && e.reason.stack === undefined) {
+            window.MyScriptLogger.error('Unhandled Promise', e.reason);
+        }
+    });
 })();
 
 // Atajo para no tener que escribir window.MyScriptLogger cada vez
@@ -172,7 +217,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = '0.0.9-5';
+    const SCRIPT_VERSION = '0.0.9-6';
 
     /**
      * Polyfill ligero para CustomEvent en navegadores antiguos.
@@ -236,12 +281,11 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "cancel": "Cancel",
             "delete": "Delete",
             "undo": "Undo",
-            "enableSavingFor": "Enable saving for",
+            "enableAutomaticSavingFor": "Enable automatic saving for",
             "regularVideos": "Regular videos",
             "shorts": "Shorts",
             "liveStreams": "Live streams",
             "live": "Live",
-            "showNotifications": "Show save notifications",
             "minSecondsBetweenSaves": "Minimum seconds between saves",
             "showFloatingButton": "Show floating button",
             "language": "Language",
@@ -319,8 +363,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "completedVideos": "Completed videos",
             "videosWithFixedTime": "Videos with fixed time",
             "views": "Views",
+            "watchedCount": "Watched {count} times",
+            "watchedHistory": "Watch history",
             "enableProgressBarGradient": "Enable color gradient in progress bar",
             "staticFinishPercent": "Percentage to mark video as completed",
+            "countOncePerSession": "Log additional completion times only once per session",
+            "countOncePerSessionTooltip": "If enabled, once the completion threshold is reached, replays or auto-looping will not be counted multiple times within the same session.",
             "openChannel": "Open channel",
             "openPlaylist": "Open playlist",
             "createPlaylist": "Create playlist",
@@ -384,7 +432,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "githubCleanupStep2": "For repositories, deleting the backup file leaves history in previous commits. Deleting the entire repository is the only way to purge all traces.",
             "githubRepoPrivacyError": "Error: The repository must be private to perform the backup.",
             "githubRepoCheck": "Verifying repository privacy...",
-            "saveAs": "Save as"
+            "saveAs": "Save as",
+            "supportLogsTitle": "Support & Error Logs",
+            "copyLogsBtn": "Copy Logs",
+            "reportIssue": "Report Issue",
+            "logsCopied": "Logs copied to clipboard!",
+            "noLogs": "No errors recorded."
         },
         "es-ES": {
             "settings": "Configuración",
@@ -394,12 +447,11 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "cancel": "Cancelar",
             "delete": "Eliminar",
             "undo": "Deshacer",
-            "enableSavingFor": "Activar guardado para",
+            "enableAutomaticSavingFor": "Habilitar guardado automático para",
             "regularVideos": "Videos regulares",
             "shorts": "Shorts",
             "liveStreams": "Directos (Livestreams)",
             "live": "Directo",
-            "showNotifications": "Mostrar notificaciones de guardado",
             "minSecondsBetweenSaves": "Intervalo segundos mínimos entre guardados",
             "showFloatingButton": "Mostrar botón flotante",
             "language": "Idioma",
@@ -477,8 +529,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "completedVideos": "Videos completados",
             "videosWithFixedTime": "Videos con tiempo fijo",
             "views": "Vistas",
+            "watchedCount": "Visto {count} veces",
+            "watchedHistory": "Historial de visualización",
             "enableProgressBarGradient": "Habilitar degradado de colores en barra de progreso",
             "staticFinishPercent": "Porcentaje para marcar video como completado",
+            "countOncePerSession": "Registrar tiempos de finalización adicionales solo una vez por sesión",
+            "countOncePerSessionTooltip": "Si está activado, una vez alcanzado el umbral de finalización, las repeticiones o la reproducción automática no se contarán varias veces dentro de la misma sesión.",
             "openChannel": "Abrir canal",
             "openPlaylist": "Abrir playlist",
             "createPlaylist": "Crear playlist",
@@ -542,7 +598,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "githubCleanupStep2": "En repositorios, eliminar el archivo deja historial en commits anteriores. Borrar todo el repositorio es la única forma de eliminar todos los rastros.",
             "githubRepoPrivacyError": "Error: El repositorio debe ser privado para realizar la copia.",
             "githubRepoCheck": "Verificando privacidad del repositorio...",
-            "saveAs": "Guardar como"
+            "saveAs": "Guardar como",
+            "supportLogsTitle": "Soporte y registros de errores",
+            "copyLogsBtn": "Copiar registros",
+            "reportIssue": "Reportar problema",
+            "logsCopied": "¡Registros copiados al portapapeles!",
+            "noLogs": "No hay errores registrados."
         },
         "fr": {
             "settings": "Paramètres",
@@ -552,12 +613,11 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "cancel": "Annuler",
             "delete": "Supprimer",
             "undo": "Annuler",
-            "enableSavingFor": "Activer la sauvegarde pour",
+            "enableAutomaticSavingFor": "Activer l’enregistrement automatique pour",
             "regularVideos": "Vidéos régulières",
             "shorts": "Shorts",
             "liveStreams": "Diffusions en direct",
             "live": "Diffusion en direct",
-            "showNotifications": "Afficher les notifications de sauvegarde",
             "minSecondsBetweenSaves": "Secondes minimales entre les sauvegardes",
             "showFloatingButton": "Afficher le bouton flottant",
             "language": "Langue",
@@ -635,8 +695,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "completedVideos": "Vidéos terminées",
             "videosWithFixedTime": "Vidéos avec un temps fixe",
             "views": "Vues",
+            "watchedCount": "Visionné {count} fois",
+            "watchedHistory": "Historique de visionnage",
             "enableProgressBarGradient": "Activer le dégradé de couleurs dans la barre de progression",
             "staticFinishPercent": "Pourcentage pour marquer la vidéo comme terminée",
+            "countOncePerSession": "Enregistrer les complétions supplémentaires une seule fois par session",
+            "countOncePerSessionTooltip": "Si activé, une fois le seuil de complétion atteint, les relectures ou la lecture en boucle ne seront pas comptées plusieurs fois au cours de la même session.",
             "openChannel": "Ouvrir la chaîne",
             "openPlaylist": "Ouvrir la playlist",
             "createPlaylist": "Créer une playlist",
@@ -700,7 +764,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "githubCleanupStep2": "Pour les dépôts, supprimer le fichier laisse un historique dans les commits précédents. Supprimer le dépôt entier est la seule façon d'effacer toutes les traces.",
             "githubRepoPrivacyError": "Erreur : Le dépôt doit être privé pour effectuer la sauvegarde.",
             "githubRepoCheck": "Vérification de la confidentialité du dépôt...",
-            "saveAs": "Enregistrer sous"
+            "saveAs": "Enregistrer sous",
+            "supportLogsTitle": "Support et journaux d’erreurs",
+            "copyLogsBtn": "Copier les journaux",
+            "reportIssue": "Signaler un problème",
+            "logsCopied": "Journaux copiés dans le presse-papiers !",
+            "noLogs": "Aucune erreur enregistrée."
         }
     };
 
@@ -848,7 +917,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
         /** Valores predeterminados para configuraciones del usuario */
         defaultSettings: {
-            showNotifications: true,
             minSecondsBetweenSaves: 1,
             showFloatingButtons: false,
             saveRegularVideos: true,         // Por defecto, guardar videos regulares
@@ -861,6 +929,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             saveInlinePreviews: false,       // Guardar previsualizaciones inline (Homepage) desactivado por defecto
             saveMiniplayerVideos: true,      // Guardar videos en miniplayer (default: activo)
             manualSaveMode: false,           // Modo de guardado manual (default: desactivado)
+            countOncePerSession: false,      // Contar solo una vez por sesión (default: desactivado)
         },
 
         /** Clave para guardar filtros del usuario en GM_* */
@@ -1402,67 +1471,100 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         style.id = 'youtube-playback-plox-styles';
         style.textContent = `
 :root {
-  /* Base (Light) - Solo variables --ypp- */
-  --ypp-bg: #ffffff;
-  --ypp-text: #222222;
-  --ypp-muted: #555555;
-  --ypp-light: #888888;
-  --ypp-link: #065fd4;
-  --ypp-danger: #dc2626;
-  --ypp-success: #16a34a;
-  --ypp-success-dark: #15803d;
-  --ypp-overlay: rgba(0, 0, 0, 0.4);
-  --ypp-toast: #333333;
-  --ypp-primary: #2563eb;
-  --ypp-primary-dark: #1e40af;
-  --ypp-border: #cccccc;
-  --ypp-playlist-bg: #f0f8ff; /* Fondo sutil para items de playlist */
-  --ypp-bg-secondary: #f5f5f5;
-  --ypp-bg-time-display: rgba(17, 17, 17, 0.45);
-  --ypp-bg-time-display-hover: rgba(0, 0, 0, 1);
+    /* Base (Light) - Solo variables --ypp- */
+    --ypp-bg: #ffffff;
+    --ypp-bg-secondary: #dadada;
+    --ypp-bg-secondary-hover: #919191ff;
+    --ypp-bg-tertiary: #f5f5f5;
+    --ypp-white: #ffffff;
+    --ypp-black: #000000;
+    --ypp-muted: #555555;
+    --ypp-light: #888888;
+    --ypp-dark: #1b1b1b;
+    --ypp-link: #065fd4;
+    --ypp-danger: #dc2626;
+    --ypp-danger-dark: #b91c1c;
+    --ypp-warning: #a96500;
+    --ypp-success: #16a34a;
+    --ypp-success-dark: #15803d;
+    --ypp-overlay: rgba(0, 0, 0, 0.4);
+    --ypp-toast: #333333;
+    --ypp-primary: #2563eb;
+    --ypp-primary-dark: #1e40af;
+    --ypp-border: #cccccc;
+    --ypp-playlist-bg: #f0f8ff;
+    /* Fondo sutil para items de playlist */
+    --ypp-bg-time-display: rgba(17, 17, 17, 0.45);
+    --ypp-bg-time-display-hover: rgba(0, 0, 0, 1);
 
-  /* Tipografía */
-  --ypp-white: #ffffff;
-  --ypp-font-base: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    --ypp-bg-btn-secondary: #494949;
 
-  /* Espaciado */
-  --ypp-spacing-sm: 0.5rem;
-  --ypp-spacing-md: 1rem;
-  --ypp-spacing-lg: 1.5rem;
+    /* Tipografía */
+    --ypp-text: #1b1b1bff;
+    --ypp-text-secondary: #393939;
+    --ypp-font-base: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 
-  /* Sombra */
-  --ypp-shadow-md: 0 4px 20px rgba(0, 0, 0, 0.2);
-  --ypp-shadow-modal: 0 4px 16px rgba(0, 0, 0, 0.25);
-  --ypp-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+    /* Espaciado */
+    --ypp-spacing-sm: 0.5rem;
+    --ypp-spacing-md: 1rem;
+    --ypp-spacing-lg: 1.5rem;
 
-  /* Z-index */
-  --ypp-z-overlay: 9999;
-  --ypp-z-modal: 10000;
-  --ypp-z-toast: 10001;
+    /* Z-index */
+    --ypp-z-overlay: 9999;
+    --ypp-z-modal: 10000;
+    --ypp-z-toast: 10001;
 
-  /* Inputs */
-  --ypp-input: #f5f5f5;
-  --ypp-input-border: #cccccc;
-  --ypp-input-focus: #1a73e8; /* Light */
+    /* Inputs */
+    --ypp-input: #f5f5f5;
+    --ypp-input-border: #cccccc;
+    --ypp-input-focus: #1a73e8;
 }
 
-html[dark], body.dark-theme {
-  --ypp-bg: #0f0f0f;
-  --ypp-text: #f1f1f1;
-  --ypp-muted: #aaaaaa;
-  --ypp-light: #aaaaaa;
-  --ypp-link: #3ea6ff;
-  --ypp-border: #303030;
-  --ypp-bg-secondary: #1a1a1a;
-  --ypp-overlay: rgba(0, 0, 0, 0.8);
-  --ypp-input: #1a1a1a;
-  --ypp-input-border: #303030;
-  /* Overrides específicas para UI en oscuro */
-  --ypp-input-focus: #065fd4;
-  --ypp-shadow: 0 12px 24px rgba(0, 0, 0, 0.5);
+html[dark],
+body.dark-theme {
+    --ypp-bg: #0f0f0f;
+    --ypp-bg-secondary: #1a1a1a;
+    --ypp-bg-secondary-hover: #303030;
+    --ypp-bg-tertiary: #2a2a2a;
+    --ypp-muted: #aaaaaa;
+    --ypp-light: #251a1aff;
+    --ypp-link: #3ea6ff;
+
+    --ypp-danger: #720000ff;
+    --ypp-danger-dark: #a81313ff;
+    --ypp-warning: #e28700;
+
+    --ypp-primary: #004683ff;
+    --ypp-primary-dark: #136fadff;
+    --ypp-border: #303030;
+    --ypp-overlay: rgba(0, 0, 0, 0.8);
+    --ypp-input: #1a1a1a;
+    --ypp-input-border: #303030;
+
+    /* Tipografía */
+    --ypp-text: #ececec;
+    --ypp-text-secondary: #c0c0c0;
+
+    --ypp-input-focus: #065fd4;
 }
 
-.ypp-sombra {
+.ypp-shadow-sm {
+    box-shadow:
+        0.4px 0.4px 1.3px rgba(0, 0, 0, 0.05),
+        1px 1px 3.5px rgba(0, 0, 0, 0.07),
+        2px 2px 7px rgba(0, 0, 0, 0.09),
+        4px 4px 14px rgba(0, 0, 0, 0.11),
+        10px 10px 30px rgba(0, 0, 0, 0.15);
+
+    -webkit-box-shadow:
+        0.4px 0.4px 1.3px rgba(0, 0, 0, 0.05),
+        1px 1px 3.5px rgba(0, 0, 0, 0.07),
+        2px 2px 7px rgba(0, 0, 0, 0.09),
+        4px 4px 14px rgba(0, 0, 0, 0.11),
+        10px 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.ypp-shadow-md {
     box-shadow:
         0.8px 0.8px 2.7px rgba(0, 0, 0, 0.062),
         2.1px 2.1px 6.9px rgba(0, 0, 0, 0.089),
@@ -1478,15 +1580,39 @@ html[dark], body.dark-theme {
         24px 24px 80px rgba(0, 0, 0, 0.2);
 }
 
+.ypp-shadow-lg {
+    box-shadow:
+        1.2px 1.2px 4px rgba(0, 0, 0, 0.07),
+        3px 3px 10px rgba(0, 0, 0, 0.1),
+        6px 6px 20px rgba(0, 0, 0, 0.13),
+        12px 12px 40px rgba(0, 0, 0, 0.16),
+        40px 40px 120px rgba(0, 0, 0, 0.25);
+
+    -webkit-box-shadow:
+        1.2px 1.2px 4px rgba(0, 0, 0, 0.07),
+        3px 3px 10px rgba(0, 0, 0, 0.1),
+        6px 6px 20px rgba(0, 0, 0, 0.13),
+        12px 12px 40px rgba(0, 0, 0, 0.16),
+        40px 40px 120px rgba(0, 0, 0, 0.25);
+}
+
 .ypp-m0 {
     margin: 0 !important;
+}
+
+.ypp-bg-secondary {
+    background-color: var(--ypp-bg-secondary) !important;
 }
 
 .ypp-link {
     color: var(--ypp-link);
     text-decoration: none;
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
-    align-items: center;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
     gap: var(--ypp-spacing-sm);
 
     &:hover {
@@ -1500,13 +1626,15 @@ html[dark], body.dark-theme {
 .ypp-svgTimerIcon,
 .ypp-svgPlayOrPauseIcon,
 .ypp-svgPlaylistRemove {
-  vertical-align: middle;
-  height: 100%;
-  margin: 0 0px 2px 0px;
+    vertical-align: middle;
+    height: 100%;
+    margin: 0 0px 2px 0px;
 }
 
 .ypp-d-flex {
-  display: flex !important;
+    display: -webkit-box !important;
+    display: -ms-flexbox !important;
+    display: flex !important;
 }
 
 .ypp-d-none {
@@ -1519,55 +1647,88 @@ html[dark], body.dark-theme {
 
 .ypp-overlay,
 .ypp-modalOverlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  width: 100vw;
-  height: 100vh;
-  background: var(--ypp-overlay);
-  z-index: var(--ypp-z-overlay);
+    position: fixed;
+    top: 0;
+    left: 0;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    width: 100vw;
+    height: 100vh;
+    background: var(--ypp-overlay);
+    z-index: var(--ypp-z-overlay);
 }
 
 .ypp-videosContainer {
-  position: fixed;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  background: var(--ypp-bg, #0f0f0f);
-  border: 1px solid var(--ypp-border, #303030);
-  border-radius: 12px;
-  width: 90%;
-  max-width: 800px;
-  max-height: 85vh;
-  color: var(--ypp-text, #f1f1f1);
-  box-shadow: var(--ypp-shadow, 0 12px 24px rgba(0, 0, 0, 0.5));
-  z-index: var(--ypp-z-modal);
-  display: flex;
-  flex-direction: column;
-  opacity: 0;
-  transform: translate(-50%, -50%) translateY(20px) scale(0.95);
-  animation: videosModalSlideIn 0.3s ease-out forwards;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    -webkit-transform: translate(-50%, -50%);
+        -ms-transform: translate(-50%, -50%);
+            transform: translate(-50%, -50%);
+    background: var(--ypp-bg);
+    border: 1px solid var(--ypp-border);
+    border-radius: 12px;
+    width: 90%;
+    max-width: 800px;
+    max-height: 85vh;
+    color: var(--ypp-text);
+    z-index: var(--ypp-z-modal);
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+
+    -webkit-box-orient: vertical;
+
+    -webkit-box-direction: normal;
+
+        -ms-flex-direction: column;
+
+            flex-direction: column;
+    opacity: 0;
+    -webkit-transform: translate(-50%, -50%) translateY(20px) scale(0.95);
+        -ms-transform: translate(-50%, -50%) translateY(20px) scale(0.95);
+            transform: translate(-50%, -50%) translateY(20px) scale(0.95);
+    -webkit-animation: videosModalSlideIn 0.3s ease-out forwards;
+            animation: videosModalSlideIn 0.3s ease-out forwards;
+}
+
+@-webkit-keyframes videosModalSlideIn {
+    to {
+        opacity: 1;
+        -webkit-transform: translate(-50%, -50%) translateY(0) scale(1);
+                transform: translate(-50%, -50%) translateY(0) scale(1);
+    }
 }
 
 @keyframes videosModalSlideIn {
-  to {
-    opacity: 1;
-    transform: translate(-50%, -50%) translateY(0) scale(1);
-  }
+    to {
+        opacity: 1;
+        -webkit-transform: translate(-50%, -50%) translateY(0) scale(1);
+                transform: translate(-50%, -50%) translateY(0) scale(1);
+    }
 }
-
 
 /* =========================
    Boton group script en barras reproducción
  ========================= */
 .ypp-time-display,
 .ypp-shorts-time-display {
+    display: -webkit-inline-box;
+    display: -ms-inline-flexbox;
     display: inline-flex;
-    align-items: center;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
     /* justify-content: center; */
+    -webkit-transition: all 0.2s ease;
+    -o-transition: all 0.2s ease;
     transition: all 0.2s ease;
 
     background: var(--ypp-bg-time-display);
@@ -1576,9 +1737,16 @@ html[dark], body.dark-theme {
     padding: 0;
     gap: 0;
     height: 28px;
+    min-width: -webkit-fit-content;
+    min-width: -moz-fit-content;
     min-width: fit-content;
 
-    order: 3 !important; /* para que se muestre a la derecha en livestreams /watch */
+    -webkit-box-ordinal-group: 4 !important;
+
+        -ms-flex-order: 3 !important;
+
+            order: 3 !important;
+    /* para que se muestre a la derecha en livestreams /watch */
 
     svg {
         width: 16px;
@@ -1595,15 +1763,21 @@ html[dark], body.dark-theme {
 .ytp-delhi-modern .ytp-time-wrapper:not(.ytp-miniplayer-ui *) {
     min-width: 0;
     position: relative;
+    display: -webkit-box !important;
+    display: -ms-flexbox !important;
     display: flex !important;
     height: var(--yt-delhi-pill-height, 48px);
     border-radius: 28px;
     padding: 0 16px;
-    -webkit-backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override, blur(16px));
+    -webkit-backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override,
+            blur(16px));
     backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override, blur(16px));
-    background: var(--yt-spec-overlay-background-medium-light, rgba(0,0,0,.3));
+    background: var(--yt-spec-overlay-background-medium-light,
+            rgba(0, 0, 0, 0.3));
     text-shadow: 0 0 2px #000;
-    align-items: center;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
     gap: 8px;
     cursor: default;
     /* No interceptar clicks que no son nuestros */
@@ -1614,14 +1788,18 @@ html[dark], body.dark-theme {
 #movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-time-current,
 #movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-time-separator,
 #movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-time-duration {
-    order: 1;
+    -webkit-box-ordinal-group: 2;
+        -ms-flex-order: 1;
+            order: 1;
     /* El tiempo debe estar visible para que YouTube calcule bien los offsets de click */
     display: inline-block !important;
 }
 
 #movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-live-badge,
 #movie_player .ytp-delhi-modern .ytp-time-wrapper .live-badge {
-    order: 2 !important;
+    -webkit-box-ordinal-group: 3 !important;
+        -ms-flex-order: 2 !important;
+            order: 2 !important;
     margin-left: 4px;
     /* Asegurar que el badge sea clickeable */
     pointer-events: auto !important;
@@ -1631,23 +1809,26 @@ html[dark], body.dark-theme {
 .ytp-live .ytp-time-current,
 .ytp-live .ytp-time-separator,
 .ytp-live .ytp-time-duration {
-  display: none !important;
-  visibility: visible !important;
+    display: none !important;
+    visibility: visible !important;
 }
 
 /* Estilo específico para Shorts */
 .ypp-shorts-time-display {
-  margin: 4px auto 0;
+    margin: 4px auto 0;
 }
 
 /* Fallback flotante para Shorts cuando el metapanel no se encuentra */
 .ypp-shorts-time-display.ypp-floating {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  bottom: 64px; /* por encima de botones de acción */
-  z-index: var(--ypp-z-toast, 10001);
-  pointer-events: auto;
+    position: absolute;
+    left: 50%;
+    -webkit-transform: translateX(-50%);
+        -ms-transform: translateX(-50%);
+            transform: translateX(-50%);
+    bottom: 64px;
+    /* por encima de botones de acción */
+    z-index: var(--ypp-z-toast, 10001);
+    pointer-events: auto;
 }
 
 /* Estilo específico para Miniplayer */
@@ -1656,14 +1837,22 @@ html[dark], body.dark-theme {
 }
 
 .ytdMiniplayerComponentVisible .ytp-time-wrapper.ytp-time-wrapper-delhi {
-    display: flex !important;   /* Para poner botones al lado de tiempo */
-    align-items: center !important;
+    display: -webkit-box !important;
+    display: -ms-flexbox !important;
+    display: flex !important;
+    /* Para poner botones al lado de tiempo */
+    -webkit-box-align: center !important;
+        -ms-flex-align: center !important;
+            align-items: center !important;
     gap: 8px !important;
-    margin-bottom: 10px !important;   /* Para que no se tape con heatmaps */
+    margin-bottom: 10px !important;
+    /* Para que no se tape con heatmaps */
 }
 
 .ytdMiniplayerComponentVisible .ytp-live-badge {
-    order: 2 !important;
+    -webkit-box-ordinal-group: 3 !important;
+        -ms-flex-order: 2 !important;
+            order: 2 !important;
     margin: 0 17px 0 0;
 }
 
@@ -1678,26 +1867,56 @@ html[dark], body.dark-theme {
 /* =========================
    Botones dentro de ypp-time-display
    ========================= */
-.ypp-btn-list,
+.ypp-btn-history,
 .ypp-btn-save {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
-    align-items: center;
-    justify-content: center;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
 
     background: transparent;
     border: none;
     color: var(--ypp-white);
-    padding: 0 10px;
     cursor: pointer;
-   
+
+    -webkit-transition: background 0.2s;
+
+    -o-transition: background 0.2s;
+
     transition: background 0.2s;
     height: 100%;
-    min-width: 32px;
-    outline: none;
-    box-shadow: none;
+    -webkit-box-shadow: none;
+            box-shadow: none;
 
     &:hover {
         background: var(--ypp-primary);
+    }
+
+    &:active {
+        background: var(--ypp-primary-dark);
+    }
+
+    &:focus-visible {
+        background: var(--ypp-primary-dark);
+    }
+}
+
+.ypp-btn-history {
+    padding: 0 7px 0 10px;
+}
+
+.ypp-btn-save {
+    padding: 0 7px 0 7px;
+}
+
+.ypp-btn-save-hover-color-when-saved {
+    &:hover {
+        background: var(--ypp-success);
     }
 
     &:active {
@@ -1705,15 +1924,21 @@ html[dark], body.dark-theme {
     }
 
     &:focus-visible {
-        outline: 4px solid var(--ypp-success-dark);
+        background: var(--ypp-success-dark);
     }
 }
 
 .ypp-time-display-message {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
-    justify-content: center;
-    align-items: center;
-    gap: 4px;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    gap: var(--ypp-spacing-sm);
 
     padding: 0 12px 0 7px;
     white-space: nowrap;
@@ -1721,13 +1946,12 @@ html[dark], body.dark-theme {
     cursor: default;
     text-shadow: none !important;
 
-   /*  max-width: 180px; */
+    /*  max-width: 180px; */
     font-size: var(--ypp-font-size-sm);
     font-weight: var(--ypp-font-weight-medium);
     color: var(--ypp-white);
     border-left: 2px solid var(--ypp-bg);
 }
-
 
 /* =========================
    Header, Footer, Layout
@@ -1735,140 +1959,290 @@ html[dark], body.dark-theme {
 
 .ypp-header,
 .ypp-modalHeader {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--ypp-border);
-  flex-shrink: 0;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: justify;
+        -ms-flex-pack: justify;
+            justify-content: space-between;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--ypp-border);
+    -ms-flex-negative: 0;
+        flex-shrink: 0;
 }
 
-.ypp-filters {
-  padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
-  border-bottom: 1px solid var(--ypp-border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--ypp-spacing-md);
-  flex-shrink: 0;
-  gap: 0;
+.ypp-video-filters-section {
+    display: -ms-grid;
+    display: grid;
+    -ms-grid-columns: minmax(60px, 1fr) var(--ypp-spacing-md) minmax(60px, 1fr);
+    grid-template-columns: minmax(60px, 1fr) minmax(60px, 1fr);
+    -ms-grid-rows: minmax(40px, 1fr) var(--ypp-spacing-sm) minmax(40px, 1fr);
+    grid-template-rows: minmax(40px, 1fr) minmax(40px, 1fr);
+            grid-template-areas:
+        "filter1 filter2"
+        "searchbar searchbar";
+    max-width: 100%;
+
+    gap: var(--ypp-spacing-sm) var(--ypp-spacing-md);
+    /* gap: 4px 17px; */
+    padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
+    border-bottom: 1px solid var(--ypp-border);
+}
+
+.ypp-filter-1 {
+    -ms-grid-row: 1;
+    -ms-grid-column: 1;
+    grid-area: filter1;
+    min-width: 0;
+}
+
+.ypp-filter-2 {
+    -ms-grid-row: 1;
+    -ms-grid-column: 3;
+    grid-area: filter2;
+    min-width: 0;
+}
+
+.ypp-searchbar {
+    -ms-grid-row: 3;
+    -ms-grid-column: 1;
+    -ms-grid-column-span: 3;
+    grid-area: searchbar;
 }
 
 .ypp-footer {
-  padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
-  border-top: 2px solid var(--ypp-border);
-  display: flex;
-  flex-direction: column;
-  gap: var(--ypp-spacing-sm);
-  z-index: 10;
-  flex-shrink: 0;
+    padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
+    border-top: 2px solid var(--ypp-border);
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    gap: var(--ypp-spacing-sm);
+    z-index: 10;
+    -ms-flex-negative: 0;
+        flex-shrink: 0;
 }
 
 .ypp-footer-row {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  gap: var(--ypp-spacing-sm);
-  flex-wrap: wrap;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    gap: var(--ypp-spacing-sm);
+    -ms-flex-wrap: wrap;
+        flex-wrap: wrap;
 }
 
 .ypp-footer-row-bottom {
-  justify-content: space-between;
+    -webkit-box-pack: justify;
+        -ms-flex-pack: justify;
+            justify-content: space-between;
 }
 
 #video-list-container {
-  flex-grow: 1; /* Ocupar el espacio restante */
-  overflow: hidden; /* El scroll lo maneja el virtual scroller */
-  padding: 0; /* Padding se aplica a los elementos internos */
-  position: relative;
-  display: flex;
-  flex-direction: column;
+    -webkit-box-flex: 1;
+        -ms-flex-positive: 1;
+            flex-grow: 1;
+    /* Ocupar el espacio restante */
+    overflow: hidden;
+    /* El scroll lo maneja el virtual scroller */
+    padding: 0;
+    /* Padding se aplica a los elementos internos */
+    position: relative;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
 }
 
 #ypp-virtual-scroller-container {
-  flex-grow: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
+    -webkit-box-flex: 1;
+        -ms-flex-positive: 1;
+            flex-grow: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
 }
 
 /* Virtual Scroller Styles */
 .ypp-virtual-spacer {
-  position: relative;
-  width: 100%;
+    position: relative;
+    width: 100%;
 }
 
 .ypp-virtual-item {
-  position: absolute;
-  left: 0;
-  right: 0;
-  width: 100%;
-  box-sizing: border-box;
+    position: absolute;
+    left: 0;
+    right: 0;
+    width: 100%;
+    -webkit-box-sizing: border-box;
+            box-sizing: border-box;
 }
 
 .ypp-virtual-loading {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--ypp-spacing-lg);
-  color: var(--ypp-text-muted);
-  font-size: 1.2rem;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    padding: var(--ypp-spacing-lg);
+    color: var(--ypp-text-secondary);
+    font-size: 1.2rem;
 }
 
 .ypp-virtual-stats {
-  position: sticky;
-  top: 0;
-  background: var(--ypp-bg);
-  padding: 8px var(--ypp-spacing-lg);
-  border-bottom: 1px solid var(--ypp-border);
-  font-size: 0.9rem;
-  color: var(--ypp-text-muted);
-  z-index: 10;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+    position: sticky;
+    top: 0;
+    background: var(--ypp-bg);
+    padding: 8px var(--ypp-spacing-lg);
+    border-bottom: 1px solid var(--ypp-border);
+    font-size: 0.9rem;
+    color: var(--ypp-text-secondary);
+    z-index: 10;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: justify;
+        -ms-flex-pack: justify;
+            justify-content: space-between;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
 }
 
 .ypp-settingsContent {
-  display: flex;
-  flex-direction: column;
-  gap: var(--ypp-spacing-md);
-  max-height: 60vh;
-  overflow-y: auto;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    gap: var(--ypp-spacing-lg);
+    max-height: 60vh;
+    overflow-y: auto;
 }
 
-.ypp-btnGroup {
-  display: flex;
-  justify-content: flex-end;
-  align-items: center;
-  gap: 12px;
-  padding: 16px 24px;
-  background: var(--ypp-bg, #0f0f0f);
-  border-radius: 0 0 12px 12px;
-  flex-shrink: 0;
-  margin-top: auto;
+.ypp-settings-footer {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-pack: end;
+        -ms-flex-pack: end;
+            justify-content: flex-end;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    gap: 12px;
+    padding: 16px 24px;
+    background: var(--ypp-dark);
+    color: var(--ypp-light);
+    border-radius: 0 0 12px 12px;
+    -ms-flex-negative: 0;
+        flex-shrink: 0;
+    margin-top: auto;
 }
 
-.ypp-saving-options{
-  display: flex;
-  flex-direction: column;
-  background: var(--ypp-border);
-  border-radius: 6px;
-  padding: 10px;
+.ypp-settings-main-section {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    gap: var(--ypp-spacing-md);
+    background: var(--ypp-border);
+    border-radius: 6px;
+    padding: 10px;
 }
 
-.ypp-container-saving-options {
-  background: var(--ypp-bg-secondary);
-  border-radius: 6px;
-  padding: 6px;
-  gap: 8px;
-  display: flex;
-  flex-direction: column;
-  margin-bottom: 10px;
-
+.ypp-manual-saving-options {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
 }
 
-.ypp-label-save-type{
-    margin: 0 0 0 10px
+.ypp-automatic-saving-options {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    border-radius: 6px;
+}
+
+.ypp-settings-second-level-section {
+    background: var(--ypp-bg-secondary);
+    border-radius: 6px;
+    padding: var(--ypp-spacing-md);
+    gap: var(--ypp-spacing-md);
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    border: 1px solid var(--ypp-bg);
+}
+
+.ypp-settings-third-level-section {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    gap: var(--ypp-spacing-sm);
+    background: var(--ypp-bg-tertiary);
+    border-radius: 6px;
+    padding: var(--ypp-spacing-sm);
+}
+
+.ypp-github-tab-content {
+    background: var(--ypp-bg-secondary);
+    padding: var(--ypp-spacing-md);
+    gap: var(--ypp-spacing-md);
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    border: 1px solid var(--ypp-bg);
+    border-top: none;
+    border-radius: 0 0 6px 6px;
+}
+
+.ypp-label-save-type {
+    margin: 0 0 0 10px;
 }
 
 /* =========================
@@ -1876,68 +2250,93 @@ html[dark], body.dark-theme {
 ========================= */
 
 .ypp-emptyMsg {
-  text-align: center;
-  color: #aaa;
-  padding: 40px 24px;
-  font-size: 1.4rem;
+    text-align: center;
+    color: #aaa;
+    padding: 40px 24px;
+    font-size: 1.4rem;
 }
 
 .ypp-playlistTitle {
-  margin: 8px 0 4px;
-  color: #065fd4;
-  cursor: pointer;
-  text-decoration: none;
-  display: block;
-  font-size: 1.2rem;
-  font-weight: 500;
+    margin: 8px 0 4px;
+    color: #065fd4;
+    cursor: pointer;
+    text-decoration: none;
+    display: block;
+    font-size: 1.2rem;
+    font-weight: 500;
 }
 
 .ypp-playlistTitle:hover {
-  color: #0550b3;
-  text-decoration: underline;
+    color: #0550b3;
+    text-decoration: underline;
 }
 
 .ypp-titleLink {
-  font-weight: 600;
-  font-size: 1.4rem;
-  color: var(--ypp-link);
-  text-decoration: none;
-  display: block;
-  margin-bottom: 2px;
-}
+    font-weight: 600;
+    font-size: 1.4rem;
+    color: var(--ypp-link);
+    text-decoration: none;
 
-.ypp-titleLink:hover {
-  text-decoration: underline;
+    &:hover {
+        text-decoration: underline;
+    }
 }
 
 .ypp-author,
 .ypp-views {
-  font-size: 1.1rem;
-  color: var(--ypp-muted);
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    gap: var(--ypp-spacing-sm);
+    font-size: 1.1rem;
+    color: var(--ypp-muted);
+}
+
+.ypp-watched-count {
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
 }
 
 .ypp-author-link {
-  color: var(--ypp-link);
-  text-decoration: none;
-  transition: color 0.2s;
-}
+    color: var(--ypp-link);
+    text-decoration: none;
+    -webkit-transition: color 0.2s;
+    -o-transition: color 0.2s;
+    transition: color 0.2s;
 
-.ypp-author-link:hover {
-  color: var(--ypp-primary-dark);
-  text-decoration: underline;
+    &:hover {
+        color: var(--ypp-primary-dark);
+        text-decoration: underline;
+    }
+
+    svg {
+        width: 1.1rem;
+        height: 1.1rem;
+    }
 }
 
 .ypp-timestamp,
 .ypp-progressInfo {
-  font-size: 1.3rem;
-  margin-top: 4px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
+    font-size: 1.3rem;
+    margin-top: 4px;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    gap: var(--ypp-spacing-sm);
 }
 
 .ypp-timestamp {
-  color: var(--ypp-muted);
+    color: var(--ypp-muted);
 }
 
 .ypp-timestamp.forced {
@@ -1954,8 +2353,18 @@ html[dark], body.dark-theme {
     /* Video con tiempo fijo Y completado: color mixto */
     color: #15803d;
     font-weight: bold;
-    background: linear-gradient(90deg, var(--ypp-primary-dark) 0%, var(--ypp-success) 100%);
-    background-clip: text;
+    background: -o-linear-gradient(left,
+            var(--ypp-primary-dark) 0%,
+            var(--ypp-success) 100%);
+    background: -webkit-gradient(linear,
+            left top, right top,
+            from(var(--ypp-primary-dark)),
+            to(var(--ypp-success)));
+    background: linear-gradient(90deg,
+            var(--ypp-primary-dark) 0%,
+            var(--ypp-success) 100%);
+    -webkit-background-clip: text;
+            background-clip: text;
 }
 
 /* =========================
@@ -1963,48 +2372,67 @@ html[dark], body.dark-theme {
 ========================= */
 
 .ypp-videoWrapper {
-  display: flex;
-  align-items: center;
-  min-height: 120px; /* Altura fija para virtualización precisa */
-  border-bottom: 1px solid var(--ypp-border);
-  padding: var(--ypp-spacing-sm) var(--ypp-spacing-md);
-  box-sizing: border-box;
-  background: var(--ypp-bg);
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    min-height: 120px;
+    /* Altura fija para virtualización precisa */
+    border-bottom: 1px solid var(--ypp-border);
+    padding: var(--ypp-spacing-sm) var(--ypp-spacing-md);
+    -webkit-box-sizing: border-box;
+            box-sizing: border-box;
+    background: var(--ypp-bg);
 }
 
 .ypp-videoWrapper.playlist-item {
-  border-radius: 6px;
-  transition: all 0.2s ease;
-  height: 140px !important;
+    border-radius: 6px;
+    -webkit-transition: all 0.2s ease;
+    -o-transition: all 0.2s ease;
+    transition: all 0.2s ease;
+    height: 140px !important;
+
+    .ypp-btn-outlined,
+    .ypp-btn-delete {
+        color: var(--ypp-black);
+    }
+
+    .ypp-btn-delete:hover {
+        color: var(--ypp-white);
+    }
 }
 
 .ypp-videoWrapper.regular-item {
-  background-color: var(--ypp-bg-secondary);
-  border-left: 4px solid var(--ypp-border);
-  height: 120px !important; /* Altura estándar */
+    /* background-color: var(--ypp-bg-secondary); */
+    border-left: 2px solid var(--ypp-border);
+    height: 120px !important;
+    /* Altura estándar */
 }
 
 .ypp-playlist-indicator {
-  display: flex;
-  align-items: center;
-  margin: 4px 0;
-  font-size: 0.85em;
- 
- /*  background: rgba(0, 0, 0, 0.75); */
-
-  background: var(--ypp-bg-secondary);
-  padding: 3px 8px;
-  border-radius: var(--ypp-spacing-sm);;
-
-  backdrop-filter: blur(3px);
-
-  
-  
- /*  white-space: nowrap; */
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-  font-weight: bold; 
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: start;
+        -ms-flex-align: start;
+            align-items: start;
+    margin: 4px 0;
+    font-size: 0.85em;
+    font-weight: bold;
+    background: var(--ypp-bg-secondary);
+    padding: 3px 8px;
+    border-radius: var(--ypp-spacing-sm);
+    /*  white-space: nowrap; */
+    overflow: auto;
+    -o-text-overflow: ellipsis;
+       text-overflow: ellipsis;
+    max-width: 100%;
+    width: -webkit-fit-content;
+    width: -moz-fit-content;
+    width: fit-content;
+    max-height: 20px;
 }
 
 .ypp-videoWrapper {
@@ -2012,43 +2440,65 @@ html[dark], body.dark-theme {
 }
 
 .ypp-playlist-link {
-  display: inline-flex;
-  align-items: center;
-  color: var(--ypp-text);
-  opacity: 0.7;
-  transition: opacity 0.2s ease;
-  text-decoration: none; 
+    display: -webkit-inline-box;
+    display: -ms-inline-flexbox;
+    display: inline-flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    color: var(--ypp-text);
+    opacity: 0.7;
+    -webkit-transition: opacity 0.2s ease;
+    -o-transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease;
+    text-decoration: none;
+    overflow: hidden;
 }
 
 .ypp-playlist-link:hover {
-  opacity: 1;
+    opacity: 1;
 }
 
 .ypp-playlist-header {
-  height: 40px !important;
-  max-height: 40px !important;
-  display: flex;
-  align-items: center;
-  padding: 0 var(--ypp-spacing-md);
-  box-sizing: border-box;
-  font-weight: bold;
-  color: var(--ypp-text-highlight);
-  background: var(--ypp-bg);
-  border-bottom: 1px solid var(--ypp-border);
-  overflow: hidden;
+    height: 40px !important;
+    max-height: 40px !important;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    padding: 0 var(--ypp-spacing-md);
+    -webkit-box-sizing: border-box;
+            box-sizing: border-box;
+    font-weight: bold;
+    color: var(--ypp-text-highlight);
+    background: var(--ypp-bg);
+    border-bottom: 1px solid var(--ypp-border);
+    overflow: hidden;
 }
+
 .ypp-playlist-header a {
     color: inherit;
     text-decoration: none;
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
-    align-items: center;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
     gap: 8px;
-    flex: 1;
-    min-width: 0; /* Necesario para que text-overflow funcione en flex child */
+    -webkit-box-flex: 1;
+        -ms-flex: 1;
+            flex: 1;
+    min-width: 0;
+    /* Necesario para que text-overflow funcione en flex child */
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
+    -o-text-overflow: ellipsis;
+       text-overflow: ellipsis;
 }
+
 .ypp-playlist-header a:hover {
     text-decoration: underline;
 }
@@ -2061,130 +2511,199 @@ html[dark], body.dark-theme {
 
 /* Estilos para modo de selección */
 .ypp-videoWrapper.selection-mode {
-  cursor: pointer;
-  transition: all 0.2s ease;
+    cursor: pointer;
+    -webkit-transition: all 0.2s ease;
+    -o-transition: all 0.2s ease;
+    transition: all 0.2s ease;
 }
 
 .ypp-videoWrapper.selection-mode:hover {
-  background-color: var(--ypp-bg) !important;
-  /* transform: translateX(-1px); */
+    background-color: var(--ypp-bg) !important;
+    /* transform: translateX(-1px); */
 }
 
 .ypp-video-checkbox {
-  min-width: 15px;
-  margin: 0 10px;
-  transform: scale(1.2);
-  cursor: pointer;
+    min-width: 15px;
+    margin: 0 10px;
+    -webkit-transform: scale(1.2);
+        -ms-transform: scale(1.2);
+            transform: scale(1.2);
+    cursor: pointer;
 }
 
 /* Estilos para el área de playlist integrada */
 .ypp-playlist-creation-area {
-  margin-top: 12px;
-  padding: 15px;
-  background-color: var(--ypp-bg-secondary);
-  border: 1px solid var(--ypp-border);
-  border-radius: 6px;
-  display: none;
+    margin-top: 12px;
+    padding: 15px;
+    background-color: var(--ypp-bg-secondary);
+    border: 1px solid var(--ypp-border);
+    border-radius: 6px;
+    display: none;
 }
 
 .ypp-playlist-creation-area.active {
-  display: block;
+    display: block;
 }
 
 .ypp-playlist-textarea {
-  width: 100%;
-  height: 50px;
-  max-height: 40px;
-  border: 1px solid var(--ypp-border);
-  border-radius: 4px;
-  font-family: 'Courier New', monospace;
-  font-size: 11px;
-  line-height: 1.3;
-  background-color: var(--ypp-bg);
-  color: var(--ypp-text);
-  resize: none;
-  overflow-y: auto;
-  word-wrap: break-word;
+    width: 100%;
+    height: 50px;
+    max-height: 40px;
+    border: 1px solid var(--ypp-border);
+    border-radius: 4px;
+    font-family: "Courier New", monospace;
+    font-size: 11px;
+    line-height: 1.3;
+    background-color: var(--ypp-bg);
+    color: var(--ypp-text);
+    resize: none;
+    overflow-y: auto;
+    word-wrap: break-word;
 }
 
 .ypp-playlist-actions {
-  display: flex;
-  gap: 10px;
-  margin-top: 10px;
-  justify-content: center;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
 }
 
 .ypp-footer-row.hidden {
-  display: none;
+    display: none;
 }
 
 .ypp-thumb {
-  max-width: 110px;
-  max-height: 80px;
-  object-fit: cover;
-  border-radius: 4px;
-  margin-right: var(--ypp-spacing-sm);
-  flex-shrink: 0;
+    max-width: 110px;
+    max-height: 80px;
+    -o-object-fit: cover;
+       object-fit: cover;
+    border-radius: 4px;
+    margin-right: var(--ypp-spacing-sm);
+    -ms-flex-negative: 0;
+        flex-shrink: 0;
 }
 
 .ypp-infoDiv {
-  flex-grow: 1;
-  min-width: 0; /* Permite que el contenedor se encoja correctamente */
+    -webkit-box-flex: 1;
+        -ms-flex-positive: 1;
+            flex-grow: 1;
+    min-width: 0;
+    /* Permite que el contenedor se encoja correctamente */
 }
 
 .ypp-containerButtonsTime {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-left: auto;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    gap: 8px;
+    margin-left: auto;
 }
 
-.ypp-sort-select, .ypp-filter-select {
-  background: #1a1a1a;
-  border: 1px solid #303030;
-  color: #f1f1f1;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 1.3rem;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-  flex: 1;
-  width: auto;
-  margin-bottom: 8px;
+.ypp-sort-select,
+.ypp-filter-select {
+    background: var(--ypp-bg);
+    border: 1px solid var(--ypp-border);
+    color: var(--ypp-text-secondary);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 1.3rem;
+    cursor: pointer;
+    -webkit-transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    -o-transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    -webkit-box-flex: 1;
+        -ms-flex: 1;
+            flex: 1;
+    min-width: 0;
+    width: auto;
+
+    &:hover {
+        background: var(--ypp-bg-secondary-hover);
+        color: var(--ypp-white);
+    }
+
+    &:active {
+        background: var(--ypp-primary);
+    }
 }
 
-.ypp-sort-select:focus, .ypp-filter-select:focus {
-  outline: none;
-  border-color: #065fd4;
-  background: #252525;
+.ypp-sort-select:focus,
+.ypp-filter-select:focus {
+    outline: none;
+    border-color: var(--ypp-primary);
+    background: var(--ypp-bg);
 }
 
-.ypp-sort-select option, .ypp-filter-select option {
-  background: #1a1a1a;
-  color: #f1f1f1;
+.ypp-sort-select option,
+.ypp-filter-select option {
+    background: var(--ypp-bg);
+    color: var(--ypp-text);
 }
-
 
 .ypp-search-input {
-  background: #1a1a1a;
-  border: 1px solid #303030;
-  color: #f1f1f1;
-  padding: 8px 12px;
-  border-radius: 6px;
-  font-size: 1.3rem;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-  flex: 1;
-  min-width: 200px;
-}
+    background: var(--ypp-bg);
+    border: 1px solid var(--ypp-border);
+    color: var(--ypp-text);
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 1.3rem;
+    -webkit-transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    -o-transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    -webkit-box-flex: 1;
+        -ms-flex: 1;
+            flex: 1;
+    min-width: 200px;
 
-.ypp-search-input:focus {
-  outline: none;
-  border-color: #065fd4;
-  background: #252525;
-}
+    &:hover {
+        background: var(--ypp-bg-secondary-hover);
+        color: var(--ypp-white);
+    }
 
-.ypp-search-input::placeholder {
-  color: #888;
+    &:focus {
+        outline: none;
+        border-color: var(--ypp-primary);
+        background: var(--ypp-bg-secondary);
+    }
+
+    &::-webkit-input-placeholder {
+        color: var(--ypp-text-secondary);
+    }
+
+    &::-moz-placeholder {
+        color: var(--ypp-text-secondary);
+    }
+
+    &:-ms-input-placeholder {
+        color: var(--ypp-text-secondary);
+    }
+
+    &::-ms-input-placeholder {
+        color: var(--ypp-text-secondary);
+    }
+
+    &::placeholder {
+        color: var(--ypp-text-secondary);
+    }
 }
 
 /* =========================
@@ -2192,58 +2711,69 @@ html[dark], body.dark-theme {
 ========================= */
 
 .ypp-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 5px 14px;
-  font-weight: 500;
-  font-size: 1.4rem;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  border: none;
-  outline: none;
-  position: relative;
-  overflow: hidden;
-  min-height: 20px;
-  gap: 8px;
-  background: var(--ypp-primary);
-  color: var(--ypp-white);
+    display: -webkit-inline-box;
+    display: -ms-inline-flexbox;
+    display: inline-flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    padding: 5px 14px;
+    font-weight: 500;
+    font-size: 1.4rem;
+    border-radius: 8px;
+    cursor: pointer;
+    -webkit-transition: all 0.2s ease;
+    -o-transition: all 0.2s ease;
+    transition: all 0.2s ease;
+    border: none;
+    outline: none;
+    position: relative;
+    overflow: hidden;
+    min-height: 20px;
+    gap: 8px;
+    background: var(--ypp-primary);
+    color: var(--ypp-white);
 }
 
 .ypp-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(255, 255, 255, 0.1);
-  opacity: 0;
-  transition: opacity 0.2s ease;
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.1);
+    opacity: 0;
+    -webkit-transition: opacity 0.2s ease;
+    -o-transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease;
 }
 
 .ypp-btn:hover::before {
-  opacity: 1;
+    opacity: 1;
 }
 
 .ypp-btn:active {
-  transform: scale(0.98);
+    -webkit-transform: scale(0.98);
+        -ms-transform: scale(0.98);
+            transform: scale(0.98);
 }
 
 .ypp-btn:hover {
-  background: var(--ypp-primary-dark);
+    background: var(--ypp-primary-dark);
 }
 
 .ypp-btn:active {
-  background: #0441a1;
+    background: #0441a1;
 }
 
-
 .ypp-btn-outlined {
-  background: transparent;
-  border: 1px solid #065fd4;
-    color: inherit;
+    background: transparent;
+    border: 1px solid var(--ypp-primary);
+    color: var(--ypp-text);
 
     svg {
         width: 16px;
@@ -2251,16 +2781,34 @@ html[dark], body.dark-theme {
         margin: 0;
     }
 
-  &:hover {
-    background: rgba(6, 95, 212, 0.3);
-    color: inherit;
-  }
+    &:hover {
+        background: rgba(6, 95, 212, 0.3);
+    }
+
+    &:focus {
+        background: var(--ypp-bg-secondary-hover);
+        color: var(--ypp-white);
+    }
+}
+
+.ypp-btn-primary {
+    background: var(--ypp-primary);
+    color: var(--ypp-white);
+
+    &:hover,
+    &:active {
+        background: var(--ypp-primary-dark);
+    }
+}
+
+.ypp-btn-view-saved-videos,
+.ypp-save-button {
+    color: var(--ypp-white);
 }
 
 .ypp-save-button {
-  background: transparent;
-  border: 1px solid var(--ypp-success);
-    color: inherit;
+    background: transparent;
+    border: 1px solid var(--ypp-success);
 
     svg {
         width: 16px;
@@ -2268,57 +2816,53 @@ html[dark], body.dark-theme {
         margin: 0;
     }
 
-  &:hover {
-    background: rgba(22, 212, 6, 0.3);
-    color: inherit;
-  }
+    &:hover {
+        background: rgba(22, 212, 6, 0.3);
+    }
 
-  &:active {
-    background: #008855;
-  }
+    &:active {
+        background: #008855;
+    }
 }
 
 .ypp-btn-secondary {
-  background: #f1f1f1;
-  color: #0f0f0f;
-}
+    background: var(--ypp-bg-btn-secondary);
 
-.ypp-btn-secondary:hover {
-  background: var(--ypp-success-dark);
-  color: var(--ypp-bg);
-}
+    &:hover {
+        background: var(--ypp-white);
+        color: var(--ypp-black);
+    }
 
-.ypp-btn-secondary:active {
-  background: #d9d9d9;
+    &:active {
+        background: var(--ypp-primary);
+        color: var(--ypp-white);
+    }
 }
 
 .ypp-btn-delete {
-  background: transparent;
-  border: 1px solid var(--ypp-danger);
-  color: var(--ypp-danger);;
-}
+    background: transparent;
+    border: 1px solid var(--ypp-danger);
+    color: var(--ypp-text-secondary);
 
-.ypp-btn-delete:hover {
-  background: var(--ypp-danger);
-  color: inherit;
-}
+    &:hover {
+        background: var(--ypp-danger);
+        color: var(--ypp-white);
+    }
 
-.ypp-btn-delete:active {
-  background: rgba(255, 68, 68, 0.2);
+    &:active {
+        background: rgba(255, 68, 68, 0.2);
+        color: var(--ypp-text-secondary);
+    }
 }
-
 
 .ypp-btn-danger {
-  background: #ff4444;
-  color: #ffffff;
-}
+    background: var(--ypp-danger);
+    color: var(--ypp-white);
 
-.ypp-btn-danger:hover {
-  background: var(--ypp-danger);
-}
-
-.ypp-btn-danger:active {
-  background: #dd2222;
+    &:hover,
+    &:active {
+        background: var(--ypp-danger-dark);
+    }
 }
 
 .ypp-btn-small {
@@ -2326,38 +2870,68 @@ html[dark], body.dark-theme {
     width: 36px;
     height: 36px;
     min-height: 36px;
-    flex-shrink: 0;
+    -ms-flex-negative: 0;
+        flex-shrink: 0;
     border-radius: 18px;
 }
 
-.ypp-btn-close{
-  background: var(--ypp-text);
-  border: 1px solid #303030;
-  color: var(--ypp-bg);
+.ypp-btn-close {
+    background: var(--ypp-bg);
+    border: 1px solid #303030;
+    color: var(--ypp-text);
+
+    &:hover {
+        background: var(--ypp-danger);
+        color: var(--ypp-white);
+    }
 }
 
-.ypp-btn-close:hover {
-background: var(--ypp-danger);
+@-webkit-keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
 }
-
-
-
-
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@-webkit-keyframes slideUp {
+    from {
+        opacity: 0;
+        -webkit-transform: translateY(20px) scale(0.95);
+                transform: translateY(20px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        -webkit-transform: translateY(0) scale(1);
+                transform: translateY(0) scale(1);
+    }
 }
 
 @keyframes slideUp {
-  from {
-    opacity: 0;
-    transform: translateY(20px) scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+    from {
+        opacity: 0;
+        -webkit-transform: translateY(20px) scale(0.95);
+                transform: translateY(20px) scale(0.95);
+    }
+
+    to {
+        opacity: 1;
+        -webkit-transform: translateY(0) scale(1);
+                transform: translateY(0) scale(1);
+    }
 }
 
 /* =========================
@@ -2365,68 +2939,96 @@ background: var(--ypp-danger);
 ========================= */
 
 .ypp-toast-container {
-  position: fixed;
-  top: var(--ypp-spacing-md);
-  right: var(--ypp-spacing-md);
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  z-index: var(--ypp-z-toast);
-  pointer-events: none;
+    position: fixed;
+    top: var(--ypp-spacing-md);
+    right: var(--ypp-spacing-md);
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    gap: 0.5rem;
+    z-index: var(--ypp-z-toast);
+    pointer-events: none;
 }
 
 .ypp-toast {
-  position: relative;
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  align-items: center;
-  background: var(--ypp-bg, #0f0f0f);
-  color: var(--ypp-text, #f1f1f1);
-  padding: 12px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--ypp-border, #303030);
-  font-size: 1.4rem;
-  max-width: 300px;
-  animation: slideInRight 0.3s ease-out;
-  transition: opacity 0.2s ease;
-  backdrop-filter: blur(10px);
-  pointer-events: auto;
-  overflow: hidden; /* Para que la barra de progreso no se salga de los bordes redondeados */
+    position: relative;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    gap: 10px;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    background: var(--ypp-bg);
+    color: var(--ypp-text);
+    padding: 12px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--ypp-border);
+    font-size: 1.4rem;
+    max-width: 300px;
+    -webkit-animation: slideInRight 0.3s ease-out;
+            animation: slideInRight 0.3s ease-out;
+    -webkit-transition: opacity 0.2s ease;
+    -o-transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease;
+    -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+    pointer-events: auto;
+    overflow: hidden;
+    /* Para que la barra de progreso no se salga de los bordes redondeados */
 }
 
 .ypp-toast-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 4px;
-  background: var(--ypp-primary);
-  width: 100%;
-  transform-origin: left;
-  transform: scaleX(1);
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 4px;
+    background: var(--ypp-primary);
+    width: 100%;
+    -webkit-transform-origin: left;
+        -ms-transform-origin: left;
+            transform-origin: left;
+    -webkit-transform: scaleX(1);
+        -ms-transform: scaleX(1);
+            transform: scaleX(1);
 }
 
 .ypp-toast.persistent {
-  position: relative;
+    position: relative;
 }
 
 .ypp-toast-close {
-  background: var(--ypp-text);
-  border: 1px solid #303030;
-  color: var(--ypp-bg);
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  transition: background-color 0.2s ease;
-  font-size: 12px;
+    background: var(--ypp-text);
+    border: 1px solid #303030;
+    color: var(--ypp-bg);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    cursor: pointer;
+    -webkit-transition: background-color 0.2s ease;
+    -o-transition: background-color 0.2s ease;
+    transition: background-color 0.2s ease;
+    font-size: 12px;
 }
 
 .ypp-toast-close:hover {
-  background: var(--ypp-danger);
+    background: var(--ypp-danger);
 }
 
 .ypp-toast-action {
@@ -2445,124 +3047,205 @@ background: var(--ypp-danger);
 ========================= */
 
 .ypp-modalOverlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: var(--ypp-overlay, rgba(0, 0, 0, 0.8));
-  backdrop-filter: blur(4px);
-  z-index: var(--ypp-z-modal);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: fadeIn 0.2s ease-out;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: var(--ypp-overlay, rgba(0, 0, 0, 0.8));
+    -webkit-backdrop-filter: blur(4px);
+            backdrop-filter: blur(4px);
+    z-index: var(--ypp-z-modal);
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    -webkit-animation: fadeIn 0.2s ease-out;
+            animation: fadeIn 0.2s ease-out;
 }
 
 .ypp-modalBox {
-  background: var(--ypp-bg, #0f0f0f);
-  border: 1px solid var(--ypp-border, #303030);
-  border-radius: 12px;
-  padding: 0;
-  color: var(--ypp-text, #f1f1f1);
-  max-width: 500px;
-  width: 90%;
-  max-height: 85vh;
-  overflow: hidden;
-  box-shadow: var(--ypp-shadow, 0 12px 24px rgba(0, 0, 0, 0.5));
-  animation: slideUp 0.3s ease-out;
-  display: flex;
-  flex-direction: column;
-  opacity: 0;
-  transform: translateY(20px) scale(0.95);
-  animation: modalSlideIn 0.3s ease-out forwards;
+    background: var(--ypp-bg);
+    border: 1px solid var(--ypp-border);
+    border-radius: 12px;
+    padding: 0;
+    color: var(--ypp-text);
+    max-width: 600px;
+    width: 90%;
+    max-height: 85vh;
+    /* overflow: hidden; */
+    -webkit-animation: slideUp 0.3s ease-out;
+            animation: slideUp 0.3s ease-out;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-orient: vertical;
+    -webkit-box-direction: normal;
+        -ms-flex-direction: column;
+            flex-direction: column;
+    opacity: 0;
+    -webkit-transform: translateY(20px) scale(0.95);
+        -ms-transform: translateY(20px) scale(0.95);
+            transform: translateY(20px) scale(0.95);
+    -webkit-animation: modalSlideIn 0.3s ease-out forwards;
+            animation: modalSlideIn 0.3s ease-out forwards;
 }
 
 /* Tabs para GitHub Backup */
 .ypp-github-tabs {
-  display: flex;
-  gap: 5px;
-  margin: 15px 0;
-  border-bottom: 1px solid var(--ypp-border, #303030);
-  background: rgba(255, 255, 255, 0.03);
-  padding: 4px;
-  border-radius: 8px;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    gap: var(--ypp-spacing-lg);
+    border-radius: 8px;
 }
 
 .ypp-github-tab {
-  flex: 1;
-  padding: 8px;
-  text-align: center;
-  cursor: pointer;
-  border-radius: 6px;
-  font-size: 0.9em;
-  font-weight: 500;
-  transition: all 0.2s;
-  color: var(--ypp-text-secondary, #aaaaaa);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
+    -webkit-box-flex: 1;
+        -ms-flex: 1;
+            flex: 1;
+    padding: 8px;
+    text-align: center;
+    cursor: pointer;
+    border-radius: 6px 6px 0 0;
+    font-size: 0.9em;
+    font-weight: 500;
+    -webkit-transition: all 0.2s;
+    -o-transition: all 0.2s;
+    transition: all 0.2s;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: center;
+        -ms-flex-pack: center;
+            justify-content: center;
+    gap: 6px;
+    padding: var(--ypp-spacing-lg);
 }
 
 .ypp-github-tab.active {
-  background: var(--ypp-primary, #ff0000);
-  color: white;
+    background: var(--ypp-bg-secondary);
 }
 
 .ypp-github-tab:not(.active):hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--ypp-text, #f1f1f1);
+    background: var(--ypp-bg);
+}
+
+@-webkit-keyframes modalSlideIn {
+    to {
+        opacity: 1;
+        -webkit-transform: translateY(0) scale(1);
+                transform: translateY(0) scale(1);
+    }
 }
 
 @keyframes modalSlideIn {
-  to {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
+    to {
+        opacity: 1;
+        -webkit-transform: translateY(0) scale(1);
+                transform: translateY(0) scale(1);
+    }
 }
 
 .ypp-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 6px 12px;
-  border-bottom: 1px solid var(--ypp-border, #303030);
-  background: var(--ypp-bg, #0f0f0f);
-  border-radius: 12px 12px 0 0;
-  flex-shrink: 0;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: justify;
+        -ms-flex-pack: justify;
+            justify-content: space-between;
+    padding: 6px 12px;
+    border-bottom: 1px solid var(--ypp-border);
+    background: var(--ypp-bg);
+    border-radius: 12px 12px 0 0;
+    -ms-flex-negative: 0;
+        flex-shrink: 0;
 }
 
 .ypp-header h2 {
-  margin: 0;
-  color: var(--ypp-text, #f1f1f1);
-  font-size: 1.8rem;
-  font-weight: 500;
+    margin: 0;
+    color: var(--ypp-text);
+    font-size: 1.8rem;
+    font-weight: 500;
 }
 
 .ypp-modalTitle {
-  font-weight: 500;
-  color: var(--ypp-text, #f1f1f1);
-  font-size: 1.6rem;
-  margin: 0;
-  flex: 1;
-  align-items: center;
-  justify-content: flex-start;
-  display: flex;
-  gap: 5px;
+    font-weight: 500;
+    color: var(--ypp-text);
+    font-size: 1.6rem;
+    margin: 0;
+    -webkit-box-flex: 1;
+        -ms-flex: 1;
+            flex: 1;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    -webkit-box-pack: start;
+        -ms-flex-pack: start;
+            justify-content: flex-start;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    gap: 5px;
 
-  svg {
-    width: 20px;
-    height: 20px;
-  }
+    svg {
+        width: 20px;
+        height: 20px;
+    }
+}
+
+.ypp-modalTitle-version {
+    color: var(--ypp-bg-secondary-hover);
+    margin-left: 8px;
+    -webkit-user-select: none;
+       -moz-user-select: none;
+        -ms-user-select: none;
+            user-select: none;
+    font-size: 1.2rem;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+}
+
+.ypp-log-textarea {
+    width: 90%;
+    height: 120px;
+    background: var(--ypp-bg-secondary);
+    color: var(--ypp-text-secondary);
+    border: 1px solid var(--ypp-border);
+    border-radius: 4px;
+    padding: 8px;
+    font-family: monospace;
+    font-size: 1.2rem;
+    resize: vertical;
+    outline: none;
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
 }
 
 .ypp-modalBody {
-  font-size: 1.4rem;
-  padding: 10px 24px;
-  flex: 1;
-  background: var(--ypp-bg, #0f0f0f);
-  min-height: 0;
+    font-size: 1.4rem;
+    padding: 10px 24px;
+    -webkit-box-flex: 1;
+        -ms-flex: 1;
+            flex: 1;
+    background: var(--ypp-bg);
+    min-height: 0;
 }
 
 /* =========================
@@ -2570,27 +3253,30 @@ background: var(--ypp-danger);
 ========================= */
 
 .ypp-label {
-  display: flex;
-  align-items: center;
-  color: var(--ypp-text, #f1f1f1);
-  font-size: 1.4rem;
-  transition: color 0.2s ease;
-  white-space: nowrap;
-  margin: 8px 0;
-  gap: 4px;
-
-  span {
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-}
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    color: var(--ypp-text);
+    font-size: 1.4rem;
+    -webkit-transition: color 0.2s ease;
+    -o-transition: color 0.2s ease;
+    transition: color 0.2s ease;
+    white-space: nowrap;
+    /*   margin: 8px 0; */
+    gap: var(--ypp-spacing-sm);
 
-.ypp-label input[type="checkbox"] {
-  margin-right: 12px;
-  width: 18px;
-  height: 18px;
-  accent-color: var(--ypp-input-focus, #065fd4);
+    span {
+        display: -webkit-box;
+        display: -ms-flexbox;
+        display: flex;
+        -webkit-box-align: center;
+            -ms-flex-align: center;
+                align-items: center;
+        gap: 5px;
+    }
 }
 
 .ypp-label-language {
@@ -2602,24 +3288,93 @@ background: var(--ypp-danger);
 }
 
 .ypp-input {
-  width: 100%;
-  padding: 6px;
-  background: var(--ypp-input, #1a1a1a);
-  border: 1px solid var(--ypp-input-border, #303030);
-  border-radius: 8px;
-  color: var(--ypp-text, #f1f1f1);
-  font-size: 1.4rem;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-}
+    width: 100%;
+    padding: 6px;
+    background: var(--ypp-input);
+    border: 1px solid var(--ypp-input-border);
+    border-radius: 8px;
+    color: var(--ypp-text);
+    font-size: 1.4rem;
+    -webkit-transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    -o-transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
 
-.ypp-input:focus {
-  outline: none;
-  border-color: var(--ypp-input-focus, #065fd4);
-  background: var(--ypp-bg-secondary, #252525);
-}
+    &:hover {
+        background: var(--ypp-primary);
 
-.ypp-input::placeholder {
-  color: var(--ypp-text-secondary, #888);
+        &::-webkit-input-placeholder {
+            color: var(--ypp-white);
+        }
+
+        &::-moz-placeholder {
+            color: var(--ypp-white);
+        }
+
+        &:-ms-input-placeholder {
+            color: var(--ypp-white);
+        }
+
+        &::-ms-input-placeholder {
+            color: var(--ypp-white);
+        }
+
+        &::placeholder {
+            color: var(--ypp-white);
+        }
+    }
+
+    &:focus {
+        outline: none;
+        border-color: var(--ypp-primary);
+        background: var(--ypp-bg-secondary);
+        color: var(--ypp-text);
+
+        &::-webkit-input-placeholder {
+            color: var(--ypp-text);
+        }
+
+        &::-moz-placeholder {
+            color: var(--ypp-text);
+        }
+
+        &:-ms-input-placeholder {
+            color: var(--ypp-text);
+        }
+
+        &::-ms-input-placeholder {
+            color: var(--ypp-text);
+        }
+
+        &::placeholder {
+            color: var(--ypp-text);
+        }
+    }
+
+    &::-webkit-input-placeholder {
+        color: var(--ypp-text-secondary);
+    }
+
+    &::-moz-placeholder {
+        color: var(--ypp-text-secondary);
+    }
+
+    &:-ms-input-placeholder {
+        color: var(--ypp-text-secondary);
+    }
+
+    &::-ms-input-placeholder {
+        color: var(--ypp-text-secondary);
+    }
+
+    &::placeholder {
+        color: var(--ypp-text-secondary);
+    }
 }
 
 .ypp-percent-symbol {
@@ -2627,32 +3382,34 @@ background: var(--ypp-danger);
 }
 
 .ypp-select {
-  width: 100%;
-  padding: 12px 16px;
-  background: var(--ypp-input, #1a1a1a);
-  border: 1px solid var(--ypp-input-border, #303030);
-  border-radius: 8px;
-  color: var(--ypp-text, #f1f1f1);
-  font-size: 1.4rem;
-  cursor: pointer;
-  transition: border-color 0.2s ease, background-color 0.2s ease;
-}
+    padding: 5px 12px;
+    background: var(--ypp-input);
+    border: 1px solid var(--ypp-input-border);
+    border-radius: 8px;
+    color: var(--ypp-text);
+    font-size: 1.4rem;
+    cursor: pointer;
+    -webkit-transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    -o-transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
+    transition:
+        border-color 0.2s ease,
+        background-color 0.2s ease;
 
-.ypp-select:focus {
-  outline: none;
-  border-color: var(--ypp-input-focus, #065fd4);
-  background: var(--ypp-bg-secondary, #252525);
-}
-
-.ypp-select option {
-  background: var(--ypp-input, #1a1a1a);
-  color: var(--ypp-text, #f1f1f1);
+    &:focus {
+        outline: none;
+        border-color: var(--ypp-primary);
+        background: var(--ypp-bg-secondary);
+    }
 }
 
 .ypp-input-small {
-  margin-left: 10px;
-  border-radius: 10px;
-  padding: 2px 16px;
+    margin-left: 10px;
+    border-radius: 10px;
+    padding: 2px 16px;
 }
 
 /* =========================
@@ -2660,12 +3417,14 @@ background: var(--ypp-danger);
 ========================= */
 
 .ypp-floatingBtnContainer {
-  position: fixed;
-  bottom: var(--ypp-spacing-md);
-  right: var(--ypp-spacing-md);
-  z-index: var(--ypp-z-overlay);
-  display: flex;
-  gap: 10px;
+    position: fixed;
+    bottom: var(--ypp-spacing-md);
+    right: var(--ypp-spacing-md);
+    z-index: var(--ypp-z-overlay);
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    gap: 10px;
 }
 
 /* =========================
@@ -2673,28 +3432,23 @@ background: var(--ypp-danger);
 ========================= */
 
 .ypp-language-selector {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+    display: -webkit-box;
+    display: -ms-flexbox;
+    display: flex;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    gap: 8px;
 }
 
 .ypp-language-flag {
-  font-size: 1.2em;
-  margin-right: 5px;
+    font-size: 1.2em;
+    margin-right: 5px;
 }
-
 
 /* =========================
    GitHub Backup
 ========================= */
-.ypp-github-options {
-    display: flex;
-    flex-direction: column;
-    background: var(--ypp-border);
-    border-radius: var(--ypp-spacing-sm);
-    padding: 10px;
-    margin-top: 10px;
-}
 
 .ypp-github-settings-header {
     margin-bottom: 10px;
@@ -2702,15 +3456,23 @@ background: var(--ypp-danger);
 
 .ypp-github-help-toggle {
     cursor: pointer;
-    color: var(--ypp-primary);
+    color: var(--ypp-link);
     font-size: 0.85em;
+    display: -webkit-box;
+    display: -ms-flexbox;
     display: flex;
-    align-items: center;
-    gap: 4px;
+    -webkit-box-align: center;
+        -ms-flex-align: center;
+            align-items: center;
+    gap: var(--ypp-spacing-sm);
     margin-top: 5px;
     opacity: 0.8;
+
+    &:hover {
+        opacity: 1;
+    }
 }
-.ypp-github-help-toggle:hover { opacity: 1; }
+
 .ypp-github-help-content {
     font-size: 0.8em;
     color: var(--ypp-text-secondary);
@@ -2720,29 +3482,36 @@ background: var(--ypp-danger);
     margin-top: 5px;
     display: none;
 }
-.ypp-github-help-toggle.active + .ypp-github-help-content {
-    display: block;
-}
 
-.ypp-github-token-container {
-    display: flex;
-    flex-direction: column;
-    gap: 5px;
-    background: var(--ypp-bg-secondary);
-    border-radius: var(--ypp-spacing-sm);
-    padding: var(--ypp-spacing-md);
+.ypp-github-help-toggle.active+.ypp-github-help-content {
+    display: block;
 }
 
 .ypp-github-help-important {
     margin: 0;
-
-    color: #ff9800;
+    color: var(--ypp-warning);
     background: var(--ypp-bg);
     border-radius: var(--ypp-spacing-sm);
     padding: 5px;
+    width: -webkit-fit-content;
+    width: -moz-fit-content;
     width: fit-content;
     font-weight: bold;
     text-transform: uppercase;
+}
+
+.ypp-support-options {
+    border-top: 1px solid var(--ypp-border);
+    font-size: 1.4rem;
+    color: var(--ypp-text);
+    background: var(--ypp-bg-secondary);
+
+    /* display: flex;
+    flex-direction: column;
+    gap: var(--ypp-spacing-md); */
+    background: var(--ypp-border);
+    border-radius: 6px;
+    padding: 10px;
 }
 `;
         document.head.appendChild(style);
@@ -2774,13 +3543,32 @@ background: var(--ypp-danger);
 
     // SVGs como strings para reemplazar emojis
     const SVG_ICONS = {
+        // https://www.svgrepo.com/svg/453347/folder
         folder: '<svg class="ypp-svgFolderIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M10 4H4c-1.11 0-2 .89-2 2v12c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V8c0-1.11-.89-2-2-2h-8l-2-2z"/></svg>',
-        timer: '<svg class="ypp-svgTimerIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 1H9v2h6V1zm-4 13h2V8h-2v6zm8.03-6.61l1.42-1.42c-.43-.51-.9-.99-1.41-1.41l-1.42 1.42A8.962 8.962 0 0 0 12 4c-4.97 0-9 4.03-9 9s4.02 9 9 9a9 9 0 0 0 7.03-14.61zM12 20c-3.87 0-7-3.13-7-7s3.13-7 7-7 7 3.13 7 7-3.13 7-7 7z"/></svg>',
+
+        // https://www.svgrepo.com/svg/502680/folder
+        folderOutline: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 17V7a2 2 0 0 1 2-2h4.586a1 1 0 0 1 .707.293L12 7h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2"/></svg>',
+
+        // https://www.svgrepo.com/svg/511175/timer - CC Attribution License
+        timer: '<svg class="ypp-svgTimerIcon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 13V9m9-3-2-2m-9-2h4m-2 19a8 8 0 1 1 0-16 8 8 0 0 1 0 16"/></svg>',
+
+
+        // https://fontawesome.com/icons/clock-rotate-left?f=classic&s=solid - CC BY 4.0 license https://fontawesome.com/license/free
+        // clockRotateLeft: '<svg class="ypp-svgFolderIcon" fill="currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><!--!Font Awesome Free v7.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free Copyright 2026 Fonticons, Inc.--><path d="M320 128c106 0 192 86 192 192s-86 192-192 192c-65.2 0-122.9-32.5-157.6-82.3-10.1-14.5-30.1-18-44.6-7.9s-18 30.1-7.9 44.6C156.1 532.6 233 576 320 576c141.4 0 256-114.6 256-256S461.4 64 320 64c-85.7 0-161.5 42.1-208 106.7V144c0-17.7-14.3-32-32-32s-32 14.3-32 32v112c0 17.7 14.3 32 32 32h112.1c17.7 0 32-14.3 32-32s-14.3-32-32-32h-38.3c33.1-57.4 95.2-96 166.2-96m24 88c0-13.3-10.7-24-24-24s-24 10.7-24 24v104c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V216z"/></svg>',
+
+
+        // https://www.svgrepo.com/svg/502700/history
+        clockRotateLeft: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.528 16.702a8 8 0 1 0-1.512-4.2m0 0-1.5-1.5m1.5 1.5 1.5-1.5"/><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3"/></svg>',
+
+
+        // https://www.svgrepo.com/svg/309446/cloud-backup
+        // https://www.svgrepo.com/svg/309451/code
+
         check: '<svg width="16" height="16" viewBox="0 0 24 24" fill="var(--ypp-success)"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
         checkCircular: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 64 64"><circle cx="32" cy="32" r="30" fill="#4bd37b"/><path fill="#fff" d="M46 14 25 35.6l-7-7.2-7 7.2L25 50l28-28.8z"/></svg>',
         save: '<svg class="ypp-svgSaveIcon" width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V7l-4-4zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3zm3-10H5V5h10v4z"/></svg>',
         saveWithCheckCircular: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="#fff" d="M17 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14c1.1 0 2-.9 2-2V7zm-5 16c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3m3-10H5V5h10z"/><circle cx="17.5" cy="17.5" r="4.5" fill="#4bd37b"/><path fill="#fff" d="m19.5 15.5-2.3 2.6-1.2-1.2-.9.9 2.1 2.1 3.2-3.6z"/></svg>',
-        bookmark: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M4 4a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v16.943c0 1.668-1.923 2.603-3.236 1.572L12 18.772l-4.764 3.743C5.923 23.546 4 22.611 4 20.942zm3-1a1 1 0 0 0-1 1v16.943l6-4.715 6 4.714V4a1 1 0 0 0-1-1z" clip-rule="evenodd"/></svg>',
+        bookmarkOutline: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M4 4a3 3 0 0 1 3-3h10a3 3 0 0 1 3 3v16.943c0 1.668-1.923 2.603-3.236 1.572L12 18.772l-4.764 3.743C5.923 23.546 4 22.611 4 20.942zm3-1a1 1 0 0 0-1 1v16.943l6-4.715 6 4.714V4a1 1 0 0 0-1-1z" clip-rule="evenodd"/></svg>',
         bookmarkFill: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><path fill="var(--ypp-success)" d="M5 6c0-1.4 0-2.1.272-2.635a2.5 2.5 0 0 1 1.093-1.093C6.9 2 7.6 2 9 2h6c1.4 0 2.1 0 2.635.272a2.5 2.5 0 0 1 1.092 1.093C19 3.9 19 4.6 19 6v13.208c0 1.056 0 1.583-.217 1.856a1 1 0 0 1-.778.378c-.349.002-.764-.324-1.593-.976L12 17l-4.411 3.466c-.83.652-1.245.978-1.594.976a1 1 0 0 1-.778-.378C5 20.791 5 20.264 5 19.208z"/></svg>',
         chart: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>',
         settings: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>',
@@ -2791,12 +3579,14 @@ background: var(--ypp-danger);
         upload: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>',
         externalLink: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 19H5V5h7V3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2v-7h-2v7zM14 3v2h3.59l-9.83 9.83 1.41 1.41L19 6.41V10h2V3h-7z"/></svg>',
         playlist: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>',
-        playlistRemove: '<svg class="ypp-svgPlaylistRemove" xmlns="http://www.w3.org/2000/svg"><path fill="#000" d="M15.964 4.634h-12v2h12zM15.964 8.634h-12v2h12zM3.964 12.634h8v2h-8zM12.965 13.71l1.414-1.415 2.121 2.121 2.121-2.12 1.415 1.413-2.122 2.122 2.122 2.12-1.415 1.415-2.121-2.121-2.121 2.121-1.415-1.414 2.122-2.122z"/></svg>',
+        playlistRemove: '<svg class="ypp-svgPlaylistRemove" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M15.964 4.634h-12v2h12zM15.964 8.634h-12v2h12zM3.964 12.634h8v2h-8zM12.965 13.71l1.414-1.415 2.121 2.121 2.121-2.12 1.415 1.413-2.122 2.122 2.122 2.12-1.415 1.415-2.121-2.121-2.121 2.121-1.415-1.414 2.122-2.122z"/></svg>',
         copy: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M16 1H4c-1.1 0-2 .9-2 2v14h2V3h12V1zm3 4H8c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h11c1.1 0 2-.9 2-2V7c0-1.1-.9-2-2-2zm0 16H8V7h11v14z"/></svg>',
         // calendar: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>',
         // sort: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>',
         locked: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" xml:space="preserve" version="1.1" viewBox="0 0 30 30"><path d="M9 16V8c0-3.3 2.7-6 6-6h0c3.3 0 6 2.7 6 6v8" style="fill:none;stroke:#6a83ba;stroke-width:4;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10"/><path d="M22 29H8c-1.1 0-2-.9-2-2V16c0-1.1.9-2 2-2h14c1.1 0 2 .9 2 2v11c0 1.1-.9 2-2 2z" style="fill:#f2bb41;stroke:#f2bb41;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10"/><path d="M15 24h0c-.6 0-1-.4-1-1v-3c0-.6.4-1 1-1h0c.6 0 1 .4 1 1v3c0 .6-.4 1-1 1z" style="fill:#354c75;stroke:#354c75;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:10"/></svg>',
         unlocked: '<svg idth="16" height="16" xmlns="http://www.w3.org/2000/svg" xml:space="preserve" viewBox="0 0 512 512"><path fill="#c9d0d7" d="M484.17 244.87H417.4a16.7 16.7 0 0 1-16.7-16.7v-77.9c0-27.63-22.46-50.1-50.08-50.1s-50.09 22.47-50.09 50.1v111.3a16.7 16.7 0 0 1-16.7 16.7h-66.78a16.7 16.7 0 0 1-16.7-16.7v-111.3C200.35 67.4 267.76 0 350.62 0s150.26 67.4 150.26 150.26v77.91a16.7 16.7 0 0 1-16.7 16.7z"/><path fill="#b8c2c9" d="M400.7 150.26v77.91a16.7 16.7 0 0 0 16.7 16.7h66.78a16.7 16.7 0 0 0 16.7-16.7v-77.9C500.86 67.4 433.46 0 350.6 0v100.17a50.14 50.14 0 0 1 50.09 50.1z"/><path fill="#e79d2e" d="M328.35 512H61.22a50.14 50.14 0 0 1-50.09-50.09V294.96a50.14 50.14 0 0 1 50.09-50.09h267.13a50.14 50.14 0 0 1 50.08 50.09V461.9A50.14 50.14 0 0 1 328.35 512z"/><path fill="#d8842a" d="M378.44 461.91V294.96a50.14 50.14 0 0 0-50.1-50.09H194.79V512h133.57a50.14 50.14 0 0 0 50.08-50.09z"/><g fill="#6e6057"><path d="M194.78 445.22a16.7 16.7 0 0 1-16.7-16.7v-66.78a16.7 16.7 0 0 1 33.4 0v66.78a16.7 16.7 0 0 1-16.7 16.7z"/><path d="M194.78 378.44c-18.41 0-33.39-14.98-33.39-33.4s14.98-33.39 33.4-33.39 33.38 14.98 33.38 33.4-14.97 33.38-33.39 33.38zm0-33.4h.11-.1zm0 0h.11-.1zm0 0h.11-.1zm0 0zm0 0h.11-.1zm0-.01h.11-.1zm0 0h.11-.1z"/></g><g fill="#615349"><path d="M211.48 428.52v-66.78a16.7 16.7 0 0 0-16.7-16.7v100.18a16.7 16.7 0 0 0 16.7-16.7z"/><path d="M194.78 378.44c18.42 0 33.4-14.98 33.4-33.4s-14.98-33.39-33.4-33.39v66.79z"/></g></svg>',
+
+        // https://www.svgrepo.com/svg/187087/push-pin - CC0 License
         pin: '<svg class="ypp-svgPinIcon" width="16" height="16" viewBox="0 0 508.901 508.901" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve"><defs><path id="a" fill="#a31c09" d="m342.08 279.177 58.606-58.606c-24.594-6.727-48.746-21.389-69.853-42.496-21.116-21.116-35.257-45.789-41.366-70.991l-59.727 59.719-48.719 48.719c6.118 25.212 22.581 47.554 43.697 68.661 21.107 21.116 44.067 36.97 68.661 43.697l48.701-48.703z"/></defs><path fill="#a31c09" d="M505.605 190.556c-13.789 13.789-66.887-16.949-118.599-68.661s-82.45-104.81-68.661-118.599 66.887 16.949 118.599 68.661 82.45 104.811 68.661 118.599"/><path fill="#d9dbe8" d="m0 508.9 112.358-162.295 49.937 49.938z"/><path fill="#ce3929" d="M387.007 121.894c-51.712-51.712-82.45-104.81-68.661-118.599-49.991 49.991-39.23 123.065 12.482 174.777s121.671 65.589 171.652 15.607l-.786-.821c-18.069 6.577-66.93-23.207-114.687-70.964"/><use xlink:href="#a"/><path fill="#ce3929" d="M311.324 389.978c2.348-21.486-1.607-44.226-11.829-68.22l-6.118 6.126c-24.594-6.735-47.554-22.59-68.661-43.697-21.116-21.107-37.579-43.458-43.697-68.661l6.241-6.241-.274-.282c-24.143-10.346-47.016-14.345-68.626-11.979-40.157 4.378-64.071 45.877-47.634 82.785 12.509 28.072 35.566 60.734 66.322 91.489 30.746 30.747 63.417 53.813 91.489 66.313 36.901 16.437 78.4-7.477 82.787-47.633"/></svg>',
         playOrPause: '<svg class="ypp-svgPlayOrPauseIcon" width="16"height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 40 40"><path fill="#3B88C3" d="M36 32a4 4 0 0 1-4 4H4a4 4 0 0 1-4-4V4a4 4 0 0 1 4-4h28a4 4 0 0 1 4 4v28z"></path><path fill="#FFF" d="m6 7 13 11L6 29zm20 0h4v22h-4zm-7 0h4v22h-4z"></path></svg>',
         warning: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 36 36"><path fill="#FFCC4D" d="M2.65 35C.81 35 0 33.66.85 32.03l15.6-30.06c.86-1.63 2.24-1.63 3.1 0l15.6 30.06c.85 1.63.04 2.97-1.8 2.97H2.65z"/><path fill="#231F20" d="M15.58 28.95A2.42 2.42 0 0 1 18 26.53a2.42 2.42 0 0 1 2.42 2.42A2.42 2.42 0 0 1 18 31.37a2.42 2.42 0 0 1-2.42-2.42zm.19-18.29c0-1.3.96-2.1 2.23-2.1 1.24 0 2.23.83 2.23 2.1V22.6c0 1.27-.99 2.1-2.23 2.1-1.27 0-2.23-.8-2.23-2.1V10.66z"/></svg>',
@@ -2804,6 +3594,9 @@ background: var(--ypp-danger);
         export: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 14V4m0 0 3 3m-3-3L9 7"/></svg>',
         error: '<svg width="16" height="16" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 14 14"><path fill="red" d="M13 10.66q0 .4-.28.68l-1.38 1.38q-.28.28-.68.28t-.69-.28L7 9.75l-2.97 2.97q-.28.28-.69.28-.4 0-.68-.28l-1.38-1.38Q1 11.06 1 10.66t.28-.69L4.25 7 1.28 4.03Q1 3.75 1 3.34q0-.4.28-.68l1.38-1.38Q2.94 1 3.34 1t.69.28L7 4.25l2.97-2.97q.28-.28.69-.28.4 0 .68.28l1.38 1.38q.28.28.28.68t-.28.69L9.75 7l2.97 2.97q.28.28.28.69z"/></svg>',
         github: '<svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 4.418 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.294 2.747-1.025 2.747-1.025.546 1.377.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg>',
+
+        // https://www.svgrepo.com/svg/361206/issue-draft - MIT
+        issueDraft: '<svg xmlns="http://www.w3.org/2000/svg" fill="currentColor" width="16" height="16" viewBox="0 0 16 16"><circle cx="7.5" cy="7.5" r="1"/><path fill-rule="evenodd" d="m13.684 9.51-.952-.31A5.5 5.5 0 0 0 13 7.5c0-.595-.094-1.166-.268-1.7l.952-.31C13.889 6.124 14 6.8 14 7.5s-.111 1.377-.316 2.01m-.391-4.962-.89.455a5.53 5.53 0 0 0-2.406-2.405l.455-.89a6.53 6.53 0 0 1 2.84 2.84M9.509 1.317l-.309.95A5.5 5.5 0 0 0 7.5 2c-.595 0-1.166.094-1.7.268l-.31-.951A6.5 6.5 0 0 1 7.5 1c.701 0 1.377.111 2.01.317m-4.96.39.454.89a5.53 5.53 0 0 0-2.405 2.406l-.89-.455a6.53 6.53 0 0 1 2.84-2.84M1.316 5.491A6.5 6.5 0 0 0 1 7.5c0 .701.111 1.377.317 2.01l.95-.31A5.5 5.5 0 0 1 2 7.5c0-.595.094-1.166.268-1.7zm.39 4.96.89-.454a5.53 5.53 0 0 0 2.406 2.405l-.455.89a6.53 6.53 0 0 1-2.84-2.84m3.784 3.233.309-.952A5.5 5.5 0 0 0 7.5 13c.595 0 1.166-.094 1.7-.268l.31.952A6.5 6.5 0 0 1 7.5 14a6.5 6.5 0 0 1-2.01-.316m4.96-.391-.454-.89a5.53 5.53 0 0 0 2.405-2.406l.89.455a6.53 6.53 0 0 1-2.84 2.84" clip-rule="evenodd"/></svg>',
         info: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
         eye: '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24"><path fill="var(--ypp-text)" fill-rule="evenodd" d="M12 8.25a3.75 3.75 0 1 0 0 7.5 3.75 3.75 0 0 0 0-7.5M9.75 12a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0" clip-rule="evenodd"/><path fill="var(--ypp-text)" fill-rule="evenodd" d="M12 3.25c-4.514 0-7.555 2.704-9.32 4.997l-.031.041c-.4.519-.767.996-1.016 1.56-.267.605-.383 1.264-.383 2.152s.116 1.547.383 2.152c.25.564.617 1.042 1.016 1.56l.032.041C4.445 18.046 7.486 20.75 12 20.75s7.555-2.704 9.32-4.997l.031-.041c.4-.518.767-.996 1.016-1.56.267-.605.383-1.264.383-2.152s-.116-1.547-.383-2.152c-.25-.564-.617-1.041-1.016-1.56l-.032-.041C19.555 5.954 16.514 3.25 12 3.25M3.87 9.162C5.498 7.045 8.15 4.75 12 4.75s6.501 2.295 8.13 4.412c.44.57.696.91.865 1.292.158.358.255.795.255 1.546s-.097 1.188-.255 1.546c-.169.382-.426.722-.864 1.292C18.5 16.955 15.85 19.25 12 19.25s-6.501-2.295-8.13-4.412c-.44-.57-.696-.91-.865-1.292-.158-.358-.255-.795-.255-1.546s.097-1.188.255-1.546c.169-.382.426-.722.864-1.292" clip-rule="evenodd"/></svg>'
     };
@@ -2906,21 +3699,38 @@ background: var(--ypp-danger);
 
             .ytp-play-progress {
                 background: var(--ytp-progress-color) !important;
+                -webkit-transition: background 0.3s ease !important;
+                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
             .ytp-hover-progress {
                 background: var(--ytp-progress-color) !important;
+                -webkit-transition: background 0.3s ease !important;
+                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
             .ytp-progress-bar-container {
+                background: -webkit-gradient(linear,
+                    left top, right top,
+                    from(var(--ytp-progress-color)),
+                    color-stop(var(--ytp-progress-color)),
+                    color-stop(rgba(255, 255, 255, 0.2)),
+                    to(rgba(255, 255, 255, 0.2))) !important;
+                background: -o-linear-gradient(left,
+                    var(--ytp-progress-color) 0%,
+                    var(--ytp-progress-color) var(--ytp-progress-percent),
+                    rgba(255, 255, 255, 0.2) var(--ytp-progress-percent),
+                    rgba(255, 255, 255, 0.2) 100%) !important;
                 background: linear-gradient(to right,
                     var(--ytp-progress-color) 0%,
                     var(--ytp-progress-color) var(--ytp-progress-percent),
                     rgba(255, 255, 255, 0.2) var(--ytp-progress-percent),
                     rgba(255, 255, 255, 0.2) 100%) !important;
                 background-size: 100% 100% !important;
+                -webkit-transition: background 0.3s ease !important;
+                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
@@ -2938,23 +3748,40 @@ background: var(--ypp-danger);
             /* Barra de progreso principal de shorts */
             .ytProgressBarLineProgressBarPlayed {
                 background: var(--ytp-progress-color) !important;
+                -webkit-transition: background 0.3s ease !important;
+                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
             /* Barra de hover en shorts */
             .ytProgressBarLineProgressBarHovered {
                 background: var(--ytp-progress-color) !important;
+                -webkit-transition: background 0.3s ease !important;
+                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
             /* Contenedor principal de la barra de shorts */
             .ytProgressBarLineProgressBarLine {
+                background: -webkit-gradient(linear,
+                    left top, right top,
+                    from(var(--ytp-progress-color)),
+                    color-stop(var(--ytp-progress-color)),
+                    color-stop(rgba(255, 255, 255, 0.2)),
+                    to(rgba(255, 255, 255, 0.2))) !important;
+                background: -o-linear-gradient(left,
+                    var(--ytp-progress-color) 0%,
+                    var(--ytp-progress-color) var(--ytp-progress-percent),
+                    rgba(255, 255, 255, 0.2) var(--ytp-progress-percent),
+                    rgba(255, 255, 255, 0.2) 100%) !important;
                 background: linear-gradient(to right,
                     var(--ytp-progress-color) 0%,
                     var(--ytp-progress-color) var(--ytp-progress-percent),
                     rgba(255, 255, 255, 0.2) var(--ytp-progress-percent),
                     rgba(255, 255, 255, 0.2) 100%) !important;
                 background-size: 100% 100% !important;
+                -webkit-transition: background 0.3s ease !important;
+                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
@@ -2966,6 +3793,8 @@ background: var(--ypp-danger);
             /* Punto del seek (playhead) en shorts */
             .ytProgressBarPlayheadProgressBarPlayheadDot {
                 background: var(--ytp-progress-color) !important;
+                -webkit-transition: background 0.3s ease !important;
+                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
@@ -3637,7 +4466,6 @@ background: var(--ypp-danger);
             'ytd-video-masthead-ad-v3-renderer', // Masthead ad (homepage autoplay)
             'ytd-page-top-ad-layout-renderer', // Ad superior de página (homepage/top)
         ],
-
 
         // --- Elementos Específicos del Anuncio ---
         advertiserCard: [
@@ -5267,6 +6095,7 @@ background: var(--ypp-danger);
             isLive: data.isLive || false,
             isCompleted: data.isCompleted || false,
             playlistTitle: data.playlistTitle ?? null,
+            completionHistory: Array.isArray(data.completionHistory) ? data.completionHistory : [],
             // Conservar campos de navegación/playlist si existen
             lastViewedPlaylistId: data.lastViewedPlaylistId ?? null,
             lastViewedPlaylistType: '',
@@ -5569,7 +6398,7 @@ background: var(--ypp-danger);
      * Lógica interna compartida para guardar videos que no son Shorts ni Directos (Watch o Miniplayer).
      * @private
      */
-    async function internalSaveRegularVideo(currentTime, videoInfo, logContext = 'saveRegularVideo', options = {}) {
+    async function internalSaveRegularVideo(currentTime, videoInfo, videoEl, logContext = 'saveRegularVideo', options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
 
 
@@ -5601,8 +6430,17 @@ background: var(--ypp-danger);
             watchProgress: currentTime,
             timeWatched: now,
             type: 'video',
-            isCompleted: isFinished
+            isCompleted: isFinished,
+            completionHistory: sourceData?.completionHistory || []
         };
+
+        const session = activeProcessingSessions.get(videoEl);
+        if (isFinished && session && !session.hasLoggedCompletion) {
+            videoData.completionHistory.push(now);
+            session.hasLoggedCompletion = true;
+        } else if (session && currentTime < (duration * 0.15) && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
+            session.hasLoggedCompletion = false;
+        }
 
         // Normalizar antes de guardar para asegurar Format A y limpieza de legacy
         const normalizedData = normalizeVideoData(videoData);
@@ -5629,8 +6467,8 @@ background: var(--ypp-danger);
      * @param {Object} videoInfo - Información del video
      * @returns {Object} Resultado
      */
-    async function saveRegularVideo(currentTime, videoInfo, options = {}) {
-        return await internalSaveRegularVideo(currentTime, videoInfo, 'saveRegularVideo', options);
+    async function saveRegularVideo(currentTime, videoInfo, videoEl, options = {}) {
+        return await internalSaveRegularVideo(currentTime, videoInfo, videoEl, 'saveRegularVideo', options);
     }
 
     // MARK: 💾 Save Miniplayer
@@ -5640,8 +6478,8 @@ background: var(--ypp-danger);
      * @param {Object} videoInfo - Información del video
      * @returns {Object} Resultado
      */
-    async function saveMiniplayer(currentTime, videoInfo, options = {}) {
-        return await internalSaveRegularVideo(currentTime, videoInfo, 'saveMiniplayer', options);
+    async function saveMiniplayer(currentTime, videoInfo, videoEl, options = {}) {
+        return await internalSaveRegularVideo(currentTime, videoInfo, videoEl, 'saveMiniplayer', options);
     }
 
     // MARK: 💾 Save Shorts
@@ -5651,7 +6489,7 @@ background: var(--ypp-danger);
      * @param {Object} videoInfo - Información del short (videoId, title, author, duration, etc.)
      * @returns {Object} Resultado de la operación
      */
-    async function saveShortsVideo(currentTime, videoInfo, options = {}) {
+    async function saveShortsVideo(currentTime, videoInfo, videoEl, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
         logLog('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
 
@@ -5670,8 +6508,18 @@ background: var(--ypp-danger);
             watchProgress: currentTime,
             timeWatched: now,
             type: 'shorts',
-            isCompleted: isFinished
+            isCompleted: isFinished,
+            completionHistory: sourceData?.completionHistory || []
         };
+
+        const session = activeProcessingSessions.get(videoEl);
+        if (isFinished && session && !session.hasLoggedCompletion) {
+            videoData.completionHistory.push(now);
+            session.hasLoggedCompletion = true;
+        } else if (session && currentTime < (duration * 0.15) && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
+            session.hasLoggedCompletion = false;
+        }
+        // nota: (duration * 0.15) 15% para asegurar que las finalizaciones se registren de manera confiable incluso para videos de corta duración donde el intervalo de guardado de 1s podría perderse durante reinicio.
 
         const normalizedData = normalizeVideoData(videoData);
         const storageResult = await Storage.set(videoId, normalizedData);
@@ -5700,7 +6548,7 @@ background: var(--ypp-danger);
      * @param {string} previewType - 'preview_watch' o 'preview_shorts'
      * @returns {Object} Resultado de la operación
      */
-    async function savePreview(currentTime, videoInfo, previewType, options = {}) {
+    async function savePreview(currentTime, videoInfo, videoEl, previewType, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
         logLog('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
 
@@ -5735,8 +6583,22 @@ background: var(--ypp-danger);
             watchProgress: currentTime,
             timeWatched: now,
             type: resolvedVideoType,
-            isCompleted: safeIsFinished
+            isCompleted: safeIsFinished,
+            completionHistory: sourceData?.completionHistory || []
         };
+
+        if (safeIsFinished) {
+            const session = activeProcessingSessions.get(videoEl);
+            if (session && !session.hasLoggedCompletion) {
+                videoData.completionHistory.push(now);
+                session.hasLoggedCompletion = true;
+            }
+        } else {
+            const session = activeProcessingSessions.get(videoEl);
+            if (session && currentTime < (duration * 0.15) && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
+                session.hasLoggedCompletion = false;
+            }
+        }
 
         const normalizedData = normalizeVideoData(videoData);
         const storageResult = await Storage.set(videoId, normalizedData);
@@ -5762,9 +6624,10 @@ background: var(--ypp-danger);
      * Guarda progreso para livestreams
      * @param {number} currentTime - Tiempo actual
      * @param {Object} videoInfo - Información del livestream
+     * @param {HTMLVideoElement} videoEl - Elemento de video
      * @returns {Object} Resultado de la operación
      */
-    async function saveLivestream(currentTime, videoInfo, options = {}) {
+    async function saveLivestream(currentTime, videoInfo, videoEl, options = {}) {
         const { videoId, lengthSeconds: duration } = videoInfo;
         logLog('saveLivestream', `Guardando livestream ${videoId} en ${currentTime}s`);
 
@@ -5785,6 +6648,7 @@ background: var(--ypp-danger);
             isLive: true,
             isCompleted: false
         };
+
 
         const normalizedData = normalizeVideoData(videoData);
         const storageResult = await Storage.set(videoId, normalizedData);
@@ -6334,25 +7198,18 @@ background: var(--ypp-danger);
      * Restaura el estado de botones del button-group:
      * asegura que los botones sean visibles y oculta el span de mensaje.
      * @param {HTMLElement} displayEl - Elemento raíz del display (.ypp-time-display).
-     * @param {boolean} hasFixedTime - Si true, usa íconos de timer+pin en listBtn.
      */
-    function restoreDisplayButtons(displayEl, hasFixedTime) {
+    function restoreDisplayButtons(displayEl) {
         if (!displayEl) return;
-        const listPart = displayEl.querySelector('.ypp-btn-list');
-        const savePart = displayEl.querySelector('.ypp-btn-save');
+        const btnManualSave = displayEl.querySelector('.ypp-btn-save');
         const messageEl = displayEl.querySelector('.ypp-time-display-message');
 
-        if (listPart) {
-            const listIcon = hasFixedTime ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : SVG_ICONS.folder;
-            setInnerHTML(listPart, listIcon);
-            listPart.classList.remove('ypp-d-none');
-        }
-
-        if (savePart) {
-            if (cachedSettings?.manualSaveMode !== false) {
-                savePart.classList.remove('ypp-d-none');
+        if (btnManualSave) {
+            const isFixed = displayEl.dataset.isFixedTime === 'true';
+            if (cachedSettings?.manualSaveMode !== false && !isFixed) {
+                btnManualSave.classList.remove('ypp-d-none');
             } else {
-                savePart.classList.add('ypp-d-none');
+                btnManualSave.classList.add('ypp-d-none');
             }
         }
 
@@ -6368,16 +7225,29 @@ background: var(--ypp-danger);
      * @param {string} videoId - ID del video actualizado.
      * @param {boolean} isFixedTime - Nuevo estado de tiempo fijo.
      */
-    function syncFixedTimeUI(videoId, isFixedTime) {
+    function syncFixedTimeUI(videoId, isFixedTime, timeValue = 0) {
         if (!videoId) return;
 
         const syncDisplay = (display, player) => {
             if (!display?.isConnected) return;
             const currentPlayerId = (typeof player === 'string') ? player : getPlayerVideoId(player);
             if (currentPlayerId === videoId) {
-                if (isFixedTime) display.dataset.isFixedTime = 'true';
-                else delete display.dataset.isFixedTime;
-                restoreDisplayButtons(display, isFixedTime);
+                if (isFixedTime) {
+                    display.dataset.isFixedTime = 'true';
+                    // Generar y mostrar mensaje persistente
+                    const timeStr = formatTime(normalizeSeconds(timeValue));
+                    const icon = `${SVG_ICONS.timer}${SVG_ICONS.pin}`;
+                    const text = `${t('alwaysStartFrom')}: ${timeStr}`;
+                    const message = (alertStyles[cachedSettings.alertStyle] || alertStyles['full'])(icon, text, timeStr);
+                    showDisplayMessage(display, message);
+                } else {
+                    delete display.dataset.isFixedTime;
+                    restoreDisplayButtons(display);
+                }
+
+                // Sincronizar visibilidad del botón de guardado manual
+                syncManualSaveUI(videoId, true, isFixedTime);
+
                 logLog('syncFixedTimeUI', `Sincronizada UI (${display.id || 'shorts'}) para ${videoId}: forced=${isFixedTime}`);
             }
         };
@@ -6393,7 +7263,7 @@ background: var(--ypp-danger);
      * @param {string} videoId - ID del video actualizado.
      * @param {boolean} isSaved - Si el video se encuentra guardado en la DB.
      */
-    function syncManualSaveUI(videoId, isSaved) {
+    function syncManualSaveUI(videoId, isSaved, forceFixed) {
         if (!videoId) return;
 
         const syncDisplay = (display, player) => {
@@ -6402,10 +7272,29 @@ background: var(--ypp-danger);
             if (currentPlayerId === videoId) {
                 const saveBtn = display.querySelector('.ypp-btn-save');
                 if (saveBtn) {
-                    const targetVal = isSaved ? 'true' : 'false';
-                    if (saveBtn.dataset.isSaved !== targetVal) {
-                        saveBtn.dataset.isSaved = targetVal;
-                        setInnerHTML(saveBtn, isSaved ? SVG_ICONS.bookmarkFill : SVG_ICONS.bookmark);
+                    // Si se pasa forceFixed, lo usamos. Si no, respetamos el estado actual del dataset.
+                    const isActuallyFixed = forceFixed !== undefined ? forceFixed : (display.dataset.isFixedTime === 'true');
+
+                    if (isActuallyFixed) {
+                        display.dataset.isFixedTime = 'true';
+                        saveBtn.classList.add('ypp-d-none');
+                    } else {
+                        delete display.dataset.isFixedTime;
+                        if (cachedSettings?.manualSaveMode !== false) {
+                            saveBtn.classList.remove('ypp-d-none');
+                        }
+
+                        const targetVal = isSaved ? 'true' : 'false';
+                        if (saveBtn.dataset.isSaved !== targetVal) {
+                            saveBtn.dataset.isSaved = targetVal;
+
+                            // Si video esta guardado, el boton cambia su color hover a verde usando clase .ypp-btn-save-hover-color-when-saved
+                            // https://github.com/Alplox/Youtube-Playback-Plox/issues/23#issuecomment-4226733745
+                            saveBtn.classList.toggle('ypp-btn-save-hover-color-when-saved', isSaved);
+
+                            // Si video esta guardado, el boton cambia icono a bookmarkFill, si no mantiene bookmarkOutline
+                            // setInnerHTML(saveBtn, isSaved ? SVG_ICONS.bookmarkFill : SVG_ICONS.bookmarkOutline);
+                        }
                     }
                 }
             }
@@ -6423,14 +7312,14 @@ background: var(--ypp-danger);
      * Reutilizable en Watch, Miniplayer, Shorts e Inline Preview.
      *
      * Estructura generada:
-     *   [listBtn (.ypp-btn-list)] | [message (.ypp-time-display-message)]
+     *   [listBtn (.ypp-btn-history)] | [message (.ypp-time-display-message)]
      *
      * @returns {{ listBtn: HTMLButtonElement, messageEl: HTMLSpanElement }} Nodos creados.
      */
     function createSplitButtonGroup() {
         const listBtn = createElement('button', {
-            className: 'ypp-btn-list',
-            html: SVG_ICONS.folder,
+            className: 'ypp-btn-history',
+            html: SVG_ICONS.clockRotateLeft,
             atribute: { title: t('savedVideos'), type: 'button' },
             onClickEvent: (e) => {
                 e.stopPropagation();
@@ -6460,7 +7349,7 @@ background: var(--ypp-danger);
 
         const saveBtn = createElement('button', {
             className: 'ypp-btn-save',
-            html: SVG_ICONS.bookmark,
+            html: SVG_ICONS.bookmarkOutline,
             atribute: { title: t('save'), type: 'button' },
             onClickEvent: async (e) => {
                 e.stopPropagation();
@@ -6478,15 +7367,17 @@ background: var(--ypp-danger);
                     return;
                 }
 
+                logLog('setupManualSaveButton', `Guardando manualmente el video ${videoId} en el contexto ${contextType}`);
+
                 await PlaybackController.saveStatus(player, video, contextType, videoId, null, { isManual: true });
 
             }
         });
 
         // Insertar después del botón de lista (listBtn)
-        const listPart = displayEl.querySelector('.ypp-btn-list');
-        if (listPart) {
-            listPart.insertAdjacentElement('afterend', saveBtn);
+        const btnHistory = displayEl.querySelector('.ypp-btn-history');
+        if (btnHistory) {
+            btnHistory.insertAdjacentElement('afterend', saveBtn);
         } else {
             displayEl.appendChild(saveBtn);
         }
@@ -6562,7 +7453,7 @@ background: var(--ypp-danger);
 
         watchTimeDisplay = createElement('div', {
             id: 'ypp-time-display-indicator',
-            className: 'ypp-time-display ypp-d-none'
+            className: 'ypp-time-display'
         });
 
         // Crear las dos partes del botón usando el helper compartido
@@ -6679,7 +7570,7 @@ background: var(--ypp-danger);
             } else {
                 // Crear estructura v2 si no existe en el DOM
                 shortsTimeDisplay = createElement('div', {
-                    className: 'ypp-shorts-time-display ypp-d-none'
+                    className: 'ypp-shorts-time-display'
                 });
                 const { listBtn, messageEl } = createSplitButtonGroup();
                 shortsTimeDisplay.appendChild(listBtn);
@@ -6797,7 +7688,6 @@ background: var(--ypp-danger);
         else if (!isVideoPaused) delete watchTimeDisplay.dataset.activeSeek;
 
         if (isFixedTime) watchTimeDisplay.dataset.isFixedTime = 'true';
-        else delete watchTimeDisplay.dataset.isFixedTime;
 
         logLog('updateWatchPlaybackBarMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}, isFixed=${isFixedTime}`);
 
@@ -6815,9 +7705,9 @@ background: var(--ypp-danger);
 
     function clearPlaybackBarMessage() {
         if (watchTimeDisplay) {
-            const hasFixedTime = watchTimeDisplay.dataset.isFixedTime === 'true';
-            restoreDisplayButtons(watchTimeDisplay, hasFixedTime);
+            restoreDisplayButtons(watchTimeDisplay);
             delete watchTimeDisplay.dataset.activeSeek;
+            delete watchTimeDisplay.dataset.isFixedTime;
         }
 
         const prev = displayClearTimeouts.get('watch');
@@ -6914,7 +7804,6 @@ background: var(--ypp-danger);
         else if (!isVideoPaused) delete shortsTimeDisplay.dataset.activeSeek;
 
         if (isFixedTime) shortsTimeDisplay.dataset.isFixedTime = 'true';
-        else delete shortsTimeDisplay.dataset.isFixedTime;
 
         logLog('updateShortsMessage', `🔍 Estado: videoPaused=${isVideoPaused}, isSeek=${isSeek}, isFixed=${isFixedTime}`);
 
@@ -6928,10 +7817,10 @@ background: var(--ypp-danger);
 
     function clearShortsMessage() {
         if (shortsTimeDisplay) {
-            const hasFixedTime = shortsTimeDisplay.dataset.isFixedTime === 'true';
-            restoreDisplayButtons(shortsTimeDisplay, hasFixedTime);
+            restoreDisplayButtons(shortsTimeDisplay);
             shortsTimeDisplay.classList.remove('ypp-floating');
             delete shortsTimeDisplay.dataset.activeSeek;
+            delete shortsTimeDisplay.dataset.isFixedTime;
             // Al limpiar el mensaje, también vaciar el caché para evitar reusar mensajes de Shorts anteriores
             lastShortsMessageHtml = '';
         }
@@ -6974,7 +7863,7 @@ background: var(--ypp-danger);
 
         miniplayerTimeDisplay = createElement('div', {
             id: 'ypp-miniplayer-time-display',
-            className: 'ypp-time-display ypp-miniplayer-time-display ypp-d-none'
+            className: 'ypp-time-display ypp-miniplayer-time-display'
         });
 
         // Crear estructura del split-button usando el helper compartido
@@ -7021,7 +7910,6 @@ background: var(--ypp-danger);
         else if (!isVideoPaused) delete miniplayerTimeDisplay.dataset.activeSeek;
 
         if (isFixedTime) miniplayerTimeDisplay.dataset.isFixedTime = 'true';
-        else delete miniplayerTimeDisplay.dataset.isFixedTime;
 
         // No limpiar si es fixed (permanente)
         if (isFixedTime) return;
@@ -7031,9 +7919,9 @@ background: var(--ypp-danger);
 
     function clearMiniplayerMessage() {
         if (miniplayerTimeDisplay) {
-            const hasFixedTime = miniplayerTimeDisplay.dataset.isFixedTime === 'true';
-            restoreDisplayButtons(miniplayerTimeDisplay, hasFixedTime);
+            restoreDisplayButtons(miniplayerTimeDisplay);
             delete miniplayerTimeDisplay.dataset.activeSeek;
+            delete miniplayerTimeDisplay.dataset.isFixedTime;
         }
 
         const prev = displayClearTimeouts.get('mini');
@@ -7077,7 +7965,7 @@ background: var(--ypp-danger);
 
         inlinePreviewTimeDisplay = createElement('div', {
             id: 'ypp-inline-preview-time-display',
-            className: 'ypp-time-display ypp-inline-preview-time-display ypp-d-none'
+            className: 'ypp-time-display ypp-inline-preview-time-display'
         });
 
         // Crear estructura del split-button usando el helper compartido
@@ -7131,7 +8019,6 @@ background: var(--ypp-danger);
         else if (!isVideoPaused) delete inlinePreviewTimeDisplay.dataset.activeSeek;
 
         if (isFixedTime) inlinePreviewTimeDisplay.dataset.isFixedTime = 'true';
-        else delete inlinePreviewTimeDisplay.dataset.isFixedTime;
 
         // No limpiar si es fixed (permanente)
         if (isFixedTime) return;
@@ -7141,13 +8028,25 @@ background: var(--ypp-danger);
 
     function clearInlinePreviewMessage() {
         if (inlinePreviewTimeDisplay) {
-            const hasFixedTime = inlinePreviewTimeDisplay.dataset.isFixedTime === 'true';
-            restoreDisplayButtons(inlinePreviewTimeDisplay, hasFixedTime);
+            restoreDisplayButtons(inlinePreviewTimeDisplay);
             delete inlinePreviewTimeDisplay.dataset.activeSeek;
+            delete inlinePreviewTimeDisplay.dataset.isFixedTime;
         }
 
         const prev = displayClearTimeouts.get('preview');
         if (prev) { clearTimeout(prev); displayClearTimeouts.delete('preview'); }
+    }
+
+    /**
+     * Limpia proactivamente todos los posibles mensajes y estados de la barra de reproducción.
+     * Útil durante la transición entre videos para evitar "zombies" de la interfaz.
+     */
+    function clearAllPlaybackMessages() {
+        clearPlaybackBarMessage();
+        clearShortsMessage();
+        clearMiniplayerMessage();
+        clearInlinePreviewMessage();
+        logLog('UI', '🧹 Limpieza total de mensajes de reproducción realizada');
     }
 
 
@@ -7329,7 +8228,7 @@ background: var(--ypp-danger);
         `;
     };
 
-    const renderNotificationSection = (settings) => `
+    const renderGeneralSettingSection = (settings) => `
         <div class="ypp-settings-section">
          <label class="ypp-label">
                 <input type="checkbox" name="showFloatingButtons" ${settings.showFloatingButtons ? 'checked' : ''}>
@@ -7342,15 +8241,22 @@ background: var(--ypp-danger);
         </div>
     `;
 
-    const renderSavingOptionsSection = (settings) => `
-        <div class="ypp-settings-section">
-            <label class="ypp-label" title="${t('manualSaveModeTooltip')}">
-                <input type="checkbox" name="manualSaveMode" ${settings.manualSaveMode ? 'checked' : ''}>
-                <span>${SVG_ICONS.bookmark}${t('manualSaveMode')}</span>
-            </label>
+    const renderManualSavingOptionsSection = (settings) => `
+        <div class="ypp-manual-saving-options">
+            <div class="ypp-settings-second-level-section">
+                <label class="ypp-label" title="${t('manualSaveModeTooltip')}">
+                    <input type="checkbox" name="manualSaveMode" ${settings.manualSaveMode ? 'checked' : ''}>
+                    <span>${SVG_ICONS.bookmarkOutline}${t('manualSaveMode')}</span>
+                </label>
+            </div>
         </div>
-        <div class="ypp-container-saving-options">
-            <h2 class="ypp-section-title">${t('enableSavingFor')}:</h2>
+    `;
+
+
+    const renderAutomaticSavingOptionsSection = (settings) => `
+    <div class="ypp-automatic-saving-options">
+        <div class="ypp-settings-second-level-section">
+            <h3 class="ypp-section-title">${t('enableAutomaticSavingFor')}:</h2>
             <label class="ypp-label-save-type">
                 <input type="checkbox" name="saveRegularVideos" ${settings.saveRegularVideos ? 'checked' : ''}>
                 <span>${t('regularVideos')}</span>
@@ -7371,28 +8277,16 @@ background: var(--ypp-danger);
                 <input type="checkbox" name="saveInlinePreviews" ${settings.saveInlinePreviews === true ? 'checked' : ''}>
                 <span>${t('inlinePreviews')}</span>
             </label>
-        </div>
-    `;
 
-    const renderTimeSettingsSection = (settings) => `
-        <div class="ypp-settings-section">
-        <label class="ypp-label">
-                <input type="checkbox" name="showNotifications" ${settings.showNotifications ? 'checked' : ''}>
-                <span>${t('showNotifications')}</span>
-            </label>
-            <label class="ypp-label">
+             <label class="ypp-label">
                 <span>${t('minSecondsBetweenSaves')}: </span>
                 <input type="number" class="ypp-input-small" name="minSecondsBetweenSaves" value="${settings.minSecondsBetweenSaves}" min="1" max="9999">
             </label>
-            <label class="ypp-label">
-                <span>${t('staticFinishPercent')}: </span>
-                <input type="number" class="ypp-input-small" name="staticFinishPercent" value="${settings.staticFinishPercent}" min="1" max="99">
-                <span class="ypp-percent-symbol">%</span>
-            </label>
         </div>
+    </div>
     `;
 
-    const renderAlertStyleSection = (settings) => {
+    const renderNotificationSettingsSection = (settings) => {
         const styles = [
             { value: 'iconText', text: `🔔📝 ${t('alertIconText')}` },
             { value: 'iconOnly', text: `🔔 ${t('alertIconOnly')}` },
@@ -7404,14 +8298,28 @@ background: var(--ypp-danger);
         `).join('');
 
         return `
-            <div class="ypp-settings-section">
-                <label class="ypp-label">
+            <label class="ypp-label">
                     <span>${t('alertStyle')}: </span>
                     <select class="ypp-select" name="alertStyle">${optionsHTML}</select>
+            </label>
+
+            <div class="ypp-settings-second-level-section">
+                <label class="ypp-label">
+                    <span>${t('staticFinishPercent')}: </span>
+                    <input type="number" class="ypp-input-small" name="staticFinishPercent" value="${settings.staticFinishPercent}" min="1" max="99">
+                    <span class="ypp-percent-symbol">%</span>
                 </label>
+                <div class="ypp-settings-third-level-section">
+                    <div class="ypp-d-flex">
+                        <input type="checkbox" name="countOncePerSession" ${settings.countOncePerSession ? 'checked' : ''}>
+                        <span>${t('countOncePerSession')}</span>
+                    </div>
+                    <i class="ypp-tooltip">${SVG_ICONS.info} ${t('countOncePerSessionTooltip')}</i>
+                </div>
             </div>
-        `;
-    };
+    `;
+    }
+
 
     const renderGitHubBackupSection = (rawSettings) => {
         const githubSettings = rawSettings;
@@ -7423,8 +8331,8 @@ background: var(--ypp-danger);
             const isGist = type === 'gist';
 
             return `
-                <div id="ypp-github-${type}-content" class="ypp-github-tab-content" style="display: ${lastViewedType === type ? 'block' : 'none'};">
-                    <div style="margin-bottom: 15px;">
+                <div id="ypp-github-${type}-content" class="ypp-github-tab-content" style="display: ${lastViewedType === type ? 'flex' : 'none'};">
+                    <div>
                         <label class="ypp-label">
                             <input type="checkbox" name="${type}_autoBackup" ${s.autoBackup ? 'checked' : ''}>
                             <span style="font-weight: bold;">${t('githubAutoBackup')}</span>
@@ -7435,7 +8343,7 @@ background: var(--ypp-danger);
                         </label>
                     </div>
 
-                    <div class="ypp-github-token-container">
+                    <div class="ypp-settings-third-level-section">
                         <label class="ypp-label ypp-m0">
                             <span>${t('githubToken')}: </span>
                             <input type="password" class="ypp-input" name="${type}_token" value="${s.token || ''}" placeholder="ghp_xxxxxxxxxxxx">
@@ -7474,7 +8382,7 @@ background: var(--ypp-danger);
                             ${isGist ? t('githubBackupNowInfo') : t('githubRepoBackupNowInfo')}
                         </div>
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
-                            <button type="button" class="ypp-btn ypp-btn-outlined ypp-github-backup-btn" data-type="${type}" style="width: fit-content; padding: 6px 15px;">
+                            <button type="button" class="ypp-btn ypp-btn-primary ypp-github-backup-btn" data-type="${type}" style="width: fit-content; padding: 6px 15px;">
                                 ${SVG_ICONS.upload} ${t('githubBackupNow')}
                             </button>
                             <div id="ypp-github-last-sync-${type}" style="font-size: 0.85em; color: var(--ypp-text-secondary);">
@@ -7484,7 +8392,7 @@ background: var(--ypp-danger);
                         <div id="ypp-github-gist-link-container-${type}">
                             ${isGist && s.url ? `
                                 <a href="${s.url}" class="ypp-link" target="_blank" rel="noopener noreferrer">
-                                    ${SVG_ICONS.externalLink} ${t('githubGistView')}
+                                    ${t('githubGistView')} ${SVG_ICONS.externalLink}
                                 </a>
                             ` : ''}
                         </div>
@@ -7527,11 +8435,17 @@ background: var(--ypp-danger);
 
             <div id="ypp-github-repo-warning" class="ypp-github-help-important">
                     ${SVG_ICONS.warning} ${t('githubHelpImportant')}
+
+                    <label class="ypp-label" style="padding: 10px 0 5px;">
+                    <input type="checkbox" name="githubAutoDeleteToken" ${githubSettings.autoDeleteToken ? 'checked' : ''}>
+                    <span style="font-size: 0.9em; color: var(--ypp-text-secondary);text-wrap: auto">${t('githubAutoDeleteToken')}</span>
+                </label>
                 </div>
+                
 
             <div class="ypp-github-tabs">
                 <div class="ypp-github-tab ${lastViewedType === 'gist' ? 'active' : ''}" data-type="gist">
-                    ${SVG_ICONS.bookmark} Gist
+                    ${SVG_ICONS.bookmarkOutline} Gist
                 </div>
                 <div class="ypp-github-tab ${lastViewedType === 'repo' ? 'active' : ''}" data-type="repo">
                     ${SVG_ICONS.folder} Repository
@@ -7540,10 +8454,6 @@ background: var(--ypp-danger);
 
             <div class="ypp-settings-section ypp-github-section" style="border-top: none; border-radius: 0 0 8px 8px; margin-top: -15px;">
                 <input type="hidden" name="githubLastViewedType" value="${lastViewedType}">
-                <label class="ypp-label" style="padding: 10px 0 5px;">
-                    <input type="checkbox" name="githubAutoDeleteToken" ${githubSettings.autoDeleteToken ? 'checked' : ''}>
-                    <span style="font-size: 0.9em; color: var(--ypp-text-secondary);">${t('githubAutoDeleteToken')}</span>
-                </label>
                 ${renderTabContent('gist')}
                 ${renderTabContent('repo')}
             </div>
@@ -7589,12 +8499,12 @@ background: var(--ypp-danger);
             onClickEvent: (e) => { if (e.target === overlay) closeModal(); }
         });
 
-        const modal = createElement('div', { className: 'ypp-modalBox' });
+        const modal = createElement('div', { className: 'ypp-modalBox ypp-shadow-md' });
 
         // Header
         const header = createElement('div', { className: 'ypp-modalHeader' });
         setInnerHTML(header, `
-            <h3 class="ypp-modalTitle">️${SVG_ICONS.settings} ${t('settings')}</h3>
+            <h1 class="ypp-modalTitle">️${SVG_ICONS.settings} ${t('settings')} <span class="ypp-modalTitle-version">${t('youtubePlaybackPlox')} v${SCRIPT_VERSION}</span></h1>
             <button class="ypp-btn ypp-btn-small ypp-btn-close" aria-label="${t('close')}" title="${t('close')}" type="button">
                 ${SVG_ICONS.close}
             </button>
@@ -7602,39 +8512,66 @@ background: var(--ypp-danger);
         header.querySelector('.ypp-btn-close').addEventListener('click', closeModal);
 
         // Body
-        const body = createElement('div', { className: 'ypp-modalBody' });
         const settingsHTML = `
             <div class="ypp-settingsContent">
                 ${renderLanguageSection(settings.language)}
-                ${renderNotificationSection(settings)}
-                <div class="ypp-saving-options">
-                    ${renderSavingOptionsSection(settings)}
-                    ${renderTimeSettingsSection(settings)}
-                    ${renderAlertStyleSection(settings)}
+                ${renderGeneralSettingSection(settings)}
+
+                <div class="ypp-settings-main-section">
+                    ${renderManualSavingOptionsSection(settings)}
+                    ${renderAutomaticSavingOptionsSection(settings)}
+                    ${renderNotificationSettingsSection(settings)}
                 </div>
-                <div class="ypp-github-options">
+                <div class="ypp-settings-main-section">
                     ${renderGitHubBackupSection(githubSettings)}
+                </div>
+                <div class="ypp-support-options">
+                    <h3 style="margin:10px 0; display:flex; align-items:center; gap:8px; font-size:1.4rem; color: var(--ypp-text);">
+                        ${SVG_ICONS.warning} ${t('supportLogsTitle')}
+                    </h3>
+                    <textarea readonly class="ypp-log-textarea ypp-shadow-sm" spellcheck="false" placeholder="${t('noLogs')}">${(window.MyScriptLogger._errorLogs && window.MyScriptLogger._errorLogs.length > 0)
+                ? window.MyScriptLogger._errorLogs.join('\n')
+                : ''
+            }</textarea>
+                    <button class="ypp-btn ypp-btn-secondary" type="button" style="margin-top: 10px;" id="ypp-copy-logs-btn">
+                        ${SVG_ICONS.save} ${t('copyLogsBtn')}
+                    </button>
+                    <button class="ypp-btn ypp-btn-outlined ypp-create-issue-btn" type="button" style="margin-top: 10px; margin-left: 10px;">
+                        ${SVG_ICONS.issueDraft} ${t('reportIssue')} ${SVG_ICONS.externalLink}
+                    </button>
                 </div>
             </div>
         `;
-        setInnerHTML(body, settingsHTML);
+
+        const body = createElement('div', {
+            className: 'ypp-modalBody',
+            html: settingsHTML
+        });
 
         // Footer
-        const footer = createElement('div', { className: 'ypp-btnGroup' });
+        const footer = createElement('footer', { className: 'ypp-settings-footer' });
+
+
+        const repositoryBtn = createElement('button', {
+            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
+            // html: `${SVG_ICONS.github} ${t('youtubePlaybackPlox')} ${SVG_ICONS.externalLink}`,
+            html: `${SVG_ICONS.github} ${SVG_ICONS.externalLink}`,
+            onClickEvent: () => { window.open('https://github.com/Alplox/Youtube-Playback-Plox/', '_blank'); }
+        });
+
         const viewBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-outlined ypp-sombra',
-            html: `${SVG_ICONS.folder} ${t('savedVideos')}`,
+            className: 'ypp-btn ypp-btn-outlined ypp-btn-view-saved-videos ypp-shadow-md',
+            html: `${SVG_ICONS.clockRotateLeft} ${t('savedVideos')}`,
             onClickEvent: async () => { overlay.remove(); await showSavedVideosList(); }
         });
         const saveBtn = createElement('button', {
-            className: 'ypp-btn ypp-save-button ypp-sombra',
+            className: 'ypp-btn ypp-save-button ypp-shadow-md',
             html: `${SVG_ICONS.save} ${t('save')}`,
             onClickEvent: async () => {
                 const getVal = (name) => modal.querySelector(`[name="${name}"]`)?.value;
                 const isChecked = (name) => modal.querySelector(`[name="${name}"]`)?.checked;
 
                 const newSettings = {
-                    showNotifications: isChecked('showNotifications'),
                     minSecondsBetweenSaves: Math.max(1, parseInt(getVal('minSecondsBetweenSaves'), 10) || 1),
                     showFloatingButtons: isChecked('showFloatingButtons'),
                     enableProgressBarGradient: isChecked('enableProgressBarGradient'),
@@ -7645,6 +8582,7 @@ background: var(--ypp-danger);
                     saveMiniplayerVideos: isChecked('saveMiniplayerVideos'),
                     saveInlinePreviews: isChecked('saveInlinePreviews'),
                     manualSaveMode: isChecked('manualSaveMode'),
+                    countOncePerSession: isChecked('countOncePerSession'),
                     language: getVal('language'),
                     alertStyle: getVal('alertStyle'),
                 };
@@ -7709,6 +8647,36 @@ background: var(--ypp-danger);
             });
         });
 
+        // Lógica Copy Logs
+        const copyLogsBtn = body.querySelector('#ypp-copy-logs-btn');
+        if (copyLogsBtn) {
+            copyLogsBtn.addEventListener('click', async () => {
+                const logData = [
+                    `--- YouTube Playback Plox Logs ---`,
+                    `Script Version: ${typeof GM_info !== 'undefined' ? GM_info.script.version : SCRIPT_VERSION}`,
+                    `User Agent: ${navigator.userAgent}`,
+                    `Date: ${new Date().toISOString()}`,
+                    `Current URL: ${window.location.href}`,
+                    `----------------------------------`,
+                    (window.MyScriptLogger._errorLogs || []).join('\n') || t('noLogs')
+                ].join('\n');
+                try {
+                    await navigator.clipboard.writeText(logData);
+                    showFloatingToast(`${SVG_ICONS.check} ${t('logsCopied')}`);
+                } catch (e) {
+                    showFloatingToast(`${SVG_ICONS.error} Error: ${e.message}`);
+                }
+            });
+        }
+
+        // boton para abrir enlace para crear issue a repositorio
+        const createIssueBtn = body.querySelector('.ypp-create-issue-btn');
+        if (createIssueBtn) {
+            createIssueBtn.addEventListener('click', () => {
+                window.open('https://github.com/Alplox/Youtube-Playback-Plox/issues/new', '_blank');
+            });
+        }
+
         // Lógica de Tabs
         body.querySelectorAll('.ypp-github-tab').forEach(tab => {
             tab.addEventListener('click', () => {
@@ -7721,7 +8689,7 @@ background: var(--ypp-danger);
                 // Actualizar visibilidad de contenidos
                 body.querySelectorAll('.ypp-github-tab-content').forEach(c => c.style.display = 'none');
                 const activeContent = body.querySelector(`#ypp-github-${type}-content`);
-                if (activeContent) activeContent.style.display = 'block';
+                if (activeContent) activeContent.style.display = 'flex';
 
                 // Actualizar campo oculto de último tipo visualizado
                 const lastViewedInput = body.querySelector('input[name="githubLastViewedType"]');
@@ -7740,6 +8708,7 @@ background: var(--ypp-danger);
             e.currentTarget.classList.toggle('active');
         });
 
+        footer.appendChild(repositoryBtn);
         footer.appendChild(viewBtn);
         footer.appendChild(saveBtn);
 
@@ -7781,7 +8750,7 @@ background: var(--ypp-danger);
     };
 
     async function notifySeekOrProgress(time, context = 'progress', options = {}) {
-        if (!cachedSettings.showNotifications || cachedSettings.alertStyle === 'hidden') return;
+        if (cachedSettings.alertStyle === 'hidden') return;
 
         const { videoType, isForced = false, videoEl, saveResult = {} } = options;
         const isSeek = context === 'seek';
@@ -7817,7 +8786,7 @@ background: var(--ypp-danger);
                 timeStr
             );
 
-        const isFixedTime = options.isForced === true;
+        const isFixedTime = !!isForced;
         handlers[videoType]?.(message, videoEl, isSeek, isFixedTime, saveResult.isManual);
     }
 
@@ -7866,10 +8835,10 @@ background: var(--ypp-danger);
 
         if (isSelectionMode) {
             setInnerHTML(createPlaylistBtn, `${SVG_ICONS.close} ${t('selectVideos')} (${selectedVideos.size})`);
-            createPlaylistBtn.className = 'ypp-btn ypp-btn-danger ypp-sombra';
+            createPlaylistBtn.className = 'ypp-btn ypp-btn-danger ypp-shadow-md';
         } else {
             setInnerHTML(createPlaylistBtn, `${SVG_ICONS.playlist} ${t('createPlaylist')}`);
-            createPlaylistBtn.className = 'ypp-btn ypp-btn-primary ypp-sombra';
+            createPlaylistBtn.className = 'ypp-btn ypp-btn-primary ypp-shadow-md';
         }
         // Mostrar/ocultar área de playlist y botones del footer
         updatePlaylistArea();
@@ -8154,7 +9123,7 @@ background: var(--ypp-danger);
             if (!videoElement) return;
             // Protección: No encolar videos que son detectados como anuncios
             if (AdDetector.isNodeWithinAdContainer(videoElement)) {
-                logWarn('VideoObserverManager', `🚫 Omitiendo video [${type}] detectado como anuncio por AdDetector`);
+                logInfo('VideoObserverManager', `🚫 Omitiendo video [${type}] detectado como anuncio por AdDetector`);
 
                 // Si el anuncio finaliza en este mismo contenedor, re-encolamos para no perder su progreso
                 if (!activeAdWaiters.has(videoElement)) {
@@ -8689,6 +9658,9 @@ background: var(--ypp-danger);
             clearInterval(currentSession.intervalId);
         }
 
+        // Limpiar proactivamente cualquier mensaje o estado visual previo (zombies de SPA)
+        clearAllPlaybackMessages();
+
         logInfo('process', `🚀 Iniciando sesión de seguimiento para [${type}] - ${videoId}`);
         videoEl.dataset.sessionStartTime = Date.now().toString();
 
@@ -8712,7 +9684,7 @@ background: var(--ypp-danger);
         // getSavedVideoData usa el playlistId del objeto de metadatos si está disponible
         getSavedVideoData(videoId, cachedVideoInfo?.lastViewedPlaylistId).then(savedData => {
             if (savedData) {
-                syncManualSaveUI(videoId, true);
+                syncManualSaveUI(videoId, true, !!savedData.forceResumeTime);
                 if (savedData.watchProgress > 1 || savedData.forceResumeTime > 0) {
                     PlaybackController.resume(player, videoId, videoEl, savedData, type, cachedVideoInfo);
                 }
@@ -8722,31 +9694,44 @@ background: var(--ypp-danger);
         });
 
         // 2. Configurar intervalo de guardado
-        const intervalId = setInterval(async () => {
-            // Kill Switch: Condiciones para detener el seguimiento de esta sesión
-            const isDisconnected = !document.contains(videoEl);
-            const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
-            const currentVideoId = getPlayerVideoId(player);
-            const hasIdChanged = currentVideoId !== videoId;
+        let intervalId = null;
 
-            if (isDisconnected || isAdNow || hasIdChanged) {
-                const reason = isDisconnected ? 'Elemento removido' : (isAdNow ? 'Anuncio detectado' : `ID cambiado: ${currentVideoId}`);
-                logInfo('process', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${reason}`);
+        // Optimización: Solo iniciar el intervalo si el guardado automático está habilitado para este tipo
+        const isLive = cachedVideoInfo?.isLive || false;
+        const isAutoSaveEnabled =
+            type === 'shorts' ? cachedSettings?.saveShorts :
+                type === 'preview' ? cachedSettings?.saveInlinePreviews :
+                    type === 'miniplayer' ? cachedSettings?.saveMiniplayerVideos :
+                        (isLive ? cachedSettings?.saveLiveStreams : cachedSettings?.saveRegularVideos);
 
-                clearInterval(intervalId);
-                activeProcessingSessions.delete(videoEl);
-                return;
-            }
+        if (isAutoSaveEnabled !== false) {
+            intervalId = setInterval(async () => {
+                // Kill Switch: Condiciones para detener el seguimiento de esta sesión
+                const isDisconnected = !document.contains(videoEl);
+                const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
+                const currentVideoId = getPlayerVideoId(player);
+                const hasIdChanged = currentVideoId !== videoId;
 
-            // Llamada unificada al controlador modular de guardado usando metadatos cacheados
-            await PlaybackController.saveStatus(player, videoEl, type, videoId, cachedVideoInfo);
-        }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
+                if (isDisconnected || isAdNow || hasIdChanged) {
+                    const reason = isDisconnected ? 'Elemento removido' : (isAdNow ? 'Anuncio detectado' : `ID cambiado: ${currentVideoId}`);
+                    logInfo('process', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${reason}`);
 
-        activeProcessingSessions.set(videoEl, { intervalId, lastVideoId: videoId, type });
+                    clearInterval(intervalId);
+                    activeProcessingSessions.delete(videoEl);
+                    return;
+                }
+
+                // Llamada unificada al controlador modular de guardado usando metadatos cacheados
+                await PlaybackController.saveStatus(player, videoEl, type, videoId, cachedVideoInfo);
+            }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
+        } else {
+            logLog('process', `Intervalo omitido para [${type}] - ${videoId} (Guardado automático desactivado)`);
+        }
+
+        activeProcessingSessions.set(videoEl, { intervalId, lastVideoId: videoId, type, hasLoggedCompletion: false });
     };
 
     async function processWatchVideo(videoEl) {
-        if (!cachedSettings?.saveRegularVideos) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
             logWarn('processWatchVideo', '🚫 Anuncio detectado en Watch, omitiendo procesamiento.');
@@ -8780,7 +9765,6 @@ background: var(--ypp-danger);
     }
 
     async function processShortsVideo(videoEl) {
-        if (!cachedSettings?.saveShorts) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
             logWarn('processShortsVideo', '🚫 Anuncio detectado en Shorts, omitiendo procesamiento.');
@@ -8810,7 +9794,6 @@ background: var(--ypp-danger);
     }
 
     async function processMiniplayerVideo(videoEl) {
-        if (!cachedSettings?.saveMiniplayerVideos) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
             logWarn('processMiniplayerVideo', '🚫 Anuncio detectado en miniplayer, omitiendo procesamiento.');
@@ -8841,7 +9824,6 @@ background: var(--ypp-danger);
     }
 
     async function processPreviewVideo(videoEl) {
-        if (!cachedSettings?.saveInlinePreviews) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
             logWarn('processPreviewVideo', '🚫 Anuncio detectado en Preview, omitiendo procesamiento.');
@@ -9001,8 +9983,19 @@ background: var(--ypp-danger);
                 let attempts = 0;
                 while (!isReady() && attempts < 20) {
                     await new Promise(r => setTimeout(r, 500));
+                    // Abortar si el video ha cambiado durante la espera
+                    if (videoId !== (player ? getPlayerVideoId(player) : null)) {
+                        logWarn('PlaybackController', `🛑 Abortando resume para ${videoId}: navegación detectada.`);
+                        return;
+                    }
                     attempts++;
                 }
+            }
+
+            // Verificación final justo antes de aplicar el seek
+            if (videoId !== (player ? getPlayerVideoId(player) : null)) {
+                logWarn('PlaybackController', `🛑 Cancelando seek para ${videoId}: ID ya no coincide.`);
+                return;
             }
 
             if (isReady()) {
@@ -9056,7 +10049,7 @@ background: var(--ypp-danger);
             if (!isFinite(currentTime) || currentTime < 0.1 || isNaN(duration) || duration <= 0) return;
 
             if (videoEl.paused) {
-                logWarn('saveStatus', `Video ${type} - ${videoId} pausado`)
+                logInfo('saveStatus', `Video ${type} - ${videoId} pausado`)
                 const prevSavedTime = parseFloat(videoEl.dataset.lastSavedTime || '0');
                 const diff = currentTime - prevSavedTime;
 
@@ -9104,12 +10097,17 @@ background: var(--ypp-danger);
             // Actualizar degradado de color en la barra de progreso
             updateProgressBarGradient(currentTime, duration, finalType);
 
-            // Verificar si el guardado está habilitado para este tipo final (Centralizado)
-            if (finalType === 'live' && !cachedSettings?.saveLiveStreams) return { success: false, reason: 'disabled_by_settings' };
-            if (finalType === 'shorts' && !cachedSettings?.saveShorts) return { success: false, reason: 'disabled_by_settings' };
-            if (finalType === 'preview' && !cachedSettings?.saveInlinePreviews) return { success: false, reason: 'disabled_by_settings' };
-            if (finalType === 'miniplayer' && !cachedSettings?.saveMiniplayerVideos) return { success: false, reason: 'disabled_by_settings' };
-            if (finalType === 'watch' && !cachedSettings?.saveRegularVideos) return { success: false, reason: 'disabled_by_settings' };
+            // Verificar si el guardado está habilitado para este tipo final para modo AUTOMÁTICO
+            let isEnabledForAutoSave = true;
+            if (finalType === 'live' && !cachedSettings?.saveLiveStreams) isEnabledForAutoSave = false;
+            else if (finalType === 'shorts' && !cachedSettings?.saveShorts) isEnabledForAutoSave = false;
+            else if (finalType === 'preview' && !cachedSettings?.saveInlinePreviews) isEnabledForAutoSave = false;
+            else if (finalType === 'miniplayer' && !cachedSettings?.saveMiniplayerVideos) isEnabledForAutoSave = false;
+            else if (finalType === 'watch' && !cachedSettings?.saveRegularVideos) isEnabledForAutoSave = false;
+
+            // Si es un guardado automático y el tipo está desactivado, salimos.
+            // Si es manual (options.isManual), permitimos el guardado independientemente del tipo.
+            if (!options.isManual && !isEnabledForAutoSave) return { success: false, reason: 'disabled_by_settings' };
 
             logLog('PlaybackController', `Datos obtenidos para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType}) ${options.isManual ? '[MANUAL]' : ''}`);
 
@@ -9129,10 +10127,10 @@ background: var(--ypp-danger);
             try {
                 switch (finalType) {
                     case 'live':
-                        result = await saveLivestream(currentTime, videoInfo, saveOptions);
+                        result = await saveLivestream(currentTime, videoInfo, videoEl, saveOptions);
                         break;
                     case 'shorts':
-                        result = await saveShortsVideo(currentTime, videoInfo, saveOptions);
+                        result = await saveShortsVideo(currentTime, videoInfo, videoEl, saveOptions);
                         break;
                     case 'preview':
                         {
@@ -9140,17 +10138,17 @@ background: var(--ypp-danger);
                             const isShortsPreview =
                                 previewContainer ? previewContainer.querySelector('a[href^="/shorts/"]') !== null : false;
                             const specificPreviewType = isShortsPreview ? 'preview_shorts' : 'preview_watch';
-                            result = await savePreview(currentTime, videoInfo, specificPreviewType, saveOptions);
+                            result = await savePreview(currentTime, videoInfo, videoEl, specificPreviewType, saveOptions);
                         }
                         break;
                     case 'watch':
-                        result = await saveRegularVideo(currentTime, videoInfo, saveOptions);
+                        result = await saveRegularVideo(currentTime, videoInfo, videoEl, saveOptions);
                         break;
                     case 'miniplayer':
-                        result = await saveMiniplayer(currentTime, videoInfo, saveOptions);
+                        result = await saveMiniplayer(currentTime, videoInfo, videoEl, saveOptions);
                         break;
                     default:
-                        result = await saveRegularVideo(currentTime, videoInfo, saveOptions);
+                        result = await saveRegularVideo(currentTime, videoInfo, videoEl, saveOptions);
                         break;
                 }
             } catch (e) {
@@ -9233,7 +10231,7 @@ background: var(--ypp-danger);
                 info.title = details.title ?? info.title;
                 info.author = details.author ?? info.author;
                 info.authorId = details.channelId ?? info.authorId;
-                info.isLive = details.isLiveContent ?? info.isLive;
+                info.isLive = details.isLive ?? info.isLive;  // .isLiveContent puede dar falsos positivos en VODs y .isLive solo aparece si esta actualmente en vivo
                 // info.published: null (no obtenible mediante este metodo)
                 info.description = details.shortDescription ?? info.description;
                 info.viewCount = !isNaN(parseInt(details.viewCount, 10))
@@ -9609,6 +10607,7 @@ background: var(--ypp-danger);
         info.lastViewedPlaylistId = info.lastViewedPlaylistId ?? null;
         info.playlistTitle = info.playlistTitle ?? null;
 
+        // logInfo('getCascadedVideoInfo', 'info final:', { ...info });
         return info;
     }
 
@@ -9622,7 +10621,7 @@ background: var(--ypp-danger);
     // ------------------------------------------
 
     function createSortSelector(currentValue, onChange) {
-        const wrapper = createElement('div', { className: 'ypp-d-flex' });
+        const wrapper = createElement('div', { className: 'ypp-d-flex ypp-filter-1' });
         const label = createElement('label', { className: 'ypp-label ypp-label-filters', text: `${t('sortBy')}:`, atribute: { for: 'sort-selector' } });
         const select = createElement('select', {
             className: 'ypp-sort-select',
@@ -9645,7 +10644,7 @@ background: var(--ypp-danger);
 
     // nota futuro yo: <option> no soporta SVG
     function createFilterSelector(currentValue, onChange) {
-        const wrapper = createElement('div', { className: 'ypp-d-flex' });
+        const wrapper = createElement('div', { className: 'ypp-d-flex ypp-filter-2' });
         const label = createElement('label', { className: 'ypp-label ypp-label-filters', text: `${t('filterByType')}:`, atribute: { for: 'filter-selector' } });
         const select = createElement('select', {
             className: 'ypp-filter-select', id: 'filter-selector', html: `
@@ -9665,7 +10664,7 @@ background: var(--ypp-danger);
     }
 
     function createSearchInput(currentValue, onChange) {
-        const wrapper = createElement('div', { className: 'ypp-d-flex' });
+        const wrapper = createElement('div', { className: 'ypp-d-flex ypp-searchbar' });
         const input = createElement('input', {
             className: 'ypp-search-input',
             id: 'search-input',
@@ -10150,7 +11149,7 @@ background: var(--ypp-danger);
 
         const wrapper = createElement('div', { className: 'ypp-floatingBtnContainer' });
         const btnConfig = createElement('div', {
-            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
             html: `${SVG_ICONS.settings} ${t('youtubePlaybackPlox')}`,
             onClickEvent: async () => { await showSettingsUI(); }
         });
@@ -10206,7 +11205,7 @@ background: var(--ypp-danger);
         header.appendChild(closeBtn);
         videosContainer.appendChild(header);
 
-        const filtersContainer = createElement('div', { className: 'ypp-filters' });
+        const filtersContainer = createElement('div', { className: 'ypp-video-filters-section' });
         filtersContainer.appendChild(createSortSelector(currentOrderBy, async (selected) => {
             currentOrderBy = selected;
             await saveFilters({ orderBy: selected });
@@ -10240,22 +11239,22 @@ background: var(--ypp-danger);
         const firstRow = createElement('div', { className: 'ypp-footer-row' });
 
         const btnExport = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
             html: `${SVG_ICONS.upload} ${t('export')} (JSON)`,
             onClickEvent: async () => await exportDataToFile()
         });
         const btnImport = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
             html: `${SVG_ICONS.download} ${t('import')} (JSON)`,
             onClickEvent: async () => await importDataFromFile()
         });
         const btnExportFreeTube = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
             html: `${SVG_ICONS.upload} ${t('export')} (FreeTube)`,
             onClickEvent: async () => await exportToFreeTube()
         });
         const btnImportFreeTube = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
             html: `${SVG_ICONS.download} ${t('import')} (FreeTube)`,
             onClickEvent: async () => await importFromFreeTube()
         });
@@ -10270,21 +11269,21 @@ background: var(--ypp-danger);
         const secondRow = createElement('div', { className: 'ypp-footer-row ypp-footer-row-bottom' });
 
         const btnClearAll = createElement('button', {
-            className: 'ypp-btn ypp-btn-danger ypp-sombra',
+            className: 'ypp-btn ypp-btn-danger ypp-shadow-md',
             html: `${SVG_ICONS.trash} ${t('clearAll')}`,
             onClickEvent: async () => { await clearAllData(); }
         });
 
         const btnCreatePlaylist = createElement('button', {
             id: 'ypp-create-playlist-btn',
-            className: 'ypp-btn ypp-btn-primary ypp-sombra',
+            className: 'ypp-btn ypp-btn-primary ypp-shadow-md',
             html: `${SVG_ICONS.playlist} ${t('createPlaylist')}`,
             onClickEvent: async () => { await toggleSelectionMode(); }
         });
 
 
         const btnSettings = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
+            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
             html: `${SVG_ICONS.settings} ${t('settings')}`,
             onClickEvent: async () => { await showSettingsUI(); }
         });
@@ -10326,21 +11325,21 @@ background: var(--ypp-danger);
         });
 
         const copyBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-primary ypp-sombra',
+            className: 'ypp-btn ypp-btn-primary ypp-shadow-md',
             html: `${SVG_ICONS.copy} ${t('copyLink')}`,
             id: 'ypp-copy-playlist-btn',
             onClickEvent: copyPlaylistLink
         });
 
         const openBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary ypp-sombra',
-            html: `${SVG_ICONS.externalLink} ${t('openPlaylist')}`,
+            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
+            html: `${t('openPlaylist')} ${SVG_ICONS.externalLink}`,
             id: 'ypp-open-playlist-btn',
             onClickEvent: openPlaylistLink
         });
 
         const cancelBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-danger ypp-sombra',
+            className: 'ypp-btn ypp-btn-danger ypp-shadow-md',
             html: `${SVG_ICONS.close} ${t('cancel')}`,
             onClickEvent: async () => { await toggleSelectionMode(); }
         });
@@ -10473,7 +11472,7 @@ background: var(--ypp-danger);
         }
 
         // Sincronizar UI de reproducción activa
-        syncFixedTimeUI(videoId, !!info.forceResumeTime);
+        syncFixedTimeUI(videoId, !!info.forceResumeTime, info.forceResumeTime);
 
         await updateVideoList();
     }
@@ -10541,8 +11540,7 @@ background: var(--ypp-danger);
             }
             await updateVideoList();
             // Restaurar estado de tiempo fijo en UI si existía
-            syncFixedTimeUI(videoId, !!itemInfo.forceResumeTime);
-            syncManualSaveUI(videoId, true);
+            syncFixedTimeUI(videoId, !!itemInfo.forceResumeTime, itemInfo.forceResumeTime);
         };
 
         await deleteFromStorage();
@@ -10595,6 +11593,48 @@ background: var(--ypp-danger);
             }
         });
     };
+
+    /* Cache para URLs de miniaturas validadas para evitar re-validaciones durante el scroll */
+    const thumbUrlCache = new Map();
+
+    /**
+     * Valida de forma asíncrona la mejor miniatura disponible para un video.
+     * YouTube devuelve una imagen de 120px en lugar de 404 para archivos inexistentes.
+     * @param {string} videoId - ID del video.
+     * @returns {Promise<string>} - URL de la mejor miniatura validada.
+     */
+    async function getValidatedThumbnail(videoId) {
+        if (!videoId) return '';
+        if (thumbUrlCache.has(videoId)) return thumbUrlCache.get(videoId);
+
+        const candidates = [
+            `https://i.ytimg.com/vi_webp/${videoId}/maxresdefault.webp`,
+            `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
+            `https://i.ytimg.com/vi/${videoId}/hq720.jpg`,
+            `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+        ];
+
+        for (const url of candidates) {
+            try {
+                const isOk = await new Promise((resolve) => {
+                    const img = new Image();
+                    img.onload = () => resolve(img.naturalWidth > 120);
+                    img.onerror = () => resolve(false);
+                    img.src = url;
+                    // Timeout de seguridad para no bloquear el scroll indefinidamente
+                    setTimeout(() => resolve(false), 1000);
+                });
+                if (isOk) {
+                    thumbUrlCache.set(videoId, url);
+                    return url;
+                }
+            } catch (_) { /* continue */ }
+        }
+
+        const fallback = candidates[candidates.length - 1];
+        thumbUrlCache.set(videoId, fallback);
+        return fallback;
+    }
 
     async function createVideoEntry(item) {
         const { info, playlistKey = null, playlistTitle = null } = item;
@@ -10666,16 +11706,22 @@ background: var(--ypp-danger);
             else if (percent !== null) progressHtml = percentHtml;
         }
 
+        // Obtener la mejor miniatura validada asíncronamente
+        const validatedThumbUrl = await getValidatedThumbnail(videoId);
+
         const html = `
             <div class="ypp-videoWrapper ${isPlaylistItem ? 'playlist-item' : 'regular-item'}${isSelectionMode ? ' selection-mode' : ''} ypp-video-item" data-video-id="${escapeHTML(videoId)}" data-playlist-key="${escapeHTML(playlistKey || '')}" style="${wrapperStyle}">
                 ${isSelectionMode ? `<input type="checkbox" data-action="toggle-selection" class="ypp-video-checkbox" data-video-id="${escapeHTML(videoId)}" ${selectedVideos.has(videoId) ? 'checked' : ''}>` : ''}
-                <img class="ypp-thumb" title="${title}" alt="${title}" src="https://i.ytimg.com/vi_webp/${escapeHTML(videoId)}/maxresdefault.webp" loading="lazy" width="320" height="180" draggable="false">
+                
+                <img class="ypp-thumb" title="${title}" alt="${title}" src="${validatedThumbUrl}" loading="lazy" width="320" height="180" draggable="false">
 
                 <div class="ypp-infoDiv">
-                    <a class="ypp-titleLink" title="${title}" href="https://www.youtube.com/watch?v=${escapeHTML(videoId)}${playlistKey ? '&list=' + escapeHTML(playlistKey) : ''}" target="_blank" rel="noopener noreferrer">${title}</a>
+                    <a class="ypp-titleLink" title="${title}" href="https://www.youtube.com/watch?v=${escapeHTML(videoId)}${playlistKey ? '&list=' + escapeHTML(playlistKey) : ''}" target="_blank" rel="noopener noreferrer">
+                        <span>${title}</span> ${SVG_ICONS.externalLink}
+                    </a>
 
                     ${isPlaylistItem && finalPlaylistTitle ? `
-                        <div class="ypp-playlist-indicator ypp-sombra" title="${t('playlist')}: ${finalPlaylistTitle} (${escapeHTML(playlistKey)})" style="color: ${playlistBorderColor};">
+                        <div class="ypp-playlist-indicator ypp-shadow-md" title="${t('playlist')}: ${finalPlaylistTitle} (${escapeHTML(playlistKey)})" style="color: ${playlistBorderColor};">
                             <a class="ypp-playlist-link" title="${t('openPlaylist')}: ${finalPlaylistTitle}" href="${playlistUrl}" target="_blank" rel="noopener noreferrer">
                                 ${SVG_ICONS.playlist} ${finalPlaylistTitle}  ${SVG_ICONS.externalLink}
                             </a>
@@ -10683,10 +11729,24 @@ background: var(--ypp-danger);
                     ` : ''}
 
                     ${authorId ? `
-                        <a class="ypp-author ypp-author-link" title="${t('openChannel')}: ${author}" href="https://www.youtube.com/channel/${escapeHTML(authorId)}" target="_blank" rel="noopener noreferrer">${author}</a>
+                        <a class="ypp-author ypp-author-link" title="${t('openChannel')}: ${author}" href="https://www.youtube.com/channel/${escapeHTML(authorId)}" target="_blank" rel="noopener noreferrer">${author} ${SVG_ICONS.externalLink}</a>
                     ` : `<div class="ypp-author">${author}</div>`}
 
-                    <div class="ypp-views">${viewsText}</div>
+                    <div class="ypp-views">
+                        ${viewsText}
+                        ${(() => {
+                if (!info.completionHistory?.length) return '';
+                const history = info.completionHistory;
+                const limit = 10;
+                const recent = history.slice(-limit).reverse();
+                const hasMore = history.length > limit;
+                let tooltip = `${t('watchedHistory')}:\n` +
+                    recent.map(ts => new Date(ts).toLocaleString().replace(',', '')).join('\n');
+                if (hasMore) tooltip += `\n... (+${history.length - limit})`;
+
+                return `<span class="ypp-watched-count" title="${escapeHTML(tooltip)}"> [${SVG_ICONS.check} ${t('watchedCount', { count: history.length }, 'Watched ' + history.length + ' times')}]</span>`;
+            })()}
+                    </div>
                     <div class="ypp-timestamp ${timestampClass}">${timestampText}</div>
 
                     ${progressHtml}
@@ -10694,18 +11754,18 @@ background: var(--ypp-danger);
 
                 <div class="ypp-containerButtonsTime">
                     ${!isLiveEntry ? `
-                        <button class="ypp-btn ypp-btn-small" data-action="force-time" title="${hasFixedTime ? t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(info.forceResumeTime)) }) : t('setStartTime')}">
+                        <button class="ypp-btn ypp-btn-outlined ypp-btn-small ypp-shadow-md" data-action="force-time" title="${hasFixedTime ? t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(info.forceResumeTime)) }) : t('setStartTime')}">
                             ${SVG_ICONS.timer}
                         </button>
                     ` : ''}
 
                     ${lastViewedPlaylistId ? `
-                        <button class="ypp-btn ypp-btn-small" data-action="unlink-playlist" title="${t('removeFromPlaylist')}">
+                        <button class="ypp-btn ypp-btn-small ypp-shadow-md" data-action="unlink-playlist" title="${t('removeFromPlaylist')}">
                             ${SVG_ICONS.playlistRemove}
                         </button>
                     ` : ''}
 
-                    <button class="ypp-btn ypp-btn-delete ypp-btn-small" data-action="delete-entry" title="${t('deleteEntry')}" data-title="${title}">
+                    <button class="ypp-btn ypp-btn-delete ypp-btn-small ypp-shadow-md" data-action="delete-entry" title="${t('deleteEntry')}" data-title="${title}">
                         ${SVG_ICONS.trash}
                     </button>
                 </div>

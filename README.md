@@ -60,15 +60,13 @@ All information is stored locally in your browser. **No data is sent to external
 
 ## 📸 Screenshots
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-alerta-guardado-automatico.png" alt="Example of alert time saved">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-6_ejemplo-alerta-guardado-automatico.png" alt="Example of alert time saved">
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-modal-videos.png" alt="Example of modal to view saved videos">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-6_ejemplo-modal-videos.png" alt="Example of modal to view saved videos">
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-modal-config-1.png" alt="Example of configuration modal 1">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-6_ejemplo-modal-configuraciones.png" alt="Example of configuration modal">
 
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-modal-config-2.png" alt="Example of configuration modal 2">
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-5_ejemplo-crear-playlist.png" alt="Example of playlist creation">
+<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-6_ejemplo-crear-playlist.png" alt="Example of playlist creation">
 
 ## 🌐 Languages
 

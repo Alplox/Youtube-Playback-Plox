@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-6
+// @version      0.0.9-7
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -217,7 +217,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = '0.0.9-6';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-7';
 
     /**
      * Polyfill ligero para CustomEvent en navegadores antiguos.
@@ -274,41 +274,136 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
     const FALLBACK_TRANSLATIONS = {
         "en-US": {
+            "youtubePlaybackPlox": "YouTube Playback Plox",
+            "migrationBackupPrompt": "An update to your saved videos database has been detected. To avoid potential data loss due to a migration error, you will be prompted to save a JSON backup.",
+            "askDownloadBackupPreMigration": "Do you want to download the backup JSON before the update proceeds?",
             "settings": "Settings",
             "savedVideos": "View saved videos",
+            "manageVideos": "Manage videos",
+            "viewAllHistory": "View all history",
+            "viewCompletedVideos": "View completed videos",
+            "completedVideos": "Completed videos",
             "close": "Close",
             "save": "Save",
+            "saveAs": "Save as",
             "cancel": "Cancel",
             "delete": "Delete",
             "undo": "Undo",
+            "clearAll": "Clear all",
+            "clearAllConfirm": "Are you sure you want to delete ALL saved videos? This action can be undone.",
+            "deleteEntry": "Delete entry",
+            "deleteSelected": "Delete selected",
+            "confirmDeleteSelected": "Are you sure you want to delete {count} videos?",
+            "retryNow": "Retry now",
+            "retryCompleted": "Retry completed",
+            "playlistPrefix": "Playlist",
+            "loading": "Loading",
+            "progress": "Progress",
+            "unknown": "Unknown",
+            "deleted": "deleted.",
+            "protect": "Protect",
+            "unprotect": "Unprotect",
+            "protected": "Protected",
+            "unprotected": "Unprotected",
+            "protectedVideos": "Protected videos",
+            "protectedVideoWarning": "This video is protected and cannot be deleted.",
+            "protectedItemsSkipped": "{count} protected items were skipped.",
+            "notAvailable": "N/A",
+            "errors": "errors",
+            "rendered": "Rendered",
+            "configurationSaved": "Configuration saved",
+            "noSavedVideos": "No saved videos.",
+            "progressSaved": "Progress saved",
+            "errorSaving": "Error saving progress",
+            "unknownError": "Unknown error",
+            "language": "Language",
+            "showFloatingButton": "Show floating button",
+            "enableProgressBarGradient": "Enable color gradient in progress bar",
+            "manualSaveMode": "Manual save mode",
+            "manualSaveModeTooltip": "If enabled, progress will only be saved when clicking the save button.",
             "enableAutomaticSavingFor": "Enable automatic saving for",
             "regularVideos": "Regular videos",
+            "miniplayerVideos": "Miniplayer videos",
             "shorts": "Shorts",
             "liveStreams": "Live streams",
-            "live": "Live",
+            "inlinePreviews": "Inline previews on Home",
             "minSecondsBetweenSaves": "Minimum seconds between saves",
-            "showFloatingButton": "Show floating button",
-            "language": "Language",
             "alertStyle": "Alert style in playback bar",
             "alertIconText": "Icon + Text",
             "alertIconOnly": "Icon Only",
             "alertTextOnly": "Text Only",
             "alertHidden": "Hidden",
-            "noSavedVideos": "No saved videos.",
+            "staticFinishPercent": "Percentage to mark video as completed",
+            "countOncePerSession": "Log additional completion times only once per session",
+            "countOncePerSessionTooltip": "If enabled, once the completion threshold is reached, replays or auto-looping will not be counted multiple times within the same session.",
+            "searchByTitleOrAuthor": "Search by title or author...",
+            "advancedFilters": "Advanced Filters",
+            "activeFilters": "{count} active filters",
+            "custom": "Custom",
             "sortBy": "Sort by",
             "mostRecent": "Most recent",
             "oldest": "Oldest",
             "titleAZ": "Title (A-Z)",
+            "titleZA": "Title (Z-A)",
+            "authorAZ": "Author (A-Z)",
+            "authorZA": "Author (Z-A)",
+            "duration": "Duration",
+            "durationShort": "Duration (Shortest)",
+            "durationLong": "Duration (Longest)",
+            "yourMostWatched": "Your most watched",
+            "yourLeastWatched": "Your least watched",
+            "mostViewsYoutube": "Most views on YouTube",
+            "leastViewsYoutube": "Least views on YouTube",
+            "progressDESC": "Progress (Most to least)",
+            "progressASC": "Progress (Least to most)",
             "filterByType": "Filter by type",
             "all": "All",
             "videos": "Videos",
             "playlist": "Playlist",
-            "searchByTitleOrAuthor": "Search by title or author...",
+            "completed": "Completed",
+            "completedOnce": "Completed at least once",
+            "videosWithFixedTime": "Videos with fixed time",
+            "views": "Views",
+            "minLimit": "Min",
+            "maxLimit": "Max",
+            "minViews": "Min views",
+            "maxViews": "Max views",
+            "minPercent": "Min %",
+            "maxPercent": "Max %",
+            "percentWatched": "% watched",
+            "remaining": "remaining",
+            "setStartTime": "Set start time",
+            "changeOrRemoveStartTime": "Always start from {time} (Click to change or remove)",
+            "enterStartTime": "Enter the start time you always want to use (example: 1:23)",
+            "enterStartTimeOrEmpty": "Enter the start time you always want to use (example: 1:23) or leave empty to remove",
+            "watchedCount": "Watched {count} times",
+            "watchedHistory": "Watch history",
+            "openChannel": "Open channel",
+            "resumedAt": "Resumed at",
+            "alwaysStartFrom": "Always start from",
+            "startTimeSet": "Start time set to",
+            "fixedTimeRemoved": "Fixed time removed.",
+            "live": "Live",
+            "previews": "Previews",
+            "selectAllResults": "Select all current results",
+            "deselectAllResults": "Deselect all current results",
+            "allItemsCleared": "All items cleared",
+            "storageFull": "Storage full - Progress cannot be saved",
+            "allDataRestored": "All data restored",
+            "allDataCleared": "All data cleared",
+            "noDataToRestore": "No data to restore",
+            "clearAllDataConfirm": "Are you sure you want to delete all data?",
+            "itemsRestored": "{count} items restored",
+            "migratingData": "Migrating saved data from previous version...",
+            "migratingDataProgress": "Migrating data... {count} entries processed",
+            "migrationComplete": "Migration completed: {migrated} videos successfully migrated",
+            "migrationNoData": "No data found to migrate",
+            "omitedVideos": "Omitted videos",
             "export": "Export",
             "import": "Import",
-            "progressSaved": "Progress saved",
-            "storageFull": "Storage full - Progress cannot be saved",
             "dataExported": "Data exported",
+            "exportSelected": "Export selected",
+            "itemsExported": "Exported {count} items",
             "itemsImported": "Imported {count} items",
             "importError": "Error importing. Make sure the file is valid.",
             "exportError": "Error exporting data",
@@ -316,84 +411,29 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "invalidJson": "Invalid JSON",
             "invalidDatabase": "Invalid database",
             "noValidVideos": "No valid videos found to import",
-            "allDataCleared": "All data cleared",
-            "noDataToRestore": "No data to restore",
-            "allDataRestored": "All data restored",
-            "clearAllDataConfirm": "Are you sure you want to delete all data?",
-            "omitedVideos": "Omitted videos",
             "fileTooLarge": "File is too large (max {size})",
             "importingFromFreeTube": "Importing from FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importing from FreeTube as SQLite...",
             "videosImported": "videos imported",
             "noVideosImported": "no videos could be imported",
-            "errors": "errors",
             "noVideosFoundInFreeTubeDB": "No videos found in FreeTube database",
             "videosImportedFromFreeTubeDB": "videos imported from FreeTube database",
             "noVideosImportedFromFreeTubeDB": "no videos could be imported from FreeTube database",
             "fileEmpty": "File is empty",
-            "errorSaving": "Error saving progress",
             "processingFile": "Processing file...",
-            "configurationSaved": "Configuration saved",
-            "startTimeSet": "Start time set to",
-            "fixedTimeRemoved": "Fixed time removed.",
-            "itemDeleted": "deleted.",
-            "unknownError": "Unknown error",
-            "retryNow": "Retry now",
-            "retryCompleted": "Retry completed",
-            "progress": "Progress",
-            "alwaysStartFrom": "Always start from",
-            "resumedAt": "Resumed at",
-            "percentWatched": "% watched",
-            "remaining": "remaining",
-            "setStartTime": "Set start time",
-            "changeOrRemoveStartTime": "Always start from {time} (Click to change or remove)",
-            "enterStartTime": "Enter the start time you always want to use (example: 1:23)",
-            "enterStartTimeOrEmpty": "Enter the start time you always want to use (example: 1:23) or leave empty to remove",
-            "deleteEntry": "Delete entry",
-            "youtubePlaybackPlox": "YouTube Playback Plox",
-            "playlistPrefix": "Playlist",
-            "unknown": "Unknown",
-            "notAvailable": "N/A",
-            "clearAll": "Clear all",
-            "clearAllConfirm": "Are you sure you want to delete ALL saved videos? This action can be undone.",
-            "allItemsCleared": "All items cleared",
-            "viewAllHistory": "View all history",
-            "viewCompletedVideos": "View completed videos",
-            "completed": "Completed",
-            "completedVideos": "Completed videos",
-            "videosWithFixedTime": "Videos with fixed time",
-            "views": "Views",
-            "watchedCount": "Watched {count} times",
-            "watchedHistory": "Watch history",
-            "enableProgressBarGradient": "Enable color gradient in progress bar",
-            "staticFinishPercent": "Percentage to mark video as completed",
-            "countOncePerSession": "Log additional completion times only once per session",
-            "countOncePerSessionTooltip": "If enabled, once the completion threshold is reached, replays or auto-looping will not be counted multiple times within the same session.",
-            "openChannel": "Open channel",
-            "openPlaylist": "Open playlist",
             "createPlaylist": "Create playlist",
+            "openPlaylist": "Open playlist",
             "selectVideos": "Select videos",
             "selectedVideos": "Selected videos",
             "generatePlaylistLink": "Generate playlist link",
             "playlistLinkGenerated": "Playlist link generated",
             "copyLink": "Copy link",
             "linkCopied": "Link copied to clipboard",
-            "selectAtLeastOne": "Select at least one video",
-            "tooManyVideos": "Too many videos selected (max 200)",
-            "miniplayerVideos": "Miniplayer videos",
-            "inlinePreviews": "Inline previews on Home",
-            "manualSaveMode": "Manual save mode",
-            "manualSaveModeTooltip": "If enabled, progress will only be saved when clicking the save button.",
             "removeFromPlaylist": "Remove from playlist",
             "confirmRemoveFromPlaylist": "Are you sure you want to remove this video from the playlist? It will remain as an individual video.",
             "playlistAssociationRemoved": "Playlist association removed",
-            "loading": "Loading",
-            "rendered": "Rendered",
-            "previews": "Previews",
-            "migratingData": "Migrating saved data from previous version...",
-            "migratingDataProgress": "Migrating data... {count} entries processed",
-            "migrationComplete": "Migration completed: {migrated} videos successfully migrated",
-            "migrationNoData": "No data found to migrate",
+            "selectAtLeastOne": "Select at least one video",
+            "tooManyVideos": "Too many videos selected (max 200)",
             "githubBackup": "GitHub Backup",
             "githubToken": "Personal Access Token",
             "githubGistId": "Gist ID",
@@ -432,7 +472,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "githubCleanupStep2": "For repositories, deleting the backup file leaves history in previous commits. Deleting the entire repository is the only way to purge all traces.",
             "githubRepoPrivacyError": "Error: The repository must be private to perform the backup.",
             "githubRepoCheck": "Verifying repository privacy...",
-            "saveAs": "Save as",
             "supportLogsTitle": "Support & Error Logs",
             "copyLogsBtn": "Copy Logs",
             "reportIssue": "Report Issue",
@@ -440,41 +479,136 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "noLogs": "No errors recorded."
         },
         "es-ES": {
+            "youtubePlaybackPlox": "YouTube Playback Plox",
+            "migrationBackupPrompt": "Se ha detectado una actualización en la base de datos de videos guardados. Para evitar la posible pérdida de datos debido a un error de migración, se te pedirá que guardes una copia de seguridad en formato JSON.",
+            "askDownloadBackupPreMigration": "¿Quieres descargar la copia de seguridad en formato JSON antes de que continúe la actualización?",
             "settings": "Configuración",
             "savedVideos": "Ver videos guardados",
+            "manageVideos": "Gestionar vídeos",
+            "viewAllHistory": "Ver todo el historial",
+            "viewCompletedVideos": "Ver videos completados",
+            "completedVideos": "Videos completados",
             "close": "Cerrar",
             "save": "Guardar",
+            "saveAs": "Guardar como",
             "cancel": "Cancelar",
             "delete": "Eliminar",
             "undo": "Deshacer",
+            "clearAll": "Eliminar todo",
+            "clearAllConfirm": "¿Estás seguro de que quieres eliminar TODOS los videos guardados? Esta acción se puede deshacer.",
+            "deleteEntry": "Eliminar entrada",
+            "deleteSelected": "Eliminar seleccionados",
+            "confirmDeleteSelected": "¿Seguro que quieres eliminar {count} vídeos?",
+            "retryNow": "Reintentar ahora",
+            "retryCompleted": "Reintentos completados",
+            "playlistPrefix": "Playlist",
+            "loading": "Cargando",
+            "progress": "Progreso",
+            "unknown": "Desconocido",
+            "deleted": "eliminado.",
+            "protect": "Proteger",
+            "unprotect": "Quitar protección",
+            "protected": "Protegido",
+            "unprotected": "Sin protección",
+            "protectedVideos": "Videos protegidos",
+            "protectedVideoWarning": "Este video está protegido y no puede eliminarse.",
+            "protectedItemsSkipped": "Se omitieron {count} elementos protegidos.",
+            "notAvailable": "N/A",
+            "errors": "errores",
+            "rendered": "Renderizados",
+            "configurationSaved": "Configuración guardada",
+            "noSavedVideos": "No hay videos guardados.",
+            "progressSaved": "Progreso guardado",
+            "errorSaving": "Error guardando progreso",
+            "unknownError": "Error desconocido",
+            "language": "Idioma",
+            "showFloatingButton": "Mostrar botón flotante",
+            "enableProgressBarGradient": "Habilitar degradado de colores en barra de progreso",
+            "manualSaveMode": "Modo de guardado manual",
+            "manualSaveModeTooltip": "Si está activado, el progreso solo se guardará al pulsar el botón de guardado.",
             "enableAutomaticSavingFor": "Habilitar guardado automático para",
             "regularVideos": "Videos regulares",
+            "miniplayerVideos": "Vídeos en minirreproductor",
             "shorts": "Shorts",
             "liveStreams": "Directos (Livestreams)",
-            "live": "Directo",
+            "inlinePreviews": "Previsualizaciones en la página de inicio",
             "minSecondsBetweenSaves": "Intervalo segundos mínimos entre guardados",
-            "showFloatingButton": "Mostrar botón flotante",
-            "language": "Idioma",
             "alertStyle": "Estilo de alertas en la barra de reproducción",
             "alertIconText": "Icono + Texto",
             "alertIconOnly": "Solo Icono",
             "alertTextOnly": "Solo Texto",
             "alertHidden": "Oculto",
-            "noSavedVideos": "No hay videos guardados.",
+            "staticFinishPercent": "Porcentaje para marcar video como completado",
+            "countOncePerSession": "Registrar tiempos de finalización adicionales solo una vez por sesión",
+            "countOncePerSessionTooltip": "Si está activado, una vez alcanzado el umbral de finalización, las repeticiones o la reproducción automática no se contarán varias veces dentro de la misma sesión.",
+            "searchByTitleOrAuthor": "Buscar por título o autor...",
+            "advancedFilters": "Filtros avanzados",
+            "activeFilters": "{count} filtros activos",
+            "custom": "Personalizado",
             "sortBy": "Ordenar por",
             "mostRecent": "Más recientes",
             "oldest": "Más antiguos",
             "titleAZ": "Título (A-Z)",
+            "titleZA": "Título (Z-A)",
+            "authorAZ": "Autor (A-Z)",
+            "authorZA": "Autor (Z-A)",
+            "duration": "Duración",
+            "durationShort": "Duración (Más corta)",
+            "durationLong": "Duración (Más larga)",
+            "yourMostWatched": "Tus más vistos",
+            "yourLeastWatched": "Tus menos vistos",
+            "mostViewsYoutube": "Más vistas en YouTube",
+            "leastViewsYoutube": "Menos vistas en YouTube",
+            "progressDESC": "Progreso (Mayor a menor)",
+            "progressASC": "Progreso (Menor a mayor)",
             "filterByType": "Filtrar por tipo",
             "all": "Todos",
             "videos": "Videos",
             "playlist": "Playlist",
-            "searchByTitleOrAuthor": "Buscar por título o autor...",
+            "completed": "Completado",
+            "completedOnce": "Completado al menos una vez",
+            "videosWithFixedTime": "Videos con tiempo fijo",
+            "views": "Vistas",
+            "minLimit": "Mín",
+            "maxLimit": "Máx",
+            "minViews": "Mín vistas",
+            "maxViews": "Máx vistas",
+            "minPercent": "Mín %",
+            "maxPercent": "Máx %",
+            "percentWatched": "% visto",
+            "remaining": "restantes",
+            "setStartTime": "Establecer tiempo de inicio",
+            "changeOrRemoveStartTime": "Siempre empezar en {time} (Click para cambiar o eliminar)",
+            "enterStartTime": "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23)",
+            "enterStartTimeOrEmpty": "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23) o deja vacío para eliminar",
+            "watchedCount": "Visto {count} veces",
+            "watchedHistory": "Historial de visualización",
+            "openChannel": "Abrir canal",
+            "resumedAt": "Reanudado en",
+            "alwaysStartFrom": "Siempre desde",
+            "startTimeSet": "Tiempo de inicio establecido en",
+            "fixedTimeRemoved": "Tiempo fijo eliminado.",
+            "live": "Directo",
+            "previews": "Previsualizaciones",
+            "selectAllResults": "Seleccionar todos los resultados actuales",
+            "deselectAllResults": "Deseleccionar todos los resultados actuales",
+            "allItemsCleared": "Todos los elementos eliminados",
+            "storageFull": "Almacenamiento lleno - No se puede guardar el progreso",
+            "allDataRestored": "Todos los datos restaurados",
+            "allDataCleared": "Todos los datos eliminados",
+            "noDataToRestore": "No hay datos para restaurar",
+            "clearAllDataConfirm": "¿Estás seguro de que quieres eliminar todos los datos?",
+            "itemsRestored": "{count} elementos restaurados",
+            "migratingData": "Migrando datos guardados desde versión anterior...",
+            "migratingDataProgress": "Migrando datos... {count} entradas procesadas",
+            "migrationComplete": "Migración completada: {migrated} videos migrados correctamente",
+            "migrationNoData": "No se encontraron datos para migrar",
+            "omitedVideos": "Videos omitidos",
             "export": "Exportar",
             "import": "Importar",
-            "progressSaved": "Progreso guardado",
-            "storageFull": "Almacenamiento lleno - No se puede guardar el progreso",
             "dataExported": "Datos exportados",
+            "exportSelected": "Exportar seleccionados",
+            "itemsExported": "{count} elementos exportados",
             "itemsImported": "Importados {count} elementos",
             "importError": "Error al importar. Asegúrate de que el archivo sea válido.",
             "exportError": "Error al exportar datos",
@@ -482,84 +616,29 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "invalidJson": "JSON inválido",
             "invalidDatabase": "Base de datos inválida",
             "noValidVideos": "No se encontraron videos válidos para importar",
-            "allDataCleared": "Todos los datos eliminados",
-            "noDataToRestore": "No hay datos para restaurar",
-            "allDataRestored": "Todos los datos restaurados",
-            "clearAllDataConfirm": "¿Estás seguro de que quieres eliminar todos los datos?",
-            "omitedVideos": "Videos omitidos",
             "fileTooLarge": "El archivo es demasiado grande (máx {size})",
             "importingFromFreeTube": "Importando desde FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importando desde FreeTube como SQLite...",
             "videosImported": "videos importados",
             "noVideosImported": "no se pudo importar ningún video",
-            "errors": "errores",
             "noVideosFoundInFreeTubeDB": "No se encontraron videos en la base de datos de FreeTube",
             "videosImportedFromFreeTubeDB": "videos importados desde la base de datos de FreeTube",
             "noVideosImportedFromFreeTubeDB": "no se pudo importar ningún video desde la base de datos de FreeTube",
             "fileEmpty": "El archivo está vacío",
-            "errorSaving": "Error guardando progreso",
             "processingFile": "Procesando archivo...",
-            "configurationSaved": "Configuración guardada",
-            "startTimeSet": "Tiempo de inicio establecido en",
-            "fixedTimeRemoved": "Tiempo fijo eliminado.",
-            "itemDeleted": "eliminado.",
-            "unknownError": "Error desconocido",
-            "retryNow": "Reintentar ahora",
-            "retryCompleted": "Reintentos completados",
-            "progress": "Progreso",
-            "alwaysStartFrom": "Siempre desde",
-            "resumedAt": "Reanudado en",
-            "percentWatched": "% visto",
-            "remaining": "restantes",
-            "setStartTime": "Establecer tiempo de inicio",
-            "changeOrRemoveStartTime": "Siempre empezar en {time} (Click para cambiar o eliminar)",
-            "enterStartTime": "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23)",
-            "enterStartTimeOrEmpty": "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23) o deja vacío para eliminar",
-            "deleteEntry": "Eliminar entrada",
-            "youtubePlaybackPlox": "YouTube Playback Plox",
-            "playlistPrefix": "Playlist",
-            "unknown": "Desconocido",
-            "notAvailable": "N/A",
-            "clearAll": "Eliminar todo",
-            "clearAllConfirm": "¿Estás seguro de que quieres eliminar TODOS los videos guardados? Esta acción se puede deshacer.",
-            "allItemsCleared": "Todos los elementos eliminados",
-            "viewAllHistory": "Ver todo el historial",
-            "viewCompletedVideos": "Ver videos completados",
-            "completed": "Completado",
-            "completedVideos": "Videos completados",
-            "videosWithFixedTime": "Videos con tiempo fijo",
-            "views": "Vistas",
-            "watchedCount": "Visto {count} veces",
-            "watchedHistory": "Historial de visualización",
-            "enableProgressBarGradient": "Habilitar degradado de colores en barra de progreso",
-            "staticFinishPercent": "Porcentaje para marcar video como completado",
-            "countOncePerSession": "Registrar tiempos de finalización adicionales solo una vez por sesión",
-            "countOncePerSessionTooltip": "Si está activado, una vez alcanzado el umbral de finalización, las repeticiones o la reproducción automática no se contarán varias veces dentro de la misma sesión.",
-            "openChannel": "Abrir canal",
-            "openPlaylist": "Abrir playlist",
             "createPlaylist": "Crear playlist",
+            "openPlaylist": "Abrir playlist",
             "selectVideos": "Seleccionar videos",
             "selectedVideos": "Videos seleccionados",
             "generatePlaylistLink": "Generar enlace de playlist",
             "playlistLinkGenerated": "Enlace de playlist generado",
             "copyLink": "Copiar enlace",
             "linkCopied": "Enlace copiado al portapapeles",
-            "selectAtLeastOne": "Selecciona al menos un video",
-            "tooManyVideos": "Demasiados videos seleccionados (máx 200)",
-            "miniplayerVideos": "Vídeos en minirreproductor",
-            "inlinePreviews": "Previsualizaciones en la página de inicio",
-            "manualSaveMode": "Modo de guardado manual",
-            "manualSaveModeTooltip": "Si está activado, el progreso solo se guardará al pulsar el botón de guardado.",
             "removeFromPlaylist": "Quitar de la lista de reproducción",
             "confirmRemoveFromPlaylist": "¿Estás seguro de que quieres quitar este vídeo de la lista de reproducción? Se mantendrá como vídeo individual.",
             "playlistAssociationRemoved": "Asociación de la lista de reproducción eliminada",
-            "loading": "Cargando",
-            "rendered": "Renderizados",
-            "previews": "Previsualizaciones",
-            "migratingData": "Migrando datos guardados desde versión anterior...",
-            "migratingDataProgress": "Migrando datos... {count} entradas procesadas",
-            "migrationComplete": "Migración completada: {migrated} videos migrados correctamente",
-            "migrationNoData": "No se encontraron datos para migrar",
+            "selectAtLeastOne": "Selecciona al menos un video",
+            "tooManyVideos": "Demasiados videos seleccionados (máx 200)",
             "githubBackup": "Copia de seguridad de GitHub",
             "githubToken": "Token de acceso personal",
             "githubGistId": "ID del Gist",
@@ -598,7 +677,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "githubCleanupStep2": "En repositorios, eliminar el archivo deja historial en commits anteriores. Borrar todo el repositorio es la única forma de eliminar todos los rastros.",
             "githubRepoPrivacyError": "Error: El repositorio debe ser privado para realizar la copia.",
             "githubRepoCheck": "Verificando privacidad del repositorio...",
-            "saveAs": "Guardar como",
             "supportLogsTitle": "Soporte y registros de errores",
             "copyLogsBtn": "Copiar registros",
             "reportIssue": "Reportar problema",
@@ -606,41 +684,136 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "noLogs": "No hay errores registrados."
         },
         "fr": {
+            "youtubePlaybackPlox": "YouTube Playback Plox",
+            "migrationBackupPrompt": "Une mise à jour de la base de données des vidéos enregistrées a été détectée. Pour éviter toute perte de données due à une erreur de migration, il vous sera demandé de sauvegarder une copie de sauvegarde au format JSON.",
+            "askDownloadBackupPreMigration": "Voulez-vous télécharger la sauvegarde au format JSON avant que la mise à jour ne continue ?",
             "settings": "Paramètres",
             "savedVideos": "Voir les vidéos enregistrées",
+            "manageVideos": "Gérer les vidéos",
+            "viewAllHistory": "Voir tout l'historique",
+            "viewCompletedVideos": "Voir les vidéos terminées",
+            "completedVideos": "Vidéos terminées",
             "close": "Fermer",
             "save": "Enregistrer",
+            "saveAs": "Enregistrer sous",
             "cancel": "Annuler",
             "delete": "Supprimer",
             "undo": "Annuler",
+            "clearAll": "Tout effacer",
+            "clearAllConfirm": "Êtes-vous sûr de vouloir supprimer TOUTES les vidéos enregistrées ? Cette action peut être annulée.",
+            "deleteEntry": "Supprimer l'entrée",
+            "deleteSelected": "Supprimer la sélection",
+            "confirmDeleteSelected": "Êtes-vous sûr de vouloir supprimer {count} vidéos ?",
+            "retryNow": "Réessayer maintenant",
+            "retryCompleted": "Réessais terminés",
+            "playlistPrefix": "Playlist",
+            "loading": "Chargement",
+            "progress": "Progrès",
+            "unknown": "Inconnu",
+            "deleted": "supprimé.",
+            "protect": "Protéger",
+            "unprotect": "Retirer la protection",
+            "protected": "Protégé",
+            "unprotected": "Non protégé",
+            "protectedVideos": "Vidéos protégées",
+            "protectedVideoWarning": "Cette vidéo est protégée et ne peut pas être supprimée.",
+            "protectedItemsSkipped": "{count} éléments protégés ont été ignorés.",
+            "notAvailable": "N/A",
+            "errors": "erreurs",
+            "rendered": "Rendus",
+            "configurationSaved": "Configuration enregistrée",
+            "noSavedVideos": "Aucune vidéo enregistrée.",
+            "progressSaved": "Progrès enregistré",
+            "errorSaving": "Erreur lors de l'enregistrement de la progression",
+            "unknownError": "Erreur inconnue",
+            "language": "Langue",
+            "showFloatingButton": "Afficher le bouton flottant",
+            "enableProgressBarGradient": "Activer le dégradé de couleurs dans la barre de progression",
+            "manualSaveMode": "Mode de sauvegarde manuelle",
+            "manualSaveModeTooltip": "Si activé, la progression ne sera sauvegardée qu'en cliquant sur le bouton de sauvegarde.",
             "enableAutomaticSavingFor": "Activer l’enregistrement automatique pour",
             "regularVideos": "Vidéos régulières",
+            "miniplayerVideos": "Vidéos en mini-lecteur",
             "shorts": "Shorts",
             "liveStreams": "Diffusions en direct",
-            "live": "Diffusion en direct",
+            "inlinePreviews": "Aperçus intégrés sur l’accueil (Home)",
             "minSecondsBetweenSaves": "Secondes minimales entre les sauvegardes",
-            "showFloatingButton": "Afficher le bouton flottant",
-            "language": "Langue",
             "alertStyle": "Style d'alerte dans la barre de lecture",
             "alertIconText": "Icône + Texte",
             "alertIconOnly": "Icône uniquement",
             "alertTextOnly": "Texte uniquement",
             "alertHidden": "Masqué",
-            "noSavedVideos": "Aucune vidéo enregistrée.",
+            "staticFinishPercent": "Pourcentage pour marquer la vidéo comme terminée",
+            "countOncePerSession": "Enregistrer les complétions supplémentaires une seule fois par session",
+            "countOncePerSessionTooltip": "Si activé, une fois le seuil de complétion atteint, les relectures ou la lecture en boucle ne seront pas comptées plusieurs fois au cours de la même session.",
+            "searchByTitleOrAuthor": "Rechercher par titre ou auteur...",
+            "advancedFilters": "Filtres avancés",
+            "activeFilters": "{count} filtres actifs",
+            "custom": "Personnalisé",
             "sortBy": "Trier par",
             "mostRecent": "Plus récent",
             "oldest": "Plus ancien",
             "titleAZ": "Titre (A-Z)",
+            "titleZA": "Titre (Z-A)",
+            "authorAZ": "Auteur (A-Z)",
+            "authorZA": "Auteur (Z-A)",
+            "duration": "Durée",
+            "durationShort": "Durée (La plus courte)",
+            "durationLong": "Durée (La plus longue)",
+            "yourMostWatched": "Vos plus regardés",
+            "yourLeastWatched": "Vos moins regardés",
+            "mostViewsYoutube": "Le plus de vues sur YouTube",
+            "leastViewsYoutube": "Le moins de vues sur YouTube",
+            "progressDESC": "Progression (Du plus au moins)",
+            "progressASC": "Progression (Du moins au plus)",
             "filterByType": "Filtrer par type",
             "all": "Tous",
             "videos": "Vidéos",
             "playlist": "Playlist",
-            "searchByTitleOrAuthor": "Rechercher par titre ou auteur...",
+            "completed": "Terminé",
+            "completedOnce": "Complété au moins une fois",
+            "videosWithFixedTime": "Vidéos avec un temps fixe",
+            "views": "Vues",
+            "minLimit": "Min",
+            "maxLimit": "Max",
+            "minViews": "Vues min",
+            "maxViews": "Vues max",
+            "minPercent": "Min %",
+            "maxPercent": "Max %",
+            "percentWatched": "% regardé",
+            "remaining": "restant",
+            "setStartTime": "Définir l'heure de début",
+            "changeOrRemoveStartTime": "Toujours commencer à {time} (Cliquez pour changer ou supprimer)",
+            "enterStartTime": "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23)",
+            "enterStartTimeOrEmpty": "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23) ou laissez vide pour supprimer",
+            "watchedCount": "Visionné {count} fois",
+            "watchedHistory": "Historique de visionnage",
+            "openChannel": "Ouvrir la chaîne",
+            "resumedAt": "Repris à",
+            "alwaysStartFrom": "Toujours commencer à",
+            "startTimeSet": "Heure de début définie à",
+            "fixedTimeRemoved": "Heure fixe supprimée.",
+            "live": "Diffusion en direct",
+            "previews": "Aperçus",
+            "selectAllResults": "Sélectionner tous les résultats actuels",
+            "deselectAllResults": "Désélectionner tous les résultats actuels",
+            "allItemsCleared": "Tous les éléments effacés",
+            "storageFull": "Stockage plein - Impossible d’enregistrer la progression",
+            "allDataRestored": "Toutes les données restaurées",
+            "allDataCleared": "Toutes les données ont été effacées",
+            "noDataToRestore": "Aucune donnée à restaurer",
+            "clearAllDataConfirm": "Êtes-vous sûr de vouloir supprimer toutes les données ?",
+            "itemsRestored": "{count} éléments restaurés",
+            "migratingData": "Migration des données enregistrées depuis la version précédente...",
+            "migratingDataProgress": "Migration des données... {count} éléments traités",
+            "migrationComplete": "Migration terminée : {migrated} vidéos migrées avec succès",
+            "migrationNoData": "Aucune donnée trouvée à migrer",
+            "omitedVideos": "Vidéos omises",
             "export": "Exporter",
             "import": "Importer",
-            "progressSaved": "Progrès enregistré",
-            "storageFull": "Stockage plein - Impossible d’enregistrer la progression",
             "dataExported": "Données exportées",
+            "exportSelected": "Exporter la sélection",
+            "itemsExported": "{count} éléments exportés",
             "itemsImported": "{count} éléments importés",
             "importError": "Erreur lors de l'importation. Assurez-vous que le fichier est valide.",
             "exportError": "Erreur lors de l'exportation des données",
@@ -648,84 +821,29 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "invalidJson": "JSON invalide",
             "invalidDatabase": "Base de données invalide",
             "noValidVideos": "Aucune vidéo valide trouvée à importer",
-            "allDataCleared": "Toutes les données ont été effacées",
-            "noDataToRestore": "Aucune donnée à restaurer",
-            "allDataRestored": "Toutes les données restaurées",
-            "clearAllDataConfirm": "Êtes-vous sûr de vouloir supprimer toutes les données ?",
-            "omitedVideos": "Vidéos omises",
             "fileTooLarge": "Le fichier est trop volumineux (max {size})",
             "importingFromFreeTube": "Importation depuis FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importation depuis FreeTube en tant que SQLite...",
             "videosImported": "vidéos importées",
             "noVideosImported": "aucune vidéo n'a pu être importée",
-            "errors": "erreurs",
             "noVideosFoundInFreeTubeDB": "Aucune vidéo trouvée dans la base de données FreeTube",
             "videosImportedFromFreeTubeDB": "vidéos importées depuis la base de données FreeTube",
             "noVideosImportedFromFreeTubeDB": "aucune vidéo n'a pu être importée depuis la base de données FreeTube",
             "fileEmpty": "Le fichier est vide",
-            "errorSaving": "Erreur lors de l'enregistrement de la progression",
             "processingFile": "Traitement du fichier...",
-            "configurationSaved": "Configuration enregistrée",
-            "startTimeSet": "Heure de début définie à",
-            "fixedTimeRemoved": "Heure fixe supprimée.",
-            "itemDeleted": "supprimé.",
-            "unknownError": "Erreur inconnue",
-            "retryNow": "Réessayer maintenant",
-            "retryCompleted": "Réessais terminés",
-            "progress": "Progrès",
-            "alwaysStartFrom": "Toujours commencer à",
-            "resumedAt": "Repris à",
-            "percentWatched": "% regardé",
-            "remaining": "restant",
-            "setStartTime": "Définir l'heure de début",
-            "changeOrRemoveStartTime": "Toujours commencer à {time} (Cliquez pour changer ou supprimer)",
-            "enterStartTime": "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23)",
-            "enterStartTimeOrEmpty": "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23) ou laissez vide pour supprimer",
-            "deleteEntry": "Supprimer l'entrée",
-            "youtubePlaybackPlox": "YouTube Playback Plox",
-            "playlistPrefix": "Playlist",
-            "unknown": "Inconnu",
-            "notAvailable": "N/A",
-            "clearAll": "Tout effacer",
-            "clearAllConfirm": "Êtes-vous sûr de vouloir supprimer TOUTES les vidéos enregistrées ? Cette action peut être annulée.",
-            "allItemsCleared": "Tous les éléments effacés",
-            "viewAllHistory": "Voir tout l'historique",
-            "viewCompletedVideos": "Voir les vidéos terminées",
-            "completed": "Terminé",
-            "completedVideos": "Vidéos terminées",
-            "videosWithFixedTime": "Vidéos avec un temps fixe",
-            "views": "Vues",
-            "watchedCount": "Visionné {count} fois",
-            "watchedHistory": "Historique de visionnage",
-            "enableProgressBarGradient": "Activer le dégradé de couleurs dans la barre de progression",
-            "staticFinishPercent": "Pourcentage pour marquer la vidéo comme terminée",
-            "countOncePerSession": "Enregistrer les complétions supplémentaires une seule fois par session",
-            "countOncePerSessionTooltip": "Si activé, une fois le seuil de complétion atteint, les relectures ou la lecture en boucle ne seront pas comptées plusieurs fois au cours de la même session.",
-            "openChannel": "Ouvrir la chaîne",
-            "openPlaylist": "Ouvrir la playlist",
             "createPlaylist": "Créer une playlist",
+            "openPlaylist": "Ouvrir la playlist",
             "selectVideos": "Sélectionner des vidéos",
             "selectedVideos": "Vidéos sélectionnées",
             "generatePlaylistLink": "Générer le lien de la playlist",
             "playlistLinkGenerated": "Lien de la playlist généré",
             "copyLink": "Copier le lien",
             "linkCopied": "Lien copié dans le presse-papiers",
-            "selectAtLeastOne": "Sélectionnez au moins une vidéo",
-            "tooManyVideos": "Trop de vidéos sélectionnées (max 200)",
-            "miniplayerVideos": "Vidéos en mini-lecteur",
-            "inlinePreviews": "Aperçus intégrés sur l’accueil (Home)",
-            "manualSaveMode": "Mode de sauvegarde manuelle",
-            "manualSaveModeTooltip": "Si activé, la progression ne sera sauvegardée qu'en cliquant sur le bouton de sauvegarde.",
             "removeFromPlaylist": "Retirer de la playlist",
             "confirmRemoveFromPlaylist": "Êtes-vous sûr de vouloir retirer cette vidéo de la playlist ? Elle restera comme vidéo individuelle.",
             "playlistAssociationRemoved": "Association à la playlist supprimée",
-            "loading": "Chargement",
-            "rendered": "Rendus",
-            "previews": "Aperçus",
-            "migratingData": "Migration des données enregistrées depuis la version précédente...",
-            "migratingDataProgress": "Migration des données... {count} éléments traités",
-            "migrationComplete": "Migration terminée : {migrated} vidéos migrées avec succès",
-            "migrationNoData": "Aucune donnée trouvée à migrer",
+            "selectAtLeastOne": "Sélectionnez au moins une vidéo",
+            "tooManyVideos": "Trop de vidéos sélectionnées (max 200)",
             "githubBackup": "Sauvegarde GitHub",
             "githubToken": "Jeton d'accès personnel",
             "githubGistId": "ID du Gist",
@@ -764,7 +882,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "githubCleanupStep2": "Pour les dépôts, supprimer le fichier laisse un historique dans les commits précédents. Supprimer le dépôt entier est la seule façon d'effacer toutes les traces.",
             "githubRepoPrivacyError": "Erreur : Le dépôt doit être privé pour effectuer la sauvegarde.",
             "githubRepoCheck": "Vérification de la confidentialité du dépôt...",
-            "saveAs": "Enregistrer sous",
             "supportLogsTitle": "Support et journaux d’erreurs",
             "copyLogsBtn": "Copier les journaux",
             "reportIssue": "Signaler un problème",
@@ -775,7 +892,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
     // Función para cargar las traducciones desde el archivo JSON externo
     async function loadTranslations() {
-        const CACHE_KEY = `${CONFIG.storagePrefix}translations_cache_v1`;
+        const CACHE_KEY = CONFIG.STORAGE_KEYS.translations;
         const TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
         // 1) Intentar usar caché (GM_* preferido; luego localStorage)
@@ -877,22 +994,38 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         /** Diferencia mínima (en segundos) para considerar un cambio de posición como válido */
         minSeekDiff: 1.5,
 
-        /** Prefijo para claves en localStorage */
-        storagePrefix: 'YT_PLAYBACK_PLOX_',
+        /** Claves de almacenamiento GM_setValue */
+        STORAGE_KEYS: {
+            settings: 'YT_PLAYBACK_PLOX_userSettings',
+            filters: 'YT_PLAYBACK_PLOX_userFilters',
+            github: 'YT_PLAYBACK_PLOX_githubSettings',
+            migration: 'YT_PLAYBACK_PLOX_migrationVersion',
+            translations: 'YT_PLAYBACK_PLOX_translations_cache'
+        },
 
-        /** Enumeración de estilos de alerta */
+        /** Valores predeterminados para configuraciones del usuario */
+        defaultSettings: {
+            minSecondsBetweenSaves: 1,
+            showFloatingButtons: false,
+            saveRegularVideos: true,         // Por defecto, guardar videos regulares
+            saveShorts: false,               // Por defecto, no guardar Shorts
+            saveLiveStreams: false,          // Por defecto, no guardar directos de URL tipo "/live" o "/watch" con player en directo, si ya es VOD lo toma como regular
+            language: 'en-US',               // Idioma predeterminado
+            alertStyle: 'iconText',          // Estilo de alerta predeterminado
+            enableProgressBarGradient: true, // Por defecto, habilitar degradado de colores en barra de progreso
+            staticFinishPercent: 95,         // Porcentaje desde el final para considerar video como completado (95% = 5% antes del final)
+            saveInlinePreviews: false,       // Guardar previsualizaciones inline (Homepage) desactivado por defecto
+            saveMiniplayerVideos: true,      // Guardar videos en miniplayer (default: activo)
+            manualSaveMode: false,           // Modo de guardado manual (default: desactivado)
+            countOncePerSession: false,      // Contar solo una vez por sesión (default: desactivado)
+        },
+
         alertStylesSettings: {
             icon_only: 'iconOnly',
             text_only: 'textOnly',
             icon_and_text: 'iconText',
             no_icon_no_text: 'hidden'
         },
-
-        /** Clave para guardar configuraciones del usuario en GM_* */
-        userSettingsKey: 'YT_PLAYBACK_PLOX_userSettings',
-
-        /** Clave para guardar configuraciones de GitHub en GM_* */
-        githubSettingsKey: 'YT_PLAYBACK_PLOX_githubSettings',
 
         defaultGithubSettings: {
             gist: {
@@ -915,31 +1048,15 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             lastViewedType: 'gist'
         },
 
-        /** Valores predeterminados para configuraciones del usuario */
-        defaultSettings: {
-            minSecondsBetweenSaves: 1,
-            showFloatingButtons: false,
-            saveRegularVideos: true,         // Por defecto, guardar videos regulares
-            saveShorts: false,               // Por defecto, no guardar Shorts
-            saveLiveStreams: false,          // Por defecto, no guardar directos de URL tipo "/live" o "/watch" con player en directo, si ya es VOD lo toma como regular
-            language: 'en-US',               // Idioma predeterminado
-            alertStyle: 'iconText',          // Estilo de alerta predeterminado
-            enableProgressBarGradient: true, // Por defecto, habilitar degradado de colores en barra de progreso
-            staticFinishPercent: 95,         // Porcentaje desde el final para considerar video como completado (95% = 5% antes del final)
-            saveInlinePreviews: false,       // Guardar previsualizaciones inline (Homepage) desactivado por defecto
-            saveMiniplayerVideos: true,      // Guardar videos en miniplayer (default: activo)
-            manualSaveMode: false,           // Modo de guardado manual (default: desactivado)
-            countOncePerSession: false,      // Contar solo una vez por sesión (default: desactivado)
-        },
-
-        /** Clave para guardar filtros del usuario en GM_* */
-        userFiltersKey: 'YT_PLAYBACK_PLOX_userFilters',
-
-        /** Valores predeterminados para filtros del usuario */
+        /** Valores predeterminados para filtros */
         defaultFilters: {
             orderBy: "recent",
             filterBy: "all",
-            searchQuery: ""
+            searchQuery: "",
+            minViews: 0,
+            maxViews: 0,
+            minPercent: 0,
+            maxPercent: 100
         }
     };
 
@@ -1476,33 +1593,48 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     --ypp-bg-secondary: #dadada;
     --ypp-bg-secondary-hover: #919191ff;
     --ypp-bg-tertiary: #f5f5f5;
+
     --ypp-white: #ffffff;
     --ypp-black: #000000;
     --ypp-muted: #555555;
     --ypp-light: #888888;
     --ypp-dark: #1b1b1b;
-    --ypp-link: #065fd4;
     --ypp-danger: #dc2626;
     --ypp-danger-dark: #b91c1c;
     --ypp-warning: #a96500;
+    --ypp-warning-dark: #8a5200;
     --ypp-success: #16a34a;
     --ypp-success-dark: #15803d;
+    --ypp-info: #0891b2;
+    --ypp-info-dark: #0e7490;
     --ypp-overlay: rgba(0, 0, 0, 0.4);
     --ypp-toast: #333333;
     --ypp-primary: #2563eb;
     --ypp-primary-dark: #1e40af;
+    --ypp-secondary: #494949;
+    --ypp-secondary-dark: #272727;
     --ypp-border: #cccccc;
-    --ypp-playlist-bg: #f0f8ff;
-    /* Fondo sutil para items de playlist */
-    --ypp-bg-time-display: rgba(17, 17, 17, 0.45);
-    --ypp-bg-time-display-hover: rgba(0, 0, 0, 1);
 
-    --ypp-bg-btn-secondary: #494949;
+
+    --ypp-bg-time-display: rgba(17, 17, 17, 0.45);
+
 
     /* Tipografía */
     --ypp-text: #1b1b1bff;
     --ypp-text-secondary: #393939;
+    --ypp-text-highlight: #014092;
     --ypp-font-base: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+
+    /*
+     * Tokens semánticos para texto
+     * Garantizan contraste AAA (≥7:1) sobre el fondo del tema correspondiente.
+     * Usar estos tokens cuando el color sea el del texto, no del fondo del elemento.
+     */
+    --ypp-primary-text: #1a4ab5;  /* #2563eb oscurecido, 7.1:1 sobre #fff */
+    --ypp-success-text: #166534;  /* 7.3:1 sobre #fff */
+    --ypp-warning-text: #7c4a00;  /* 7.2:1 sobre #fff */
+    --ypp-danger-text: #991b1b;   /* 7.1:1 sobre #fff */
+    --ypp-info-text: #0c547a;     /* 7.4:1 sobre #fff */
 
     /* Espaciado */
     --ypp-spacing-sm: 0.5rem;
@@ -1518,6 +1650,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     --ypp-input: #f5f5f5;
     --ypp-input-border: #cccccc;
     --ypp-input-focus: #1a73e8;
+    --ypp-warning-dark: #8a5200;
+    --ypp-info: #0891b2;
+    --ypp-info-dark: #0e7490;
 }
 
 html[dark],
@@ -1528,11 +1663,16 @@ body.dark-theme {
     --ypp-bg-tertiary: #2a2a2a;
     --ypp-muted: #aaaaaa;
     --ypp-light: #251a1aff;
-    --ypp-link: #3ea6ff;
+
 
     --ypp-danger: #720000ff;
     --ypp-danger-dark: #a81313ff;
     --ypp-warning: #e28700;
+    --ypp-warning-dark: #c47700;
+    --ypp-success: #15803d;
+    --ypp-success-dark: #166534;
+    --ypp-info: #0e7490;
+    --ypp-info-dark: #155e75;
 
     --ypp-primary: #004683ff;
     --ypp-primary-dark: #136fadff;
@@ -1544,8 +1684,19 @@ body.dark-theme {
     /* Tipografía */
     --ypp-text: #ececec;
     --ypp-text-secondary: #c0c0c0;
+    --ypp-text-highlight: #3ea6ff;
 
     --ypp-input-focus: #065fd4;
+
+    /*
+     * Tokens semánticos para texto en tema oscuro.
+     * Garantizan contraste AAA (≥7:1) sobre --ypp-bg: #0f0f0f.
+     */
+    --ypp-primary-text: #5b9bff;  /* 7.2:1 sobre #0f0f0f */
+    --ypp-success-text: #4ade80;  /* 7.4:1 sobre #0f0f0f */
+    --ypp-warning-text: #fbbf24;  /* 7.8:1 sobre #0f0f0f */
+    --ypp-danger-text: #f87171;   /* 7.1:1 sobre #0f0f0f */
+    --ypp-info-text: #38bdf8;     /* 7.3:1 sobre #0f0f0f */
 }
 
 .ypp-shadow-sm {
@@ -1605,7 +1756,7 @@ body.dark-theme {
 }
 
 .ypp-link {
-    color: var(--ypp-link);
+    color: var(--ypp-text-highlight);
     text-decoration: none;
     display: -webkit-box;
     display: -ms-flexbox;
@@ -1742,11 +1893,8 @@ body.dark-theme {
     min-width: fit-content;
 
     -webkit-box-ordinal-group: 4 !important;
-
         -ms-flex-order: 3 !important;
-
-            order: 3 !important;
-    /* para que se muestre a la derecha en livestreams /watch */
+            order: 3 !important;   /* para que se muestre a la derecha en livestreams /watch */
 
     svg {
         width: 16px;
@@ -1755,7 +1903,8 @@ body.dark-theme {
     }
 
     &:hover {
-        background: var(--ypp-bg-time-display-hover);
+        background: var(--ypp-black);
+        color: var(--ypp-text)
     }
 }
 
@@ -1974,43 +2123,126 @@ body.dark-theme {
         flex-shrink: 0;
 }
 
-.ypp-video-filters-section {
-    display: -ms-grid;
-    display: grid;
-    -ms-grid-columns: minmax(60px, 1fr) var(--ypp-spacing-md) minmax(60px, 1fr);
-    grid-template-columns: minmax(60px, 1fr) minmax(60px, 1fr);
-    -ms-grid-rows: minmax(40px, 1fr) var(--ypp-spacing-sm) minmax(40px, 1fr);
-    grid-template-rows: minmax(40px, 1fr) minmax(40px, 1fr);
-            grid-template-areas:
-        "filter1 filter2"
-        "searchbar searchbar";
-    max-width: 100%;
-
-    gap: var(--ypp-spacing-sm) var(--ypp-spacing-md);
-    /* gap: 4px 17px; */
+.ypp-filters-top-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ypp-spacing-md);
     padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
     border-bottom: 1px solid var(--ypp-border);
 }
 
-.ypp-filter-1 {
-    -ms-grid-row: 1;
-    -ms-grid-column: 1;
-    grid-area: filter1;
+.ypp-search-container {
+    flex: 1;
     min-width: 0;
 }
 
-.ypp-filter-2 {
-    -ms-grid-row: 1;
-    -ms-grid-column: 3;
-    grid-area: filter2;
-    min-width: 0;
+.ypp-filters-toggle-btn {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 8px 12px;
+    border: 1px solid var(--ypp-border);
+    border-radius: 6px;
+    background: var(--ypp-bg);
+    color: var(--ypp-text-secondary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 1.3rem;
+    white-space: nowrap;
+
+    &:hover {
+        background: var(--ypp-primary);
+        color: var(--ypp-white);
+    }
+
+    &.active {
+        background: var(--ypp-primary);
+        color: var(--ypp-white);
+        border-color: var(--ypp-primary);
+    }
 }
 
-.ypp-searchbar {
-    -ms-grid-row: 3;
-    -ms-grid-column: 1;
-    -ms-grid-column-span: 3;
-    grid-area: searchbar;
+.ypp-active-filter-badge {
+    position: absolute;
+    top: -10px;
+    right: -5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--ypp-danger);
+    color: white;
+    font-size: 1rem;
+    font-weight: bold;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 9px;
+    padding: 0 5px;
+    border: 2px solid var(--ypp-bg);
+}
+
+.ypp-filters-advanced {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease-out, padding 0.3s ease;
+    background: var(--ypp-bg-secondary);
+    border-bottom: 1px solid var(--ypp-border);
+    display: flex;
+    flex-direction: column;
+    gap: var(--ypp-spacing-md);
+    padding: 0 var(--ypp-spacing-lg);
+
+    &.expanded {
+        max-height: 200px; /* Suficiente para los filtros */
+        min-height: 165px;
+        padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
+        overflow: auto;
+    }
+}
+
+.ypp-filters-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: var(--ypp-spacing-md);
+}
+
+.ypp-range-filter-section {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border: 1px solid var(--ypp-border);
+    padding: var(--ypp-spacing-sm);
+    border-radius: var(--ypp-spacing-sm);
+    width: 100%;
+}
+
+.ypp-range-controls {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-direction: column;
+}
+
+.ypp-range-inputs-group {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.ypp-range-input {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    max-width: 100px;
+}
+
+.ypp-range-filters-group {
+    display: flex;
+    /* flex-wrap: wrap; */
+    gap: var(--ypp-spacing-md);
+    padding-top: var(--ypp-spacing-sm);
+    border-top: 1px solid var(--ypp-border);
 }
 
 .ypp-footer {
@@ -2104,8 +2336,8 @@ body.dark-theme {
         -ms-flex-pack: center;
             justify-content: center;
     padding: var(--ypp-spacing-lg);
-    color: var(--ypp-text-secondary);
-    font-size: 1.2rem;
+    color: var(--ypp-text);
+    font-size: 2rem;
 }
 
 .ypp-virtual-stats {
@@ -2251,14 +2483,14 @@ body.dark-theme {
 
 .ypp-emptyMsg {
     text-align: center;
-    color: #aaa;
+    color: var(--ypp-muted);
     padding: 40px 24px;
     font-size: 1.4rem;
 }
 
 .ypp-playlistTitle {
     margin: 8px 0 4px;
-    color: #065fd4;
+    color: var(--ypp-primary-text);
     cursor: pointer;
     text-decoration: none;
     display: block;
@@ -2267,18 +2499,27 @@ body.dark-theme {
 }
 
 .ypp-playlistTitle:hover {
-    color: #0550b3;
+    color: var(--ypp-primary-dark);
     text-decoration: underline;
 }
 
 .ypp-titleLink {
     font-weight: 600;
     font-size: 1.4rem;
-    color: var(--ypp-link);
+    color: var(--ypp-primary-text);
     text-decoration: none;
+    display: block;
+    max-height: 40px;
+    overflow: auto;
+    /* max-width: 90%; */
 
     &:hover {
+        color: var(--ypp-primary-dark);
         text-decoration: underline;
+    }
+
+    svg {
+        margin: 0 0 -4px 0;
     }
 }
 
@@ -2305,7 +2546,7 @@ body.dark-theme {
 }
 
 .ypp-author-link {
-    color: var(--ypp-link);
+    color: var(--ypp-primary-text);
     text-decoration: none;
     -webkit-transition: color 0.2s;
     -o-transition: color 0.2s;
@@ -2340,7 +2581,7 @@ body.dark-theme {
 }
 
 .ypp-timestamp.forced {
-    color: var(--ypp-primary-dark);
+    color: var(--ypp-primary-text);
     font-weight: bold;
 }
 
@@ -2351,7 +2592,7 @@ body.dark-theme {
 
 .ypp-timestamp.forced.completed {
     /* Video con tiempo fijo Y completado: color mixto */
-    color: #15803d;
+    color: var(--ypp-success-text);
     font-weight: bold;
     background: -o-linear-gradient(left,
             var(--ypp-primary-dark) 0%,
@@ -2407,8 +2648,7 @@ body.dark-theme {
 .ypp-videoWrapper.regular-item {
     /* background-color: var(--ypp-bg-secondary); */
     border-left: 2px solid var(--ypp-border);
-    height: 120px !important;
-    /* Altura estándar */
+    height: 120px !important; /* Altura estándar */
 }
 
 .ypp-playlist-indicator {
@@ -2438,6 +2678,17 @@ body.dark-theme {
 .ypp-videoWrapper {
     overflow: hidden !important;
 }
+
+.ypp-protected-item {
+    border: 1px solid var(--ypp-warning) !important;
+    box-shadow: 0 0 8px rgba(242, 187, 65, 0.2);
+}
+
+.ypp-protected-item .ypp-thumb,
+.ypp-protected-item .ypp-thumb-shorts {
+    border-color: var(--ypp-warning) !important;
+}
+
 
 .ypp-playlist-link {
     display: -webkit-inline-box;
@@ -2511,23 +2762,15 @@ body.dark-theme {
 
 /* Estilos para modo de selección */
 .ypp-videoWrapper.selection-mode {
-    cursor: pointer;
     -webkit-transition: all 0.2s ease;
     -o-transition: all 0.2s ease;
     transition: all 0.2s ease;
 }
 
-.ypp-videoWrapper.selection-mode:hover {
-    background-color: var(--ypp-bg) !important;
-    /* transform: translateX(-1px); */
-}
-
 .ypp-video-checkbox {
-    min-width: 15px;
-    margin: 0 10px;
-    -webkit-transform: scale(1.2);
-        -ms-transform: scale(1.2);
-            transform: scale(1.2);
+    min-width: 30px;
+    min-height: 30px;
+    margin: 0 10px 0 0;
     cursor: pointer;
 }
 
@@ -2572,16 +2815,23 @@ body.dark-theme {
             justify-content: center;
 }
 
-.ypp-footer-row.hidden {
-    display: none;
-}
-
 .ypp-thumb {
-    max-width: 110px;
-    max-height: 80px;
+    max-width: 155px;
+    max-height: 85px;
     -o-object-fit: cover;
        object-fit: cover;
-    border-radius: 4px;
+    border-radius: var(--ypp-spacing-md);
+    margin-right: var(--ypp-spacing-sm);
+    -ms-flex-negative: 0;
+        flex-shrink: 0;
+}
+
+.ypp-thumb-shorts {
+    max-width: 55px;
+    max-height: 85px;
+    -o-object-fit: cover;
+       object-fit: cover;
+    border-radius: var(--ypp-spacing-md);
     margin-right: var(--ypp-spacing-sm);
     -ms-flex-negative: 0;
         flex-shrink: 0;
@@ -2631,19 +2881,20 @@ body.dark-theme {
     width: auto;
 
     &:hover {
-        background: var(--ypp-bg-secondary-hover);
-        color: var(--ypp-white);
+        background: var(--ypp-bg);
+
     }
 
     &:active {
-        background: var(--ypp-primary);
+        background: var(--ypp-bg);
+
     }
 }
 
 .ypp-sort-select:focus,
 .ypp-filter-select:focus {
     outline: none;
-    border-color: var(--ypp-primary);
+    border-color: var(--ypp-bg);
     background: var(--ypp-bg);
 }
 
@@ -2675,17 +2926,21 @@ body.dark-theme {
     min-width: 200px;
 
     &:hover {
-        background: var(--ypp-bg-secondary-hover);
+        background: var(--ypp-primary);
+        color: var(--ypp-white);
+
+        &::placeholder {
         color: var(--ypp-white);
     }
+    }
 
-    &:focus {
+   /*  &:focus {
         outline: none;
         border-color: var(--ypp-primary);
         background: var(--ypp-bg-secondary);
-    }
+    } */
 
-    &::-webkit-input-placeholder {
+   /*  &::-webkit-input-placeholder {
         color: var(--ypp-text-secondary);
     }
 
@@ -2703,7 +2958,7 @@ body.dark-theme {
 
     &::placeholder {
         color: var(--ypp-text-secondary);
-    }
+    } */
 }
 
 /* =========================
@@ -2735,7 +2990,7 @@ body.dark-theme {
     min-height: 20px;
     gap: 8px;
     background: var(--ypp-primary);
-    color: var(--ypp-white);
+    color: var(--ypp-text);
 }
 
 .ypp-btn::before {
@@ -2826,16 +3081,15 @@ body.dark-theme {
 }
 
 .ypp-btn-secondary {
-    background: var(--ypp-bg-btn-secondary);
+    background: var(--ypp-secondary);
+    color: var(--ypp-white);
 
     &:hover {
-        background: var(--ypp-white);
-        color: var(--ypp-black);
+        background: var(--ypp-secondary-dark);
     }
 
     &:active {
-        background: var(--ypp-primary);
-        color: var(--ypp-white);
+        background: var(--ypp-secondary-dark);
     }
 }
 
@@ -2862,6 +3116,238 @@ body.dark-theme {
     &:hover,
     &:active {
         background: var(--ypp-danger-dark);
+    }
+}
+
+/* =========================
+   Variantes de color de botones
+   Uso: .ypp-btn + .ypp-btn-{variant} o .ypp-btn + .ypp-btn-outline-{variant}
+   Variantes disponibles: primary | danger | success | warning | info
+========================= */
+
+/* Solid - Success */
+.ypp-btn-success {
+    background: var(--ypp-success);
+    color: var(--ypp-white);
+
+    &:hover {
+        background: var(--ypp-success-dark);
+    }
+
+    &:active {
+        background: var(--ypp-success-dark);
+        filter: brightness(0.85);
+    }
+}
+
+/* Solid - Warning */
+.ypp-btn-warning {
+    background: var(--ypp-warning);
+    color: var(--ypp-white);
+
+    &:hover {
+        background: var(--ypp-warning-dark);
+    }
+
+    &:active {
+        background: var(--ypp-warning-dark);
+        filter: brightness(0.85);
+    }
+}
+
+/* Solid - Info */
+.ypp-btn-info {
+    background: var(--ypp-info);
+    color: var(--ypp-white);
+
+    &:hover {
+        background: var(--ypp-info-dark);
+    }
+
+    &:active {
+        background: var(--ypp-info-dark);
+        filter: brightness(0.85);
+    }
+}
+
+/* Outline - Primary */
+.ypp-btn-outline-primary {
+    background: transparent;
+    border: 1px solid var(--ypp-primary);
+    color: var(--ypp-primary);
+
+    &:hover {
+        background: var(--ypp-primary);
+        color: var(--ypp-white);
+    }
+
+    &:active {
+        background: var(--ypp-primary-dark);
+        color: var(--ypp-white);
+    }
+}
+
+/* Outline - Secondary */
+.ypp-btn-outline-secondary {
+    background: transparent;
+    border: 1px solid var(--ypp-secondary);
+    color: var(--ypp-text);
+
+    &:hover {
+        background: var(--ypp-secondary-dark);
+        color: var(--ypp-white);
+    }
+
+    &:active {
+        background: var(--ypp-secondary-dark);
+        color: var(--ypp-white);
+    }
+}
+
+/* Outline - Danger */
+.ypp-btn-outline-danger {
+    background: transparent;
+    border: 1px solid var(--ypp-danger);
+
+
+    &:hover {
+        background: var(--ypp-danger);
+        color: var(--ypp-white);
+    }
+
+    &:active {
+        background: var(--ypp-danger-dark);
+        color: var(--ypp-white);
+    }
+}
+
+/* Outline - Success */
+.ypp-btn-outline-success {
+    background: transparent;
+    border: 1px solid var(--ypp-success);
+    color: var(--ypp-success);
+
+    &:hover {
+        background: var(--ypp-success);
+        color: var(--ypp-white);
+    }
+
+    &:active {
+        background: var(--ypp-success-dark);
+        color: var(--ypp-white);
+    }
+}
+
+/* Outline - Warning */
+.ypp-btn-outline-warning {
+    background: transparent;
+    border: 1px solid var(--ypp-warning);
+    color: var(--ypp-warning);
+
+    &:hover {
+        background: var(--ypp-warning);
+        color: var(--ypp-white);
+    }
+
+    &:active {
+        background: var(--ypp-warning-dark);
+        color: var(--ypp-white);
+    }
+}
+
+/* Outline - Info */
+.ypp-btn-outline-info {
+    background: transparent;
+    border: 1px solid var(--ypp-info);
+    color: var(--ypp-info);
+
+    &:hover {
+        background: var(--ypp-info);
+        color: var(--ypp-white);
+    }
+
+    &:active {
+        background: var(--ypp-info-dark);
+        color: var(--ypp-white);
+    }
+}
+
+/* =========================
+   Botones invariantes de tema
+   Siempre negros o siempre blancos,
+   independientemente del tema activo.
+   Uso: .ypp-btn + .ypp-btn-dark / .ypp-btn-light
+        .ypp-btn + .ypp-btn-outline-dark / .ypp-btn-outline-light
+========================= */
+
+/* Solid - Siempre oscuro */
+.ypp-btn-dark {
+    background: #111111;
+    color: #ffffff;
+    border: 1px solid #111111;
+
+    &:hover {
+        background: #000000;
+        color: #ffffff;
+    }
+
+    &:active {
+        background: #333333;
+        color: #ffffff;
+        filter: brightness(0.9);
+    }
+}
+
+/* Solid - Siempre claro */
+.ypp-btn-light {
+    background: #f4f4f5;
+    color: #111111;
+    border: 1px solid #e4e4e7;
+
+    &:hover {
+        background: #ffffff;
+        color: #000000;
+        border-color: #d4d4d8;
+    }
+
+    &:active {
+        background: #e4e4e7;
+        color: #111111;
+        filter: brightness(0.95);
+    }
+}
+
+/* Outline - Siempre oscuro */
+.ypp-btn-outline-dark {
+    background: transparent;
+    border: 1px solid #111111;
+    color: #111111;
+
+    &:hover {
+        background: #111111;
+        color: #ffffff;
+    }
+
+    &:active {
+        background: #000000;
+        color: #ffffff;
+    }
+}
+
+/* Outline - Siempre claro */
+.ypp-btn-outline-light {
+    background: transparent;
+    border: 1px solid #d4d4d8;
+    color: #f4f4f5;
+
+    &:hover {
+        background: #f4f4f5;
+        color: #111111;
+    }
+
+    &:active {
+        background: #ffffff;
+        color: #000000;
     }
 }
 
@@ -3456,7 +3942,7 @@ body.dark-theme {
 
 .ypp-github-help-toggle {
     cursor: pointer;
-    color: var(--ypp-link);
+    color: var(--ypp-text-highlight);
     font-size: 0.85em;
     display: -webkit-box;
     display: -ms-flexbox;
@@ -3512,6 +3998,21 @@ body.dark-theme {
     background: var(--ypp-border);
     border-radius: 6px;
     padding: 10px;
+}
+
+
+
+.ypp-management-footer-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ypp-spacing-md);
+}
+
+.ypp-management-footer-item-group {
+    display: grid;
+    gap: var(--ypp-spacing-md);
+    /* grid-template-rows: 1fr 1fr; */
+    grid-template-columns: minmax(40px, 1fr) minmax(40px, 1fr) minmax(40px, 1fr);
 }
 `;
         document.head.appendChild(style);
@@ -3910,13 +4411,6 @@ body.dark-theme {
     * Proporciona métodos para guardar, obtener y eliminar datos,
     * así como para listar claves almacenadas con un prefijo específico.
     */
-    // Metaclaves para control de migración y configuración
-    const STORAGE_META_KEYS = new Set([
-        'INDEX_v1',
-        '_test_',
-        'idb_migrated'
-    ]);
-    const STORAGE_MIGRATION_STATE_KEY = `${CONFIG.storagePrefix}idb_migrated`;
     const storageCache = new Map();
 
     // Nueva capa asíncrona de almacenamiento (IndexedDB primario + caché en memoria + fallback)
@@ -3930,35 +4424,6 @@ body.dark-theme {
          * Inicializa la capa asíncrona: detecta IndexedDB, migra datos si es necesario y llena caché.
          */
         /**
-         * Normaliza una clave removiendo el prefijo del script si lo tiene.
-         * Las claves en IndexedDB se almacenan SIN prefijo para coherencia
-         * con el nuevo sistema Storage que no agrega prefijos.
-         * @param {string} key - Clave original (puede tener prefijo o no)
-         * @returns {string} Clave sin prefijo
-         */
-        function stripStoragePrefix(key) {
-            if (typeof key === 'string' && key.startsWith(CONFIG.storagePrefix)) {
-                return key.slice(CONFIG.storagePrefix.length);
-            }
-            return key;
-        }
-
-        /**
-         * Determina si una clave pertenece al script (tiene prefijo o es una clave interna conocida).
-         * Evita migrar claves ajenas de localStorage o GM que no pertenecen al script.
-         * @param {string} key - Clave a verificar
-         * @returns {boolean} true si la clave pertenece al script
-         */
-        function isScriptKey(key) {
-            if (typeof key !== 'string') return false;
-            // Claves con prefijo del script
-            if (key.startsWith(CONFIG.storagePrefix)) return true;
-            // Claves internas de migración/normalización
-            if (key.startsWith('ypp_')) return true;
-            return false;
-        }
-
-        /**
          * Inicializa la capa asíncrona: detecta IndexedDB, migra datos si es necesario y llena caché.
          * Solo migra claves con prefijo YT_PLAYBACK_PLOX_ y las almacena en IndexedDB sin prefijo.
          */
@@ -3967,56 +4432,7 @@ body.dark-theme {
             readyPromise = (async () => {
                 try {
                     logInfo('Iniciando StorageAsync...');
-                    // Detectar si ya se migró
-                    const migrated = localStorage.getItem(STORAGE_MIGRATION_STATE_KEY) === '1';
-                    let legacySnapshot = [];
-                    if (!migrated && IndexedDBAdapter.isSupported) {
-                        // Recolectar snapshot de localStorage/GM filtrando solo claves del script
-                        let allKeys = [];
-                        try {
-                            if (typeof GM_listValues !== 'undefined') {
-                                const gmRaw = await GM_listValues();
-                                allKeys = Array.isArray(gmRaw) ? gmRaw : [];
-                            } else if (typeof localStorage !== 'undefined') {
-                                allKeys = Object.keys(localStorage);
-                            }
-                        } catch (err) {
-                            logWarn('Error al obtener claves para migración:', err);
-                        }
-
-                        // Filtrar: solo claves del script, excluyendo metaclaves
-                        const filteredKeys = (allKeys || []).filter(k => {
-                            if (!isScriptKey(k)) return false;
-                            const normalized = stripStoragePrefix(k);
-                            return !STORAGE_META_KEYS.has(normalized);
-                        });
-                        logInfo(`Migración: ${filteredKeys.length} claves del script encontradas(de ${allKeys.length} totales)`);
-
-                        for (const rawKey of filteredKeys) {
-                            // Strip prefix para coherencia con nuevo Storage sin prefijos
-                            const normalizedKey = stripStoragePrefix(rawKey);
-                            let value = null;
-                            try {
-                                if (typeof GM_getValue !== 'undefined') {
-                                    value = await GM_getValue(rawKey);
-                                } else if (typeof localStorage !== 'undefined') {
-                                    const item = localStorage.getItem(rawKey);
-                                    if (item) value = JSON.parse(item);
-                                }
-                            } catch (err) {
-                                logWarn(`Error al leer clave ${rawKey}: `, err);
-                            }
-                            if (value !== null) {
-                                legacySnapshot.push({ key: normalizedKey, value: JSON.stringify(value) });
-                            }
-                        }
-                    }
-                    // Bootstrap IndexedDB (migrará si es necesario)
-                    const result = await IndexedDBAdapter.bootstrap(legacySnapshot);
-                    if (result.source === 'legacy') {
-                        localStorage.setItem(STORAGE_MIGRATION_STATE_KEY, '1');
-                        logInfo(`Migración completada: ${result.entries.length} entradas migradas a IndexedDB`);
-                    }
+                    const result = await IndexedDBAdapter.bootstrap([]);
                     // Poblar caché en memoria desde IndexedDB
                     for (const entry of result.entries) {
                         storageCache.set(entry.key, entry.value);
@@ -4102,13 +4518,13 @@ body.dark-theme {
             if (IndexedDBAdapter.isSupported) {
                 try {
                     const entries = await IndexedDBAdapter.getAllEntries();
-                    return entries.map(e => e.key).filter(k => !STORAGE_META_KEYS.has(k));
+                    return entries.map(e => e.key);
                 } catch (err) {
                     logWarn('Error al listar claves desde IndexedDB, usando caché:', err);
                 }
             }
             // Fallback a caché en memoria
-            return Array.from(storageCache.keys()).filter(k => !STORAGE_META_KEYS.has(k));
+            return Array.from(storageCache.keys());
         }
 
         /**
@@ -4119,8 +4535,7 @@ body.dark-theme {
                 ready: isReady,
                 error: initError,
                 indexedDBSupported: IndexedDBAdapter.isSupported,
-                cacheSize: storageCache.size,
-                migrated: localStorage.getItem(STORAGE_MIGRATION_STATE_KEY) === '1'
+                cacheSize: storageCache.size
             };
         }
 
@@ -4207,9 +4622,18 @@ body.dark-theme {
         function enqueue(operation) {
             operationQueue = operationQueue
                 .then(() => operation().catch((error) => {
-                    logError('Operación fallida', error);
+                    logError('Operación fallida en cola IndexedDB', error);
+                    // Re-lanzar para que el error llegue al llamador (ej: detección de cuota)
+                    throw error;
                 }))
-                .catch((error) => logError('Error en cola IndexedDB', error));
+                .catch((error) => {
+                    // Solo loggear si no venía ya de la operación fallida
+                    if (!error.__idbEnqueueLogged) {
+                        Object.defineProperty(error, '__idbEnqueueLogged', { value: true });
+                        logError('Error en cola IndexedDB', error);
+                    }
+                    throw error;
+                });
             return operationQueue;
         }
 
@@ -4278,11 +4702,51 @@ body.dark-theme {
         };
     })();
 
+    /**
+     * Identifica si una clave de almacenamiento corresponde a una configuración o metadato
+     * que NO debe guardarse en IndexedDB, sino en GM_setValue (o ser purgado).
+     * @param {string} key
+     * @returns {boolean}
+     */
+    const isNonVideoStorageKey = (key) => {
+        if (typeof key !== 'string') return true;
+
+        // 1. Verificar contra claves oficiales en CONFIG.STORAGE_KEYS
+        // Soporta tanto la clave con prefijo como sin prefijo (para purga de IDB)
+        const isOfficialKey = Object.values(CONFIG.STORAGE_KEYS).some(v =>
+            key === v || key === v.replace('YT_PLAYBACK_PLOX_', '')
+        );
+        if (isOfficialKey) return true;
+
+        // 2. Playlists legadas (obsoletas, se purgarán de IDB)
+        if (key.startsWith('playlist_meta_')) return true;
+
+        // 3. Otros prefijos/claves legadas o ambiguas (retrocompatibilidad del filtro)
+        if (key.startsWith('userSettings') || key.startsWith('userFilters') || key.startsWith('ypp_')) return true;
+        if (key === 'translations_cache_v1' || key === 'idb_migrated' || key === 'idb_migrated_v1') return true;
+
+        return false;
+    };
+
     const Storage = {
         /**
          * Guarda un valor en el backend disponible (ahora delega a StorageAsync).
          */
         async set(key, value) {
+            // Interceptar claves que no son de video
+            if (isNonVideoStorageKey(key)) {
+                try {
+                    const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
+                    // Saltamos guardado si es una playlist_meta_ legacy (purga silenciosa al intentar escribir)
+                    if (key.startsWith('playlist_meta_')) return { success: true };
+
+                    await GM_setValue(gmKey, JSON.stringify(value));
+                    return { success: true };
+                } catch (err) {
+                    logError('Storage', `Storage.set (GM): Error en clave "${key}"`, err);
+                    return { success: false, reason: 'storage_error', error: err };
+                }
+            }
 
             // TEST: Forzar storage_full para testear alerta
             // return { success: false, reason: 'storage_full', error: new Error('QuotaExceededError') };
@@ -4291,8 +4755,14 @@ body.dark-theme {
                 await StorageAsync.set(key, value);
             } catch (err) {
                 logError('Storage', `Storage.set: Error al guardar la clave "${key}"`, err);
-                // Detectar errores de cuota y devolver resultado específico
-                if (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED') {
+                // Detectar errores de cuota: por nombre (estándar) o por código numérico 22 (QUOTA_EXCEEDED_ERR)
+                // Algunos navegadores/IDB reportan el error solo por código, no por nombre
+                const isQuotaError =
+                    err.name === 'QuotaExceededError' ||
+                    err.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+                    err.code === 22 || // DOMException.QUOTA_EXCEEDED_ERR
+                    (err.message ?? '').toLowerCase().includes('quota');
+                if (isQuotaError) {
                     return { success: false, reason: 'storage_full', error: err };
                 }
                 return { success: false, reason: 'storage_error', error: err };
@@ -4304,6 +4774,19 @@ body.dark-theme {
          * Obtiene un valor del almacenamiento (ahora delega a StorageAsync).
          */
         async get(key) {
+            if (isNonVideoStorageKey(key)) {
+                try {
+                    const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
+                    const raw = await GM_getValue(gmKey, null);
+                    if (raw) {
+                        try { return JSON.parse(raw); } catch (_) { return raw; }
+                    }
+                    return null;
+                } catch (err) {
+                    logError('Storage', `Storage.get (GM): Error en clave "${key}"`, err);
+                    return null;
+                }
+            }
             try {
                 return await StorageAsync.get(key);
             } catch (err) {
@@ -4316,6 +4799,19 @@ body.dark-theme {
          * Elimina un valor (ahora delega a StorageAsync).
          */
         async del(key) {
+            if (isNonVideoStorageKey(key)) {
+                try {
+                    const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
+                    if (typeof GM_deleteValue === 'function') {
+                        await GM_deleteValue(gmKey);
+                    } else {
+                        await GM_setValue(gmKey, null);
+                    }
+                } catch (_) { }
+                // Si la clave estaba en IDB (legacy), borrarla también para limpiar
+                try { await StorageAsync.del(key); } catch (_) { }
+                return;
+            }
             try {
                 await StorageAsync.del(key);
             } catch (err) {
@@ -4333,13 +4829,6 @@ body.dark-theme {
                 logError('Storage', 'Storage.keys: Error al listar claves', err);
                 return [];
             }
-        },
-
-        /**
-         * Diagnóstico del backend actual.
-         */
-        getBackendInfo() {
-            return StorageAsync.getBackendInfo();
         }
     };
 
@@ -4357,7 +4846,7 @@ body.dark-theme {
          */
         async get() {
             try {
-                const raw = await GM_getValue(CONFIG.userSettingsKey, null);
+                const raw = await GM_getValue(CONFIG.STORAGE_KEYS.settings, null);
                 // const parsed = raw ? JSON.parse(raw) : {};
 
                 /** @type {Record<string, any>} **/
@@ -4385,7 +4874,7 @@ body.dark-theme {
          */
         async getWithMeta() {
             try {
-                const raw = await GM_getValue(CONFIG.userSettingsKey, null);
+                const raw = await GM_getValue(CONFIG.STORAGE_KEYS.settings, null);
 
                 /** @type {Record<string, any>} */
                 let parsed = {};
@@ -4414,9 +4903,51 @@ body.dark-theme {
         async set(settings) {
             try {
                 const serialized = JSON.stringify(settings);
-                await GM_setValue(CONFIG.userSettingsKey, serialized);
+                await GM_setValue(CONFIG.STORAGE_KEYS.settings, serialized);
             } catch (error) {
                 logError('Settings', 'Error al guardar configuración del usuario:', error);
+            }
+        }
+    };
+
+    /**
+     * Objeto Filters para gestionar la persistencia del estado del modal de videos guardados.
+     */
+    const Filters = {
+        /**
+         * Obtiene los filtros guardados.
+         * @returns {Promise<Object>} Filtros combinados con los valores por defecto.
+         */
+        async get() {
+            try {
+                const raw = await GM_getValue(CONFIG.STORAGE_KEYS.filters, null);
+                let parsed = {};
+
+                if (raw && typeof raw === 'object') {
+                    parsed = raw;
+                } else if (typeof raw === 'string' && raw.trim()) {
+                    parsed = JSON.parse(raw);
+                }
+
+                return { ...CONFIG.defaultFilters, ...parsed };
+            } catch (error) {
+                logError('Filters', 'Error al cargar filtros del usuario:', error);
+                return { ...CONFIG.defaultFilters };
+            }
+        },
+
+        /**
+         * Guarda o actualiza los filtros.
+         * @param {Object} newValues - Nuevos valores de filtros a fusionar.
+         * @returns {Promise<void>}
+         */
+        async set(newValues) {
+            try {
+                const current = await this.get();
+                const updated = { ...current, ...newValues };
+                await GM_setValue(CONFIG.STORAGE_KEYS.filters, JSON.stringify(updated));
+            } catch (error) {
+                logError('Filters', 'Error al guardar filtros del usuario:', error);
             }
         }
     };
@@ -4867,7 +5398,7 @@ body.dark-theme {
                 logInfo('getTrustedTypesPolicy', '✅ Trusted Types policy "youtube-playback-plox" creada.');
             } catch (e) {
                 logWarn('getTrustedTypesPolicy', 'Falló creación de política (posiblemente ya existe).');
-                // En algunos navegadores no se puede recuperar una política ya creada, 
+                // En algunos navegadores no se puede recuperar una política ya creada,
                 // pero si existe 'default', el navegador la usará automáticamente.
             }
         }
@@ -5334,12 +5865,13 @@ body.dark-theme {
                     visibleStart: startIdx,
                     visibleEnd: endIdx,
                     totalItems: this.items.length,
-                    renderedCount: this.renderedItems.size
+                    // renderedCount: this.renderedItems.size
                 });
             }
         }
 
         async _renderItemAt(index) {
+            const currentVersion = this.renderVersion;
             if (this.destroyed || index >= this.items.length) {
                 this.renderingItems.delete(index);
                 return;
@@ -5349,7 +5881,7 @@ body.dark-theme {
                 const item = this.items[index];
                 let el = await this.renderItem(item, index);
 
-                if (this.destroyed) return;
+                if (this.destroyed || currentVersion !== this.renderVersion) return;
 
                 if (typeof el === 'string') {
                     const temp = document.createElement('div');
@@ -5378,11 +5910,14 @@ body.dark-theme {
          */
         updateItems(newItems) {
             this.items = newItems || [];
+            this.renderVersion = (this.renderVersion || 0) + 1;
 
-            // Limpiar todos los elementos renderizados
-            for (const el of this.renderedItems.values()) {
-                el.remove();
+            // Limpieza agresiva del spacer para asegurar que no queden huérfanos de renders asíncronos previos
+            if (this.spacer) {
+                const orphans = this.spacer.querySelectorAll('.ypp-virtual-item');
+                orphans.forEach(el => el.remove());
             }
+
             this.renderedItems.clear();
             this.renderingItems.clear();
 
@@ -5423,14 +5958,6 @@ body.dark-theme {
         }
 
         /**
-         * Obtiene el número de items actualmente renderizados en el DOM
-         * @returns {number}
-         */
-        getRenderedCount() {
-            return this.renderedItems.size;
-        }
-
-        /**
          * Destruye el scroller y limpia recursos
          */
         destroy() {
@@ -5461,10 +5988,14 @@ body.dark-theme {
      * Recopila todos los datos de videos almacenados para sincronización o exportación.
      * @returns {Promise<Object|null>} Objeto con todos los datos o null si no hay datos.
      */
-    const getSyncData = async (method = 'export') => {
+    const getSyncData = async (method = 'export', keysToExport = null) => {
         try {
             const exportData = {};
-            const keys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
+            let keys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
+
+            if (keysToExport && Array.isArray(keysToExport)) {
+                keys = keys.filter(k => keysToExport.includes(k));
+            }
 
             if (keys.length === 0) return null;
 
@@ -5488,9 +6019,9 @@ body.dark-theme {
     };
 
     // Exportación/Importación JSON nativo del userscript (preserva videoTypes)
-    const exportDataToFile = async () => {
+    const exportDataToFile = async (keysToExport = null, filenameSuffix = 'backup') => {
         try {
-            const exportData = await getSyncData();
+            const exportData = await getSyncData('export', keysToExport);
 
             // Early exit si no hay datos que exportar
             if (!exportData) {
@@ -5504,14 +6035,14 @@ body.dark-theme {
             const a = document.createElement('a');
             a.href = url;
             const timestamp = new Date().toISOString().split('T')[0];
-            a.download = `youtube-playback-plox-v${SCRIPT_VERSION}-backup-${timestamp}.json`;
+            a.download = `youtube-playback-plox-v${SCRIPT_VERSION}-${filenameSuffix}-${timestamp}.json`;
             document.body.appendChild(a);
             a.click();
             a.remove();
             URL.revokeObjectURL(url);
 
-            const count = Object.keys(exportData).length;
-            showFloatingToast(`${SVG_ICONS.upload} ${t('itemsImported', { count })}`);
+            const count = Object.keys(exportData).filter(k => k !== '__metadata__').length;
+            showFloatingToast(`${SVG_ICONS.upload} ${t('itemsExported', { count })}`);
             logLog('exportDataToFile', `Exportados ${count} videos en formato JSON nativo`);
         } catch (error) {
             logError('exportDataToFile', 'Error al exportar:', error);
@@ -5635,7 +6166,7 @@ body.dark-theme {
                         githubSettings.lastSync = Date.now();
 
                         // Persistir metadatos de sincronización
-                        let storedSettings = await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings);
+                        let storedSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
                         storedSettings.gist.id = result.id;
                         storedSettings.gist.url = result.html_url;
@@ -5646,7 +6177,7 @@ body.dark-theme {
                             storedSettings.gist.token = '';
                         }
 
-                        await GM_setValue(CONFIG.githubSettingsKey, storedSettings);
+                        await GM_setValue(CONFIG.STORAGE_KEYS.github, storedSettings);
 
                         logInfo('backupToGitHub', 'Respaldo en GitHub exitoso:', result.id.slice(0, 10) + '...');
                         resolve(true);
@@ -5734,7 +6265,7 @@ body.dark-theme {
                                 onload: async (putResponse) => {
                                     if (putResponse.status >= 200 && putResponse.status < 300) {
                                         // Persistir metadatos
-                                        let storedSettings = await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings);
+                                        let storedSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
                                         storedSettings.repo.lastSync = Date.now();
 
@@ -5743,7 +6274,7 @@ body.dark-theme {
                                             storedSettings.repo.token = '';
                                         }
 
-                                        await GM_setValue(CONFIG.githubSettingsKey, storedSettings);
+                                        await GM_setValue(CONFIG.STORAGE_KEYS.github, storedSettings);
 
                                         logInfo('backupToRepository', 'Respaldo en repositorio exitoso');
                                         resolve(true);
@@ -5777,7 +6308,7 @@ body.dark-theme {
      * Punto de entrada unificado para respaldos remotos.
      */
     const performRemoteBackup = async (type = 'gist', isManual = false, settingsOverride = null) => {
-        let githubSettings = await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings);
+        let githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
         const modeSettings = settingsOverride
             ? { autoDeleteToken: githubSettings.autoDeleteToken, ...settingsOverride }
@@ -5807,7 +6338,7 @@ body.dark-theme {
             if (isManual) showFloatingToast(`${SVG_ICONS.check} ${t('githubBackupSuccess')}`);
 
             // Re-leer settings desde GM para obtener valores actualizados (lastSync, gistId, etc.)
-            const updatedSettings = await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings);
+            const updatedSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
             // Actualizar UI en tiempo real si el modal está abierto
             const lastSyncEl = document.getElementById(`ypp-github-last-sync-${type}`);
@@ -5846,7 +6377,7 @@ body.dark-theme {
      * Verifica si es necesario realizar un respaldo automático.
      */
     const checkGitHubBackup = async () => {
-        let githubSettings = await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings);
+        let githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
         const now = Date.now();
         const types = ['gist', 'repo'];
@@ -5869,12 +6400,12 @@ body.dark-theme {
     };
 
     // MARK: 📤 Import/Export FreeTube options
-    const exportToFreeTube = () => {
+    const exportToFreeTube = (specificKeys = null) => {
         // Usar la función centralizada para exportar en formato FreeTube
         // para asegurar que todos los campos estén correctamente mapeados
         (async () => {
             try {
-                const exportData = await exportToFreeTubeFormat();
+                const exportData = await exportToFreeTubeFormat(specificKeys);
                 if (!exportData || exportData.length === 0) {
                     showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
                     return;
@@ -6077,11 +6608,27 @@ body.dark-theme {
      * @param {Object} data - Datos a normalizar
      * @returns {Object} Datos normalizados con esquema moderno y sin campos obsoletos
      */
-    function normalizeVideoData(data) {
+    function normalizeVideoData(data, fallbackId = '') {
         if (!data || typeof data !== 'object') return data;
 
+        const resolvedTimeWatched = data.timeWatched;
+        const resolvedIsCompleted = data.isCompleted || false;
+
+        // Retrocompatibilidad con entradas sin historial de completados.
+        // Si el video ya estaba marcado como `isCompleted = true` pero
+        // no tiene historial (dato creado antes de que existiera `completionHistory`), se
+        // siembra una única entrada usando `timeWatched` como fecha de la última compleción
+        // registrada. Es idempotente: solo actúa en el primer ciclo lectura/escritura
+        // post-actualización, ya que tras guardar el array deja de estar vacío.
+        let resolvedCompletionHistory = Array.isArray(data.completionHistory)
+            ? data.completionHistory
+            : [];
+        if (resolvedIsCompleted && resolvedCompletionHistory.length === 0) {
+            resolvedCompletionHistory = [resolvedTimeWatched];
+        }
+
         const result = {
-            videoId: data.videoId || '',
+            videoId: data.videoId || fallbackId,
             title: data.title || '',
             author: data.author || '',
             authorId: data.authorId || '',
@@ -6089,17 +6636,19 @@ body.dark-theme {
             description: data.description || '',
             watchProgress: data.watchProgress ?? data.timestamp ?? 0,
             lengthSeconds: data.lengthSeconds ?? data.duration ?? 0,
-            timeWatched: data.timeWatched ?? data.lastUpdated ?? data.savedAt ?? Date.now(),
+            timeWatched: resolvedTimeWatched,
             type: normalizeVideoType(data.type ?? data.videoType),
             viewCount: data.viewCount ?? (parseInt(data.viewsNumber?.toString().replace(/[,\.\s]/g, '')) || 0),
             isLive: data.isLive || false,
-            isCompleted: data.isCompleted || false,
-            playlistTitle: data.playlistTitle ?? null,
-            completionHistory: Array.isArray(data.completionHistory) ? data.completionHistory : [],
+            isCompleted: resolvedIsCompleted,
             // Conservar campos de navegación/playlist si existen
             lastViewedPlaylistId: data.lastViewedPlaylistId ?? null,
             lastViewedPlaylistType: '',
             lastViewedPlaylistItemId: data.lastViewedPlaylistItemId ?? null,
+            // Formato Interno
+            playlistTitle: data.playlistTitle ?? null,
+            completionHistory: resolvedCompletionHistory,
+            isProtected: data.isProtected || false,
             ...(data.forceResumeTime ? { forceResumeTime: data.forceResumeTime } : {}),
             // Conservar el _id de FreeTube si existe (importante para compatibilidad)
             ...(data._id ? { _id: data._id } : {})
@@ -6267,7 +6816,6 @@ body.dark-theme {
 
         // Normalizar para asegurar Format A y limpiar campos legacy
         const normalized = normalizeVideoData(freeTubeData);
-        const videoId = normalized.videoId;
 
         // Determinar si el video está completado basado en el progreso
         let isCompleted = normalized.isCompleted || false;
@@ -6293,8 +6841,8 @@ body.dark-theme {
     * Exporta todos los videos guardados en formato FreeTube
     * @returns {Array} Array de videos en formato FreeTube
     */
-    async function exportToFreeTubeFormat() {
-        const videoKeys = (await Storage.keys()).filter(key => !isNonVideoStorageKey(key));
+    async function exportToFreeTubeFormat(specificKeys = null) {
+        const videoKeys = specificKeys || (await Storage.keys()).filter(key => !isNonVideoStorageKey(key));
 
         const freeTubeData = [];
         let videoCount = 0;
@@ -6758,7 +7306,7 @@ body.dark-theme {
         }
 
         if (currentPageType === 'watch' || currentPageType === 'shorts') {
-            const id = extractOrNormalizeVideoId(location.href)?.id
+            const { id } = extractOrNormalizeVideoId(location.href)
             logInfo('getPlayerVideoId', 'Usando fallback desde URL', id)
             if (id) return id
         }
@@ -6908,6 +7456,14 @@ body.dark-theme {
     *  - IDs directos
     * @param {string} input - URL completa o ID de video.
     * @returns {Object|null} - { type: "video" | "playlist" | "channel" | "live" | "unknown", id: string, list?: string }
+    * @example
+    * extractOrNormalizeVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ") // { type: "video", id: "dQw4w9WgXcQ" }
+    * extractOrNormalizeVideoId("https://www.youtube.com/shorts/dQw4w9WgXcQ") // { type: "shorts", id: "dQw4w9WgXcQ" }
+    * extractOrNormalizeVideoId("https://www.youtube.com/playlist?list=PLdQw4w9WgXcQ") // { type: "playlist", id: "PLdQw4w9WgXcQ" }
+    * extractOrNormalizeVideoId("https://www.youtube.com/channel/UCdQw4w9WgXcQ") // { type: "channel", id: "UCdQw4w9WgXcQ" }
+    * extractOrNormalizeVideoId("https://www.youtube.com/live/dQw4w9WgXcQ") // { type: "live", id: "dQw4w9WgXcQ" }
+    * extractOrNormalizeVideoId("https://www.youtube.com/embed/dQw4w9WgXcQ") // { type: "video", id: "dQw4w9WgXcQ" }
+    * extractOrNormalizeVideoId("dQw4w9WgXcQ") // { type: "video", id: "dQw4w9WgXcQ" }
     */
     function extractOrNormalizeVideoId(input) {
         if (!input || typeof input !== 'string') return null;
@@ -7142,7 +7698,6 @@ body.dark-theme {
 
     let watchTimeDisplay;
     let shortsTimeDisplay;
-    let lastShortsMessageHtml = '';
     let shortsPanelObserver = null;
     let shortsRetryTimers = [];
     let miniplayerTimeDisplay;
@@ -7188,8 +7743,6 @@ body.dark-theme {
         if (messageEl) {
             setInnerHTML(messageEl, message);
             messageEl.classList.remove('ypp-d-none');
-        } else {
-            setInnerHTML(displayEl, message);
         }
         displayEl.classList.remove('ypp-d-none');
     }
@@ -7238,7 +7791,7 @@ body.dark-theme {
                     const timeStr = formatTime(normalizeSeconds(timeValue));
                     const icon = `${SVG_ICONS.timer}${SVG_ICONS.pin}`;
                     const text = `${t('alwaysStartFrom')}: ${timeStr}`;
-                    const message = (alertStyles[cachedSettings.alertStyle] || alertStyles['full'])(icon, text, timeStr);
+                    const message = (alertStyles[cachedSettings.alertStyle])(icon, text, timeStr);
                     showDisplayMessage(display, message);
                 } else {
                     delete display.dataset.isFixedTime;
@@ -7765,7 +8318,6 @@ body.dark-theme {
                     } else {
                         return;
                     }
-                    lastShortsMessageHtml = message;
                     showDisplayMessage(shortsTimeDisplay, message);
                     // Post-check: si aún no es visible, forzar fallback al overlayRoot
                     const postCheck = () => {
@@ -7792,7 +8344,6 @@ body.dark-theme {
             return;
         }
 
-        lastShortsMessageHtml = message;
         showDisplayMessage(shortsTimeDisplay, message);
         // Si está en overlayRoot (no metapanel visible), marcar flotante
         try {
@@ -7821,8 +8372,6 @@ body.dark-theme {
             shortsTimeDisplay.classList.remove('ypp-floating');
             delete shortsTimeDisplay.dataset.activeSeek;
             delete shortsTimeDisplay.dataset.isFixedTime;
-            // Al limpiar el mensaje, también vaciar el caché para evitar reusar mensajes de Shorts anteriores
-            lastShortsMessageHtml = '';
         }
 
         const prev = displayClearTimeouts.get('shorts');
@@ -8348,7 +8897,7 @@ body.dark-theme {
                             <span>${t('githubToken')}: </span>
                             <input type="password" class="ypp-input" name="${type}_token" value="${s.token || ''}" placeholder="ghp_xxxxxxxxxxxx">
                         </label>
-                        
+
                         ${isGist ? `
                             <div>
                                 <label class="ypp-label ypp-m0">
@@ -8411,7 +8960,7 @@ body.dark-theme {
                 </div>
                 <div class="ypp-github-help-content" id="ypp-github-help-content">
                     <div style="margin-bottom: 10px; font-weight: bold;">${t('githubHelp')}</div>
-                    
+
                     <div id="ypp-github-help-gist" style="display: ${lastViewedType === 'gist' ? 'block' : 'none'};">
                         <div>${t('githubHelpStep1')} <a href="https://github.com/settings/tokens" class="ypp-link" target="_blank" rel="noopener noreferrer">https://github.com/settings/tokens</a></div>
                         <div>${t('githubHelpStep2Gist')}</div>
@@ -8441,7 +8990,7 @@ body.dark-theme {
                     <span style="font-size: 0.9em; color: var(--ypp-text-secondary);text-wrap: auto">${t('githubAutoDeleteToken')}</span>
                 </label>
                 </div>
-                
+
 
             <div class="ypp-github-tabs">
                 <div class="ypp-github-tab ${lastViewedType === 'gist' ? 'active' : ''}" data-type="gist">
@@ -8490,7 +9039,7 @@ body.dark-theme {
         };
 
         const settings = { ...await Settings.get() };
-        const githubSettings = { ...await GM_getValue(CONFIG.githubSettingsKey, CONFIG.defaultGithubSettings) };
+        const githubSettings = { ...await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings) };
 
         // Crear overlay
         const overlay = createElement('div', {
@@ -8504,7 +9053,7 @@ body.dark-theme {
         // Header
         const header = createElement('div', { className: 'ypp-modalHeader' });
         setInnerHTML(header, `
-            <h1 class="ypp-modalTitle">️${SVG_ICONS.settings} ${t('settings')} <span class="ypp-modalTitle-version">${t('youtubePlaybackPlox')} v${SCRIPT_VERSION}</span></h1>
+            <h1 class="ypp-modalTitle">️${SVG_ICONS.settings} ${t('settings')} <span class="ypp-modalTitle-version">v${SCRIPT_VERSION}</span></h1>
             <button class="ypp-btn ypp-btn-small ypp-btn-close" aria-label="${t('close')}" title="${t('close')}" type="button">
                 ${SVG_ICONS.close}
             </button>
@@ -8550,7 +9099,6 @@ body.dark-theme {
 
         // Footer
         const footer = createElement('footer', { className: 'ypp-settings-footer' });
-
 
         const repositoryBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
@@ -8610,7 +9158,7 @@ body.dark-theme {
 
                 await Promise.all([
                     Settings.set(newSettings),
-                    GM_setValue(CONFIG.githubSettingsKey, newGithubSettings)
+                    GM_setValue(CONFIG.STORAGE_KEYS.github, newGithubSettings)
                 ]);
 
                 cachedSettings = newSettings;
@@ -8651,10 +9199,12 @@ body.dark-theme {
         const copyLogsBtn = body.querySelector('#ypp-copy-logs-btn');
         if (copyLogsBtn) {
             copyLogsBtn.addEventListener('click', async () => {
+                const storageInfo = typeof StorageAsync !== 'undefined' ? StorageAsync.getBackendInfo() : { error: 'StorageAsync no disponible' };
                 const logData = [
                     `--- YouTube Playback Plox Logs ---`,
-                    `Script Version: ${typeof GM_info !== 'undefined' ? GM_info.script.version : SCRIPT_VERSION}`,
+                    `Script Version: ${SCRIPT_VERSION}`,
                     `User Agent: ${navigator.userAgent}`,
+                    `Storage Backend: ${storageInfo.indexedDBSupported ? 'IndexedDB' : 'Fallback'} (Cache: ${storageInfo.cacheSize || 0})`,
                     `Date: ${new Date().toISOString()}`,
                     `Current URL: ${window.location.href}`,
                     `----------------------------------`,
@@ -8810,7 +9360,10 @@ body.dark-theme {
     // ------------------------------------------
 
     let selectedVideos = new Set(); // IDs de videos seleccionados
-    let isSelectionMode = false; // Modo de selección activo
+    let isPlaylistCreationMode = false; // Modo de selección activo
+
+    /** @type {boolean} Modo de gestión de videos (borrado masivo) */
+    let isManagementMode = false;
 
     let createPlaylistBtn = null; // Botón de crear playlist
     let playlistInfoEl = null; // parafo donde se meustra numero de item seleccionados
@@ -8820,10 +9373,265 @@ body.dark-theme {
     let playlistContainer = null;
 
     /**
+     * Activa/desactiva el modo de gestión de videos (borrado masivo)
+     */
+    async function toggleManagementMode() {
+        isManagementMode = !isManagementMode;
+        if (isManagementMode) isPlaylistCreationMode = false;
+        selectedVideos.clear();
+
+        await updateVideoList();
+        updateFooterButtons();
+    }
+
+    /**
+     * Actualiza los botones del footer dinámicamente según el modo activo (Gestión o Normal)
+     * Solo modifica los botones propios de cada modo; no toca el flujo de playlist.
+     */
+    function updateFooterButtons() {
+        const modalFooter = document.querySelector('.ypp-footer');
+        if (!modalFooter) return;
+
+        if (isManagementMode) {
+            // ocultar botones normales del footer
+            modalVideosFooterFirtsRow?.classList.add('ypp-d-none');
+            modalVideosFooterSecondRow?.classList.add('ypp-d-none');
+
+            // Remueve contenedor de botones playlist creation mode
+            modalFooter.querySelector('#ypp-playlist-creation-footer-container')?.remove();
+
+            const managementModeFragment = document.createDocumentFragment();
+
+            // crear contenedor para botones management mode
+            const managementModeContainer = createElement('div', {
+                className: 'ypp-management-footer-container',
+                id: 'ypp-management-footer-container'
+            });
+
+            // Añadir botones de gestión masiva
+            const items = virtualScroller && virtualScroller.items ? virtualScroller.items.filter(i => i.info) : [];
+            const allSelected = items.length > 0 && items.every(v => selectedVideos.has(v.info.videoId));
+
+            const selectionInfo = createElement('span', {
+                id: 'ypp-management-selection-info',
+                className: 'ypp-management-footer-item',
+                html: `<strong>${t('selectedVideos')}:</strong> ${selectedVideos.size}`
+            });
+
+            const btnGroup = createElement('div', {
+                className: 'ypp-management-footer-item-group',
+                id: 'ypp-management-footer-item-group'
+            });
+
+            const btnSelectAll = createElement('button', {
+                className: 'ypp-btn ypp-btn-secondary ypp-shadow-md ypp-management-footer-item',
+                id: 'ypp-select-all-btn',
+                html: allSelected ? `${SVG_ICONS.close} ${t('deselectAllResults')}` : `${SVG_ICONS.check} ${t('selectAllResults')}`,
+                onClickEvent: async () => {
+                    const currentItems = virtualScroller && virtualScroller.items ? virtualScroller.items.filter(i => i.info) : [];
+                    if (currentItems.length === 0) return;
+
+                    const currentAllSelected = currentItems.every(v => selectedVideos.has(v.info.videoId));
+
+                    if (currentAllSelected) {
+                        for (const v of currentItems) selectedVideos.delete(v.info.videoId);
+                    } else {
+                        for (const v of currentItems) selectedVideos.add(v.info.videoId);
+                    }
+
+                    // Actualizar checkboxes en el DOM sin recrear el VirtualScroller
+                    document.querySelectorAll('.ypp-video-checkbox').forEach(checkbox => {
+                        const vid = checkbox.getAttribute('data-video-id');
+                        if (vid) checkbox.checked = selectedVideos.has(vid);
+                    });
+
+                    updateManagementFooterState();
+                }
+            });
+            const btnExportSelected = createElement('button', {
+                className: 'ypp-btn ypp-btn-secondary ypp-shadow-md ypp-management-footer-item',
+                html: `${SVG_ICONS.upload} ${t('exportSelected')} (JSON)`,
+                onClickEvent: async () => {
+                    if (selectedVideos.size === 0) {
+                        alert(t('selectAtLeastOne'));
+                        return;
+                    }
+                    await exportDataToFile(Array.from(selectedVideos));
+                }
+            });
+
+            const btnExportSelectedFreeTube = createElement('button', {
+                className: 'ypp-btn ypp-btn-secondary ypp-shadow-md ypp-management-footer-item',
+                html: `${SVG_ICONS.upload} ${t('exportSelected')} (FreeTube)`,
+                onClickEvent: async () => {
+                    if (selectedVideos.size === 0) {
+                        alert(t('selectAtLeastOne'));
+                        return;
+                    }
+                    await exportToFreeTube(Array.from(selectedVideos));
+                }
+            });
+            const btnDeleteSelected = createElement('button', {
+                className: 'ypp-btn ypp-btn-danger ypp-shadow-md ypp-management-footer-item',
+                html: `${SVG_ICONS.trash} ${t('deleteSelected')}`,
+                onClickEvent: async () => {
+                    if (selectedVideos.size === 0) {
+                        alert(t('selectAtLeastOne'));
+                        return;
+                    }
+                    if (!confirm(t('confirmDeleteSelected').replace('{count}', selectedVideos.size))) return;
+
+                    const idsToDelete = Array.from(selectedVideos);
+                    const allKeys = await Storage.keys();
+
+                    // Caché para Undo
+                    const rollbackData = [];
+                    let skippedProtected = 0;
+
+                    for (const id of idsToDelete) {
+                        const itemData = await Storage.get(id);
+                        if (!itemData) continue;
+
+                        if (itemData.isProtected) {
+                            skippedProtected++;
+                            continue;
+                        }
+
+                        rollbackData.push({ type: 'video', id, data: itemData });
+
+                        await Storage.del(id);
+                        syncFixedTimeUI(id, false);
+                        syncManualSaveUI(id, false);
+                    }
+                    selectedVideos.clear();
+                    await updateVideoList();
+
+                    const deletedCount = rollbackData.length;
+                    if (deletedCount > 0) {
+                        // Toast con opción Deshacer visible por 10 segundos
+                        showFloatingToast(`🚮 ${deletedCount} ${t('itemDeleted')}${skippedProtected > 0 ? ` (${t('protectedItemsSkipped', { count: skippedProtected })})` : ''}`, 10000, {
+                            action: {
+                                label: t('undo'),
+                                callback: async () => {
+                                    for (const item of rollbackData) {
+                                        if (item.type === 'video') {
+                                            await Storage.set(item.id, item.data);
+                                        }
+                                    }
+                                    await updateVideoList();
+                                    showFloatingToast(`${SVG_ICONS.check} ${t('itemsRestored').replace('{count}', deletedCount)}`, 3000);
+                                }
+                            }
+                        });
+                    } else if (skippedProtected > 0) {
+                        showFloatingToast(`${SVG_ICONS.warning} ${t('protectedItemsSkipped', { count: skippedProtected })}`);
+                    }
+
+                }
+            });
+
+            const btnClearAll = createElement('button', {
+                className: 'ypp-btn ypp-btn-danger ypp-shadow-md ypp-management-footer-item',
+                html: `${SVG_ICONS.trash} ${t('clearAll')}`,
+                onClickEvent: async () => { await clearAllData(); }
+            });
+
+
+            const cancelBtn = createElement('button', {
+                className: 'ypp-btn ypp-btn-secondary ypp-shadow-md ypp-management-footer-item',
+                html: `${SVG_ICONS.close} ${t('cancel')}`,
+                onClickEvent: async () => {
+                    toggleManagementMode();
+                }
+            });
+
+
+
+            managementModeContainer.append(selectionInfo);
+            btnGroup.append(btnSelectAll);
+            btnGroup.append(btnExportSelected);
+            btnGroup.append(btnExportSelectedFreeTube);
+            btnGroup.append(btnDeleteSelected);
+            btnGroup.append(btnClearAll);
+            btnGroup.append(cancelBtn);
+            managementModeContainer.append(btnGroup);
+
+            managementModeFragment.append(managementModeContainer);
+            modalFooter.append(managementModeFragment);
+        } else if (isPlaylistCreationMode) {
+            modalVideosFooterFirtsRow?.classList.add('ypp-d-none');
+            modalVideosFooterSecondRow?.classList.add('ypp-d-none');
+
+            // Remueve contenedor de botones management mode
+            modalFooter.querySelector('#ypp-management-footer-container')?.remove();
+
+
+            // crear contenedor para botones playlist creation mode
+            const playlistCreationModeContainer = createElement('div', {
+                className: 'ypp-playlist-creation-footer-container',
+                id: 'ypp-playlist-creation-footer-container'
+            });
+
+
+
+
+            /*    btnToggleManagement?.classList.add('ypp-d-none');
+               createPlaylistBtn?.classList.add('ypp-d-none');
+               btnSettings?.classList.add('ypp-d-none'); */
+
+            updatePlaylistArea();
+        } else {
+            modalVideosFooterFirtsRow?.classList.remove('ypp-d-none');
+            modalVideosFooterSecondRow?.classList.remove('ypp-d-none');
+
+            // Remueve contenedor de botones management mode
+            modalFooter.querySelector('#ypp-management-footer-container')?.remove();
+            // Remueve contenedor de botones playlist creation mode
+            modalFooter.querySelector('#ypp-playlist-creation-footer-container')?.remove();
+
+
+            updatePlaylistArea();
+        }
+
+
+    }
+
+    /**
+     * Actualiza el estado visual de los botones del footer de gestión dinámicamente sin destruir el DOM
+     */
+    function updateManagementFooterState() {
+        if (!isManagementMode) return;
+
+        const btnSelectAll = document.getElementById('ypp-select-all-btn');
+        if (btnSelectAll) {
+            const items = virtualScroller && virtualScroller.items ? virtualScroller.items.filter(i => i.info) : [];
+            const allSelected = items.length > 0 && items.every(v => selectedVideos.has(v.info.videoId));
+
+            const icon = allSelected ? SVG_ICONS.close : SVG_ICONS.check;
+            const text = allSelected ? t('deselectAllResults') : t('selectAllResults');
+            setInnerHTML(btnSelectAll, `${icon} ${text}`);
+        }
+
+        // Elemento DOM generado manualmente o existente
+        const selectionInfo = document.getElementById('ypp-management-selection-info');
+        if (selectionInfo) {
+            setInnerHTML(selectionInfo, `<strong>${t('selectedVideos')}:</strong> ${selectedVideos.size}`);
+        } else {
+            // Re-render in case it's not defined (User had changed structure recently)
+            const secondRowItem = document.querySelector('.ypp-management-footer-item strong');
+            if (secondRowItem && secondRowItem.parentElement) {
+                secondRowItem.parentElement.id = 'ypp-management-selection-info';
+                setInnerHTML(secondRowItem.parentElement, `<strong>${t('selectedVideos')}:</strong> ${selectedVideos.size}`);
+            }
+        }
+    }
+
+    /**
      * Activa/desactiva el modo de selección de videos
      */
-    async function toggleSelectionMode() {
-        isSelectionMode = !isSelectionMode;
+    async function togglePlaylistCreationMode() {
+        isPlaylistCreationMode = !isPlaylistCreationMode;
+        if (isPlaylistCreationMode) isManagementMode = false;
         selectedVideos.clear();
 
         // Fallback: buscar el botón solo si no está disponible la referencia
@@ -8833,7 +9641,7 @@ body.dark-theme {
         // Actualizar la interfaz
         await updateVideoList();
 
-        if (isSelectionMode) {
+        if (isPlaylistCreationMode) {
             setInnerHTML(createPlaylistBtn, `${SVG_ICONS.close} ${t('selectVideos')} (${selectedVideos.size})`);
             createPlaylistBtn.className = 'ypp-btn ypp-btn-danger ypp-shadow-md';
         } else {
@@ -8843,7 +9651,7 @@ body.dark-theme {
         // Mostrar/ocultar área de playlist y botones del footer
         updatePlaylistArea();
 
-        logLog('toggleSelectionMode', `Modo de selección: ${isSelectionMode ? 'ACTIVADO' : 'DESACTIVADO'}`);
+        logLog('togglePlaylistCreationMode', `Modo de selección: ${isPlaylistCreationMode ? 'ACTIVADO' : 'DESACTIVADO'}`);
     }
 
     /**
@@ -8857,11 +9665,11 @@ body.dark-theme {
         if (!modalVideosFooterFirtsRow || !modalVideosFooterSecondRow || !playlistContainer) return;
 
         // Mostrar área de playlist y ocultar botones normales de footer modal videos
-        playlistContainer.classList.toggle('active', isSelectionMode);
-        modalVideosFooterFirtsRow?.classList.toggle('hidden', isSelectionMode);
-        modalVideosFooterSecondRow?.classList.toggle('hidden', isSelectionMode);
+        playlistContainer.classList.toggle('active', isPlaylistCreationMode);
+        modalVideosFooterFirtsRow?.classList.toggle('ypp-d-none', isPlaylistCreationMode);
+        modalVideosFooterSecondRow?.classList.toggle('ypp-d-none', isPlaylistCreationMode);
 
-        if (isSelectionMode) {
+        if (isPlaylistCreationMode) {
             // Actualizar el área de playlist si hay videos seleccionados
             if (selectedVideos.size > 0) {
                 updatePlaylistContent();
@@ -8991,6 +9799,11 @@ body.dark-theme {
 
         // Actualizar contenido de playlist
         updatePlaylistContent();
+
+        // Refrescar estado de botones en modo gestión
+        if (isManagementMode) {
+            updateManagementFooterState();
+        }
     }
 
     // ------------------------------------------
@@ -10053,7 +10866,7 @@ body.dark-theme {
                 const prevSavedTime = parseFloat(videoEl.dataset.lastSavedTime || '0');
                 const diff = currentTime - prevSavedTime;
 
-                // Si hay un salto hacia atrás significativo (ej. > 5s) justo después de iniciar o reanudar, 
+                // Si hay un salto hacia atrás significativo (ej. > 5s) justo después de iniciar o reanudar,
                 // es probable que sea el player de YouTube reseteándose durante la carga.
                 const sessionStartTime = parseInt(videoEl.dataset.sessionStartTime || '0', 10);
                 const lastResumeTimestamp = parseInt(videoEl.dataset.lastResumeTimestamp || '0', 10);
@@ -10134,9 +10947,19 @@ body.dark-theme {
                         break;
                     case 'preview':
                         {
-                            const previewContainer = videoEl.closest(ELEMENTS.INLINE_PREVIEW_ELEMENT);
-                            const isShortsPreview =
-                                previewContainer ? previewContainer.querySelector('a[href^="/shorts/"]') !== null : false;
+                            // Cachear en dataset para evitar querySelector en cada tick del guardado.
+                            // Se resuelve una sola vez por elemento; se invalida automáticamente
+                            // cuando el video sale del DOM y el elemento es recolectado por el garbage collector.
+                            let isShortsPreview;
+                            if (videoEl.dataset.yppShortsPreview) {
+                                isShortsPreview = videoEl.dataset.yppShortsPreview === 'true';
+                            } else {
+                                const previewContainer = videoEl.closest(ELEMENTS.INLINE_PREVIEW_ELEMENT);
+                                isShortsPreview = previewContainer
+                                    ? previewContainer.querySelector('a[href^="/shorts/"]') !== null
+                                    : false;
+                                videoEl.dataset.yppShortsPreview = String(isShortsPreview);
+                            }
                             const specificPreviewType = isShortsPreview ? 'preview_shorts' : 'preview_watch';
                             result = await savePreview(currentTime, videoInfo, videoEl, specificPreviewType, saveOptions);
                         }
@@ -10154,6 +10977,11 @@ body.dark-theme {
             } catch (e) {
                 logError('PlaybackController', `❌ Error inesperado guardando ${videoId}:`, e);
                 result = { success: false, reason: e.message };
+            }
+
+            // Mostrar alerta si el almacenamiento está lleno
+            if (result?.reason === 'storage_full') {
+                showFloatingToast(`${SVG_ICONS.warning} ${t('storageFull')}`, 6000, { persistent: true });
             }
 
             // Notificar progreso si el guardado fue exitoso o es manual
@@ -10330,7 +11158,7 @@ body.dark-theme {
 
         // 🟡 Nivel 3: DOM Fallbacks + Fetchs
         try {
-            if (type === 'shorts') {
+            if (type === 'shorts' && currentPageType === 'shorts') {
                 // Si es Shorts, usar metapanel del Short ACTIVO
                 const metapanel = getActiveShortsControlsContainer();
 
@@ -10431,7 +11259,7 @@ body.dark-theme {
 
             if (info.title == null) {
                 let titleEl = null;
-                if (type === 'watch') {
+                if (type === 'watch' && currentPageType === 'watch') {
                     titleEl = DOMHelpers.get(`video:titleWatch:${videoId}`, () =>
                         document.querySelector('h1.ytd-video-primary-info-renderer') ||
                         document.querySelector('yt-formatted-string.ytd-video-description-header-renderer'), 250);
@@ -10449,7 +11277,7 @@ body.dark-theme {
 
             if (info.author == null || info.author === t('unknown')) {
                 let authorEl;
-                if (type === 'watch') {
+                if (type === 'watch' && currentPageType === 'watch') {
                     authorEl = DOMHelpers.get(`video:authorWatch:${videoId}`, () =>
                         document.querySelector('#owner #channel-name yt-formatted-string'),
                         250
@@ -10475,7 +11303,7 @@ body.dark-theme {
                     }
                 }
 
-                if (type === 'watch') {
+                if (type === 'watch' && currentPageType === 'watch') {
                     const { list: urlPlaylistId, id: videoIdFromUrl } = extractOrNormalizeVideoId(window.location.href);
                     if (urlPlaylistId && videoIdFromUrl === info.videoId) {
                         info.lastViewedPlaylistId = urlPlaylistId;
@@ -10513,8 +11341,8 @@ body.dark-theme {
                                 if (anchor?.href) {
                                     // los selectores al ser de botones se avanzar/retroceder del dropdown de playlist miniplayer,
                                     // su videoId no hacen match con video actualmente reproduciendose
-                                    logLog('getCascadedVideoInfo', `Anchor href: [${anchor?.href}] extrac id: ${extractOrNormalizeVideoId(anchor?.href).id} list: ${extractOrNormalizeVideoId(anchor?.href).list}`);
-                                    const listParam = extractOrNormalizeVideoId(anchor?.href)?.list;
+                                    const { list: listParam, id: videoIdFromUrl } = extractOrNormalizeVideoId(anchor?.href);
+                                    logLog('getCascadedVideoInfo', `Anchor href: [${anchor?.href}] extrac id: ${videoIdFromUrl} list: ${listParam}`);
 
                                     if (listParam) {
                                         logLog('getCascadedVideoInfo', `List param: [${listParam}]`);
@@ -10627,16 +11455,38 @@ body.dark-theme {
             className: 'ypp-sort-select',
             id: 'sort-selector',
             html: `
-            <option value="recent" ${currentValue === 'recent' ? 'selected' : ''}>📅 ${t('mostRecent')}</option>
-            <option value="oldest" ${currentValue === 'oldest' ? 'selected' : ''}>📆 ${t('oldest')}</option>
-            <option value="title" ${currentValue === 'title' ? 'selected' : ''}>🔤 ${t('titleAZ')}</option>
+            <optgroup label="📅 ${t('sortBy')}">
+                <option value="recent" ${currentValue === 'recent' ? 'selected' : ''}>📅 ${t('mostRecent')}</option>
+                <option value="oldest" ${currentValue === 'oldest' ? 'selected' : ''}>📆 ${t('oldest')}</option>
+            </optgroup>
+            <optgroup label="🔤 ${t('titleAZ')} / ${t('authorAZ')}">
+                <option value="titleAZ" ${currentValue === 'titleAZ' ? 'selected' : ''}>🔤 ${t('titleAZ')}</option>
+                <option value="titleZA" ${currentValue === 'titleZA' ? 'selected' : ''}>🔤 ${t('titleZA')}</option>
+                <option value="authorAZ" ${currentValue === 'authorAZ' ? 'selected' : ''}>👤 ${t('authorAZ')}</option>
+                <option value="authorZA" ${currentValue === 'authorZA' ? 'selected' : ''}>👤 ${t('authorZA')}</option>
+            </optgroup>
+            <optgroup label="⏳ ${t('duration')}">
+                <option value="durationShort" ${currentValue === 'durationShort' ? 'selected' : ''}>⏳ ${t('durationShort')}</option>
+                <option value="durationLong" ${currentValue === 'durationLong' ? 'selected' : ''}>⌛ ${t('durationLong')}</option>
+            </optgroup>
+            <optgroup label="🔥 ${t('yourMostWatched')}">
+                <option value="yourMostWatched" ${currentValue === 'yourMostWatched' ? 'selected' : ''}>🔥 ${t('yourMostWatched')}</option>
+                <option value="yourLeastWatched" ${currentValue === 'yourLeastWatched' ? 'selected' : ''}>🧊 ${t('yourLeastWatched')}</option>
+            </optgroup>
+            <optgroup label="👀 ${t('mostViewsYoutube')}">
+                <option value="mostViewsYoutube" ${currentValue === 'mostViewsYoutube' ? 'selected' : ''}>👀 ${t('mostViewsYoutube')}</option>
+                <option value="leastViewsYoutube" ${currentValue === 'leastViewsYoutube' ? 'selected' : ''}>👓 ${t('leastViewsYoutube')}</option>
+            </optgroup>
+            <optgroup label="📉 ${t('progressDESC')}">
+                <option value="progressDESC" ${currentValue === 'progressDESC' ? 'selected' : ''}>📉 ${t('progressDESC')}</option>
+                <option value="progressASC" ${currentValue === 'progressASC' ? 'selected' : ''}>📈 ${t('progressASC')}</option>
+            </optgroup>
             `});
         select.onchange = () => onChange(select.value);
         wrapper.appendChild(label);
         wrapper.appendChild(select);
         return wrapper;
     }
-
 
     // ------------------------------------------
     // MARK: 📂 Filters UI
@@ -10655,11 +11505,162 @@ body.dark-theme {
         <option value="live" ${currentValue === 'live' ? 'selected' : ''}>🔴 ${t('liveStreams')}</option>
         <option value="playlist" ${currentValue === 'playlist' ? 'selected' : ''}>📁 ${t('playlist')}</option>
         <option value="completed" ${currentValue === 'completed' ? 'selected' : ''}>✅ ${t('completedVideos')}</option>
-        <option value="fixedTime" ${currentValue === 'fixedTime' ? 'selected' : ''}>⏱️📌 ${t('videosWithFixedTime')}</option>`
+        <option value="completedOnce" ${currentValue === 'completedOnce' ? 'selected' : ''}>✅1️⃣ ${t('completedOnce')}</option>
+        <option value="fixedTime" ${currentValue === 'fixedTime' ? 'selected' : ''}>⏱️📌 ${t('videosWithFixedTime')}</option>
+        <option value="protected" ${currentValue === 'protected' ? 'selected' : ''}>🔒 ${t('protectedVideos')}</option>`
         });
         select.onchange = () => onChange(select.value);
         wrapper.appendChild(label);
         wrapper.appendChild(select);
+        return wrapper;
+    }
+
+    /**
+     * Crea un filtro híbrido que combina un selector de presets con campos de rango personalizados.
+     * @param {string} type - 'views' o 'percent' para definir los presets.
+     * @param {number} minVal - Valor mínimo actual.
+     * @param {number} maxVal - Valor máximo actual.
+     * @param {(val: number) => void} onMinChange - Callback para cambio de mín.
+     * @param {(val: number) => void} onMaxChange - Callback para cambio de máx.
+     */
+    function createRangeFilter(type, minVal, maxVal, onChange) {
+        const wrapper = createElement('div', { className: 'ypp-range-filter-section' });
+
+        let labelKey = '';
+        if (type === 'views') labelKey = 'views';
+        else if (type === 'percent') labelKey = 'percentWatched';
+
+        const label = createElement('label', { className: 'ypp-label ypp-label-filters', text: `${t(labelKey)}:` });
+
+        const controls = createElement('div', { className: 'ypp-range-controls' });
+
+        // Generar HTML de opciones directamente (mismo patrón que createSortSelector)
+        const presets = type === 'views'
+            ? [
+                { label: t('all'), min: 0, max: 0 },
+                { label: '1k+', min: 1000, max: 0 },
+                { label: '10k+', min: 10000, max: 0 },
+                { label: '100k+', min: 100000, max: 0 },
+                { label: '1M+', min: 1000000, max: 0 },
+                { label: '10M+', min: 10000000, max: 0 },
+                { label: '100M+', min: 100000000, max: 0 },
+                { label: '1B+', min: 1000000000, max: 0 }
+            ]
+            : [
+                { label: t('all'), min: 0, max: 100 },
+                { label: '1%+', min: 1, max: 100 },
+                { label: '5%+', min: 5, max: 100 },
+                { label: '10%+', min: 10, max: 100 },
+                { label: '15%+', min: 15, max: 100 },
+                { label: '20%+', min: 20, max: 100 },
+                { label: '25%+', min: 25, max: 100 },
+                { label: '30%+', min: 30, max: 100 },
+                { label: '35%+', min: 35, max: 100 },
+                { label: '40%+', min: 40, max: 100 },
+                { label: '45%+', min: 45, max: 100 },
+                { label: '50%+', min: 50, max: 100 },
+                { label: '55%+', min: 55, max: 100 },
+                { label: '60%+', min: 60, max: 100 },
+                { label: '65%+', min: 65, max: 100 },
+                { label: '70%+', min: 70, max: 100 },
+                { label: '75%+', min: 75, max: 100 },
+                { label: '80%+', min: 80, max: 100 },
+                { label: '85%+', min: 85, max: 100 },
+                { label: '90%+', min: 90, max: 100 },
+                { label: '95%+', min: 95, max: 100 },
+                { label: `✅ ${t('completed')}`, min: 100, max: 100 }
+            ];
+
+        // Añadir opción personalizada (visible solo cuando se activa)
+        presets.push({ label: `⚙️ ${t('custom')}`, min: -1, max: -1, isCustom: true });
+
+        const optionsHtml = presets.map(p => {
+            const val = p.isCustom ? 'custom' : JSON.stringify({ min: p.min, max: p.max });
+            const isSelected = (!p.isCustom && minVal === p.min && (p.max === 0 || maxVal === p.max)) ? 'selected' : '';
+            return `<option value='${val}' ${isSelected}>${p.label}</option>`;
+        }).join('');
+
+        const select = createElement('select', {
+            className: 'ypp-filter-select ypp-filter-preset',
+            html: optionsHtml
+        });
+
+        // Si al cargar no coincide con ningún preset, seleccionar 'custom'
+        const hasMatch = presets.some(p => !p.isCustom && minVal === p.min && (p.max === 0 || maxVal === p.max));
+        if (!hasMatch) select.value = 'custom';
+
+        // Inputs numéricos personalizados con etiquetas superiores
+        const customGroup = createElement('div', { className: 'ypp-range-inputs-group' });
+
+        // Min
+        const minWrapper = createElement('div', { className: 'ypp-range-input-wrapper' });
+        minWrapper.appendChild(createElement('label', { className: 'ypp-range-input-label', text: t('minLimit') }));
+        const inputMin = createElement('input', {
+            className: 'ypp-range-input',
+            attributes: {
+                type: 'number',
+                placeholder: t('minLimit'),
+                title: t('minLimit'),
+                min: 0,
+                value: minVal ?? 0,
+                ...(type === 'percent' ? { max: 100 } : {})
+            }
+        });
+        minWrapper.appendChild(inputMin);
+
+        // Max
+        const maxWrapper = createElement('div', { className: 'ypp-range-input-wrapper' });
+        maxWrapper.appendChild(createElement('label', { className: 'ypp-range-input-label', text: t('maxLimit') }));
+        const inputMax = createElement('input', {
+            className: 'ypp-range-input',
+            attributes: {
+                type: 'number',
+                placeholder: t('maxLimit'),
+                title: t('maxLimit'),
+                min: 0,
+                value: maxVal ?? 0,
+                ...(type === 'percent' ? { max: 100 } : {})
+            }
+        });
+        maxWrapper.appendChild(inputMax);
+
+        // Sincronización: preset → inputs
+        select.onchange = () => {
+            if (select.value === 'custom') return;
+            try {
+                const { min, max } = JSON.parse(select.value);
+                inputMin.value = min;
+                inputMax.value = max;
+                onChange(min, max);
+            } catch (_) { }
+        };
+
+        // Sincronización: inputs → filtros
+        const updateFromInputs = () => {
+            const min = parseInt(inputMin.value) || 0;
+            const max = parseInt(inputMax.value) || 0;
+
+            // Buscar si coincide con algún preset para marcarlo, si no, poner 'Custom'
+            const found = presets.find(p => !p.isCustom && min === p.min && (p.max === 0 || max === p.max));
+            if (found) {
+                select.value = JSON.stringify({ min: found.min, max: found.max });
+            } else {
+                select.value = 'custom';
+            }
+
+            onChange(min, max);
+        };
+        inputMin.onchange = updateFromInputs;
+        inputMax.onchange = updateFromInputs;
+
+        customGroup.appendChild(minWrapper);
+        customGroup.appendChild(createElement('span', { text: ' - ' }));
+        customGroup.appendChild(maxWrapper);
+
+        controls.appendChild(select);
+        controls.appendChild(customGroup);
+        wrapper.appendChild(label);
+        wrapper.appendChild(controls);
         return wrapper;
     }
 
@@ -10685,24 +11686,6 @@ body.dark-theme {
         return wrapper;
     }
 
-    async function saveFilters(newValues) {
-        const currentRaw = await GM_getValue(CONFIG.userFiltersKey, '{}');
-        const current = JSON.parse(currentRaw);
-        const updated = { ...current, ...newValues };
-        await GM_setValue(CONFIG.userFiltersKey, JSON.stringify(updated));
-    }
-
-    async function getSavedFilters() {
-        const raw = await GM_getValue(CONFIG.userFiltersKey, '{}');
-        try {
-            const saved = raw ? JSON.parse(raw) : {};
-            const merged = { ...CONFIG.defaultFilters, ...saved };
-            return merged;
-        } catch (e) {
-            logError('getSavedFilters', 'Error parsing filtros guardados:', e);
-            return { ...CONFIG.defaultFilters };
-        }
-    }
 
     // ------------------------------------------
     // MARK: 📂 Video List UI
@@ -10720,6 +11703,15 @@ body.dark-theme {
     let currentFilterBy = null;
     /** @type {string|null} Búsqueda actual de la lista de videos */
     let currentSearchQuery = null;
+    /** @type {number} Mínimo de vistas para filtrar */
+    let currentMinViews = 0;
+    /** @type {number} Máximo de vistas para filtrar */
+    let currentMaxViews = 0;
+    /** @type {number} Porcentaje mínimo de reproducción para filtrar */
+    let currentMinPercent = 0;
+    /** @type {number} Porcentaje máximo de reproducción para filtrar */
+    let currentMaxPercent = 100;
+
     /** @type {VirtualScroller|null} Instancia del scroller virtual para la lista de videos */
     let virtualScroller = null;
     /** @type {number|null} ID del intervalo de actualización del uso de almacenamiento */
@@ -10727,51 +11719,7 @@ body.dark-theme {
     /** @type {Map<string, string>} Cache global de títulos por ID para uso en createVideoEntry */
     let modalVideoTitleById = new Map();
 
-    async function fixThumbnailsInStorage() {
-        const keys = (await Storage.keys?.() || []).filter(k =>
-            !k.startsWith('userSettings') &&
-            !k.startsWith('userFilters') &&
-            !k.startsWith('playlist_meta_') &&
-            !k.startsWith('ypp_')
-        );
-        for (const key of keys) {
-            const data = await Storage.get(key);
-            if (!data) continue;
-            if (typeof data !== 'object') {
-                if (key.startsWith('ypp_')) continue;
-                // Entrada corrupta/legacy inesperada (e.g. number/bool/string). Evitar crash al intentar asignar propiedades.
-                try {
-                    const preview = (() => {
-                        try {
-                            if (typeof data === 'string') return data.slice(0, 120);
-                            if (typeof data === 'number' || typeof data === 'boolean') return String(data);
-                            if (data === null) return 'null';
-                            return Object.prototype.toString.call(data);
-                        } catch (_) {
-                            return '[unprintable]';
-                        }
-                    })();
-                    logWarn('fixThumbnailsInStorage', `Entrada inválida en Storage (se eliminará). key="${key}", data="${preview}"`);
-                    await Storage.del(key);
-                } catch (e) {
-                    logError('fixThumbnailsInStorage', `Error al intentar eliminar clave corrupta ${key}:`, e);
-                }
-                continue;
-            }
-
-            // Eliminar la propiedad `thumb` si existe (campo legado)
-            if (data.thumb !== undefined) {
-                delete data.thumb;
-                await Storage.set(key, data);
-            }
-        }
-    }
-
-    /**
-     * Altura estimada de cada item de video en px.
-     * Se usa para calcular posiciones en el virtual scroller.
-     * @constant {number}
-     */
+    /** @constant {number} Altura estimada de cada item de video en px. Se usa para calcular posiciones en el virtual scroller. */
     const VIDEO_ITEM_HEIGHT = 120;
 
     /**
@@ -10804,20 +11752,7 @@ body.dark-theme {
         return results;
     }
 
-    /**
-     * Determina si una clave de Storage corresponde a metadatos/configuración y no a una entrada de video.
-     * @param {string} key
-     * @returns {boolean}
-     */
-    const isNonVideoStorageKey = (key) => {
-        if (typeof key !== 'string') return true;
-        if (key.startsWith('userSettings')) return true;
-        if (key.startsWith('userFilters')) return true;
-        if (key.startsWith('playlist_meta_')) return true;
-        if (key.startsWith('ypp_')) return true;
-        if (key === 'translations_cache_v1') return true;
-        return false;
-    };
+
 
     // MARK: 📁 Update Video List
     /**
@@ -10827,22 +11762,50 @@ body.dark-theme {
     async function updateVideoList() {
         if (!listContainer) return;
 
-        // Destruir scroller anterior si existe
-        if (virtualScroller) {
-            virtualScroller.destroy();
-            virtualScroller = null;
+        // Si el scroller ya existe, solo actualizar stats sin destruir el DOM
+        const scrollerElCheck = document.getElementById('ypp-virtual-scroller-container');
+        let loadingIndicator = listContainer.querySelector('.ypp-virtual-loading');
+
+        if (!loadingIndicator) {
+            loadingIndicator = createElement('div', {
+                className: 'ypp-virtual-loading',
+                text: `⏳ ${t('loading')}...`
+            });
         }
 
-        // Mostrar indicador de carga
-        setInnerHTML(listContainer, '');
-        const loadingIndicator = createElement('div', {
-            className: 'ypp-virtual-loading',
-            text: `⏳ ${t('loading')}...`
-        });
-        listContainer.appendChild(loadingIndicator);
+        if (!virtualScroller || !scrollerElCheck) {
+            // Primera carga o reconstrucción completa: limpiar observers previos y añadir loader
+            if (virtualScroller) {
+                virtualScroller.destroy?.();
+                virtualScroller = null;
+            }
+            setInnerHTML(listContainer, '');
+            listContainer.appendChild(loadingIndicator);
+        } else {
+            // Actualización: usar overlay para no ocultar scroller y evitar pérdida de scroll/parpadeo
+            loadingIndicator.style.cssText = `
+                position: absolute;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(15, 15, 15, 0.7);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                z-index: 1000;
+                color: var(--ypp-white);
+                backdrop-filter: blur(2px);
+                -webkit-backdrop-filter: blur(2px);
+            `;
+            if (!loadingIndicator.parentElement) listContainer.appendChild(loadingIndicator);
+            loadingIndicator.style.display = 'flex';
 
-        const keys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
+            const statsEl = document.querySelector('#ypp-virtual-stats');
+            if (statsEl) setInnerHTML(statsEl, `⏳ ${t('loading')}...`);
+        }
 
+        // Guardar posición de scroll antes de actualizar
+        const currentScrollTop = virtualScroller?.container?.scrollTop ?? 0;
+
+        const keys = await Storage.keys();
         // Cargar todos los datos en lotes paralelos
         const allData = await batchLoadStorageData(keys);
         if (!listContainer) return;
@@ -10859,10 +11822,12 @@ body.dark-theme {
             allItems.push({
                 type: playlistId ? 'playlist-video' : 'regular-video',
                 videoId,
-                info: data,
+                // Aplicar normalizeVideoData en lectura para que la migración de
+                // completionHistory (0.0.9-7) se ejecute aunque el video no haya
+                // sido re-guardado aún desde la actualización.
+                info: normalizeVideoData(data),
                 playlistKey: playlistId,
-                playlistTitle: playlistTitle,
-                lastWatchedVideoId: null // Se delegaba a playlist_meta, ahora es opcional
+                playlistTitle: playlistTitle
             });
         }
 
@@ -10900,7 +11865,9 @@ body.dark-theme {
         let filteredItems = allItems.filter(item => {
             const vType = item.info.type;
             if (currentFilterBy === 'completed') return item.info.isCompleted === true;
+            if (currentFilterBy === 'completedOnce') return item.info.completionHistory?.length > 0;
             if (currentFilterBy === 'fixedTime') return item.info.forceResumeTime && item.info.forceResumeTime > 0;
+            if (currentFilterBy === 'protected') return item.info.isProtected === true;
             if (currentFilterBy === 'playlist') return item.type === 'playlist-video';
             if (currentFilterBy === 'preview') return (vType && vType.startsWith('preview'));
 
@@ -10916,11 +11883,59 @@ body.dark-theme {
             return (item.info.title || '').toLowerCase().includes(query) ||
                 (item.info.author || '').toLowerCase().includes(query) ||
                 (item.playlistTitle || '').toLowerCase().includes(query);
+        }).filter(item => {
+            // Filtro por vistas
+            const views = item.info.viewCount ?? 0;
+            if (currentMinViews > 0 && views < currentMinViews) return false;
+            if (currentMaxViews > 0 && views > currentMaxViews) return false;
+
+            // Filtro por porcentaje
+            const watchProgress = item.info.watchProgress ?? 0;
+            const lengthSeconds = item.info.lengthSeconds ?? 0;
+            let percent = 0;
+            if (lengthSeconds > 0) {
+                percent = Math.round((watchProgress / lengthSeconds) * 100);
+            }
+
+            // Si el video está marcado como completado, lo tratamos como 100% para el filtro
+            const effectivePercent = item.info.isCompleted ? 100 : percent;
+
+            // Si no hay duración y no está completado, pero se requiere un progreso mínimo, ocultar
+            if (lengthSeconds <= 0 && !item.info.isCompleted && currentMinPercent > 0) {
+                return false;
+            }
+
+            if (currentMinPercent > 0 && effectivePercent < currentMinPercent) return false;
+            if (currentMaxPercent < 100 && effectivePercent > currentMaxPercent) return false;
+            return true;
         });
 
         // Aplicar ordenamiento
         const getSortValue = (item) => {
-            if (currentOrderBy === 'title') return (item.info.title || item.videoId).toLowerCase();
+            if (currentOrderBy === 'titleAZ' || currentOrderBy === 'title') return (item.info.title || item.videoId).toLowerCase();
+            if (currentOrderBy === 'titleZA') {
+                const t = (item.info.title || item.videoId).toLowerCase();
+                // Para invertir strings, podemos usar un truco de charCode o simplemente invertir la lógica en el sort,
+                // pero aquí devolvemos el valor crudo y el sort se encarga si detecta string.
+                return t;
+            }
+            if (currentOrderBy === 'authorAZ' || currentOrderBy === 'author') return (item.info.author || '').toLowerCase();
+            if (currentOrderBy === 'authorZA') return (item.info.author || '').toLowerCase();
+
+            if (currentOrderBy === 'durationShort') return item.info.lengthSeconds || 0;
+            if (currentOrderBy === 'durationLong') return -(item.info.lengthSeconds || 0);
+            if (currentOrderBy === 'yourMostWatched') return -(item.info.completionHistory?.length || 0);
+            if (currentOrderBy === 'yourLeastWatched') return (item.info.completionHistory?.length || 0);
+            if (currentOrderBy === 'mostViewsYoutube') return -(item.info.viewCount || 0);
+            if (currentOrderBy === 'leastViewsYoutube') return (item.info.viewCount || 0);
+            if (currentOrderBy === 'progressDESC' || currentOrderBy === 'progress') {
+                const prog = (item.info.lengthSeconds > 0) ? (item.info.watchProgress / item.info.lengthSeconds) : (item.info.isCompleted ? 1 : 0);
+                return -prog;
+            }
+            if (currentOrderBy === 'progressASC') {
+                const prog = (item.info.lengthSeconds > 0) ? (item.info.watchProgress / item.info.lengthSeconds) : (item.info.isCompleted ? 1 : 0);
+                return prog;
+            }
             const time = item.info.timeWatched || 0;
             if (currentOrderBy === 'oldest') return time;
             return -time;
@@ -10928,19 +11943,99 @@ body.dark-theme {
         filteredItems.sort((a, b) => {
             const valA = getSortValue(a);
             const valB = getSortValue(b);
-            if (typeof valA === 'string') return valA.localeCompare(valB);
+            if (typeof valA === 'string') {
+                const cmp = valA.localeCompare(valB);
+                if (currentOrderBy === 'titleZA' || currentOrderBy === 'authorZA') return -cmp;
+                return cmp;
+            }
             return valA - valB;
         });
 
-        // Limpiar indicador de carga
-        setInnerHTML(listContainer, '');
+        // Pre-procesar items para incluir headers de playlist
+        const virtualItems = [];
+        let lastPlaylistKey = null;
 
-        // Mostrar mensaje si no hay items
+        for (const item of filteredItems) {
+            if (item.type === 'playlist-video' && item.playlistKey && item.playlistKey !== lastPlaylistKey) {
+                const basePlaylistTitle = item.playlistTitle || item.playlistKey;
+                const headerTitle = (item.playlistKey?.startsWith('RD') && basePlaylistTitle === item.playlistKey)
+                    ? `Mix - ${item.info?.title || t('unknown')}`
+                    : basePlaylistTitle;
+                virtualItems.push({
+                    type: 'playlist-header',
+                    playlistKey: item.playlistKey,
+                    playlistTitle: headerTitle,
+                    firstVideoId: item.videoId // Guardar ID para enlaces de Mixes
+                });
+                lastPlaylistKey = item.playlistKey;
+            } else if (item.type !== 'playlist-video') {
+                lastPlaylistKey = null;
+            }
+            virtualItems.push(item);
+        }
+
+        // Si ya existe el scroller y el contenedor en el DOM, solo actualizar items y restaurar scroll
+        // Manejar estado vacío (sin resultados) para evitar que se quede la lista previa
+        const scrollerEl = document.getElementById('ypp-virtual-scroller-container');
+        let emptyMsg = listContainer.querySelector('.ypp-emptyMsg');
+
         if (filteredItems.length === 0) {
-            const emptyMsg = createElement('p', { className: 'ypp-emptyMsg', text: t('noSavedVideos') });
-            listContainer.appendChild(emptyMsg);
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
+            if (scrollerEl) scrollerEl.style.display = 'none';
+            if (virtualScroller) virtualScroller.updateItems([]);
+
+            if (!emptyMsg) {
+                emptyMsg = createElement('p', { className: 'ypp-emptyMsg', text: t('noSavedVideos') });
+                listContainer.appendChild(emptyMsg);
+            }
+            emptyMsg.style.display = 'block';
+
+            // Actualizar stats a 0
+            const statsEl = document.querySelector('#ypp-virtual-stats');
+            if (statsEl) {
+                setInnerHTML(statsEl, `
+                    <span>0 ${t('videos')}</span>
+                    <span id="ypp-render-stats"></span>
+                    <span id="ypp-storage-usage"></span>
+                `);
+                try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
+            }
             return;
         }
+
+        // Si hay items, asegurar que el mensaje vacío esté oculto y el scroller visible
+        if (emptyMsg) emptyMsg.style.display = 'none';
+        if (scrollerEl) scrollerEl.style.display = 'block';
+
+        // Si ya existe el scroller y el contenedor en el DOM, solo actualizar items y restaurar scroll
+        if (virtualScroller && scrollerEl) {
+            // Actualizar stats sin reconstruir todo
+            const statsEl = document.querySelector('#ypp-virtual-stats');
+            if (statsEl) {
+                setInnerHTML(statsEl, `
+                    <span>${filteredItems.length} ${t('videos')}</span>
+                    <span id="ypp-render-stats"></span>
+                    <span id="ypp-storage-usage"></span>
+                `);
+            }
+
+            // Ocultar overlay
+            if (loadingIndicator) loadingIndicator.style.display = 'none';
+
+            virtualScroller.updateItems(virtualItems);
+
+            // Restaurar scroll de forma segura tras el ciclo de renderizado
+            requestAnimationFrame(() => {
+                scrollerEl.scrollTop = currentScrollTop;
+            });
+
+            try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
+            return;
+        }
+
+        // Limpiar indicador de carga o contenido previo si vamos a inicializar
+        if (loadingIndicator) loadingIndicator.remove();
+        setInnerHTML(listContainer, '');
 
         // Crear barra de estadísticas
         const statsBar = createElement('div', {
@@ -10968,29 +12063,6 @@ body.dark-theme {
             }
         });
         listContainer.appendChild(scrollerContainer);
-
-        // Pre-procesar items para incluir headers de playlist
-        const virtualItems = [];
-        let lastPlaylistKey = null;
-
-        for (const item of filteredItems) {
-            if (item.type === 'playlist-video' && item.playlistKey && item.playlistKey !== lastPlaylistKey) {
-                const basePlaylistTitle = item.playlistTitle || item.playlistKey;
-                const headerTitle = (item.playlistKey?.startsWith('RD') && basePlaylistTitle === item.playlistKey)
-                    ? `Mix - ${item.info?.title || 'Playlist automática'}`
-                    : basePlaylistTitle;
-                virtualItems.push({
-                    type: 'playlist-header',
-                    playlistKey: item.playlistKey,
-                    playlistTitle: headerTitle,
-                    firstVideoId: item.videoId // Guardar ID para enlaces de Mixes
-                });
-                lastPlaylistKey = item.playlistKey;
-            } else if (item.type !== 'playlist-video') {
-                lastPlaylistKey = null;
-            }
-            virtualItems.push(item);
-        }
 
         // Inicializar VirtualScroller
         virtualScroller = new VirtualScroller({
@@ -11025,25 +12097,30 @@ body.dark-theme {
 
                 return await createVideoEntry(item);
             },
-            onRender: ({ renderedCount }) => {
+            onRender: () => {
                 const statsEl = document.querySelector('#ypp-render-stats');
-                if (statsEl) {
-                    // Para que las estadísticas sean coherentes con el total de "Videos" de arriba,
-                    // filtramos los headers de la cuenta total y renderizada.
-                    const totalVideos = filteredItems.length;
-                    let renderedVideos = 0;
-                    if (virtualScroller) {
-                        virtualScroller.renderedItems.forEach((el, idx) => {
-                            const item = virtualItems[idx];
-                            if (item && item.type !== 'playlist-header') {
-                                renderedVideos++;
-                            }
-                        });
-                    } else {
-                        renderedVideos = renderedCount; // Fallback
-                    }
+                if (statsEl && virtualScroller) {
+                    let totalVideos = 0;
+                    // let renderedVideos = 0;
 
-                    statsEl.textContent = `${renderedVideos}/${totalVideos} ${t('rendered')}`;
+                    virtualScroller.items.forEach(i => {
+                        if (i.type !== 'playlist-header') totalVideos++;
+                    });
+
+                    // virtualScroller.renderedItems.forEach((el, idx) => {
+                    //     const item = virtualScroller.items[idx];
+                    //     if (item && item.type !== 'playlist-header') {
+                    //         renderedVideos++;
+                    //     }
+                    // });
+                    // statsEl.textContent = `${renderedVideos}/${totalVideos} ${t('rendered')}`;
+                    // setInnerHTML(statsEl, `${SVG_ICONS.info} ${renderedVideos} ${t('rendered')}`);
+
+                    // Asegurar que el total principal también esté en sincronía con el scroller
+                    const parentStats = document.querySelector('#ypp-virtual-stats');
+                    if (parentStats && parentStats.firstElementChild) {
+                        parentStats.firstElementChild.textContent = `${totalVideos} ${t('videos')}`;
+                    }
                 }
             }
         });
@@ -11076,7 +12153,8 @@ body.dark-theme {
             clearInterval(storageUsageRefreshIntervalId);
             storageUsageRefreshIntervalId = null;
         }
-        isSelectionMode = false;
+        isPlaylistCreationMode = false;
+        isManagementMode = false;
         selectedVideos.clear();
         document.body.style.overflow = '';
     }
@@ -11174,26 +12252,29 @@ body.dark-theme {
         closeModalVideos();
 
         // Cargar filtros guardados para asegurar sincronización
-        const saved = await getSavedFilters();
-
-        await fixThumbnailsInStorage();
+        const savedFilters = await Filters.get();
 
         // Usar los filtros pasados como parámetro o los guardados
-        currentOrderBy = saved.orderBy ?? CONFIG.defaultFilters.orderBy;
-        currentFilterBy = saved.filterBy ?? CONFIG.defaultFilters.filterBy;
-        currentSearchQuery = saved.searchQuery ?? CONFIG.defaultFilters.searchQuery;
+        currentOrderBy = savedFilters.orderBy ?? CONFIG.defaultFilters.orderBy;
+        currentFilterBy = savedFilters.filterBy ?? CONFIG.defaultFilters.filterBy;
+        currentSearchQuery = savedFilters.searchQuery ?? CONFIG.defaultFilters.searchQuery;
+        currentMinViews = savedFilters.minViews ?? CONFIG.defaultFilters.minViews;
+        currentMaxViews = savedFilters.maxViews ?? CONFIG.defaultFilters.maxViews;
+        currentMinPercent = savedFilters.minPercent ?? CONFIG.defaultFilters.minPercent;
+        currentMaxPercent = savedFilters.maxPercent ?? CONFIG.defaultFilters.maxPercent;
 
         // Crear elementos del modal
         videosOverlay = createElement('div', { className: 'ypp-modalOverlay' });
         videosContainer = createElement('div', { className: 'ypp-videosContainer' });
 
-        // Aplicar tema dinámico
-
         listContainer = createElement('div', { id: 'video-list-container' });
         setupModalEventDelegation(listContainer);
 
         const header = createElement('div', { className: 'ypp-header' });
-        const title = createElement('h2', { text: t('youtubePlaybackPlox') });
+        const title = createElement('h1', {
+            className: 'ypp-modalTitle',
+            html: `${SVG_ICONS.clockRotateLeft} ${t('youtubePlaybackPlox')} <span class="ypp-modalTitle-version">v${SCRIPT_VERSION}</span>`
+        });
         const closeBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-small ypp-btn-close',
             html: SVG_ICONS.close,
@@ -11205,23 +12286,104 @@ body.dark-theme {
         header.appendChild(closeBtn);
         videosContainer.appendChild(header);
 
-        const filtersContainer = createElement('div', { className: 'ypp-video-filters-section' });
-        filtersContainer.appendChild(createSortSelector(currentOrderBy, async (selected) => {
-            currentOrderBy = selected;
-            await saveFilters({ orderBy: selected });
-            await updateVideoList();
-        }));
-        filtersContainer.appendChild(createFilterSelector(currentFilterBy, async (selected) => {
-            currentFilterBy = selected;
-            await saveFilters({ filterBy: selected });
-            await updateVideoList();
-        }));
-        filtersContainer.appendChild(createSearchInput(currentSearchQuery, async (query) => {
+        // Persistent Top Row: Search + Advanced Toggle
+        const topRow = createElement('div', { className: 'ypp-filters-top-row' });
+        const searchContainer = createElement('div', { className: 'ypp-search-container' });
+        searchContainer.appendChild(createSearchInput(currentSearchQuery, async (query) => {
             currentSearchQuery = query;
-            await saveFilters({ searchQuery: query });
+            await Filters.set({ searchQuery: query });
             await updateVideoList();
         }));
-        videosContainer.appendChild(filtersContainer);
+
+        const advancedToggleBtn = createElement('button', {
+            className: 'ypp-filters-toggle-btn',
+            html: `${SVG_ICONS.settings} ${t('advancedFilters')}`
+        });
+
+        const filterBadge = createElement('span', { className: 'ypp-active-filter-badge', style: 'display: none;' });
+        advancedToggleBtn.appendChild(filterBadge);
+
+        topRow.appendChild(searchContainer);
+        topRow.appendChild(advancedToggleBtn);
+        videosContainer.appendChild(topRow);
+
+        // Collapsible Advanced Section
+        const advancedSection = createElement('div', { className: 'ypp-filters-advanced' });
+        const filtersGrid = createElement('div', { className: 'ypp-filters-grid' });
+
+        filtersGrid.appendChild(createSortSelector(currentOrderBy, async (selected) => {
+            currentOrderBy = selected;
+            await Filters.set({ orderBy: selected });
+            updateActiveFilterBadge();
+            await updateVideoList();
+        }));
+
+        filtersGrid.appendChild(createFilterSelector(currentFilterBy, async (selected) => {
+            currentFilterBy = selected;
+            await Filters.set({ filterBy: selected });
+            updateActiveFilterBadge();
+            await updateVideoList();
+        }));
+
+        advancedSection.appendChild(filtersGrid);
+
+        // Range Filters group
+        const rangeGroup = createElement('div', { className: 'ypp-range-filters-group' });
+
+        rangeGroup.appendChild(createRangeFilter('views', currentMinViews, currentMaxViews,
+            async (min, max) => {
+                currentMinViews = min;
+                currentMaxViews = max;
+                await Filters.set({ minViews: min, maxViews: max });
+                updateActiveFilterBadge();
+                await updateVideoList();
+            }
+        ));
+
+        rangeGroup.appendChild(createRangeFilter('percent', currentMinPercent, currentMaxPercent,
+            async (min, max) => {
+                currentMinPercent = min;
+                currentMaxPercent = max;
+                await Filters.set({ minPercent: min, maxPercent: max });
+                updateActiveFilterBadge();
+                await updateVideoList();
+            }
+        ));
+
+        advancedSection.appendChild(rangeGroup);
+        videosContainer.appendChild(advancedSection);
+
+        // Toggle logic for Advanced Filters
+        let isAdvancedExpanded = false;
+        const toggleAdvanced = (expand) => {
+            isAdvancedExpanded = expand !== undefined ? expand : !isAdvancedExpanded;
+            advancedSection.classList.toggle('expanded', isAdvancedExpanded);
+            advancedToggleBtn.classList.toggle('active', isAdvancedExpanded);
+            updateActiveFilterBadge();
+        };
+
+        advancedToggleBtn.addEventListener('click', () => toggleAdvanced());
+
+        // Function to calculate and update the active filter badge
+        const updateActiveFilterBadge = () => {
+            let activeCount = 0;
+
+            if (currentOrderBy !== CONFIG.defaultFilters.orderBy) activeCount++;
+            if (currentFilterBy !== CONFIG.defaultFilters.filterBy) activeCount++;
+            if (currentMinViews !== CONFIG.defaultFilters.minViews || currentMaxViews !== CONFIG.defaultFilters.maxViews) activeCount++;
+            if (currentMinPercent !== CONFIG.defaultFilters.minPercent || currentMaxPercent !== CONFIG.defaultFilters.maxPercent) activeCount++;
+
+            if (activeCount > 0 && !isAdvancedExpanded) {
+                filterBadge.textContent = t('activeFilters', { count: activeCount });
+                filterBadge.style.display = 'flex';
+                filterBadge.title = t('activeFilters', { count: activeCount });
+            } else {
+                filterBadge.style.display = 'none';
+            }
+        };
+
+        // Initial badge update
+        updateActiveFilterBadge();
 
         videosContainer.appendChild(listContainer);
 
@@ -11259,7 +12421,6 @@ body.dark-theme {
             onClickEvent: async () => await importFromFreeTube()
         });
 
-
         firstRow.appendChild(btnExport);
         firstRow.appendChild(btnImport);
         firstRow.appendChild(btnExportFreeTube);
@@ -11268,27 +12429,28 @@ body.dark-theme {
         // Segunda fila: Eliminar todo (izquierda) y Configuraciones (derecha)
         const secondRow = createElement('div', { className: 'ypp-footer-row ypp-footer-row-bottom' });
 
-        const btnClearAll = createElement('button', {
-            className: 'ypp-btn ypp-btn-danger ypp-shadow-md',
-            html: `${SVG_ICONS.trash} ${t('clearAll')}`,
-            onClickEvent: async () => { await clearAllData(); }
+        const btnToggleManagement = createElement('button', {
+            id: 'ypp-management-mode-btn',
+            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
+            html: `${SVG_ICONS.folder} ${t('manageVideos')}`,
+            onClickEvent: async () => { await toggleManagementMode(); }
         });
 
         const btnCreatePlaylist = createElement('button', {
             id: 'ypp-create-playlist-btn',
             className: 'ypp-btn ypp-btn-primary ypp-shadow-md',
             html: `${SVG_ICONS.playlist} ${t('createPlaylist')}`,
-            onClickEvent: async () => { await toggleSelectionMode(); }
+            onClickEvent: async () => { await togglePlaylistCreationMode(); }
         });
 
-
         const btnSettings = createElement('button', {
+            id: 'ypp-settings-btn',
             className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
             html: `${SVG_ICONS.settings} ${t('settings')}`,
             onClickEvent: async () => { await showSettingsUI(); }
         });
 
-        secondRow.appendChild(btnClearAll);
+        secondRow.appendChild(btnToggleManagement);
         secondRow.appendChild(btnCreatePlaylist);
         createPlaylistBtn = btnCreatePlaylist; // Guardar referencia global para evitar llamadas al DOM
         secondRow.appendChild(btnSettings);
@@ -11341,7 +12503,7 @@ body.dark-theme {
         const cancelBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-danger ypp-shadow-md',
             html: `${SVG_ICONS.close} ${t('cancel')}`,
-            onClickEvent: async () => { await toggleSelectionMode(); }
+            onClickEvent: async () => { await togglePlaylistCreationMode(); }
         });
 
         playlistActions.appendChild(copyBtn);
@@ -11507,6 +12669,11 @@ body.dark-theme {
             itemInfo = await Storage.get(videoId);
         }
 
+        if (itemInfo?.isProtected) {
+            showFloatingToast(`${SVG_ICONS.warning} ${t('protectedVideoWarning')}`);
+            return;
+        }
+
         const deleteFromStorage = async () => {
             if (playlistKey) {
                 const playlist = await Storage.get(playlistKey);
@@ -11549,7 +12716,7 @@ body.dark-theme {
         syncManualSaveUI(videoId, false);
         await updateVideoList();
 
-        showFloatingToast(`${SVG_ICONS.trash} "${title}" ${t('itemDeleted')}`, 10000, {
+        showFloatingToast(`${SVG_ICONS.trash} "${title}" ${t('deleted')}`, 10000, {
             action: {
                 label: t('undo'),
                 callback: undoDelete
@@ -11590,9 +12757,51 @@ body.dark-theme {
                     const title = btn.dataset.title;
                     await handleDeleteEntryAction(videoId, playlistKey, title);
                     break;
+                case 'toggle-protection':
+                    await handleToggleProtectionAction(videoId, playlistKey);
+                    break;
             }
         });
     };
+
+    async function handleToggleProtectionAction(videoId, playlistKey) {
+        let itemData = null;
+        let isOldFormat = false;
+
+        if (playlistKey) {
+            itemData = await Storage.get(playlistKey);
+            isOldFormat = itemData?.videos && typeof itemData.videos === 'object';
+        }
+
+        let info = null;
+        if (isOldFormat) {
+            info = itemData.videos[videoId];
+        } else {
+            info = await Storage.get(videoId);
+        }
+
+        if (!info) {
+            logWarn('handleToggleProtectionAction', `No se encontró información para el video ${videoId}`);
+            return;
+        }
+
+        info.isProtected = !info.isProtected;
+
+        if (playlistKey && isOldFormat) {
+            itemData.videos[videoId] = info;
+            await Storage.set(playlistKey, itemData);
+        } else {
+            await Storage.set(videoId, info);
+        }
+
+        const msg = info.isProtected
+            ? `${SVG_ICONS.locked} ${t('protected')}`
+            : `${SVG_ICONS.unlocked} ${t('unprotected')}`;
+        showFloatingToast(msg);
+
+        await updateVideoList();
+    }
+
 
     /* Cache para URLs de miniaturas validadas para evitar re-validaciones durante el scroll */
     const thumbUrlCache = new Map();
@@ -11674,6 +12883,7 @@ body.dark-theme {
                 : `https://www.youtube.com/playlist?list=${playlistKey}`);
 
         const hasFixedTime = forceResumeTime > 0;
+        const isProtected = info.isProtected || false;
         const fixedTimeStr =
             hasFixedTime
                 ? `${SVG_ICONS.timer} ${t('alwaysStartFrom')}: ${formatTime(normalizeSeconds(forceResumeTime))} ${SVG_ICONS.locked}`
@@ -11688,14 +12898,6 @@ body.dark-theme {
                 ? (hasFixedTime ? `${fixedTimeStr} ${SVG_ICONS.check}` : `${SVG_ICONS.check} ${t('completed')}`)
                 : (hasFixedTime ? fixedTimeStr : `${t('progress')} ${escapeHTML(formatTime(watchProgress))} ${isLiveEntry ? '' : `/ ${formatTime(lengthSeconds)}`}`);
 
-        let wrapperStyle = '';
-        let playlistBorderColor = '';
-
-        if (isPlaylistItem) {
-            const playlistBgColor = generatePlaylistColor(playlistKey);
-            playlistBorderColor = generatePlaylistBorderColor(playlistKey);
-            wrapperStyle = `background-color: ${playlistBgColor}; border-left: 4px solid ${playlistBorderColor}; position: relative;`;
-        }
 
         const liveHtml = `<div class="ypp-progressInfo" style="font-weight: bold;">${SVG_ICONS.chart} ${t('live')}</div>`;
         const percentHtml = `<div class="ypp-progressInfo" style="color: ${getProgressColor(percent)}; font-weight: bold;">${SVG_ICONS.chart} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds(remaining))} ${t('remaining')})</div>`;
@@ -11709,15 +12911,38 @@ body.dark-theme {
         // Obtener la mejor miniatura validada asíncronamente
         const validatedThumbUrl = await getValidatedThumbnail(videoId);
 
+        // Estilos playlist
+        let wrapperStyle = '';
+        let playlistBorderColor = '';
+        let itemClass = 'regular-item';
+
+        if (isPlaylistItem) {
+            const playlistBgColor = generatePlaylistColor(playlistKey);
+            playlistBorderColor = generatePlaylistBorderColor(playlistKey);
+            wrapperStyle = `background-color: ${playlistBgColor}; border-left: 4px solid ${playlistBorderColor}; position: relative;`;
+            itemClass = 'playlist-item';
+        }
+
+        if (isProtected) {
+            itemClass += ' ypp-protected-item';
+        }
+
+        const selectionClass = isPlaylistCreationMode || isManagementMode ? 'selection-mode' : '';
+
         const html = `
-            <div class="ypp-videoWrapper ${isPlaylistItem ? 'playlist-item' : 'regular-item'}${isSelectionMode ? ' selection-mode' : ''} ypp-video-item" data-video-id="${escapeHTML(videoId)}" data-playlist-key="${escapeHTML(playlistKey || '')}" style="${wrapperStyle}">
-                ${isSelectionMode ? `<input type="checkbox" data-action="toggle-selection" class="ypp-video-checkbox" data-video-id="${escapeHTML(videoId)}" ${selectedVideos.has(videoId) ? 'checked' : ''}>` : ''}
-                
-                <img class="ypp-thumb" title="${title}" alt="${title}" src="${validatedThumbUrl}" loading="lazy" width="320" height="180" draggable="false">
+            <div
+                class="ypp-videoWrapper ${itemClass} ${selectionClass} ypp-video-item"
+                data-video-id="${escapeHTML(videoId)}"
+                ${playlistKey ? `data-playlist-key="${escapeHTML(playlistKey)}"` : ''}
+                style="${wrapperStyle}"
+            >
+                ${isPlaylistCreationMode || isManagementMode ? `<input type="checkbox" data-action="toggle-selection" class="ypp-video-checkbox" data-video-id="${escapeHTML(videoId)}" ${selectedVideos.has(videoId) ? 'checked' : ''}>` : ''}
+
+                <img class="${type === 'shorts' ? 'ypp-thumb-shorts' : 'ypp-thumb'}" title="${title}" alt="${title}" src="${validatedThumbUrl}" loading="lazy" width="320" height="180" draggable="false">
 
                 <div class="ypp-infoDiv">
                     <a class="ypp-titleLink" title="${title}" href="https://www.youtube.com/watch?v=${escapeHTML(videoId)}${playlistKey ? '&list=' + escapeHTML(playlistKey) : ''}" target="_blank" rel="noopener noreferrer">
-                        <span>${title}</span> ${SVG_ICONS.externalLink}
+                        ${title} ${SVG_ICONS.externalLink}
                     </a>
 
                     ${isPlaylistItem && finalPlaylistTitle ? `
@@ -11765,6 +12990,10 @@ body.dark-theme {
                         </button>
                     ` : ''}
 
+                    <button class="ypp-btn ${isProtected ? 'ypp-btn-danger' : 'ypp-btn-outlined'} ypp-btn-small ypp-shadow-md" data-action="toggle-protection" title="${isProtected ? t('unprotect') : t('protect')}">
+                        ${isProtected ? SVG_ICONS.locked : SVG_ICONS.unlocked}
+                    </button>
+
                     <button class="ypp-btn ypp-btn-delete ypp-btn-small ypp-shadow-md" data-action="delete-entry" title="${t('deleteEntry')}" data-title="${title}">
                         ${SVG_ICONS.trash}
                     </button>
@@ -11782,7 +13011,7 @@ body.dark-theme {
 
     async function clearAllData() {
         // Verificar si hay datos relevantes antes de pedir confirmación
-        const videoKeys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
+        const videoKeys = await Storage.keys();
         if (videoKeys.length === 0) {
             showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
             return;
@@ -11791,30 +13020,35 @@ body.dark-theme {
         if (!confirm(t('clearAllDataConfirm'))) return;
 
         // Guardar datos para posible deshacer
-        // No incluir keys de userSettings (contienen configuración/idioma) para evitar dejar la UI inaccesible
-        const allKeys = (await Storage.keys()).filter(k => !k.startsWith('userSettings'));
+        const allKeys = await Storage.keys();
         clearedData = {};
 
         for (const k of allKeys) {
-            clearedData[k] = await Storage.get(k);
+            const data = await Storage.get(k);
+            if (data?.isProtected) continue;
+
+            clearedData[k] = data;
         }
 
-        logLog('clearAllData', '🗑️ Datos a eliminar:', allKeys, clearedData);
+        logLog('clearAllData', '🗑️ Datos a eliminar:', Object.keys(clearedData));
 
-        // Eliminar todos los datos (excepto userSettings)
-        for (const k of allKeys) {
+        const skippedProtected = allKeys.length - Object.keys(clearedData).length;
+
+        // Eliminar todos los datos (excepto protegidos)
+        for (const k of Object.keys(clearedData)) {
             await Storage.del(k);
             syncManualSaveUI(k, false);
         }
 
-        // Mostrar toast con opción de deshacer (usar la propiedad "callback" que espera showFloatingToast)
-        showFloatingToast(`${SVG_ICONS.check} ${t('allDataCleared')}`, {
+        // Mostrar toast con opción de deshacer
+        showFloatingToast(`${SVG_ICONS.check} ${t('allDataCleared')}${skippedProtected > 0 ? ` (${t('protectedItemsSkipped', { count: skippedProtected })})` : ''}`, {
             keep: true,
             action: {
                 label: t('undo'),
                 callback: undoClearAll
             }
         });
+
 
         // Actualizar UI si es necesario
         await updateVideoList();
@@ -11859,13 +13093,13 @@ body.dark-theme {
         /* GM_registerMenuCommand(`📋 ${t('savedVideos')}`, () => { try { showSavedVideosList(); } catch (_) { } }); */
         GM_registerMenuCommand(`📚 ${t('viewAllHistory')}`, async () => {
             // Guardar filtros y esperar a que se complete
-            await saveFilters({ filterBy: 'all', searchQuery: '' });
+            await Filters.set({ filterBy: 'all', searchQuery: '' });
             // Establecer filtro global y mostrar lista
             currentFilterBy = 'all';
             try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error abriendo listado de historial:', e); }
         });
         GM_registerMenuCommand(`✅ ${t('viewCompletedVideos')}`, async () => {
-            await saveFilters({ filterBy: 'completed' });
+            await Filters.set({ filterBy: 'completed' });
             currentFilterBy = 'completed';
             try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error abriendo listado de completados:', e); }
         });
@@ -11911,166 +13145,217 @@ body.dark-theme {
     }
 
     /**
-     * Migra datos del formato antiguo (playlists anidadas) al nuevo formato FreeTube.
-     * Esta función se ejecuta automáticamente una vez al inicio.
-     *
-     * Fase 1: Busca claves legacy remanentes en localStorage/GM que no fueron migradas
-     *         por StorageAsync.initialize() (edge case) y las mueve a Storage (IndexedDB).
-     * Fase 2: Procesa todas las claves ya en IndexedDB/Storage para normalizar su
-     *         esquema: desanidar playlists, agregar campos FreeTube, y normalizar videoType.
-     *
-     * @returns {Promise<{migrated: number, skipped: number}>}
+     * Limpia datos que no son de video en IndexedDB y realiza migraciones persistentes.
+     * Consolida el rescate de localStorage/GM_setValue y normalización del esquema de vídeos.
      */
-    async function migrateToFreeTubeFormat() {
-        const MIGRATION_VERSION = 3; // Incrementar solo si cambia la lógica/estructura de migración
-        const MIGRATION_KEY = 'ypp_migration_freetube_format_version';
+    async function cleanupNonVideoData() {
+        const MIGRATION_VERSION = 4;
+        const MIGRATION_KEY = CONFIG.STORAGE_KEYS.migration;
 
-        /**
-         * Elimina una clave GM de forma compatible entre managers.
-         * En Violentmonkey, GM_setValue(key, null) NO borra la clave; deja el valor null.
-         * @param {string} key
-         * @returns {Promise<void>}
-         */
-        const deleteGMValueSafe = async (key) => {
-            try {
-                if (typeof GM_deleteValue === 'function') {
-                    await GM_deleteValue(key);
-                    return;
-                }
-            } catch (_) { /* noop */ }
-
-            try {
-                if (typeof GM_setValue === 'function') {
-                    await GM_setValue(key, null);
-                }
-            } catch (_) { /* noop */ }
-        };
-
-        // Verificar si la migración ya se realizó para esta versión
-        const lastMigrationVersion = await GM_getValue(MIGRATION_KEY, 0);
-        if (lastMigrationVersion >= MIGRATION_VERSION) {
-            logLog('migrateToFreeTubeFormat', `✅ Migración ya aplicada (versión ${lastMigrationVersion})`);
-            return { migrated: 0, skipped: 0 };
-        }
-
-        logLog('migrateToFreeTubeFormat', `🔄 Iniciando migración v${MIGRATION_VERSION} (última: v${lastMigrationVersion})...`);
-
-        // Mostrar alerta al usuario sobre la migración
-        showFloatingToast(
-            t('migratingData', 'Migrando datos guardados desde versión anterior...'),
-            5000
-        );
-
-        let migrated = 0;
-        let skipped = 0;
-
-        // FASE 1: Rescatar claves legacy (localStorage/GM)
         try {
-            let legacyKeys = [];
-            if (typeof localStorage !== 'undefined') {
-                legacyKeys = Object.keys(localStorage).filter(k => k.startsWith('YT_PLAYBACK_PLOX_'));
-            }
-            if (legacyKeys.length === 0 && typeof GM_listValues === 'function') {
-                const gmKeys = await GM_listValues();
-                legacyKeys = (Array.isArray(gmKeys) ? gmKeys : []).filter(k =>
-                    typeof k === 'string' && k.startsWith('YT_PLAYBACK_PLOX_')
-                );
-            }
-
-            const relevantLegacyKeys = legacyKeys.filter(k => !isNonVideoStorageKey(k.replace('YT_PLAYBACK_PLOX_', '')));
-
-            for (const rawKey of relevantLegacyKeys) {
-                const cleanKey = rawKey.startsWith('YT_PLAYBACK_PLOX_') ? rawKey.slice(17) : rawKey;
-                const existing = await Storage.get(cleanKey);
-                if (existing) continue;
-
-                let data = null;
-                try {
-                    if (typeof localStorage !== 'undefined') {
-                        const lsData = localStorage.getItem(rawKey);
-                        if (lsData) data = JSON.parse(lsData);
-                    }
-                    if (!data && typeof GM_getValue === 'function') {
-                        data = await GM_getValue(rawKey, null);
-                    }
-                } catch (e) { /* noop */ }
-
-                if (data) {
-                    await Storage.set(cleanKey, data);
-                    await deleteGMValueSafe(rawKey);
-                    if (typeof localStorage !== 'undefined') localStorage.removeItem(rawKey);
-                }
-            }
-        } catch (e) {
-            logWarn('migrateToFreeTubeFormat', 'Error en rescate legacy:', e);
-        }
-
-        // FASE 2: Normalización Consolidada (Format Limpio)
-        const allKeys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
-        let batchCount = 0;
-
-        for (const key of allKeys) {
-            try {
-                const data = await Storage.get(key);
-                if (!data) continue;
-
-                // Caso A: Playlist anidada (la estructura de playlist anidada (formato antiguo))
-                if (data.videos && typeof data.videos === 'object') {
-                    const playlistId = key;
-                    for (const [vId, vData] of Object.entries(data.videos)) {
-                        // Normalizar y desanidar video de la playlist antigua
-                        const normalizedVData = normalizeVideoData({ ...vData, videoId: vData.videoId || vId });
-                        await Storage.set(vId, {
-                            ...normalizedVData,
-                            lastViewedPlaylistId: playlistId,
-                            lastViewedPlaylistType: '',
-                            lastViewedPlaylistItemId: null,
-                            forceResumeTime: vData.forceResumeTime
-                        });
-                        migrated++;
-                    }
-                    await Storage.del(key);
-                    logLog('migrateToFreeTubeFormat', `✅ Playlist ${key} desanidada`);
-                }
-                // Caso B: Entrada de video (individual)
-                else {
-                    // Migración v4: Normalización agresiva de todos los campos legacy
-                    // Incluso si no parece tener campos legacy, pasamos por normalizeVideoData
-                    // para asegurar que el objeto tenga exactamente la estructura Format A en IndexedDB
-                    const normalized = normalizeVideoData(data);
-
-                    // Verificar si hubo cambios reales o si forzamos limpieza (v4 fuerza limpieza de campos legacy)
-                    const hadLegacy = data.timestamp !== undefined || data.duration !== undefined || data.lastUpdated !== undefined || data.viewsNumber !== undefined;
-
-                    if (hadLegacy || lastMigrationVersion < 4) {
-                        await Storage.set(key, normalized);
-                        migrated++;
+            // --- 0. Saneamiento profundo de GM_setValue ---
+            // Borramos banderas legacy y unificamos
+            if (typeof GM_getValue === 'function' && typeof GM_setValue === 'function') {
+                const legacyGMFlag = await GM_getValue('ypp_migration_freetube_format_version');
+                if (legacyGMFlag !== undefined && legacyGMFlag !== null) {
+                    const currentMigration = await GM_getValue(MIGRATION_KEY, 0);
+                    await GM_setValue(MIGRATION_KEY, Math.max(currentMigration, parseInt(legacyGMFlag, 10) || 0));
+                    if (typeof GM_deleteValue === 'function') {
+                        try { await GM_deleteValue('ypp_migration_freetube_format_version'); } catch (_) { }
                     } else {
-                        skipped++;
+                        await GM_setValue('ypp_migration_freetube_format_version', null);
+                    }
+                    logInfo('cleanupNonVideoData', `🚚 Flag legacy de GM migrado: ypp_migration_freetube_format_version`);
+                }
+
+                // Rescate de configuraciones huérfanas y purgas seguras
+                if (typeof GM_listValues === 'function' && typeof GM_deleteValue === 'function') {
+                    try { await GM_deleteValue('YT_PLAYBACK_PLOX_idb_migrated'); } catch (_) { }
+                    try { await GM_deleteValue('YT_PLAYBACK_PLOX_translations_cache_v1'); } catch (_) { }
+
+                    const gmKeys = await GM_listValues();
+                    const videoKeysGM = (Array.isArray(gmKeys) ? gmKeys : []).filter(k =>
+                        typeof k === 'string' && k.startsWith('ypp_')
+                    );
+
+                    for (const gk of videoKeysGM) {
+                        try { await GM_deleteValue(gk); } catch (_) { }
+                        logInfo('cleanupNonVideoData', `🧹 Clave GM legacy purgada: ${gk}`);
                     }
                 }
-            } catch (e) {
-                logError('migrateToFreeTubeFormat', `Error en clave ${key}:`, e);
             }
 
-            if ((++batchCount % 50) === 0) {
-                showFloatingToast(t('migratingDataProgress', { count: batchCount }), 1000, { persistent: true });
-                await new Promise(r => setTimeout(r, 0));
+            // --- 1. Saneamiento de metadatos en IndexedDB ---
+            const allIDBKeys = await StorageAsync.keys();
+            const nonVideoIDBKeys = allIDBKeys.filter(k => isNonVideoStorageKey(k));
+
+            if (nonVideoIDBKeys.length > 0) {
+                logInfo('cleanupNonVideoData', `📦 Procesando ${nonVideoIDBKeys.length} metadatos huerfanos en IndexedDB...`);
+                for (const key of nonVideoIDBKeys) {
+                    if (key.startsWith('playlist_meta_')) {
+                        await StorageAsync.del(key);
+                        continue;
+                    }
+                    const data = await StorageAsync.get(key);
+                    if (data !== null) {
+                        // Rescatamos el flag IDB directamente al flag consolidado
+                        if (key === 'ypp_migration_freetube_format_version') {
+                            const currentMigration = await GM_getValue(MIGRATION_KEY, 0);
+                            await GM_setValue(MIGRATION_KEY, Math.max(currentMigration, parseInt(data, 10) || 0));
+                        } else if (key === 'idb_migrated' || key === 'idb_migrated_v1' || key === 'YT_PLAYBACK_PLOX_idb_migrated') {
+                            // Purgarlo silenciosamente, ya es obsoleto
+                        } else {
+                            const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
+                            // Asegurar formato string para GM_setValue
+                            await GM_setValue(gmKey, typeof data === 'string' ? data : JSON.stringify(data));
+                        }
+                        await StorageAsync.del(key);
+                        logInfo('cleanupNonVideoData', `🚚 Metadato IDB migrado a GM: ${key}`);
+                    }
+                }
             }
+
+            // --- 2. Saneamiento de localStorage (Barrido Profundo) ---
+            if (typeof localStorage !== 'undefined') {
+                const lsKeys = Object.keys(localStorage);
+                for (const key of lsKeys) {
+                    // Detectar cualquier clave que pertenezca al script (prefijo antiguo o legacy ypp_)
+                    if (key.startsWith('YT_PLAYBACK_PLOX_') || key.startsWith('ypp_')) {
+                        const normalized = key.startsWith('YT_PLAYBACK_PLOX_')
+                            ? key.slice('YT_PLAYBACK_PLOX_'.length)
+                            : key;
+
+                        logInfo('cleanupNonVideoData', `🧹 Clave LS legacy purgada: ${key}`);
+                        if (normalized === 'idb_migrated' || normalized === 'idb_migrated_v1') {
+                            localStorage.removeItem(key);
+                            try { await GM_deleteValue('YT_PLAYBACK_PLOX_idb_migrated'); } catch (_) { }
+                            continue;
+                        }
+
+                        if (normalized === 'migration_freetube_format_version') {
+                            const val = localStorage.getItem(key);
+                            const currentMigration = await GM_getValue(MIGRATION_KEY, 0);
+                            await GM_setValue(MIGRATION_KEY, Math.max(currentMigration, parseInt(val, 10) || 0));
+                            localStorage.removeItem(key);
+                            continue;
+                        }
+
+                        if (normalized === 'translations_cache_v1') {
+                            localStorage.removeItem(key);
+                            continue;
+                        }
+
+                        if (isNonVideoStorageKey(normalized)) {
+                            const raw = localStorage.getItem(key);
+                            if (raw) {
+                                const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
+                                await GM_setValue(gmKey, raw);
+                                localStorage.removeItem(key);
+                                logInfo('cleanupNonVideoData', `🚚 Cache/Config LS migrado a GM: ${key}`);
+                            }
+                        } else {
+                            // Rescatar vídeos olvidados de localStorage hacia IndexedDB
+                            const raw = localStorage.getItem(key);
+                            if (raw) {
+                                try {
+                                    const parsed = JSON.parse(raw);
+                                    const normalizedId = key.startsWith('YT_PLAYBACK_PLOX_') ? key.slice('YT_PLAYBACK_PLOX_'.length) : key;
+                                    const normData = normalizeVideoData(parsed, normalizedId);
+                                    await StorageAsync.set(normalizedId, normData);
+                                    localStorage.removeItem(key);
+                                    logInfo('cleanupNonVideoData', `🚚 Vídeo rescatado de LS: ${normalizedId}`);
+                                } catch (_) { }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // --- 3. Normalización Estructural de IndexedDB ---
+            const lastMigrationVersion = await GM_getValue(MIGRATION_KEY, 0);
+            if (lastMigrationVersion < MIGRATION_VERSION && allIDBKeys.length > 0) {
+                logInfo('cleanupNonVideoData', `🔄 Iniciando normalización estructural de IDB a v${MIGRATION_VERSION}...`);
+
+                let doBackup = true;
+                try {
+                    doBackup = confirm(t('youtubePlaybackPlox') + ":" + "\n\n" + t('migrationBackupPrompt') + "\n\n" + t('askDownloadBackupPreMigration'));
+                } catch (e) {
+                    logError('cleanupNonVideoData', 'Error displaying backup prompt', e);
+                }
+
+                if (doBackup) {
+                    try {
+                        logInfo('cleanupNonVideoData', `📥 Iniciando exportación pre-migración...`);
+                        await exportDataToFile(null, 'PRE-MIGRATION');
+                        await new Promise(resolve => setTimeout(resolve, 800));
+                    } catch (e) {
+                        logError('cleanupNonVideoData', '❌ Fallo durante backup pre-migración:', e);
+                    }
+                }
+                let migrated = 0;
+                let batchCount = 0;
+
+                const videoKeys = allIDBKeys.filter(k => !isNonVideoStorageKey(k));
+                for (const key of videoKeys) {
+                    try {
+                        const data = await StorageAsync.get(key);
+                        if (!data) continue;
+
+                        // Caso A: Desanidar playlist legacy
+                        if (data.videos && typeof data.videos === 'object') {
+                            const playlistId = key;
+                            for (const [vId, vData] of Object.entries(data.videos)) {
+                                const resolvedId = vData.videoId || vId;
+                                const normalizedVData = normalizeVideoData({ ...vData, videoId: resolvedId }, resolvedId);
+                                await StorageAsync.set(vId, {
+                                    ...normalizedVData,
+                                    lastViewedPlaylistId: playlistId,
+                                    lastViewedPlaylistType: '',
+                                    lastViewedPlaylistItemId: null,
+                                    forceResumeTime: vData.forceResumeTime
+                                });
+                                migrated++;
+                            }
+                            await StorageAsync.del(key);
+                            logInfo('cleanupNonVideoData', `✅ Playlist legacy ${key} desanidada`);
+                        }
+                        // Caso B: Normalizar vídeo individual
+                        else {
+                            const normalized = normalizeVideoData(data, key);
+                            // Detectar campos antiguos (timestamp, etc.)
+                            const hadLegacy = data.timestamp !== undefined || data.duration !== undefined || data.lastUpdated !== undefined || data.viewsNumber !== undefined;
+
+                            if (hadLegacy || lastMigrationVersion < 4) {
+                                await StorageAsync.set(key, normalized);
+                                migrated++;
+                            }
+                        }
+                    } catch (e) {
+                        logError('cleanupNonVideoData', `Error al normalizar clave ${key}:`, e);
+                    }
+
+                    if ((++batchCount % 50) === 0) {
+                        await new Promise(r => setTimeout(r, 0)); // No bloquear main thread
+                    }
+                }
+
+                await GM_setValue(MIGRATION_KEY, MIGRATION_VERSION);
+                logInfo('cleanupNonVideoData', `✅ Normalización completada: ${migrated} vídeos actualizados`);
+                if (migrated > 0) {
+                    showFloatingToast(`${SVG_ICONS.check} ${t('migrationComplete', { migrated: migrated })}`, 10000);
+                }
+            } else if (lastMigrationVersion < MIGRATION_VERSION) {
+                // No hay claves en IDB, igual actualizamos la versión de migración para evitar checks futuros innecesarios
+                await GM_setValue(MIGRATION_KEY, MIGRATION_VERSION);
+            }
+
+            logInfo('cleanupNonVideoData', '✅ Saneamiento global completado.');
+        } catch (err) {
+            logError('cleanupNonVideoData', '❌ Error durante el saneamiento profundo:', err);
         }
-
-        await GM_setValue(MIGRATION_KEY, MIGRATION_VERSION);
-        logLog('migrateToFreeTubeFormat', `✅ Migración v${MIGRATION_VERSION} completada: ${migrated} migrados`);
-
-        if (migrated > 0) {
-            // mostrar solo por 30 segundos y luego ocultar
-            showFloatingToast(`${SVG_ICONS.check} ${t('migrationComplete', { migrated: migrated })}`, 30000, { persistent: true });
-        } else {
-            showFloatingToast(t('migrationNoData'), 3000);
-        }
-
-        return { migrated, skipped };
     }
+
+
 
     // MARK: 🚀 Init
     // ------------------------------------------
@@ -12177,15 +13462,14 @@ body.dark-theme {
                 logError('initializeGlobal', '❌ Error al inicializar StorageAsync:', err);
             }
 
-            // --- Migrar datos al formato FreeTube ---
+            // --- Limpieza de metadatos en IndexedDB (Migración a GM_setValue y purga legacy) ---
             try {
-                const migrationResult = await migrateToFreeTubeFormat();
-                if (migrationResult.migrated > 0) {
-                    logInfo('initializeGlobal', `✅ Migración completada: ${migrationResult.migrated} videos migrados`);
-                }
+                await cleanupNonVideoData();
             } catch (err) {
-                logError('initializeGlobal', '❌ Error durante la migración de datos:', err);
+                logError('initializeGlobal', '❌ Error durante cleanupNonVideoData:', err);
             }
+
+
 
             // --- Registrar comandos e inyectar estilos ---
             try {

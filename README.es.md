@@ -41,9 +41,9 @@ Ideal para quienes:
 
 Necesitas un gestor de scripts de usuario como:
 
-- [Violentmonkey](https://violentmonkey.github.io/)
-- [Tampermonkey](https://www.tampermonkey.net/)
-- [Greasemonkey](https://www.greasespot.net/)
+- [Violentmonkey](https://violentmonkey.github.io/) - [GitHub](https://github.com/violentmonkey/violentmonkey)
+- [ScriptCat](https://scriptcat.org/en) - [GitHub](https://github.com/scriptscat/scriptcat)
+- [Firemonkey](https://addons.mozilla.org/en-US/firefox/addon/firemonkey/) - [GitHub](https://github.com/erosman/firemonkey)
 
 ## 📦 Instalación
 

@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-7
+// @version      0.0.9-8
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -6312,7 +6312,7 @@ body.dark-theme {
 
         const modeSettings = settingsOverride
             ? { autoDeleteToken: githubSettings.autoDeleteToken, ...settingsOverride }
-            : githubSettings[type];
+            : (githubSettings[type] || CONFIG.defaultGithubSettings[type] || {});
 
         if (!modeSettings.token) {
             if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubTokenRequired')}`);
@@ -6383,7 +6383,7 @@ body.dark-theme {
         const types = ['gist', 'repo'];
 
         for (const type of types) {
-            const s = githubSettings[type];
+            const s = githubSettings[type] || CONFIG.defaultGithubSettings[type] || {};
             if (!s.autoBackup || !s.token) continue;
 
             const intervalMs = (s.interval || 24) * 60 * 60 * 1000;
@@ -8875,7 +8875,7 @@ body.dark-theme {
         const lastViewedType = githubSettings.lastViewedType || 'gist';
 
         const renderTabContent = (type) => {
-            const s = githubSettings[type];
+            const s = githubSettings[type] || CONFIG.defaultGithubSettings[type] || {};
             const lastSyncStr = s.lastSync ? new Date(s.lastSync).toLocaleString() : t('unknown');
             const isGist = type === 'gist';
 
@@ -13149,7 +13149,7 @@ body.dark-theme {
      * Consolida el rescate de localStorage/GM_setValue y normalización del esquema de vídeos.
      */
     async function cleanupNonVideoData() {
-        const MIGRATION_VERSION = 4;
+        const MIGRATION_VERSION = 5;
         const MIGRATION_KEY = CONFIG.STORAGE_KEYS.migration;
 
         try {
@@ -13206,8 +13206,12 @@ body.dark-theme {
                             // Purgarlo silenciosamente, ya es obsoleto
                         } else {
                             const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
-                            // Asegurar formato string para GM_setValue
-                            await GM_setValue(gmKey, typeof data === 'string' ? data : JSON.stringify(data));
+                            // Convertir strings de JSON a objetos nativos para que GM_setValue los maneje correctamente
+                            let dataToSave = data;
+                            if (typeof data === 'string') {
+                                try { dataToSave = JSON.parse(data); } catch (e) { }
+                            }
+                            await GM_setValue(gmKey, dataToSave);
                         }
                         await StorageAsync.del(key);
                         logInfo('cleanupNonVideoData', `🚚 Metadato IDB migrado a GM: ${key}`);
@@ -13249,7 +13253,9 @@ body.dark-theme {
                             const raw = localStorage.getItem(key);
                             if (raw) {
                                 const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
-                                await GM_setValue(gmKey, raw);
+                                let dataToSave = raw;
+                                try { dataToSave = JSON.parse(raw); } catch (e) { }
+                                await GM_setValue(gmKey, dataToSave);
                                 localStorage.removeItem(key);
                                 logInfo('cleanupNonVideoData', `🚚 Cache/Config LS migrado a GM: ${key}`);
                             }

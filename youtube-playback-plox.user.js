@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-8
+// @version      0.0.9-9
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -217,7 +217,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-7';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-9';
 
     /**
      * Polyfill ligero para CustomEvent en navegadores antiguos.
@@ -329,10 +329,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "inlinePreviews": "Inline previews on Home",
             "minSecondsBetweenSaves": "Minimum seconds between saves",
             "alertStyle": "Alert style in playback bar",
-            "alertIconText": "Icon + Text",
-            "alertIconOnly": "Icon Only",
-            "alertTextOnly": "Text Only",
+            "showAlertIcon": "Show icon",
+            "showAlertText": "Show message",
+            "showAlertTime": "Show timestamp",
+            "alertPreview": "Preview",
             "alertHidden": "Hidden",
+            "showHistoryButton": "Show history button in playback bar",
+            "hideTimestamp": "Hide timestamp",
             "staticFinishPercent": "Percentage to mark video as completed",
             "countOncePerSession": "Log additional completion times only once per session",
             "countOncePerSessionTooltip": "If enabled, once the completion threshold is reached, replays or auto-looping will not be counted multiple times within the same session.",
@@ -534,10 +537,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "inlinePreviews": "Previsualizaciones en la página de inicio",
             "minSecondsBetweenSaves": "Intervalo segundos mínimos entre guardados",
             "alertStyle": "Estilo de alertas en la barra de reproducción",
-            "alertIconText": "Icono + Texto",
-            "alertIconOnly": "Solo Icono",
-            "alertTextOnly": "Solo Texto",
+            "showAlertIcon": "Mostrar icono",
+            "showAlertText": "Mostrar mensaje",
+            "showAlertTime": "Mostrar marca de tiempo",
+            "alertPreview": "Previsualización",
             "alertHidden": "Oculto",
+            "showHistoryButton": "Mostrar botón de historial en la barra de reproducción",
+            "hideTimestamp": "Ocultar marca de tiempo",
             "staticFinishPercent": "Porcentaje para marcar video como completado",
             "countOncePerSession": "Registrar tiempos de finalización adicionales solo una vez por sesión",
             "countOncePerSessionTooltip": "Si está activado, una vez alcanzado el umbral de finalización, las repeticiones o la reproducción automática no se contarán varias veces dentro de la misma sesión.",
@@ -743,6 +749,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "alertIconOnly": "Icône uniquement",
             "alertTextOnly": "Texte uniquement",
             "alertHidden": "Masqué",
+            "hideTimestamp": "Masquer l'horodatage",
             "staticFinishPercent": "Pourcentage pour marquer la vidéo comme terminée",
             "countOncePerSession": "Enregistrer les complétions supplémentaires une seule fois par session",
             "countOncePerSessionTooltip": "Si activé, une fois le seuil de complétion atteint, les relectures ou la lecture en boucle ne seront pas comptées plusieurs fois au cours de la même session.",
@@ -1007,11 +1014,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         defaultSettings: {
             minSecondsBetweenSaves: 1,
             showFloatingButtons: false,
+            showHistoryButton: true,           // Mostrar botón para abrir historial/videos guardados
             saveRegularVideos: true,         // Por defecto, guardar videos regulares
             saveShorts: false,               // Por defecto, no guardar Shorts
             saveLiveStreams: false,          // Por defecto, no guardar directos de URL tipo "/live" o "/watch" con player en directo, si ya es VOD lo toma como regular
             language: 'en-US',               // Idioma predeterminado
-            alertStyle: 'iconText',          // Estilo de alerta predeterminado
+            showAlertIcon: true,             // Mostrar icono en alertas
+            showAlertText: true,             // Mostrar mensaje en alertas
+            showAlertTime: true,             // Mostrar marca de tiempo en alertas
             enableProgressBarGradient: true, // Por defecto, habilitar degradado de colores en barra de progreso
             staticFinishPercent: 95,         // Porcentaje desde el final para considerar video como completado (95% = 5% antes del final)
             saveInlinePreviews: false,       // Guardar previsualizaciones inline (Homepage) desactivado por defecto
@@ -1020,12 +1030,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             countOncePerSession: false,      // Contar solo una vez por sesión (default: desactivado)
         },
 
-        alertStylesSettings: {
-            icon_only: 'iconOnly',
-            text_only: 'textOnly',
-            icon_and_text: 'iconText',
-            no_icon_no_text: 'hidden'
-        },
 
         defaultGithubSettings: {
             gist: {
@@ -3896,6 +3900,38 @@ body.dark-theme {
     margin-left: 10px;
     border-radius: 10px;
     padding: 2px 16px;
+}
+
+.ypp-alert-preview-container {
+    margin-top: 12px;
+    padding: 12px;
+    background: var(--ypp-bg-secondary);
+    border: 1px dashed var(--ypp-border-color);
+    border-radius: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ypp-alert-preview-title {
+    font-size: 1.1rem;
+    color: var(--ypp-text-secondary);
+    font-weight: bold;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.ypp-alert-preview-box {
+    padding: 8px 14px;
+    background: var(--ypp-bg);
+    border: 1px solid var(--ypp-border-color);
+    border-radius: 8px;
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+    font-size: 1.4rem;
+    color: var(--ypp-text);
+    word-break: break-all;
 }
 
 /* =========================
@@ -7871,7 +7907,7 @@ body.dark-theme {
      */
     function createSplitButtonGroup() {
         const listBtn = createElement('button', {
-            className: 'ypp-btn-history',
+            className: `ypp-btn-history${cachedSettings.showHistoryButton === false ? ' ypp-d-none' : ''}`,
             html: SVG_ICONS.clockRotateLeft,
             atribute: { title: t('savedVideos'), type: 'button' },
             onClickEvent: (e) => {
@@ -8779,9 +8815,13 @@ body.dark-theme {
 
     const renderGeneralSettingSection = (settings) => `
         <div class="ypp-settings-section">
-         <label class="ypp-label">
+            <label class="ypp-label">
                 <input type="checkbox" name="showFloatingButtons" ${settings.showFloatingButtons ? 'checked' : ''}>
                 <span>${t('showFloatingButton')}</span>
+            </label>
+            <label class="ypp-label">
+                <input type="checkbox" name="showHistoryButton" ${settings.showHistoryButton !== false ? 'checked' : ''}>
+                <span>${t('showHistoryButton')}</span>
             </label>
             <label class="ypp-label">
                 <input type="checkbox" name="enableProgressBarGradient" ${settings.enableProgressBarGradient ? 'checked' : ''}>
@@ -8836,21 +8876,29 @@ body.dark-theme {
     `;
 
     const renderNotificationSettingsSection = (settings) => {
-        const styles = [
-            { value: 'iconText', text: `🔔📝 ${t('alertIconText')}` },
-            { value: 'iconOnly', text: `🔔 ${t('alertIconOnly')}` },
-            { value: 'textOnly', text: `📝 ${t('alertTextOnly')}` },
-            { value: 'hidden', text: `🚫 ${t('alertHidden')}` }
-        ];
-        const optionsHTML = styles.map(s => `
-            <option value="${s.value}" ${settings.alertStyle === s.value ? 'selected' : ''}>${s.text}</option>
-        `).join('');
-
         return `
-            <label class="ypp-label">
-                    <span>${t('alertStyle')}: </span>
-                    <select class="ypp-select" name="alertStyle">${optionsHTML}</select>
-            </label>
+            <div class="ypp-settings-second-level-section">
+                <h3 class="ypp-section-title">${t('alertStyle')}:</h3>
+                <div class="ypp-d-flex" style="flex-direction: column; gap: 10px;">
+                    <label class="ypp-label-checkbox">
+                        <input type="checkbox" name="showAlertIcon" ${settings.showAlertIcon !== false ? 'checked' : ''}>
+                        <span>${t('showAlertIcon')}</span>
+                    </label>
+                    <label class="ypp-label-checkbox">
+                        <input type="checkbox" name="showAlertText" ${settings.showAlertText !== false ? 'checked' : ''}>
+                        <span>${t('showAlertText')}</span>
+                    </label>
+                    <label class="ypp-label-checkbox">
+                        <input type="checkbox" name="showAlertTime" ${settings.showAlertTime !== false ? 'checked' : ''}>
+                        <span>${t('showAlertTime')}</span>
+                    </label>
+                </div>
+
+                <div class="ypp-alert-preview-container">
+                    <div class="ypp-alert-preview-title">${t('alertPreview')}</div>
+                    <div class="ypp-alert-preview-box" id="ypp-alert-preview-content"></div>
+                </div>
+            </div>
 
             <div class="ypp-settings-second-level-section">
                 <label class="ypp-label">
@@ -9097,6 +9145,40 @@ body.dark-theme {
             html: settingsHTML
         });
 
+        // Lógica de Previsualización de Alertas
+        const alertPreviewContent = body.querySelector('#ypp-alert-preview-content');
+        const updateAlertPreview = () => {
+            if (!alertPreviewContent) return;
+            const showIcon = body.querySelector('[name="showAlertIcon"]')?.checked;
+            const showText = body.querySelector('[name="showAlertText"]')?.checked;
+            const showTime = body.querySelector('[name="showAlertTime"]')?.checked;
+
+            if (!showIcon && !showText && !showTime) {
+                setInnerHTML(alertPreviewContent, `<span style="color: var(--ypp-text-secondary); font-style: italic;">${t('alertHidden')}</span>`);
+                return;
+            }
+
+            const icon = SVG_ICONS.saveWithCheckCircular;
+            const baseText = t('progressSaved');
+            const timeStr = "1:23:45";
+
+            let previewHTML = "";
+            if (showIcon) previewHTML += icon + " ";
+            if (showText) previewHTML += baseText;
+            if (showTime) {
+                if (showText) previewHTML += ": " + timeStr;
+                else previewHTML += timeStr;
+            }
+            setInnerHTML(alertPreviewContent, previewHTML.trim());
+        };
+
+        ['showAlertIcon', 'showAlertText', 'showAlertTime'].forEach(name => {
+            body.querySelector(`[name="${name}"]`)?.addEventListener('change', updateAlertPreview);
+        });
+
+        // Inicializar preview
+        updateAlertPreview();
+
         // Footer
         const footer = createElement('footer', { className: 'ypp-settings-footer' });
 
@@ -9122,6 +9204,7 @@ body.dark-theme {
                 const newSettings = {
                     minSecondsBetweenSaves: Math.max(1, parseInt(getVal('minSecondsBetweenSaves'), 10) || 1),
                     showFloatingButtons: isChecked('showFloatingButtons'),
+                    showHistoryButton: isChecked('showHistoryButton'),
                     enableProgressBarGradient: isChecked('enableProgressBarGradient'),
                     staticFinishPercent: Math.max(1, Math.min(99, parseInt(getVal('staticFinishPercent'), 10) || 90)),
                     saveRegularVideos: isChecked('saveRegularVideos'),
@@ -9132,7 +9215,9 @@ body.dark-theme {
                     manualSaveMode: isChecked('manualSaveMode'),
                     countOncePerSession: isChecked('countOncePerSession'),
                     language: getVal('language'),
-                    alertStyle: getVal('alertStyle'),
+                    showAlertIcon: isChecked('showAlertIcon'),
+                    showAlertText: isChecked('showAlertText'),
+                    showAlertTime: isChecked('showAlertTime'),
                 };
 
                 const newGithubSettings = {
@@ -9284,12 +9369,6 @@ body.dark-theme {
     // ------------------------------------------
     // MARK: 📢 Notify Seek or Progress
     // ------------------------------------------
-    const alertStyles = {
-        iconOnly: (icon, text, timeStr) => `${icon} ${timeStr}`,
-        textOnly: (icon, text) => text,
-        iconText: (icon, text) => `${icon} ${text}`
-    };
-
     const handlers = {
         watch: updateWatchPlaybackBarMessage,
         embed: updateWatchPlaybackBarMessage,
@@ -9300,7 +9379,13 @@ body.dark-theme {
     };
 
     async function notifySeekOrProgress(time, context = 'progress', options = {}) {
-        if (cachedSettings.alertStyle === 'hidden') return;
+        const {
+            showAlertIcon = CONFIG.defaultSettings.showAlertIcon,
+            showAlertText = CONFIG.defaultSettings.showAlertText,
+            showAlertTime = CONFIG.defaultSettings.showAlertTime
+        } = cachedSettings;
+
+        if (!showAlertIcon && !showAlertText && !showAlertTime) return;
 
         const { videoType, isForced = false, videoEl, saveResult = {} } = options;
         const isSeek = context === 'seek';
@@ -9320,21 +9405,26 @@ body.dark-theme {
         }
 
         const timeStr = formatTime(normalizeSeconds(time));
+        const canShowTime = isSeek || saveResult.success;
 
         const icon = isSeek
             ? (isForced ? `${SVG_ICONS.timer}${SVG_ICONS.pin}` : SVG_ICONS.playOrPause)
             : SVG_ICONS.saveWithCheckCircular;
 
-        const text = isSeek
-            ? `${t(isForced ? 'alwaysStartFrom' : 'resumedAt')}: ${timeStr}`
-            : (saveResult.success ? `${t('progressSaved')}: ${timeStr}` : t('errorSaving'));
+        const baseText = isSeek
+            ? t(isForced ? 'alwaysStartFrom' : 'resumedAt')
+            : (saveResult.success ? t('progressSaved') : t('errorSaving'));
 
-        const message =
-            (alertStyles[cachedSettings.alertStyle] || alertStyles[CONFIG.defaultSettings.alertStyle])(
-                icon,
-                text,
-                timeStr
-            );
+        let message = "";
+        if (showAlertIcon) message += icon + " ";
+        if (showAlertText) message += baseText;
+        if (showAlertTime && canShowTime) {
+            if (showAlertText) message += ": " + timeStr;
+            else message += timeStr;
+        }
+        message = message.trim();
+
+        if (!message) return;
 
         const isFixedTime = !!isForced;
         handlers[videoType]?.(message, videoEl, isSeek, isFixedTime, saveResult.isManual);

@@ -128,5 +128,5 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1783571/YouTube%20Helper%20API.js
+// @require      https://update.greasyfork.org/scripts/549881/1799814/YouTube%20Helper%20API.js
 // ==/UserScript==

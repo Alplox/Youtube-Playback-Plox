@@ -1,7 +1,12 @@
 # 0.0.9-9 (Unreleased)
 
+### Fixed
+
+- **Redundant Cleanup Loop**: Fixed an issue where `loadTranslations` would re-add the translation cache to `localStorage` on every load, causing `cleanupNonVideoData` to repeatedly perform migration logic and logs.
+
 ### Added
 
+- **YouTube Helper API Integration**: Added a persistent listener for `yt-helper-api-ready` to handle "silent" video updates in Single Page Application (SPA) mode (e.g. Playlists and Shorts). This ensures that progress is correctly saved and resumed even when YouTube navigates between videos without a full page reload or a visible player change.
 - **Hide Timestamp Option**: Added a specific toggle in the 'Notifications' settings block to completely hide timestamps (`[12:34]`) from video alerts, giving users more flexibility for a cleaner UI even if keeping text or icon displays.
 - **Changelog.md**: Added a changelog to keep track of the changes made to the script.
 - **Granular Alert System**: Replaced the previous fixed alert styles with a granular system. Users can now independently toggle icons, messages, and timestamps for video alerts.
@@ -12,6 +17,11 @@
 
 - **Alert Logic Refactor**: Completely refactored the internal alert construction logic to support dynamic combinations of icon, text, and time components.
 - **Settings UI Optimization**: Modernized the Notifications section of the settings modal for better clarity and usability.
+- **Metadata Synchronization**: Improved metadata extraction by leveraging the latest API refiring capabilities for better accuracy during seamless transitions.
+- **Import Limit Increase**: Increased the maximum file size for FreeTube imports from 10MB to 50MB to support larger watch histories.
+- **Language Management Optimization**: Refactored `setLanguage` to avoid redundant storage writes and improved the fallback detection logic using ES2025 features.
+- **Translation System Overhaul**: Replaced the expensive pre-init deep merging of translations with a dynamic "waterfall" fallback in the `t()` function. Refactored `loadTranslations` to avoid redundant caching of local constants, ensuring the script only uses external data when truly available.
+- **Legacy Storage Removal**: Eliminated `isOldFormat` logic and `playlistKey` dependencies from video action handlers. The script now exclusively uses the modern standalone IndexedDB format for all video entries, simplifying the codebase and improving reliability.
 
 ### Removed
 

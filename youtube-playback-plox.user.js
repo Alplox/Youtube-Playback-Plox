@@ -128,7 +128,7 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1783571/YouTube%20Helper%20API.js
+// @require      https://update.greasyfork.org/scripts/549881/1799814/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 // ------------------------------------------
@@ -139,7 +139,7 @@
     'use strict';
 
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    const level = L.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const S = {
         debug: 'color:#6a9955;',
@@ -218,27 +218,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     'use strict';
 
     const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-9';
-
-    /**
-     * Polyfill ligero para CustomEvent en navegadores antiguos.
-     * Crea window.CustomEvent si no existe o no es una función nativa.
-     * @returns {void}
-     */
-    (function polyfillCustomEvent() {
-        try {
-            if (typeof window.CustomEvent === 'function') return;
-        } catch (_) { /* noop */ }
-        try {
-            function CustomEventPolyfill(event, params) {
-                params = params || { bubbles: false, cancelable: false, detail: null };
-                const evt = document.createEvent('CustomEvent');
-                evt.initCustomEvent(event, params.bubbles, params.cancelable, params.detail);
-                return evt;
-            }
-            CustomEventPolyfill.prototype = (window.Event || function () { }).prototype;
-            window.CustomEvent = CustomEventPolyfill;
-        } catch (_) { /* noop */ }
-    })();
 
     // ------------------------------------------
     // MARK: 🌐 Carga de Traducciones
@@ -902,7 +881,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         const CACHE_KEY = CONFIG.STORAGE_KEYS.translations;
         const TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
-        // 1) Intentar usar caché (GM_* preferido; luego localStorage)
+        // 1) Intentar usar caché (GM_* preferido)
         try {
             if (typeof GM_getValue === 'function') {
                 const raw = await GM_getValue(CACHE_KEY, null);
@@ -915,19 +894,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                         logInfo('loadTranslations', 'Usando traducciones desde caché GM_*');
                         return cached.data;
                     }
-                }
-            }
-        } catch (_) { }
-        try {
-            const raw = localStorage.getItem(CACHE_KEY);
-            if (raw) {
-                const cached = JSON.parse(raw);
-                const isFresh = cached?.ts && (Date.now() - cached.ts) < TTL_MS;
-                const cachedVersion = cached?.version ?? cached?.data?.VERSION;
-                const versionMatches = !TRANSLATIONS_EXPECTED_VERSION || cachedVersion === TRANSLATIONS_EXPECTED_VERSION;
-                if (isFresh && cached?.data && versionMatches) {
-                    logInfo('loadTranslations', 'Usando traducciones desde caché localStorage');
-                    return cached.data;
                 }
             }
         } catch (_) { }
@@ -981,14 +947,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         }
 
         if (!data) {
-            logError('loadTranslations', 'No se pudieron cargar traducciones externas, usando fallback');
-            data = { LANGUAGE_FLAGS: FALLBACK_FLAGS, TRANSLATIONS: FALLBACK_TRANSLATIONS };
+            logWarn('loadTranslations', 'No se pudieron cargar traducciones externas.');
+            return null;
         }
 
         // 4) Guardar en caché
         const cachePayload = JSON.stringify({ ts: Date.now(), version: data?.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null, data });
         try { if (typeof GM_setValue === 'function') await GM_setValue(CACHE_KEY, cachePayload); } catch (_) { }
-        try { localStorage.setItem(CACHE_KEY, cachePayload); } catch (_) { }
 
         return data;
     }
@@ -1463,6 +1428,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     let currentLanguage = CONFIG.defaultSettings.language; // Idioma predeterminado
 
     // Función para obtener el texto traducido
+    /**
+     * Obtiene el texto traducido para una clave específica.
+     * Implementa una cascada de búsqueda: Traducción remota (actual) -> Traducción remota (default) -> Local (actual) -> Local (default).
+     * @param {string} key - Clave de traducción.
+     * @param {Object|string} [params={}] - Parámetros para reemplazo o texto por defecto si es string.
+     * @param {string} [defaultText=null] - Texto por defecto si no se encuentra la traducción.
+     * @returns {string} Texto traducido y sanitizado.
+     */
     function t(key, params = {}, defaultText = null) {
         let actualDefaultText = defaultText;
         let actualParams = params;
@@ -1473,26 +1446,21 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             actualParams = {};
         }
 
-        // Si params no es objeto, asegurarlo
-        if (typeof actualParams !== 'object' || actualParams === null) {
-            actualParams = {};
-        }
+        const normParams = (typeof actualParams === 'object' && actualParams !== null) ? actualParams : {};
+        const fallbackMsg = actualDefaultText ?? key;
 
-        // Si no se pasó defaultText explícito, usar la key como fallback
-        if (!actualDefaultText) {
-            actualDefaultText = key;
-        }
+        const lang = currentLanguage;
+        const defaultLang = CONFIG.defaultSettings.language;
 
-        if (!TRANSLATIONS[currentLanguage] || !TRANSLATIONS[currentLanguage][key]) {
-            // Si no hay traducción, intentar con el idioma por defecto (ej: en-US)
-            const fallbackLang = CONFIG.defaultSettings.language;
-            if (TRANSLATIONS[fallbackLang] && TRANSLATIONS[fallbackLang][key]) {
-                return escapeHTML(replaceParams(TRANSLATIONS[fallbackLang][key], actualParams));
-            }
-            // Si no hay ni en el idioma por defecto, devolver el valor por defecto
-            return escapeHTML(replaceParams(actualDefaultText, actualParams));
-        }
-        return escapeHTML(replaceParams(TRANSLATIONS[currentLanguage][key], actualParams));
+        // Cascada de resolución de texto
+        const text =
+            TRANSLATIONS?.[lang]?.[key] ??           // 1. Remoto/Caché (Actual)
+            TRANSLATIONS?.[defaultLang]?.[key] ??    // 2. Remoto/Caché (Default)
+            FALLBACK_TRANSLATIONS?.[lang]?.[key] ??  // 3. Local Inmutable (Actual)
+            FALLBACK_TRANSLATIONS?.[defaultLang]?.[key] // 4. Local Inmutable (Default)
+            ?? fallbackMsg;                            // 5. Hardcoded Fallback
+
+        return escapeHTML(replaceParams(text, normParams));
     }
 
     // Función para reemplazar parámetros en las traducciones
@@ -1503,53 +1471,52 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         });
     }
 
-    /**
-     * Fusiona profundamente mapas de traducciones por idioma, priorizando las externas.
-     * @param {Object} base - Traducciones base/fallback (por idioma)
-     * @param {Object} override - Traducciones externas (por idioma)
-     * @returns {Object} Mapa de traducciones resultante por idioma
-     */
-    function deepMergeTranslations(base, override) {
-        try {
-            const result = { ...(base || {}) };
-            const over = override && typeof override === 'object' ? override : {};
-            for (const lang of Object.keys(over)) {
-                const baseLang = result[lang] || {};
-                const overLang = over[lang] || {};
-                result[lang] = { ...baseLang, ...overLang };
-            }
-            return result;
-        } catch (_) {
-            return { ...(base || {}) };
-        }
-    }
 
-    // Función para cambiar el idioma
+    /**
+     * Establece el idioma del script y opcionalmente lo persiste en la configuración.
+     * @param {string} lang - Código de idioma (ej. 'es-ES', 'en').
+     * @param {Object} [options={ persist: true }] - Opciones de persistencia.
+     * @returns {Promise<boolean>}
+     */
     async function setLanguage(lang, options = { persist: true }) {
-        logLog('setLanguage', 'lang que llega:', lang);
+        if (!lang) return false;
+
+        // 1. Normalización rápida: Si ya es el idioma actual, no hacemos nada
+        if (lang === currentLanguage && !options?.force) return true;
+
         let validLang = lang;
 
+        // 2. Búsqueda inteligente de fallback
         if (!TRANSLATIONS[validLang]) {
-            const primary = lang.split('-')[0];
-            validLang = Object.keys(TRANSLATIONS).find(k => k === primary || k.startsWith(primary + '-'));
+            const [primary] = lang.split('-');
+            // Intentamos coincidencia exacta de la raíz (ej. 'es') o la primera subvariante que empiece por la raíz
+            validLang = TRANSLATIONS[primary]
+                ? primary
+                : Object.keys(TRANSLATIONS).find(k => k.startsWith(`${primary}-`))
+                ?? CONFIG.defaultSettings.language;
         }
 
-        if (!validLang) validLang = CONFIG.defaultSettings.language;
+        // Si después de la búsqueda sigue siendo el mismo, salimos temprano
+        if (validLang === currentLanguage && !options?.force) return true;
 
         currentLanguage = validLang;
 
-        // Persistir solo si se solicita (evitar escrituras redundantes durante init)
+        // 3. Persistencia optimizada
         if (options?.persist) {
             try {
                 const settings = await Settings.get();
-                settings.language = validLang;
-                await Settings.set(settings);
+                // Solo guardamos si realmente hay un cambio en el objeto de configuración
+                if (settings.language !== validLang) {
+                    settings.language = validLang;
+                    await Settings.set(settings);
+                    logInfo('setLanguage', `Idioma persistido: ${validLang}`);
+                }
             } catch (e) {
                 logError('setLanguage', 'Error persistiendo idioma', e);
             }
         }
 
-        logLog('setLanguage', 'lang que sale:', validLang);
+        logInfo('setLanguage', `Idioma establecido en: ${validLang}`);
         return true;
     }
 
@@ -6497,7 +6464,7 @@ body.dark-theme {
             const fileName = file?.name || '';
             if (!file) return;
 
-            if (file.size > 10 * 1024 * 1024) { // 10MB limit
+            if (file.size > 50 * 1024 * 1024) { // 50MB limit
                 const fileSizeMB = `${(file.size / (1024 * 1024)).toFixed(2)}MB`;
                 showFloatingToast(`${SVG_ICONS.error} ${t('fileTooLarge', { size: fileSizeMB })}`);
                 return;
@@ -8087,6 +8054,7 @@ body.dark-theme {
      */
     function getActiveShortsControlsContainer() {
         // return null; // para testear fallback floating
+        if (currentPageType !== 'shorts') return null;
 
         // En la nueva interfaz de Shorts, pueden existir múltiples de estos contenedores
         // precargados. Iteramos y devolvemos el que realmente es visible.
@@ -12667,21 +12635,8 @@ body.dark-theme {
         return `hsl(${hue}, 60%, 70%)`; // Color más intenso para el borde
     }
 
-    async function handleForceTimeAction(videoId, playlistKey) {
-        let itemData = null;
-        let isOldFormat = false;
-
-        if (playlistKey) {
-            itemData = await Storage.get(playlistKey);
-            isOldFormat = itemData?.videos && typeof itemData.videos === 'object';
-        }
-
-        let info = null;
-        if (isOldFormat) {
-            info = itemData.videos[videoId];
-        } else {
-            info = await Storage.get(videoId);
-        }
+    async function handleForceTimeAction(videoId) {
+        const info = await Storage.get(videoId);
 
         if (!info) {
             logWarn('handleForceTimeAction', `No se encontró información para el video ${videoId}`);
@@ -12743,21 +12698,11 @@ body.dark-theme {
         }
     }
 
-    async function handleDeleteEntryAction(videoId, playlistKey, titleCache) {
+    async function handleDeleteEntryAction(videoId, titleCache) {
         const title = escapeHTML(titleCache);
 
         // Cargar info original por si deshace
-        let itemInfo = null;
-        if (playlistKey) {
-            const playlist = await Storage.get(playlistKey);
-            if (playlist?.videos && playlist.videos[videoId]) {
-                itemInfo = playlist.videos[videoId];
-            } else {
-                itemInfo = await Storage.get(videoId);
-            }
-        } else {
-            itemInfo = await Storage.get(videoId);
-        }
+        const itemInfo = await Storage.get(videoId);
 
         if (itemInfo?.isProtected) {
             showFloatingToast(`${SVG_ICONS.warning} ${t('protectedVideoWarning')}`);
@@ -12765,36 +12710,13 @@ body.dark-theme {
         }
 
         const deleteFromStorage = async () => {
-            if (playlistKey) {
-                const playlist = await Storage.get(playlistKey);
-                if (playlist?.videos && typeof playlist.videos === 'object') {
-                    if (playlist.videos[videoId]) {
-                        delete playlist.videos[videoId];
-                        Object.keys(playlist.videos).length
-                            ? await Storage.set(playlistKey, playlist)
-                            : await Storage.del(playlistKey);
-                    }
-                } else {
-                    await Storage.del(videoId);
-                }
-            } else {
-                await Storage.del(videoId);
-            }
+            await Storage.del(videoId);
+            return true;
         };
 
         const undoDelete = async () => {
             if (!itemInfo) return;
-            if (playlistKey) {
-                const playlist = await Storage.get(playlistKey);
-                if (playlist && playlist.videos && typeof playlist.videos === 'object') {
-                    playlist.videos[videoId] = itemInfo;
-                    await Storage.set(playlistKey, playlist);
-                } else {
-                    await Storage.set(videoId, itemInfo);
-                }
-            } else {
-                await Storage.set(videoId, itemInfo);
-            }
+            await Storage.set(videoId, itemInfo);
             await updateVideoList();
             // Restaurar estado de tiempo fijo en UI si existía
             syncFixedTimeUI(videoId, !!itemInfo.forceResumeTime, itemInfo.forceResumeTime);
@@ -12834,41 +12756,27 @@ body.dark-theme {
             if (!item) return;
 
             const videoId = item.dataset.videoId;
-            const playlistKey = item.dataset.playlistKey || null;
 
             switch (action) {
                 case 'force-time':
-                    await handleForceTimeAction(videoId, playlistKey);
+                    await handleForceTimeAction(videoId);
                     break;
                 case 'unlink-playlist':
                     await handleUnlinkPlaylistAction(videoId);
                     break;
                 case 'delete-entry':
                     const title = btn.dataset.title;
-                    await handleDeleteEntryAction(videoId, playlistKey, title);
+                    await handleDeleteEntryAction(videoId, title);
                     break;
                 case 'toggle-protection':
-                    await handleToggleProtectionAction(videoId, playlistKey);
+                    await handleToggleProtectionAction(videoId);
                     break;
             }
         });
     };
 
-    async function handleToggleProtectionAction(videoId, playlistKey) {
-        let itemData = null;
-        let isOldFormat = false;
-
-        if (playlistKey) {
-            itemData = await Storage.get(playlistKey);
-            isOldFormat = itemData?.videos && typeof itemData.videos === 'object';
-        }
-
-        let info = null;
-        if (isOldFormat) {
-            info = itemData.videos[videoId];
-        } else {
-            info = await Storage.get(videoId);
-        }
+    async function handleToggleProtectionAction(videoId) {
+        const info = await Storage.get(videoId);
 
         if (!info) {
             logWarn('handleToggleProtectionAction', `No se encontró información para el video ${videoId}`);
@@ -12876,13 +12784,7 @@ body.dark-theme {
         }
 
         info.isProtected = !info.isProtected;
-
-        if (playlistKey && isOldFormat) {
-            itemData.videos[videoId] = info;
-            await Storage.set(playlistKey, itemData);
-        } else {
-            await Storage.set(videoId, info);
-        }
+        await Storage.set(videoId, info);
 
         const msg = info.isProtected
             ? `${SVG_ICONS.locked} ${t('protected')}`
@@ -13479,8 +13381,47 @@ body.dark-theme {
             let loadedSettingsMeta = null;
             let externalTranslations = null;
 
-            // --- Inicializar YouTube Helper API ---
-            waitForHelper().then(h => YTHelper = h);
+            // --- Configurar eventos de navegación y API ---
+            /**
+             * Maneja eventos de navegación y actualizaciones de la API para sincronizar el estado.
+             * Se usa una versión debounced para evitar ejecuciones redundantes cuando múltiples
+             * eventos (ej. navegación + API ready) disparan casi simultáneamente.
+             * 
+             * Aunque los observadores manejan la detección de videos, esta función asegura
+             * que el tipo de página y el ID actual estén sincronizados.
+             */
+            const handleNavigation = () => {
+                currentPageType = getYouTubePageType();
+                logInfo('handleNavigation', `🌐 Actualización de estado detectada: ${currentPageType}`);
+
+                // Solo preservamos el miniplayer si NO vamos a la página 'watch'
+                const preserveMiniplayer = currentPageType !== 'watch';
+
+                // Limpiar cachés de DOM para asegurar que el siguiente procesamiento use elementos frescos
+                DOMHelpers.clearAll();
+
+                // Forzar escaneo de videos y reinicializar observers
+                if (typeof VideoObserverManager?.clearCache === 'function') VideoObserverManager.clearCache();
+                if (typeof VideoObserverManager?.init === 'function') VideoObserverManager.init(true, preserveMiniplayer);
+            };
+
+            const debouncedNavigation = debounce(handleNavigation, 100);
+
+            // 1. Escuchar eventos estándar de YouTube
+            window.addEventListener('yt-navigate-finish', debouncedNavigation);
+            document.addEventListener('yt-page-data-updated', debouncedNavigation);
+
+            // 2. Inicializar YouTube Helper API y escuchar sus actualizaciones "silenciosas"
+            waitForHelper().then(h => {
+                YTHelper = h;
+                if (!h) return;
+
+                // Registrar listener persistente que ahora comparte el mismo flujo debounced
+                h.eventTarget.addEventListener('yt-helper-api-ready', () => {
+                    logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
+                    debouncedNavigation();
+                });
+            });
 
             // --- Cargar traducciones ---
             try {
@@ -13500,14 +13441,15 @@ body.dark-theme {
 
                 if (externalTranslations && Object.keys(externalTranslations).length > 0) {
                     logInfo('initializeGlobal', ' Traducciones externas cargadas correctamente');
-                    const extFlags = externalTranslations.LANGUAGE_FLAGS || externalTranslations.flags || {};
-                    const extTranslations = externalTranslations.TRANSLATIONS || externalTranslations.translations || {};
-                    LANGUAGE_FLAGS = { ...FALLBACK_FLAGS, ...extFlags };
-                    TRANSLATIONS = deepMergeTranslations(FALLBACK_TRANSLATIONS, extTranslations);
+                    LANGUAGE_FLAGS = {
+                        ...FALLBACK_FLAGS,
+                        ...(externalTranslations.LANGUAGE_FLAGS || externalTranslations.flags || {})
+                    };
+                    TRANSLATIONS = externalTranslations.TRANSLATIONS || externalTranslations.translations || {};
                 } else {
-                    logWarn('initializeGlobal', ' Traducciones externas incompletas, usando fallback');
+                    logWarn('initializeGlobal', ' Traducciones externas incompletas, usando fallback como base');
                     LANGUAGE_FLAGS = FALLBACK_FLAGS;
-                    TRANSLATIONS = FALLBACK_TRANSLATIONS;
+                    TRANSLATIONS = {}; // Se usará FALLBACK_TRANSLATIONS vía la cascada en t()
                 }
                 cachedSettings = { ...CONFIG.defaultSettings, ...(loadedSettings || {}) };
                 logInfo('initializeGlobal', 'Settings cargados:', cachedSettings);
@@ -13565,8 +13507,6 @@ body.dark-theme {
                 logError('initializeGlobal', '❌ Error durante cleanupNonVideoData:', err);
             }
 
-
-
             // --- Registrar comandos e inyectar estilos ---
             try {
                 registerMenuCommands();
@@ -13580,32 +13520,6 @@ body.dark-theme {
             } catch (error) {
                 logError('initializeGlobal', '❌ Error al registrar menú o inyectar estilos:', error);
             }
-
-
-            // --- Configurar eventos de navegación ---
-            /**
-             * Maneja eventos de navegación para actualizar el estado global del script.
-             * Aunque los observadores manejan la detección de videos, esta función asegura
-             * que el tipo de página y el ID actual estén sincronizados.
-            */
-            const handleNavigation = () => {
-                currentPageType = getYouTubePageType();
-                logInfo('handleNavigation', `🌐 Navegación detectada: ${currentPageType}`);
-
-                // Solo preservamos el miniplayer si NO vamos a la página 'watch', porque
-                // en 'watch' el miniplayer se fusiona con el reproductor principal.
-                const preserveMiniplayer = currentPageType !== 'watch';
-
-                // Limpiar cachés de DOM para asegurar que el siguiente procesamiento use elementos frescos
-                DOMHelpers.clearAll();
-
-                // Forzar escaneo de videos después de la navegación y reinicializar observers
-                if (typeof VideoObserverManager?.clearCache === 'function') VideoObserverManager.clearCache();
-                if (typeof VideoObserverManager?.init === 'function') VideoObserverManager.init(true, preserveMiniplayer);
-            };
-            const debouncedNavigation = debounce(handleNavigation, 50);
-            window.addEventListener('yt-navigate-finish', debouncedNavigation);
-            document.addEventListener('yt-page-data-updated', debouncedNavigation);
 
             // --- Inicializar observadores de video ---
             try {

@@ -2,10 +2,13 @@
 
 ### Fixed
 
+- **Seek Message Persistence**: Fixed an issue where the "Resumed at X:XX" (seek) message would disappear even if the video remained paused. Now, the message persists while the video is paused and only clears after playback begins.
 - **Redundant Cleanup Loop**: Fixed an issue where `loadTranslations` would re-add the translation cache to `localStorage` on every load, causing `cleanupNonVideoData` to repeatedly perform migration logic and logs.
 
 ### Added
 
+- **ISO 3166**: Added `ISO_3166` to `LANGUAGE_FLAGS` values. This eliminates the use of emojis and increases compatibility with browsers that did not support them before.
+- **SVG Icon Dropdowns**: Replaced natives `<select>` elements in the Saved Videos modal (filter by type and sort) with a custom `div`-based dropdown component (`createCustomDropdown`) and in the Settings modal for the language. This allows displaying SVG icons next to each option, something the browser's native `<option>` element does not support.
 - **YouTube Helper API Integration**: Added a persistent listener for `yt-helper-api-ready` to handle "silent" video updates in Single Page Application (SPA) mode (e.g. Playlists and Shorts). This ensures that progress is correctly saved and resumed even when YouTube navigates between videos without a full page reload or a visible player change.
 - **Hide Timestamp Option**: Added a specific toggle in the 'Notifications' settings block to completely hide timestamps (`[12:34]`) from video alerts, giving users more flexibility for a cleaner UI even if keeping text or icon displays.
 - **Changelog.md**: Added a changelog to keep track of the changes made to the script.

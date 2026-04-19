@@ -8,272 +8,326 @@
         "en-GB": {
             "emoji": "🇬🇧",
             "code": "en-GB",
-            "name": "English (UK)"
+            "name": "English (UK)",
+            "ISO_3166": "gb"
         },
         "en-US": {
             "emoji": "🇺🇸",
             "code": "en-US",
-            "name": "English (US)"
+            "name": "English (US)",
+            "ISO_3166": "us"
         },
         "es-ES": {
             "emoji": "🇪🇸",
             "code": "es-ES",
-            "name": "Español"
+            "name": "Español",
+            "ISO_3166": "es"
         },
         "es-419": {
-            "emoji": "🇪🇸",
+            "emoji": "🇲🇽",
             "code": "es-419",
-            "name": "Español (Latinoamérica)"
+            "name": "Español (Latinoamérica)",
+            "ISO_3166": "mx"
         },
         "ca": {
             "emoji": "🇪🇸",
             "code": "ca",
-            "name": "Català"
+            "name": "Català",
+            "ISO_3166": "es"
         },
         "fr": {
             "emoji": "🇫🇷",
             "code": "fr",
-            "name": "Français"
+            "name": "Français",
+            "ISO_3166": "fr"
         },
         "de": {
             "emoji": "🇩🇪",
             "code": "de",
-            "name": "Deutsch"
+            "name": "Deutsch",
+            "ISO_3166": "de"
         },
         "it": {
             "emoji": "🇮🇹",
             "code": "it",
-            "name": "Italiano"
+            "name": "Italiano",
+            "ISO_3166": "it"
         },
         "pt": {
             "emoji": "🇵🇹",
             "code": "pt",
-            "name": "Português"
+            "name": "Português",
+            "ISO_3166": "pt"
         },
         "nl": {
             "emoji": "🇳🇱",
             "code": "nl",
-            "name": "Nederlands"
+            "name": "Nederlands",
+            "ISO_3166": "nl"
         },
         "pl": {
             "emoji": "🇵🇱",
             "code": "pl",
-            "name": "Polski"
+            "name": "Polski",
+            "ISO_3166": "pl"
         },
         "sv": {
             "emoji": "🇸🇪",
             "code": "sv",
-            "name": "Svenska"
+            "name": "Svenska",
+            "ISO_3166": "sv"
         },
         "da": {
             "emoji": "🇩🇰",
             "code": "da",
-            "name": "Dansk"
+            "name": "Dansk",
+            "ISO_3166": "da"
         },
         "no": {
             "emoji": "🇳🇴",
             "code": "no",
-            "name": "Norsk"
+            "name": "Norsk",
+            "ISO_3166": "no"
         },
         "fi": {
             "emoji": "🇫🇮",
             "code": "fi",
-            "name": "Suomi"
+            "name": "Suomi",
+            "ISO_3166": "fi"
         },
         "cs": {
             "emoji": "🇨🇿",
             "code": "cs",
-            "name": "Čeština"
+            "name": "Čeština",
+            "ISO_3166": "cs"
         },
         "sk": {
             "emoji": "🇸🇰",
             "code": "sk",
-            "name": "Slovenčina"
+            "name": "Slovenčina",
+            "ISO_3166": "sk"
         },
         "hu": {
             "emoji": "🇭🇺",
             "code": "hu",
-            "name": "Magyar"
+            "name": "Magyar",
+            "ISO_3166": "hu"
         },
         "ro": {
             "emoji": "🇷🇴",
             "code": "ro",
-            "name": "Română"
+            "name": "Română",
+            "ISO_3166": "ro"
         },
         "bg": {
             "emoji": "🇧🇬",
             "code": "bg",
-            "name": "Български"
+            "name": "Български",
+            "ISO_3166": "bg"
         },
         "el": {
             "emoji": "🇬🇷",
             "code": "el",
-            "name": "Ελληνικά"
+            "name": "Ελληνικά",
+            "ISO_3166": "el"
         },
         "sr": {
             "emoji": "🇷🇸",
             "code": "sr",
-            "name": "Српски"
+            "name": "Српски",
+            "ISO_3166": "sr"
         },
         "hr": {
             "emoji": "🇭🇷",
             "code": "hr",
-            "name": "Hrvatski"
+            "name": "Hrvatski",
+            "ISO_3166": "hr"
         },
         "sl": {
             "emoji": "🇸🇮",
             "code": "sl",
-            "name": "Slovenščina"
+            "name": "Slovenščina",
+            "ISO_3166": "sl"
         },
         "lt": {
             "emoji": "🇱🇹",
             "code": "lt",
-            "name": "Lietuvių"
+            "name": "Lietuvių",
+            "ISO_3166": "lt"
         },
         "lv": {
             "emoji": "🇱🇻",
             "code": "lv",
-            "name": "Latviešu"
+            "name": "Latviešu",
+            "ISO_3166": "lv"
         },
         "uk": {
             "emoji": "🇺🇦",
             "code": "uk",
-            "name": "Українська"
+            "name": "Українська",
+            "ISO_3166": "uk"
         },
         "ru": {
             "emoji": "🇷🇺",
             "code": "ru",
-            "name": "Русский"
+            "name": "Русский",
+            "ISO_3166": "ru"
         },
         "tr": {
             "emoji": "🇹🇷",
             "code": "tr",
-            "name": "Türkçe"
+            "name": "Türkçe",
+            "ISO_3166": "tr"
         },
         "ar": {
             "emoji": "🇸🇦",
             "code": "ar",
-            "name": "العربية"
+            "name": "العربية",
+            "ISO_3166": "ar"
         },
         "fa": {
             "emoji": "🇮🇷",
             "code": "fa",
-            "name": "فارسی"
+            "name": "فارسی",
+            "ISO_3166": "fa"
         },
         "he": {
             "emoji": "🇮🇱",
             "code": "he",
-            "name": "עברית"
+            "name": "עברית",
+            "ISO_3166": "he"
         },
         "hi": {
             "emoji": "🇮🇳",
             "code": "hi",
-            "name": "हिन्दी"
+            "name": "हिन्दी",
+            "ISO_3166": "hi"
         },
         "bn": {
             "emoji": "🇧🇩",
             "code": "bn",
-            "name": "বাংলা"
+            "name": "বাংলা",
+            "ISO_3166": "bn"
         },
         "te": {
             "emoji": "🇮🇳",
             "code": "te",
-            "name": "తెలుగు"
+            "name": "తెలుగు",
+            "ISO_3166": "te"
         },
         "ta": {
             "emoji": "🇱🇰",
             "code": "ta",
-            "name": "தமிழ்"
+            "name": "தமிழ்",
+            "ISO_3166": "ta"
         },
         "mr": {
             "emoji": "🇮🇳",
             "code": "mr",
-            "name": "मराठी"
+            "name": "मराठी",
+            "ISO_3166": "mr"
         },
         "zh": {
             "emoji": "🇨🇳",
             "code": "zh",
-            "name": "简体中文"
+            "name": "简体中文",
+            "ISO_3166": "cn"
         },
         "zh-TW": {
             "emoji": "🇹🇼",
             "code": "zh-TW",
-            "name": "繁體中文"
+            "name": "繁體中文",
+            "ISO_3166": "tw"
         },
         "yue": {
             "emoji": "🇭🇰",
             "code": "yue",
-            "name": "粵語 (Cantonese)"
+            "name": "粵語 (Cantonese)",
+            "ISO_3166": "hk"
         },
         "zh-HK": {
             "emoji": "🇭🇰",
             "code": "zh-HK",
-            "name": "繁體中文 (香港)"
+            "name": "繁體中文 (香港)",
+            "ISO_3166": "hk"
         },
         "ja": {
             "emoji": "🇯🇵",
             "code": "ja",
-            "name": "日本語"
+            "name": "日本語",
+            "ISO_3166": "jp"
         },
         "ko": {
             "emoji": "🇰🇷",
             "code": "ko",
-            "name": "한국어"
+            "name": "한국어",
+            "ISO_3166": "kr"
         },
         "th": {
             "emoji": "🇹🇭",
             "code": "th",
-            "name": "ไทย"
+            "name": "ไทย",
+            "ISO_3166": "th"
         },
         "vi": {
             "emoji": "🇻🇳",
             "code": "vi",
-            "name": "Tiếng Việt"
+            "name": "Tiếng Việt",
+            "ISO_3166": "vn"
         },
         "id": {
             "emoji": "🇮🇩",
             "code": "id",
-            "name": "Bahasa Indonesia"
+            "name": "Bahasa Indonesia",
+            "ISO_3166": "id"
         },
         "ms": {
             "emoji": "🇲🇾",
             "code": "ms",
-            "name": "Bahasa Melayu"
+            "name": "Bahasa Melayu",
+            "ISO_3166": "my"
         },
         "tl": {
             "emoji": "🇵🇭",
             "code": "tl",
-            "name": "Filipino"
+            "name": "Filipino",
+            "ISO_3166": "ph"
         },
         "my": {
             "emoji": "🇲🇲",
             "code": "my",
-            "name": "မြန်မာ"
+            "name": "မြန်မာ",
+            "ISO_3166": "mm"
         },
         "sw": {
             "emoji": "🇰🇪",
             "code": "sw",
-            "name": "Kiswahili"
+            "name": "Kiswahili",
+            "ISO_3166": "ke"
         },
         "am": {
             "emoji": "🇪🇹",
             "code": "am",
-            "name": "አማርኛ"
+            "name": "አማርኛ",
+            "ISO_3166": "et"
         },
         "ha": {
             "emoji": "🇳🇬",
             "code": "ha",
-            "name": "Hausa"
+            "name": "Hausa",
+            "ISO_3166": "ng"
         },
         "ur": {
             "emoji": "🇵🇰",
             "code": "ur",
-            "name": "اردو"
+            "name": "اردو",
+            "ISO_3166": "pk"
         },
         "zu": {
             "emoji": "🇿🇦",
             "code": "zu",
-            "name": "isiZulu"
+            "name": "isiZulu",
+            "ISO_3166": "za"
         }
     },
     "TRANSLATIONS": {

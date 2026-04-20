@@ -5,9 +5,14 @@
 - **Seek Message Persistence**: Fixed an issue where the "Resumed at X:XX" (seek) message would disappear even if the video remained paused. Now, the message persists while the video is paused and only clears after playback begins.
 - **Redundant Cleanup Loop**: Fixed an issue where `loadTranslations` would re-add the translation cache to `localStorage` on every load, causing `cleanupNonVideoData` to repeatedly perform migration logic and logs.
 - **Management Mode Selection Reset**: Fixed an issue where the selected videos count and button states remained active after deleting selected videos in Management Mode. Now calls `updateManagementFooterState()` after clearing selection to properly reset the UI state.
+- **Progress Color at 0%**: Fixed an issue where `getProgressColor()` returned an object instead of an RGB string when percent is 0, causing the inline style to render as `color: [object Object]`. Now correctly returns `rgb(221, 68, 68)` for 0% progress.
+- **Deprecated unescape Replacement**: Replaced deprecated `unescape()` function with modern `TextEncoder` for UTF-8 to base64 encoding in GitHub repository backup, eliminating TypeScript deprecation warnings.
+- **CSP Violation in Settings Modal**: Fixed Content-Security-Policy violation when opening the Settings modal by removing inline `oninput` handler from interval inputs and replacing with programmatic `addEventListener` calls. Also added validation to enforce minimum value of 1 for interval inputs.
+- **Code Style Improvements**: Replaced loose equality operators (`==`, `!=`) with strict equality operators (`===`, `!==`) in 14 null comparisons throughout the codebase to follow ES2025 best practices.
 
 ### Added
 
+- **Playlist Clear Selection**: Added a "Clear selection" button in Playlist Creation Mode.
 - **ISO 3166**: Added `ISO_3166` to `LANGUAGE_FLAGS` values. This eliminates the use of emojis and increases compatibility with browsers that did not support them before.
 - **SVG Icon Dropdowns**: Replaced natives `<select>` elements in the Saved Videos modal (filter by type and sort) with a custom `div`-based dropdown component (`createCustomDropdown`) and in the Settings modal for the language. This allows displaying SVG icons next to each option, something the browser's native `<option>` element does not support.
 - **YouTube Helper API Integration**: Added a persistent listener for `yt-helper-api-ready` to handle "silent" video updates in Single Page Application (SPA) mode (e.g. Playlists and Shorts). This ensures that progress is correctly saved and resumed even when YouTube navigates between videos without a full page reload or a visible player change.

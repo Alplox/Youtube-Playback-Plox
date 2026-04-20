@@ -2202,6 +2202,7 @@ regular-item.ypp-fill-none {
 
 .ypp-filters-toggle-btn.active {
     background: var(--ypp-primary);
+    color: var(--ypp-white);
 }
 
 .ypp-active-filter-badge {
@@ -2212,7 +2213,7 @@ regular-item.ypp-fill-none {
     align-items: center;
     justify-content: center;
     background: var(--ypp-danger);
-    color: white;
+    color: var(--ypp-white);
     font-size: 1rem;
     font-weight: bold;
     min-width: 18px;
@@ -2733,6 +2734,17 @@ regular-item.ypp-fill-none {
         &:hover {
             color: var(--ypp-white);
         }
+    }
+
+    .ypp-timestamp:not(.forced):not(.completed):not(.forced.completed),
+    .ypp-views,
+    .ypp-progressInfo {
+        color: var(--ypp-black);
+    }
+
+    .ypp-titleLink,
+    .ypp-author-link {
+        color: #0046b3;
     }
 }
 
@@ -3276,12 +3288,12 @@ regular-item.ypp-fill-none {
 
     &:hover {
         background: var(--ypp-warning);
-        color: var(--ypp-black);
+        color: var(--ypp-white);
     }
 
     &:active {
         background: var(--ypp-warning-dark);
-        color: var(--ypp-black);
+        color: var(--ypp-white);
     }
 }
 
@@ -3313,7 +3325,7 @@ regular-item.ypp-fill-none {
 .ypp-btn-dark {
     background: #111111;
     color: #ffffff;
-    border: 1px solid #111111;
+    border: 1px solid var(--ypp-secondary);
 
     &:hover {
         background: #000000;
@@ -3331,12 +3343,11 @@ regular-item.ypp-fill-none {
 .ypp-btn-light {
     background: #f4f4f5;
     color: #111111;
-    border: 1px solid #e4e4e7;
+    border: 1px solid var(--ypp-secondary);
 
     &:hover {
         background: #ffffff;
         color: #000000;
-        border-color: #d4d4d8;
     }
 
     &:active {
@@ -3392,8 +3403,6 @@ regular-item.ypp-fill-none {
 
 .ypp-btn-close {
     background: var(--ypp-bg);
-    border: 1px solid #303030;
-    color: var(--ypp-text);
 
     &:hover {
         background: var(--ypp-danger);
@@ -3520,9 +3529,7 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-toast-close {
-    background: var(--ypp-text);
-    border: 1px solid #303030;
-    color: var(--ypp-bg);
+    border: none;
     width: 24px;
     height: 24px;
     border-radius: 50%;
@@ -3539,17 +3546,17 @@ regular-item.ypp-fill-none {
     -webkit-transition: background-color 0.2s ease;
     -o-transition: background-color 0.2s ease;
     transition: background-color 0.2s ease;
-    font-size: 12px;
-}
 
-.ypp-toast-close:hover {
-    background: var(--ypp-danger);
+    &:hover {
+        background: var(--ypp-danger);
+        color: var(--ypp-text);
+    }
 }
 
 .ypp-toast-action {
     background: var(--ypp-primary);
     border: none;
-    color: white;
+    color: var(--ypp-white);
     padding: 4px 8px;
     border-radius: 4px;
     cursor: pointer;
@@ -3819,30 +3826,6 @@ regular-item.ypp-fill-none {
     transition:
         border-color 0.2s ease,
         background-color 0.2s ease;
-
-    &:hover {
-        background: var(--ypp-primary);
-
-        &::-webkit-input-placeholder {
-            color: var(--ypp-white);
-        }
-
-        &::-moz-placeholder {
-            color: var(--ypp-white);
-        }
-
-        &:-ms-input-placeholder {
-            color: var(--ypp-white);
-        }
-
-        &::-ms-input-placeholder {
-            color: var(--ypp-white);
-        }
-
-        &::placeholder {
-            color: var(--ypp-white);
-        }
-    }
 
     &:focus {
         outline: none;
@@ -4243,6 +4226,7 @@ regular-item.ypp-fill-none {
 
     &[aria-selected="true"] {
         background: var(--ypp-primary);
+        color: var(--ypp-white);
     }
 }
 
@@ -4328,10 +4312,14 @@ regular-item.ypp-fill-none {
         // https://icon-sets.iconify.design/iconamoon/cloud-upload-fill/
         cloudUpload: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M6.697 6.697a7.5 7.5 0 0 1 12.794 4.927A4.002 4.002 0 0 1 18.5 19.5h-12a5 5 0 0 1-1.667-9.715a7.5 7.5 0 0 1 1.864-3.088m6.01 1.596a1 1 0 0 0-1.414 0l-2 2a1 1 0 1 0 1.414 1.414l.293-.293V15a1 1 0 1 0 2 0v-3.586l.293.293a1 1 0 0 0 1.414-1.414z" clip-rule="evenodd"/></svg>',
 
-      
+        // https://icon-sets.iconify.design/iconamoon/close/
+        close: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m7 7l10 10M7 17L17 7"/></svg>',
 
 
-
+        // https://icon-sets.iconify.design/iconamoon/trash/
+        // trash: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 11v6m-4-6v6M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7M4 7h16M7 7l2-4h6l2 4"/></svg>',
+        // https://icon-sets.iconify.design/iconamoon/trash-simple-fill/
+        //trash: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9 2a1 1 0 0 0-.894.553L6.382 6H4a1 1 0 0 0 0 2h1v11a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V8h1a1 1 0 1 0 0-2h-2.382l-1.724-3.447A1 1 0 0 0 15 2zm6.382 4l-1-2H9.618l-1 2z" clip-rule="evenodd"/></svg>',
 
 
 
@@ -4354,11 +4342,12 @@ regular-item.ypp-fill-none {
         graph: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M1.5 1.75V13.5h13.75a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75V1.75a.75.75 0 0 1 1.5 0m14.28 2.53l-5.25 5.25a.75.75 0 0 1-1.06 0L7 7.06L4.28 9.78a.75.75 0 0 1-1.042-.018a.75.75 0 0 1-.018-1.042l3.25-3.25a.75.75 0 0 1 1.06 0L10 7.94l4.72-4.72a.75.75 0 0 1 1.042.018a.75.75 0 0 1 .018 1.042"/></svg>',
 
         // https://icon-sets.iconify.design/octicon/sort-desc-16/
-        sortDesc: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M0 4.25a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 4.25m0 4a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8.25m0 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75M13.5 10h2.25a.25.25 0 0 1 .177.427l-3 3a.25.25 0 0 1-.354 0l-3-3A.25.25 0 0 1 9.75 10H12V3.75a.75.75 0 0 1 1.5 0z"/></svg>', 
+        sortDesc: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M0 4.25a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 4.25m0 4a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8.25m0 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75M13.5 10h2.25a.25.25 0 0 1 .177.427l-3 3a.25.25 0 0 1-.354 0l-3-3A.25.25 0 0 1 9.75 10H12V3.75a.75.75 0 0 1 1.5 0z"/></svg>',
         // https://icon-sets.iconify.design/octicon/sort-asc-16/
         sortAsc: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="m12.927 2.573l3 3A.25.25 0 0 1 15.75 6H13.5v6.75a.75.75 0 0 1-1.5 0V6H9.75a.25.25 0 0 1-.177-.427l3-3a.25.25 0 0 1 .354 0M0 12.25a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75m0-4a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8.25m0-4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 4.25"/></svg>',
 
-
+        // https://icon-sets.iconify.design/octicon/trash-16/
+        trash: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75M4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.75 1.75 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15M6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25"/></svg>',
 
 
 
@@ -4386,7 +4375,16 @@ regular-item.ypp-fill-none {
 
         /* OTROS */
         // https://svgicons.com/icon/285913/freetube - CC0 1.0
-        freetubeIconFilled: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4.707 0c.9 0 1.629.73 1.629 1.63V24H4.099a4.1 4.1 0 0 1-2.898-1.2A4.1 4.1 0 0 1 0 19.9V1.63C0 .73.73 0 1.63 0ZM24 0v1.94a4.395 4.395 0 0 1-4.395 4.396h-10.6a1.613 1.613 0 0 1-1.613-1.613v-3.11C7.392.723 8.114 0 9.005 0Zm-6.782 11.734a.618.618 0 0 1 0 1.108l-8.902 4.412a.64.64 0 0 1-.924-.573V7.895a.64.64 0 0 1 .924-.573Z"/></svg>',
+        freetubeIconFill: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4.707 0c.9 0 1.629.73 1.629 1.63V24H4.099a4.1 4.1 0 0 1-2.898-1.2A4.1 4.1 0 0 1 0 19.9V1.63C0 .73.73 0 1.63 0ZM24 0v1.94a4.395 4.395 0 0 1-4.395 4.396h-10.6a1.613 1.613 0 0 1-1.613-1.613v-3.11C7.392.723 8.114 0 9.005 0Zm-6.782 11.734a.618.618 0 0 1 0 1.108l-8.902 4.412a.64.64 0 0 1-.924-.573V7.895a.64.64 0 0 1 .924-.573Z"/></svg>',
+
+
+
+
+
+
+
+
+
 
 
         /* PERSONALIZADOS - Sin licencia */
@@ -4411,20 +4409,20 @@ regular-item.ypp-fill-none {
 
         check: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24" fill="var(--ypp-success)"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
         bookmarkFill: '<svg class="ypp-svg-reset ypp-fill-none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="var(--ypp-success)" d="M5 6c0-1.4 0-2.1.272-2.635a2.5 2.5 0 0 1 1.093-1.093C6.9 2 7.6 2 9 2h6c1.4 0 2.1 0 2.635.272a2.5 2.5 0 0 1 1.092 1.093C19 3.9 19 4.6 19 6v13.208c0 1.056 0 1.583-.217 1.856a1 1 0 0 1-.778.378c-.349.002-.764-.324-1.593-.976L12 17l-4.411 3.466c-.83.652-1.245.978-1.594.976a1 1 0 0 1-.778-.378C5 20.791 5 20.264 5 19.208z"/></svg>',
-        close: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
-        trash: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
+        // close: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
+        // trash: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
         download: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>',
         upload: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>',
         playlist: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>',
         playlistRemove: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M15.964 4.634h-12v2h12zM15.964 8.634h-12v2h12zM3.964 12.634h8v2h-8zM12.965 13.71l1.414-1.415 2.121 2.121 2.121-2.12 1.415 1.413-2.122 2.122 2.122 2.12-1.415 1.415-2.121-2.121-2.121 2.121-1.415-1.414 2.122-2.122z"/></svg>',
-      
 
 
-    
+
+
         // https://www.svgrepo.com/svg/187087/push-pin - CC0 License
         // pin: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve"><defs><path id="a" fill="#a31c09" d="m342.08 279.177 58.606-58.606c-24.594-6.727-48.746-21.389-69.853-42.496-21.116-21.116-35.257-45.789-41.366-70.991l-59.727 59.719-48.719 48.719c6.118 25.212 22.581 47.554 43.697 68.661 21.107 21.116 44.067 36.97 68.661 43.697l48.701-48.703z"/></defs><path fill="#a31c09" d="M505.605 190.556c-13.789 13.789-66.887-16.949-118.599-68.661s-82.45-104.81-68.661-118.599 66.887 16.949 118.599 68.661 82.45 104.811 68.661 118.599"/><path fill="#d9dbe8" d="m0 508.9 112.358-162.295 49.937 49.938z"/><path fill="#ce3929" d="M387.007 121.894c-51.712-51.712-82.45-104.81-68.661-118.599-49.991 49.991-39.23 123.065 12.482 174.777s121.671 65.589 171.652 15.607l-.786-.821c-18.069 6.577-66.93-23.207-114.687-70.964"/><use xlink:href="#a"/><path fill="#ce3929" d="M311.324 389.978c2.348-21.486-1.607-44.226-11.829-68.22l-6.118 6.126c-24.594-6.735-47.554-22.59-68.661-43.697-21.116-21.107-37.579-43.458-43.697-68.661l6.241-6.241-.274-.282c-24.143-10.346-47.016-14.345-68.626-11.979-40.157 4.378-64.071 45.877-47.634 82.785 12.509 28.072 35.566 60.734 66.322 91.489 30.746 30.747 63.417 53.813 91.489 66.313 36.901 16.437 78.4-7.477 82.787-47.633"/></svg>',
-        
-        
+
+
         warning: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 34 34" xmlns="http://www.w3.org/2000/svg"><path fill="#FFCC4D" d="M2.65 35C.81 35 0 33.66.85 32.03l15.6-30.06c.86-1.63 2.24-1.63 3.1 0l15.6 30.06c.85 1.63.04 2.97-1.8 2.97H2.65z"/><path fill="#231F20" d="M15.58 28.95A2.42 2.42 0 0 1 18 26.53a2.42 2.42 0 0 1 2.42 2.42A2.42 2.42 0 0 1 18 31.37a2.42 2.42 0 0 1-2.42-2.42zm.19-18.29c0-1.3.96-2.1 2.23-2.1 1.24 0 2.23.83 2.23 2.1V22.6c0 1.27-.99 2.1-2.23 2.1-1.27 0-2.23-.8-2.23-2.1V10.66z"/></svg>',
         import: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v10m0 0 3-3m-3 3-3-3"/></svg>',
         export: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 14V4m0 0 3 3m-3-3L9 7"/></svg>',
@@ -4714,8 +4712,8 @@ regular-item.ypp-fill-none {
     };
 
     function getProgressColor(percent) {
-        if (percent <= 0) return COLOR_CACHE.dark.keyPoints[0];
-        if (percent >= 100) return '#008800';
+        if (percent <= 0) return `rgb(${COLOR_CACHE.dark.keyPoints[0].r}, ${COLOR_CACHE.dark.keyPoints[0].g}, ${COLOR_CACHE.dark.keyPoints[0].b})`;
+        if (percent >= 100) return 'var(--ypp-success)';
 
         const theme = isYouTubeDarkTheme() ? COLOR_CACHE.dark : COLOR_CACHE.light;
 
@@ -6684,7 +6682,14 @@ regular-item.ypp-fill-none {
 
                             // 3. Subir/Actualizar el archivo
                             const commitMessage = `YouTube Playback Plox Backup v${SCRIPT_VERSION} - ${new Date().toLocaleDateString()}`;
-                            const contentBase64 = btoa(unescape(encodeURIComponent(JSON.stringify(data, null, 2))));
+                            const jsonString = JSON.stringify(data, null, 2);
+                            const encoder = new TextEncoder();
+                            const uint8Array = encoder.encode(jsonString);
+                            let binaryString = '';
+                            for (let i = 0; i < uint8Array.length; i++) {
+                                binaryString += String.fromCharCode(uint8Array[i]);
+                            }
+                            const contentBase64 = btoa(binaryString);
 
                             GM_xmlhttpRequest({
                                 method: 'PUT',
@@ -7407,7 +7412,7 @@ regular-item.ypp-fill-none {
 
         const videoData = {
             ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v != null || k.startsWith('lastViewed') || k === 'playlistTitle')),
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
             watchProgress: currentTime,
             timeWatched: now,
             type: 'video',
@@ -7485,7 +7490,7 @@ regular-item.ypp-fill-none {
 
         const videoData = {
             ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v != null || k.startsWith('lastViewed') || k === 'playlistTitle')),
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
             watchProgress: currentTime,
             timeWatched: now,
             type: 'shorts',
@@ -7540,11 +7545,8 @@ regular-item.ypp-fill-none {
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
-
-        // Debug detallado para investigar el estado "completed" falso
         const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
 
-        // Log de debug intensivo para detectar flickering y completions prematuros
         logLog('savePreview', `Saving Preview: videoId=${videoId}, cur=${currentTime.toFixed(2)}, dur=${duration.toFixed(2)}, isFinished=${isFinished}`);
 
         // Verificación de seguridad adicional: no marcar como completado si el tiempo es sospechosamente bajo
@@ -7560,7 +7562,7 @@ regular-item.ypp-fill-none {
         // Preservar datos previos para previews
         const videoData = {
             ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v != null || k.startsWith('lastViewed') || k === 'playlistTitle')),
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
             watchProgress: currentTime,
             timeWatched: now,
             type: resolvedVideoType,
@@ -7622,7 +7624,7 @@ regular-item.ypp-fill-none {
 
         const videoData = {
             ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v != null || k.startsWith('lastViewed') || k === 'playlistTitle')),
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
             watchProgress: currentTime,
             timeWatched: now,
             type: 'live',
@@ -9339,7 +9341,7 @@ regular-item.ypp-fill-none {
                         </label>
                         <label class="ypp-label" style="margin-top: 5px;">
                             <span>${t('githubInterval')}: </span>
-                            <input type="number" class="ypp-input-small" name="${type}_interval" value="${s.interval || 24}" min="1" max="24" oninput="if(this.value > 24) this.value = 24;">
+                            <input type="number" class="ypp-input-small ypp-interval-input" name="${type}_interval" value="${s.interval || 24}" min="1" max="24">
                         </label>
                     </div>
 
@@ -9584,6 +9586,18 @@ regular-item.ypp-fill-none {
             body.querySelector(`[name="${name}"]`)?.addEventListener('change', updateAlertPreview);
         });
 
+        // Event listeners para inputs de interval (enforce min 1, max 24)
+        body.querySelectorAll('.ypp-interval-input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                const value = parseInt(e.target.value, 10);
+                if (value < 1) {
+                    e.target.value = 1;
+                } else if (value > 24) {
+                    e.target.value = 24;
+                }
+            });
+        });
+
         // Inicializar preview
         updateAlertPreview();
 
@@ -9591,7 +9605,7 @@ regular-item.ypp-fill-none {
         const footer = createElement('footer', { className: 'ypp-settings-footer' });
 
         const repositoryBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
+            className: 'ypp-btn ypp-btn-dark ypp-shadow-md',
             // html: `${SVG_ICONS.github} ${t('youtubePlaybackPlox')} ${SVG_ICONS.linkExternal}`,
             html: `${SVG_ICONS.github} ${SVG_ICONS.linkExternal}`,
             onClickEvent: () => { window.open('https://github.com/Alplox/Youtube-Playback-Plox/', '_blank'); }
@@ -9603,7 +9617,7 @@ regular-item.ypp-fill-none {
             onClickEvent: async () => { overlay.remove(); await showSavedVideosList(); }
         });
         const saveBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-outline-success ypp-shadow-md',
+            className: 'ypp-btn ypp-btn-success ypp-shadow-md',
             html: `${SVG_ICONS.saveFill} ${t('save')}`,
             onClickEvent: async () => {
                 const getVal = (name) => modal.querySelector(`[name="${name}"]`)?.value ?? modal.querySelector(`[id="${name}-dropdown"]`)?.dataset.value;
@@ -9751,9 +9765,19 @@ regular-item.ypp-fill-none {
             e.currentTarget.classList.toggle('active');
         });
 
+
+        const btnCloseSettings = createElement('button', {
+            className: 'ypp-btn ypp-btn-secondary',
+            html: `${SVG_ICONS.close} ${t('close')}`,
+            atribute: { 'aria-label': t('close') },
+            onClickEvent: closeModal
+        });
+
+
         footer.appendChild(repositoryBtn);
         footer.appendChild(viewBtn);
         footer.appendChild(saveBtn);
+        footer.appendChild(btnCloseSettings);
 
         modal.appendChild(header);
         modal.appendChild(body);
@@ -10005,7 +10029,7 @@ regular-item.ypp-fill-none {
                 setCurrentlyOpen: setCurrentlyOpenFooterMenu,
                 options: [
                     { label: 'JSON', icon: SVG_ICONS.jsonCurlyBrackets, action: async () => await importDataFromFile() },
-                    { label: 'FreeTube', icon: SVG_ICONS.freetubeIconFilled, action: async () => await importFromFreeTube() }
+                    { label: 'FreeTube', icon: SVG_ICONS.freetubeIconFill, action: async () => await importFromFreeTube() }
                 ]
             });
 
@@ -10017,7 +10041,7 @@ regular-item.ypp-fill-none {
                 setCurrentlyOpen: setCurrentlyOpenFooterMenu,
                 options: [
                     { label: 'JSON', icon: SVG_ICONS.jsonCurlyBrackets, action: async () => await exportDataToFile() },
-                    { label: 'FreeTube', icon: SVG_ICONS.freetubeIconFilled, action: async () => await exportToFreeTube() }
+                    { label: 'FreeTube', icon: SVG_ICONS.freetubeIconFill, action: async () => await exportToFreeTube() }
                 ]
             });
 
@@ -10039,7 +10063,7 @@ regular-item.ypp-fill-none {
                     },
                     {
                         label: 'FreeTube',
-                        icon: SVG_ICONS.freetubeIconFilled,
+                        icon: SVG_ICONS.freetubeIconFill,
                         action: async () => {
                             if (selectedVideos.size === 0) { alert(t('selectAtLeastOne')); return; }
                             await exportToFreeTube(Array.from(selectedVideos));
@@ -10179,7 +10203,7 @@ regular-item.ypp-fill-none {
             const allSelected = items.length > 0 && items.every(v => selectedVideos.has(v.info.videoId));
 
             const btnSelectAll = createElement('button', {
-                className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
+                className: 'ypp-btn ypp-btn-outline-secondary ypp-shadow-md',
                 id: 'ypp-playlist-select-all-btn',
                 html: allSelected ? `${SVG_ICONS.close} ${t('deselectAllResults')}` : `${SVG_ICONS.check} ${t('selectAllResults')}`,
                 onClickEvent: async () => {
@@ -10211,6 +10235,22 @@ regular-item.ypp-fill-none {
                 }
             });
 
+            const btnClearSelection = createElement('button', {
+                id: 'ypp-clear-selection-btn',
+                className: 'ypp-btn ypp-btn-outline-warning ypp-shadow-md ypp-management-footer-item',
+                html: `${SVG_ICONS.close} ${t('clearSelection')}`,
+                onClickEvent: () => {
+                    if (selectedVideos.size === 0) return;
+                    selectedVideos.clear();
+
+                    document.querySelectorAll('.ypp-video-checkbox').forEach(checkbox => {
+                        checkbox.checked = false;
+                    });
+
+                    refreshPlaylistState();
+                }
+            });
+
             const refreshPlaylistState = () => {
                 const size = selectedVideos.size;
                 const items = virtualScroller && virtualScroller.items ? virtualScroller.items.filter(i => i.info) : [];
@@ -10229,7 +10269,7 @@ regular-item.ypp-fill-none {
             playlistArea.addEventListener('ypp-selection-changed', refreshPlaylistState);
 
             const copyBtn = createElement('button', {
-                className: 'ypp-btn ypp-btn-primary ypp-shadow-md',
+                className: 'ypp-btn ypp-btn-info ypp-shadow-md',
                 html: `${SVG_ICONS.copy} ${t('copyLink')}`,
                 onClickEvent: () => {
                     if (!playlistTextarea.value) {
@@ -10242,7 +10282,7 @@ regular-item.ypp-fill-none {
             });
 
             const openBtn = createElement('button', {
-                className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
+                className: 'ypp-btn ypp-btn-outline-primary ypp-shadow-md',
                 html: `${t('openPlaylist')} ${SVG_ICONS.linkExternal}`,
                 onClickEvent: () => {
                     if (!playlistTextarea.value) {
@@ -10254,12 +10294,13 @@ regular-item.ypp-fill-none {
             });
 
             const cancelBtn = createElement('button', {
-                className: 'ypp-btn ypp-btn-danger ypp-shadow-md',
+                className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
                 html: `${SVG_ICONS.close} ${t('cancel')}`,
                 onClickEvent: async () => { await togglePlaylistCreationMode(); }
             });
 
             playlistActions.appendChild(btnSelectAll);
+            playlistActions.appendChild(btnClearSelection);
             playlistActions.appendChild(copyBtn);
             playlistActions.appendChild(openBtn);
             playlistActions.appendChild(cancelBtn);
@@ -11711,7 +11752,7 @@ regular-item.ypp-fill-none {
                 // info.description = null (no obtenible mediante este metodo)
                 // info.viewCount = null (no obtenible mediante este metodo)
                 // info.lengthSeconds = null (no obtenible mediante este metodo)
-                if (internalData?.list != null) {
+                if (internalData?.list !== null) {
                     // Elemento (internalData?.list) no existe si video no esta en una playlist
                     // tambien puede no estar listo cuando se ejecuta getVideoData
                     // por eso comprobar si existe antes de asignar
@@ -11785,7 +11826,7 @@ regular-item.ypp-fill-none {
                 const metapanel = getActiveShortsControlsContainer();
 
                 if (metapanel) {
-                    if (info.title == null) {
+                    if (info.title === null) {
                         const titleEl =
                             metapanel.querySelector('yt-shorts-video-title-view-model') ||
                             metapanel.querySelector('h2') ||
@@ -11798,7 +11839,7 @@ regular-item.ypp-fill-none {
                         }
                     }
 
-                    if (info.author == null || info.author === t('unknown')) {
+                    if (info.author === null || info.author === t('unknown')) {
                         const authorEl =
                             metapanel.querySelector('#channel-name a') ||
                             metapanel.querySelector('a[href*="/@"]');
@@ -11809,7 +11850,7 @@ regular-item.ypp-fill-none {
                         }
                     }
 
-                    if (info.authorId == null) {
+                    if (info.authorId === null) {
                         const channelLink =
                             metapanel.querySelector('a[href*="/channel/"]') ||
                             document.querySelector(`${S.IDS.SHORTS_PLAYER} a[href*="/channel/"]`);
@@ -11821,7 +11862,7 @@ regular-item.ypp-fill-none {
                     }
                 }
 
-                if (info.viewCount === 0 || info.viewCount == null) {
+                if (info.viewCount === 0 || info.viewCount === null) {
                     async function fetchShortsViews() {
                         if (!videoId) return null;
 
@@ -11879,7 +11920,7 @@ regular-item.ypp-fill-none {
                 }
             }
 
-            if (info.title == null) {
+            if (info.title === null) {
                 let titleEl = null;
                 if (type === 'watch' && currentPageType === 'watch') {
                     titleEl = DOMHelpers.get(`video:titleWatch:${videoId}`, () =>
@@ -11897,7 +11938,7 @@ regular-item.ypp-fill-none {
                 info.title = titleEl?.textContent?.trim() ?? info.title;
             }
 
-            if (info.author == null || info.author === t('unknown')) {
+            if (info.author === null || info.author === t('unknown')) {
                 let authorEl;
                 if (type === 'watch' && currentPageType === 'watch') {
                     authorEl = DOMHelpers.get(`video:authorWatch:${videoId}`, () =>
@@ -11915,7 +11956,7 @@ regular-item.ypp-fill-none {
             //  info.viewCount: 0,
             //  info.lengthSeconds: 0,
 
-            if (info.lastViewedPlaylistId == null) {
+            if (info.lastViewedPlaylistId === null) {
                 // Intentar obtener del objeto Player
                 if (typeof player?.getPlaylistId === 'function') {
                     const playerPlaylistId = player.getPlaylistId();
@@ -11990,7 +12031,7 @@ regular-item.ypp-fill-none {
             // Playlist Title - Fetch fallback via Innertube /next
             if (
                 info.lastViewedPlaylistId && info.lastViewedPlaylistId !== '' && !info.lastViewedPlaylistId.startsWith('RD') &&
-                (info.playlistTitle == null || info.playlistTitle === '') &&
+                (info.playlistTitle === null || info.playlistTitle === '') &&
                 (type === 'watch' || type === 'miniplayer')
             ) {
                 // Nivel 1: Si hay playlistId, obtener título (maneja cache automáticamente)
@@ -12027,7 +12068,7 @@ regular-item.ypp-fill-none {
                     }
                 }
 
-                if (info.playlistTitle == null || info.playlistTitle === '') {
+                if (info.playlistTitle === null || info.playlistTitle === '') {
                     const titleFromFetch = await fetchPlaylistTitle();
                     if (titleFromFetch) {
                         logLog('getCascadedVideoInfo', 'playlistTitle obtenido mediante fetch /next: ' + titleFromFetch);
@@ -12060,11 +12101,6 @@ regular-item.ypp-fill-none {
         // logInfo('getCascadedVideoInfo', 'info final:', { ...info });
         return info;
     }
-
-
-
-
-
 
     // ------------------------------------------
     // MARK: 📂 Sort UI
@@ -12769,7 +12805,6 @@ regular-item.ypp-fill-none {
             if (statsEl) {
                 setInnerHTML(statsEl, `
                     <span>0 ${t('videos')}</span>
-                    <span id="ypp-render-stats"></span>
                     <span id="ypp-storage-usage"></span>
                 `);
                 try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
@@ -12788,7 +12823,6 @@ regular-item.ypp-fill-none {
             if (statsEl) {
                 setInnerHTML(statsEl, `
                     <span>${filteredItems.length} ${t('videos')}</span>
-                    <span id="ypp-render-stats"></span>
                     <span id="ypp-storage-usage"></span>
                 `);
             }
@@ -12818,7 +12852,6 @@ regular-item.ypp-fill-none {
         });
         setInnerHTML(statsBar, `
             <span>${filteredItems.length} ${t('videos')}</span>
-            <span id="ypp-render-stats"></span>
             <span id="ypp-storage-usage"></span>
         `);
         listContainer.appendChild(statsBar);
@@ -12872,8 +12905,8 @@ regular-item.ypp-fill-none {
                 return await createVideoEntry(item);
             },
             onRender: () => {
-                const statsEl = document.querySelector('#ypp-render-stats');
-                if (statsEl && virtualScroller) {
+                // const statsEl = document.querySelector('#ypp-render-stats');
+                if (/* statsEl && */ virtualScroller) {
                     let totalVideos = 0;
                     // let renderedVideos = 0;
 
@@ -13182,7 +13215,7 @@ regular-item.ypp-fill-none {
 
         const btnToggleManagement = createElement('button', {
             id: 'ypp-management-mode-btn',
-            className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
+            className: 'ypp-btn ypp-btn-warning ypp-shadow-md',
             html: `${SVG_ICONS.compose} ${t('manageVideos')}`,
             onClickEvent: async () => { await toggleManagementMode(); }
         });
@@ -13201,9 +13234,17 @@ regular-item.ypp-fill-none {
             onClickEvent: async () => { await showSettingsUI(); }
         });
 
+        const btnClose = createElement('button', {
+            className: 'ypp-btn ypp-btn-secondary',
+            html: `${SVG_ICONS.close} ${t('close')}`,
+            atribute: { 'aria-label': t('close') },
+            onClickEvent: closeModalVideos
+        });
+
         secondRow.appendChild(btnToggleManagement);
         secondRow.appendChild(btnCreatePlaylist);
         secondRow.appendChild(btnSettings);
+        secondRow.appendChild(btnClose);
 
         footer.appendChild(secondRow);
         modalVideosFooterSecondRow = secondRow

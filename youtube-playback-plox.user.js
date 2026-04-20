@@ -472,8 +472,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         },
         "es-ES": {
             "youtubePlaybackPlox": "YouTube Playback Plox",
-            "migrationBackupPrompt": "Se ha detectado una actualización en la base de datos de videos guardados. Para evitar la posible pérdida de datos debido a un error de migración, se te pedirá que guardes una copia de seguridad en formato JSON.",
-            "askDownloadBackupPreMigration": "¿Quieres descargar la copia de seguridad en formato JSON antes de que continúe la actualización?",
+            "migrationBackupPrompt": "Se ha detectado una actualización en la base de datos de videos guardados. Para evitar una posible pérdida de datos debido a un error de migración, se le pedirá que guarde una copia de seguridad en formato JSON.",
+            "askDownloadBackupPreMigration": "¿Desea descargar la copia de seguridad JSON antes de que continúe la actualización?",
             "settings": "Configuración",
             "savedVideos": "Ver videos guardados",
             "manageVideos": "Gestionar vídeos",
@@ -486,6 +486,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "cancel": "Cancelar",
             "delete": "Eliminar",
             "undo": "Deshacer",
+            "show": "Mostrar",
+            "hide": "Ocultar",
             "clearAll": "Eliminar todo",
             "clearAllConfirm": "¿Estás seguro de que quieres eliminar TODOS los videos guardados? Esta acción se puede deshacer.",
             "deleteEntry": "Eliminar entrada",
@@ -529,7 +531,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "showAlertIcon": "Mostrar icono",
             "showAlertText": "Mostrar mensaje",
             "showAlertTime": "Mostrar marca de tiempo",
-            "alertPreview": "Previsualización",
+            "alertPreview": "Vista previa",
             "alertHidden": "Oculto",
             "showHistoryButton": "Mostrar botón de historial en la barra de reproducción",
             "hideTimestamp": "Ocultar marca de tiempo",
@@ -587,7 +589,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "previews": "Previsualizaciones",
             "selectAllResults": "Seleccionar todos los resultados actuales",
             "deselectAllResults": "Deseleccionar todos los resultados actuales",
-            "clearSelection": "Limpiar selección",
+            "clearSelection": "Borrar selección",
             "hiddenSelectedCurrentResults": "{count} elementos seleccionados no son visibles en los resultados actuales",
             "allItemsCleared": "Todos los elementos eliminados",
             "storageFull": "Almacenamiento lleno - No se puede guardar el progreso",
@@ -630,6 +632,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "selectedVideos": "Videos seleccionados",
             "generatePlaylistLink": "Generar enlace de playlist",
             "playlistLinkGenerated": "Enlace de playlist generado",
+            "playlistLimitReached": "Solo puedes seleccionar hasta 50 vídeos para una lista de reproducción pública",
             "copyLink": "Copiar enlace",
             "linkCopied": "Enlace copiado al portapapeles",
             "removeFromPlaylist": "Quitar de la lista de reproducción",
@@ -683,8 +686,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         },
         "fr": {
             "youtubePlaybackPlox": "YouTube Playback Plox",
-            "migrationBackupPrompt": "Une mise à jour de la base de données des vidéos enregistrées a été détectée. Pour éviter toute perte de données due à une erreur de migration, il vous sera demandé de sauvegarder une copie de sauvegarde au format JSON.",
-            "askDownloadBackupPreMigration": "Voulez-vous télécharger la sauvegarde au format JSON avant que la mise à jour ne continue ?",
+            "migrationBackupPrompt": "Une mise à jour de votre base de données de vidéos enregistrées a été détectée. Pour éviter toute perte de données potentielle due à une erreur de migration, vous serez invité à sauvegarder une copie de sécurité au format JSON.",
+            "askDownloadBackupPreMigration": "Voulez-vous télécharger la sauvegarde JSON avant que la mise à jour ne continue ?",
             "settings": "Paramètres",
             "savedVideos": "Voir les vidéos enregistrées",
             "manageVideos": "Gérer les vidéos",
@@ -697,6 +700,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "cancel": "Annuler",
             "delete": "Supprimer",
             "undo": "Annuler",
+            "show": "Afficher",
+            "hide": "Masquer",
             "clearAll": "Tout effacer",
             "clearAllConfirm": "Êtes-vous sûr de vouloir supprimer TOUTES les vidéos enregistrées ? Cette action peut être annulée.",
             "deleteEntry": "Supprimer l'entrée",
@@ -737,11 +742,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "inlinePreviews": "Aperçus intégrés sur l’accueil (Home)",
             "minSecondsBetweenSaves": "Secondes minimales entre les sauvegardes",
             "alertStyle": "Style d'alerte dans la barre de lecture",
-            "alertIconText": "Icône + Texte",
-            "alertIconOnly": "Icône uniquement",
-            "alertTextOnly": "Texte uniquement",
+            "showAlertIcon": "Afficher l’icône",
+            "showAlertText": "Afficher le message",
+            "showAlertTime": "Afficher l’horodatage",
+            "alertPreview": "Aperçu",
             "alertHidden": "Masqué",
-            "hideTimestamp": "Masquer l'horodatage",
+            "showHistoryButton": "Afficher le bouton d’historique dans la barre de lecture",
+            "hideTimestamp": "Masquer l’horodatage",
             "staticFinishPercent": "Pourcentage pour marquer la vidéo comme terminée",
             "countOncePerSession": "Enregistrer les complétions supplémentaires une seule fois par session",
             "countOncePerSessionTooltip": "Si activé, une fois le seuil de complétion atteint, les relectures ou la lecture en boucle ne seront pas comptées plusieurs fois au cours de la même session.",
@@ -839,6 +846,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "selectedVideos": "Vidéos sélectionnées",
             "generatePlaylistLink": "Générer le lien de la playlist",
             "playlistLinkGenerated": "Lien de la playlist généré",
+            "playlistLimitReached": "Vous pouvez sélectionner jusqu’à 50 vidéos pour une playlist publique",
             "copyLink": "Copier le lien",
             "linkCopied": "Lien copié dans le presse-papiers",
             "removeFromPlaylist": "Retirer de la playlist",
@@ -2238,7 +2246,7 @@ regular-item.ypp-fill-none {
         display: flex;
          transition: max-height 0.3s ease-out, padding 0.3s ease;
         max-height: 200px; /* Suficiente para los filtros */
-        min-height: 165px;
+        /* min-height: 165px; */
         padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
         /* overflow: auto; */
     }
@@ -9226,7 +9234,7 @@ regular-item.ypp-fill-none {
             </label>
             <label class="ypp-label">
                 <input type="checkbox" name="showHistoryButton" ${settings.showHistoryButton !== false ? 'checked' : ''}>
-                <span>${t('showHistoryButton')}</span>
+                <span>${SVG_ICONS.clockRotateLeft} ${t('showHistoryButton')}</span>
             </label>
             <label class="ypp-label">
                 <input type="checkbox" name="enableProgressBarGradient" ${settings.enableProgressBarGradient ? 'checked' : ''}>

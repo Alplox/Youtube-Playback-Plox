@@ -4,6 +4,7 @@
 
 - **Seek Message Persistence**: Fixed an issue where the "Resumed at X:XX" (seek) message would disappear even if the video remained paused. Now, the message persists while the video is paused and only clears after playback begins.
 - **Redundant Cleanup Loop**: Fixed an issue where `loadTranslations` would re-add the translation cache to `localStorage` on every load, causing `cleanupNonVideoData` to repeatedly perform migration logic and logs.
+- **Management Mode Selection Reset**: Fixed an issue where the selected videos count and button states remained active after deleting selected videos in Management Mode. Now calls `updateManagementFooterState()` after clearing selection to properly reset the UI state.
 
 ### Added
 
@@ -25,6 +26,11 @@
 - **Language Management Optimization**: Refactored `setLanguage` to avoid redundant storage writes and improved the fallback detection logic using ES2025 features.
 - **Translation System Overhaul**: Replaced the expensive pre-init deep merging of translations with a dynamic "waterfall" fallback in the `t()` function. Refactored `loadTranslations` to avoid redundant caching of local constants, ensuring the script only uses external data when truly available.
 - **Legacy Storage Removal**: Eliminated `isOldFormat` logic and `playlistKey` dependencies from video action handlers. The script now exclusively uses the modern standalone IndexedDB format for all video entries, simplifying the codebase and improving reliability.
+- **Import/Export Footer UX**: Unified the Saved Videos modal footer into two primary buttons (`Import` and `Export`) and added compact upward dropdown menus to choose JSON or FreeTube format on click.
+- **Management Mode UX**: Moved Import/Export actions into Management Mode and unified export actions for both "All" and "Selected" under the same dropdown design to reduce redundancy.
+- **Management Footer Visual Hierarchy**: Reorganized management actions into grouped sections (selection/data/destructive/session), applied semantic button variants, and added dynamic disabled/count states for selected-only actions to improve clarity and prevent accidental clicks.
+- **Hidden Selection Recovery**: Fixed an edge case where selected videos could become hidden after applying filters with no clear way to deselect them. The management footer now indicates hidden selected count and allows clearing all selections directly from the selection toggle flow.
+- **Dedicated Selection Reset**: Added a dedicated `Clear selection` action in Management Mode and new fallback-only translation keys to explicitly indicate hidden selected items in current results.
 
 ### Removed
 

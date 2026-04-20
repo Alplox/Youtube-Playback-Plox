@@ -75,13 +75,13 @@
             "emoji": "🇸🇪",
             "code": "sv",
             "name": "Svenska",
-            "ISO_3166": "sv"
+            "ISO_3166": "se"
         },
         "da": {
             "emoji": "🇩🇰",
             "code": "da",
             "name": "Dansk",
-            "ISO_3166": "da"
+            "ISO_3166": "dk"
         },
         "no": {
             "emoji": "🇳🇴",
@@ -99,7 +99,7 @@
             "emoji": "🇨🇿",
             "code": "cs",
             "name": "Čeština",
-            "ISO_3166": "cs"
+            "ISO_3166": "cz"
         },
         "sk": {
             "emoji": "🇸🇰",
@@ -129,7 +129,7 @@
             "emoji": "🇬🇷",
             "code": "el",
             "name": "Ελληνικά",
-            "ISO_3166": "el"
+            "ISO_3166": "gr"
         },
         "sr": {
             "emoji": "🇷🇸",
@@ -189,43 +189,43 @@
             "emoji": "🇮🇷",
             "code": "fa",
             "name": "فارسی",
-            "ISO_3166": "fa"
+            "ISO_3166": "ir"
         },
         "he": {
             "emoji": "🇮🇱",
             "code": "he",
             "name": "עברית",
-            "ISO_3166": "he"
+            "ISO_3166": "il"
         },
         "hi": {
             "emoji": "🇮🇳",
             "code": "hi",
             "name": "हिन्दी",
-            "ISO_3166": "hi"
+            "ISO_3166": "in"
         },
         "bn": {
             "emoji": "🇧🇩",
             "code": "bn",
             "name": "বাংলা",
-            "ISO_3166": "bn"
+            "ISO_3166": "bd"
         },
         "te": {
             "emoji": "🇮🇳",
             "code": "te",
             "name": "తెలుగు",
-            "ISO_3166": "te"
+            "ISO_3166": "in"
         },
         "ta": {
             "emoji": "🇱🇰",
             "code": "ta",
             "name": "தமிழ்",
-            "ISO_3166": "ta"
+            "ISO_3166": "lk"
         },
         "mr": {
             "emoji": "🇮🇳",
             "code": "mr",
             "name": "मराठी",
-            "ISO_3166": "mr"
+            "ISO_3166": "in"
         },
         "zh": {
             "emoji": "🇨🇳",

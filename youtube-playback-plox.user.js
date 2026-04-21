@@ -971,7 +971,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         }
 
         if (!data) {
-            logWarn('loadTranslations', 'No se pudieron cargar traducciones externas.');
+            logError('loadTranslations', 'No se pudieron cargar traducciones externas tras agotar todas las fuentes.');
             return null;
         }
 
@@ -2259,68 +2259,144 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-filters-advanced {
-    max-height: 0;
-   /*  overflow: hidden; */
-    transition: max-height 0.3s ease-out, padding 0.3s ease;
+    transition: max-height 0.25s ease-out, padding 0.25s ease, opacity 0.2s ease;
     background: var(--ypp-bg-secondary);
     border-bottom: 1px solid var(--ypp-border);
     display: none;
-    flex-direction: column;
-    gap: var(--ypp-spacing-md);
     padding: 0 var(--ypp-spacing-lg);
 
     &.expanded {
         display: flex;
-         transition: max-height 0.3s ease-out, padding 0.3s ease;
-        max-height: 200px; /* Suficiente para los filtros */
-        /* min-height: 165px; */
-        padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
-        /* overflow: auto; */
+        flex-direction: column;
+        gap: var(--ypp-spacing-sm);
+        padding: var(--ypp-spacing-sm) var(--ypp-spacing-lg);
     }
 }
 
 .ypp-filters-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--ypp-spacing-md);
+    align-items: start;
 }
 
 .ypp-range-filter-section {
     display: flex;
     flex-direction: column;
-    gap: 4px;
-    border: 1px solid var(--ypp-border);
-    padding: var(--ypp-spacing-sm);
-    border-radius: var(--ypp-spacing-sm);
+    gap: 8px;
     width: 100%;
+    background: var(--ypp-bg); /* Fondo principal sobre el fondo secundario del panel */
+    padding: var(--ypp-spacing-sm) var(--ypp-spacing-md);
+    border-radius: 10px;
+    border: 1px solid var(--ypp-border);
+    box-sizing: border-box;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+
+    &:hover {
+        border-color: var(--ypp-primary);
+    }
+
+    /* Estado cuando el filtro tiene valores NO predeterminados */
+    &.active {
+        border-color: var(--ypp-primary);
+        background: color-mix(in srgb, var(--ypp-primary) 8%, var(--ypp-bg));
+        box-shadow: 0 0 10px rgba(var(--ypp-primary-rgb), 0.1);
+
+        .ypp-filter-chip-label {
+            color: var(--ypp-text);
+        }
+        
+        .ypp-dropdown-trigger {
+            border-color: var(--ypp-primary);
+        }
+    }
 }
 
 .ypp-range-controls {
     display: flex;
-    gap: 8px;
+    gap: 6px;
     align-items: center;
-    flex-direction: column;
+    flex-direction: row;
+    width: 100%;
+
+    .ypp-custom-dropdown {
+        flex: 1.5; /* Prioridad al texto del dropdown */
+        min-width: 120px;
+    }
 }
 
 .ypp-range-inputs-group {
     display: flex;
-    gap: 8px;
+    gap: 4px;
     align-items: center;
+    flex-shrink: 0;
 }
 
+/* Input numérico: sin flechas y más ancho */
 .ypp-range-input {
-    display: flex;
-    gap: 8px;
+    width: 75px; 
+    height: 32px;
+    padding: 2px 6px;
+    background: var(--ypp-bg-secondary);
+    border: 1px solid var(--ypp-border);
+    border-radius: 6px;
+    color: var(--ypp-text);
+    font-size: 1.25rem;
+    text-align: center;
+    box-sizing: border-box;
+    transition: all 0.2s ease;
+    appearance: textfield; /* Quita flechas en Firefox */
+
+    /* Quita flechas en Chrome/Safari */
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
+
+    &:focus {
+        outline: none;
+        border-color: var(--ypp-primary);
+        background: var(--ypp-bg);
+        box-shadow: 0 0 0 2px rgba(var(--ypp-primary-rgb), 0.2);
+    }
+}
+
+.ypp-range-input-label {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--ypp-text-secondary);
+    margin-right: 2px;
+}
+
+.ypp-range-separator {
+    color: var(--ypp-text-secondary);
+    font-size: 1.1rem;
+    font-weight: bold;
+    opacity: 0.7;
+}
+
+/* Chip de etiquetas */
+.ypp-filter-chip-label {
+    display: inline-flex;
     align-items: center;
-    max-width: 100px;
+    gap: 6px;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--ypp-primary-text);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 2px;
+
+    svg {
+        width: 14px;
+        height: 14px;
+        color: var(--ypp-primary);
+    }
 }
 
 .ypp-range-filters-group {
-    display: flex;
-    /* flex-wrap: wrap; */
-    gap: var(--ypp-spacing-md);
-    padding-top: var(--ypp-spacing-sm);
-    border-top: 1px solid var(--ypp-border);
+    display: contents; /* integrado directo al grid padre */
 }
 
 .ypp-footer {
@@ -3721,6 +3797,15 @@ regular-item.ypp-fill-none {
     }
 }
 
+.ypp-label-small {
+    font-size: 1.2rem;
+    color: var(--ypp-muted);
+    -webkit-user-select: none;
+       -moz-user-select: none;
+        -ms-user-select: none;
+            user-select: none;
+}
+
 .ypp-label-language {
     gap: 12px;
 }
@@ -3825,9 +3910,9 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-input-small {
-    margin-left: 10px;
     border-radius: 10px;
-    padding: 0 0 0 22px;
+    padding: 2px 10px;
+    max-width: 45px;
 }
 
 .ypp-alert-preview-container {
@@ -4232,10 +4317,6 @@ regular-item.ypp-fill-none {
 
     // SVGs como strings para reemplazar emojis
     const SVG_ICONS = {
-
-        // https://icon-sets.iconify.design/svg-spinners/blocks-wave/ - MIT https://github.com/n3r4zzurr0/svg-spinners/blob/main/LICENSE
-        spinner: '<svg  class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="7.33" height="7.33" x="1" y="1" fill="currentColor"><animate id="SVGzjrPLenI" attributeName="x" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="y" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="width" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="8.33" y="1" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="1;4;1"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="1" y="8.33" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="1;4;1"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="15.66" y="1" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="8.33" y="8.33" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="1" y="15.66" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="15.66" y="8.33" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="8.33" y="15.66" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="15.66" y="15.66" fill="currentColor"><animate id="SVGXAURnSRI" attributeName="x" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="7.33;1.33;7.33"/></rect></svg>',
-
         /* iconamoon - CC BY 4.0 ------------------------------------ */
         // https://icon-sets.iconify.design/iconamoon/folder-video/
         folder: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2"><path stroke-linecap="round" d="M3 17V5h7l2 2h9v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2"/><path d="m14 13l-3 1.732v-3.464z"/></g></svg>',
@@ -4255,6 +4336,8 @@ regular-item.ypp-fill-none {
         bookmarkOutline: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 3H8a2 2 0 0 0-2 2v16l6-3l6 3V5a2 2 0 0 0-2-2"/></svg>',
         // https://icon-sets.iconify.design/iconamoon/settings/
         settings: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none"><circle cx="12" cy="12" r="2" stroke="currentColor" stroke-width="2"/><path fill="currentColor" d="m5.399 5.88l.5-.867a1 1 0 0 0-1.234.186zM3.4 9.344l-.956-.295a1 1 0 0 0 .456 1.16zm-.002 5.311l-.5-.866a1 1 0 0 0-.455 1.162zm2 3.464l-.734.68a1 1 0 0 0 1.234.186zm4.6 2.655H9a1 1 0 0 0 .778.975zm4.001.002l.223.975a1 1 0 0 0 .777-.975zM18.6 18.12l-.5.866a1 1 0 0 0 1.233-.186zm1.998-3.466l.956.295a1 1 0 0 0-.456-1.16zm.002-5.311l.5.866a1 1 0 0 0 .455-1.162zm-2-3.465l.734-.679a1 1 0 0 0-1.234-.187zM14 3.225h1a1 1 0 0 0-.777-.975zm-4-.002l-.223-.975A1 1 0 0 0 9 3.223zm4 1.849h-1zm5 8.66l-.5.866zm-2 3.464l-.5.866zM5 13.732l.5.866zm2-6.928l-.5.866zM4.356 9.639a8 8 0 0 1 1.776-3.08L4.665 5.2a10 10 0 0 0-2.22 3.85zM5.072 16a8 8 0 0 1-.718-1.64l-1.91.592c.217.701.515 1.388.896 2.048zm1.06 1.441A8 8 0 0 1 5.073 16L3.34 17c.38.66.827 1.261 1.325 1.8zm7.646 2.361a8 8 0 0 1-3.556-.002l-.445 1.95a10 10 0 0 0 4.446.002zm5.866-5.441a8 8 0 0 1-1.776 3.08l1.467 1.36a10 10 0 0 0 2.22-3.85zM18.928 8c.306.53.545 1.08.718 1.64l1.91-.592A10 10 0 0 0 20.66 7zm-1.06-1.441c.397.43.754.91 1.06 1.441l1.732-1a10 10 0 0 0-1.325-1.8zm-7.646-2.361a8 8 0 0 1 3.556.002l.444-1.95a10 10 0 0 0-4.445-.002zm.778.874v-1.85H9v1.85zm-3.5.866l-1.601-.925l-1 1.732l1.6.925zm-3 6.928l-1.601.924l1 1.732l1.6-.924zm1-3.464l-1.6-.923l-1 1.732l1.6.923zM11 20.775v-1.847H9v1.847zM6.5 16.33l-1.601.925l1 1.732l1.6-.925zm12.601.925L17.5 16.33l-1 1.732l1.601.925zM15 20.777v-1.849h-2v1.85zm5.101-12.3l-1.601.925l1 1.732l1.601-.925zm.998 5.312l-1.599-.923l-1 1.732l1.6.923zM15 5.072V3.225h-2v1.847zm3.101-.059l-1.601.925l1 1.732l1.601-.925zM13 5.072c0 2.31 2.5 3.753 4.5 2.598l-1-1.732a1 1 0 0 1-1.5-.866zm5.5 4.33c-2 1.155-2 4.041 0 5.196l1-1.732a1 1 0 0 1 0-1.732zm-1 6.928c-2-1.154-4.5.289-4.5 2.598h2a1 1 0 0 1 1.5-.866zM11 18.928c0-2.31-2.5-3.753-4.5-2.598l1 1.732a1 1 0 0 1 1.5.866zm-5.5-4.33c2-1.155 2-4.041 0-5.196l-1 1.732a1 1 0 0 1 0 1.732zM9 5.072a1 1 0 0 1-1.5.866l-1 1.732c2 1.154 4.5-.289 4.5-2.598z"/></g></svg>',
+        // https://icon-sets.iconify.design/iconamoon/settings-fill/
+        settingsFill: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9 3.223a1 1 0 0 1 .777-.975a10 10 0 0 1 4.445.002a1 1 0 0 1 .778.975v1.847a1 1 0 0 0 1.5.866l1.601-.925a1 1 0 0 1 1.234.187a10.1 10.1 0 0 1 2.221 3.848a1 1 0 0 1-.455 1.162l-1.601.924a1 1 0 0 0 0 1.732l1.6.923a1 1 0 0 1 .455 1.161a10 10 0 0 1-2.22 3.851a1 1 0 0 1-1.234.186l-1.601-.925a1 1 0 0 0-1.5.866v1.85a1 1 0 0 1-.778.974a10 10 0 0 1-4.445-.002A1 1 0 0 1 9 20.775v-1.847a1 1 0 0 0-1.5-.866l-1.601.925a1 1 0 0 1-1.234-.187A10 10 0 0 1 3.34 17a10 10 0 0 1-.896-2.048a1 1 0 0 1 .455-1.162l1.6-.924a1 1 0 0 0 0-1.732l-1.598-.923a1 1 0 0 1-.456-1.161a10 10 0 0 1 2.22-3.85a1 1 0 0 1 1.233-.187l1.602.925A1 1 0 0 0 9 5.072zM12 15a3 3 0 1 0 0-6a3 3 0 0 0 0 6" clip-rule="evenodd"/></svg>',
         // https://icon-sets.iconify.design/iconamoon/player-end/
         playerEnd: '<svg class="ypp-svg-reset ypp-fill-currentColor" id="svg-player-end" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2"><path d="M17 10.268c1.333.77 1.333 2.694 0 3.464l-9 5.196c-1.333.77-3-.192-3-1.732V6.804c0-1.54 1.667-2.502 3-1.732z"/><path stroke-linecap="round" d="M20 5v14"/></g></svg>',
         // https://icon-sets.iconify.design/iconamoon/eye-off/
@@ -4271,19 +4354,18 @@ regular-item.ypp-fill-none {
         copy: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M16 3H4v13"/><path d="M8 7h12v12a2 2 0 0 1-2 2h-8a2 2 0 0 1-2-2z"/></g></svg>',
         // https://icon-sets.iconify.design/iconamoon/cloud-upload-fill/
         cloudUpload: '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M6.697 6.697a7.5 7.5 0 0 1 12.794 4.927A4.002 4.002 0 0 1 18.5 19.5h-12a5 5 0 0 1-1.667-9.715a7.5 7.5 0 0 1 1.864-3.088m6.01 1.596a1 1 0 0 0-1.414 0l-2 2a1 1 0 1 0 1.414 1.414l.293-.293V15a1 1 0 1 0 2 0v-3.586l.293.293a1 1 0 0 0 1.414-1.414z" clip-rule="evenodd"/></svg>',
-
         // https://icon-sets.iconify.design/iconamoon/close/
         close: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m7 7l10 10M7 17L17 7"/></svg>',
-
-
         // https://icon-sets.iconify.design/iconamoon/trash/
         // trash: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 11v6m-4-6v6M6 7v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7M4 7h16M7 7l2-4h6l2 4"/></svg>',
         // https://icon-sets.iconify.design/iconamoon/trash-simple-fill/
-        //trash: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9 2a1 1 0 0 0-.894.553L6.382 6H4a1 1 0 0 0 0 2h1v11a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V8h1a1 1 0 1 0 0-2h-2.382l-1.724-3.447A1 1 0 0 0 15 2zm6.382 4l-1-2H9.618l-1 2z" clip-rule="evenodd"/></svg>',
-
-
-
-
+        // trash: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M9 2a1 1 0 0 0-.894.553L6.382 6H4a1 1 0 0 0 0 2h1v11a3 3 0 0 0 3 3h8a3 3 0 0 0 3-3V8h1a1 1 0 1 0 0-2h-2.382l-1.724-3.447A1 1 0 0 0 15 2zm6.382 4l-1-2H9.618l-1 2z" clip-rule="evenodd"/></svg>',
+        // https://icon-sets.iconify.design/iconamoon/trend-up-bold/
+        trendUpBold: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><path d="m3 17l6-6l4 4l8-8"/><path d="M17 7h4v4"/></g></svg>',
+        // https://icon-sets.iconify.design/iconamoon/trend-down-bold/
+        trendDownBold: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><path d="m3 7l6 6l4-4l8 8"/><path d="M17 17h4v-4"/></g></svg>',
+        //https://icon-sets.iconify.design/iconamoon/number-1-circle/
+        numberOneCircle: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12.5 17V7l-2 2"/><circle cx="12" cy="12" r="9"/></g></svg>',
 
         /* octicon - MIT ------------------------------------ */
         // https://icon-sets.iconify.design/octicon/compose-16/
@@ -4300,24 +4382,20 @@ regular-item.ypp-fill-none {
         pin: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="m16.114 1.553l6.333 6.333a1.75 1.75 0 0 1-.603 2.869l-1.63.633a5.67 5.67 0 0 0-3.395 3.725l-1.131 3.959a1.75 1.75 0 0 1-2.92.757L9 16.061l-5.595 5.594a.749.749 0 1 1-1.06-1.06L7.939 15l-3.768-3.768a1.75 1.75 0 0 1 .757-2.92l3.959-1.131a5.67 5.67 0 0 0 3.725-3.395l.633-1.63a1.75 1.75 0 0 1 2.869-.603M5.232 10.171l8.597 8.597a.25.25 0 0 0 .417-.108l1.131-3.959A7.17 7.17 0 0 1 19.67 9.99l1.63-.634a.25.25 0 0 0 .086-.409l-6.333-6.333a.25.25 0 0 0-.409.086l-.634 1.63a7.17 7.17 0 0 1-4.711 4.293L5.34 9.754a.25.25 0 0 0-.108.417"/></svg>',
         // https://icon-sets.iconify.design/octicon/graph-16/
         graph: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M1.5 1.75V13.5h13.75a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75V1.75a.75.75 0 0 1 1.5 0m14.28 2.53l-5.25 5.25a.75.75 0 0 1-1.06 0L7 7.06L4.28 9.78a.75.75 0 0 1-1.042-.018a.75.75 0 0 1-.018-1.042l3.25-3.25a.75.75 0 0 1 1.06 0L10 7.94l4.72-4.72a.75.75 0 0 1 1.042.018a.75.75 0 0 1 .018 1.042"/></svg>',
-
+        // https://icon-sets.iconify.design/octicon/download-16/
+        download: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path fill="currentColor" d="M7.25 7.689V2a.75.75 0 0 1 1.5 0v5.689l1.97-1.969a.749.749 0 1 1 1.06 1.06l-3.25 3.25a.75.75 0 0 1-1.06 0L4.22 6.78a.749.749 0 1 1 1.06-1.06z"/></svg>',
+        // https://icon-sets.iconify.design/octicon/upload-16/
+        upload: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M2.75 14A1.75 1.75 0 0 1 1 12.25v-2.5a.75.75 0 0 1 1.5 0v2.5c0 .138.112.25.25.25h10.5a.25.25 0 0 0 .25-.25v-2.5a.75.75 0 0 1 1.5 0v2.5A1.75 1.75 0 0 1 13.25 14Z"/><path fill="currentColor" d="M11.78 4.72a.749.749 0 1 1-1.06 1.06L8.75 3.811V9.5a.75.75 0 0 1-1.5 0V3.811L5.28 5.78a.749.749 0 1 1-1.06-1.06l3.25-3.25a.75.75 0 0 1 1.06 0z"/></svg>',
         // https://icon-sets.iconify.design/octicon/sort-desc-16/
         sortDesc: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M0 4.25a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 4.25m0 4a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8.25m0 4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75M13.5 10h2.25a.25.25 0 0 1 .177.427l-3 3a.25.25 0 0 1-.354 0l-3-3A.25.25 0 0 1 9.75 10H12V3.75a.75.75 0 0 1 1.5 0z"/></svg>',
         // https://icon-sets.iconify.design/octicon/sort-asc-16/
         sortAsc: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="m12.927 2.573l3 3A.25.25 0 0 1 15.75 6H13.5v6.75a.75.75 0 0 1-1.5 0V6H9.75a.25.25 0 0 1-.177-.427l3-3a.25.25 0 0 1 .354 0M0 12.25a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H.75a.75.75 0 0 1-.75-.75m0-4a.75.75 0 0 1 .75-.75h4.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 8.25m0-4a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5H.75A.75.75 0 0 1 0 4.25"/></svg>',
-
         // https://icon-sets.iconify.design/octicon/trash-16/
         trash: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M11 1.75V3h2.25a.75.75 0 0 1 0 1.5H2.75a.75.75 0 0 1 0-1.5H5V1.75C5 .784 5.784 0 6.75 0h2.5C10.216 0 11 .784 11 1.75M4.496 6.675l.66 6.6a.25.25 0 0 0 .249.225h5.19a.25.25 0 0 0 .249-.225l.66-6.6a.75.75 0 0 1 1.492.149l-.66 6.6A1.75 1.75 0 0 1 10.595 15h-5.19a1.75 1.75 0 0 1-1.741-1.575l-.66-6.6a.75.75 0 1 1 1.492-.15M6.5 1.75V3h3V1.75a.25.25 0 0 0-.25-.25h-2.5a.25.25 0 0 0-.25.25"/></svg>',
-
-
-
-
-
-
-
-
-
-
+        // https://icon-sets.iconify.design/octicon/thumbsup-16/
+        thumbsup: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M8.347.631A.75.75 0 0 1 9.123.26l.238.04a3.25 3.25 0 0 1 2.591 4.098L11.494 6h.665a3.25 3.25 0 0 1 3.118 4.167l-1.135 3.859A2.75 2.75 0 0 1 11.503 16H6.586a3.75 3.75 0 0 1-2.184-.702A1.75 1.75 0 0 1 3 16H1.75A1.75 1.75 0 0 1 0 14.25v-6.5C0 6.784.784 6 1.75 6h3.417a.25.25 0 0 0 .217-.127ZM4.75 13.649l.396.33c.404.337.914.521 1.44.521h4.917a1.25 1.25 0 0 0 1.2-.897l1.135-3.859A1.75 1.75 0 0 0 12.159 7.5H10.5a.75.75 0 0 1-.721-.956l.731-2.558a1.75 1.75 0 0 0-1.127-2.14L6.69 6.611a1.75 1.75 0 0 1-1.523.889H4.75ZM3.25 7.5h-1.5a.25.25 0 0 0-.25.25v6.5c0 .138.112.25.25.25H3a.25.25 0 0 0 .25-.25Z"/></svg>',
+        // https://icon-sets.iconify.design/octicon/thumbsdown-16/
+        thumbsdown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M7.653 15.369a.75.75 0 0 1-.776.371l-.238-.04a3.25 3.25 0 0 1-2.591-4.099L4.506 10h-.665A3.25 3.25 0 0 1 .723 5.833l1.135-3.859A2.75 2.75 0 0 1 4.482 0H9.43c.78.003 1.538.25 2.168.702A1.75 1.75 0 0 1 12.989 0h1.272A1.75 1.75 0 0 1 16 1.75v6.5A1.75 1.75 0 0 1 14.25 10h-3.417a.25.25 0 0 0-.217.127ZM11.25 2.351l-.396-.33a2.25 2.25 0 0 0-1.44-.521H4.496a1.25 1.25 0 0 0-1.199.897L2.162 6.256A1.75 1.75 0 0 0 3.841 8.5H5.5a.75.75 0 0 1 .721.956l-.731 2.558a1.75 1.75 0 0 0 1.127 2.14L9.31 9.389a1.75 1.75 0 0 1 1.523-.889h.417Zm1.5 6.149h1.5a.25.25 0 0 0 .25-.25v-6.5a.25.25 0 0 0-.25-.25H13a.25.25 0 0 0-.25.25Z"/></svg>',
 
 
         /* SVG REPO  ------------------------------------ */
@@ -4327,73 +4405,39 @@ regular-item.ypp-fill-none {
         saveFill: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="-32 0 512 512"><path d="m433.941 129.941-83.882-83.882A48 48 0 0 0 316.118 32H48C21.49 32 0 53.49 0 80v352c0 26.51 21.49 48 48 48h352c26.51 0 48-21.49 48-48V163.882a48 48 0 0 0-14.059-33.941M224 416c-35.346 0-64-28.654-64-64s28.654-64 64-64 64 28.654 64 64-28.654 64-64 64m96-304.52V212c0 6.627-5.373 12-12 12H76c-6.627 0-12-5.373-12-12V108c0-6.627 5.373-12 12-12h228.52c3.183 0 6.235 1.264 8.485 3.515l3.48 3.48A12 12 0 0 1 320 111.48"/></svg>',
         // https://www.svgrepo.com/svg/361211/json - MIT
         jsonCurlyBrackets: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M6 2.984V2h-.09q-.47 0-.909.185a2.3 2.3 0 0 0-.775.53 2.2 2.2 0 0 0-.493.753v.001a3.5 3.5 0 0 0-.198.83v.002a6 6 0 0 0-.024.863q.018.435.018.869 0 .304-.117.572v.001a1.5 1.5 0 0 1-.765.787 1.4 1.4 0 0 1-.558.115H2v.984h.09q.292 0 .556.121l.001.001q.267.117.455.318l.002.002q.196.195.307.465l.001.002q.117.27.117.566 0 .435-.018.869-.018.443.024.87v.001q.05.425.197.824v.001q.16.41.494.753.335.345.775.53t.91.185H6v-.984h-.09q-.3 0-.563-.115a1.6 1.6 0 0 1-.457-.32 1.7 1.7 0 0 1-.309-.467q-.11-.27-.11-.573 0-.343.011-.672.012-.342 0-.665a5 5 0 0 0-.055-.64 2.7 2.7 0 0 0-.168-.609A2.3 2.3 0 0 0 3.522 8a2.3 2.3 0 0 0 .738-.955q.12-.288.168-.602.05-.315.055-.64.012-.33 0-.666t-.012-.678a1.47 1.47 0 0 1 .877-1.354 1.3 1.3 0 0 1 .563-.121zm4 10.032V14h.09q.47 0 .909-.185t.775-.53.493-.753v-.001q.15-.4.198-.83v-.002q.042-.42.024-.863-.018-.435-.018-.869 0-.304.117-.572v-.001a1.5 1.5 0 0 1 .765-.787 1.4 1.4 0 0 1 .558-.115H14v-.984h-.09q-.293 0-.557-.121l-.001-.001a1.4 1.4 0 0 1-.455-.318l-.002-.002a1.4 1.4 0 0 1-.307-.465v-.002a1.4 1.4 0 0 1-.118-.566q0-.435.018-.869a6 6 0 0 0-.024-.87v-.001a3.5 3.5 0 0 0-.197-.824v-.001a2.2 2.2 0 0 0-.494-.753 2.3 2.3 0 0 0-.775-.53 2.3 2.3 0 0 0-.91-.185H10v.984h.09q.3 0 .562.115.26.123.457.32.19.201.309.467.11.27.11.573 0 .342-.011.672-.012.342 0 .665.006.333.055.64.05.32.168.609a2.3 2.3 0 0 0 .738.955 2.3 2.3 0 0 0-.738.955 2.7 2.7 0 0 0-.168.602q-.05.315-.055.64a9 9 0 0 0 0 .666q.012.336.012.678a1.47 1.47 0 0 1-.877 1.354 1.3 1.3 0 0 1-.563.121z" clip-rule="evenodd"/></svg>',
-
-
-
-
+        // https://www.svgrepo.com/svg/510144/progress-0 - MIT
+        progressZero: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M0 10a5 5 0 0 1 5-5h14a5 5 0 0 1 5 5v4a5 5 0 0 1-5 5H5a5 5 0 0 1-5-5zm5-3a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-4a3 3 0 0 0-3-3z" clip-rule="evenodd"/></svg>',
+        // https://www.svgrepo.com/svg/510145/progress-33 - MIT
+        progressThirtyThree: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5 5a5 5 0 0 0-5 5v4a5 5 0 0 0 5 5h14a5 5 0 0 0 5-5v-4a5 5 0 0 0-5-5zm-3 5a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3zm4-1a2 2 0 0 0-2 2v2a2 2 0 1 0 4 0v-2a2 2 0 0 0-2-2" clip-rule="evenodd"/></svg>',
+        // https://www.svgrepo.com/svg/510146/progress-66 - MIT
+        progressSixtySix: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M0 10a5 5 0 0 1 5-5h14a5 5 0 0 1 5 5v4a5 5 0 0 1-5 5H5a5 5 0 0 1-5-5zm5-3a3 3 0 0 0-3 3v4a3 3 0 0 0 3 3h14a3 3 0 0 0 3-3v-4a3 3 0 0 0-3-3zm5 4a2 2 0 1 1 4 0v2a2 2 0 1 1-4 0zM6 9a2 2 0 0 0-2 2v2a2 2 0 1 0 4 0v-2a2 2 0 0 0-2-2" clip-rule="evenodd"/></svg>',
+        // https://www.svgrepo.com/svg/510147/progress-100 - MIT
+        progressOneHundred: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5 5a5 5 0 0 0-5 5v4a5 5 0 0 0 5 5h14a5 5 0 0 0 5-5v-4a5 5 0 0 0-5-5zm-3 5a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3zm16-1a2 2 0 0 0-2 2v2a2 2 0 1 0 4 0v-2a2 2 0 0 0-2-2m-8 2a2 2 0 1 1 4 0v2a2 2 0 1 1-4 0zM6 9a2 2 0 0 0-2 2v2a2 2 0 1 0 4 0v-2a2 2 0 0 0-2-2" clip-rule="evenodd"/></svg>',
+        // https://www.svgrepo.com/svg/489146/smartphone-01 - PD License
+        smartphone: '<svg class="ypp-svg-reset" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.012M6 5v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2"/></svg>',
 
 
         /* OTROS */
         // https://svgicons.com/icon/285913/freetube - CC0 1.0
         freetubeIconFill: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4.707 0c.9 0 1.629.73 1.629 1.63V24H4.099a4.1 4.1 0 0 1-2.898-1.2A4.1 4.1 0 0 1 0 19.9V1.63C0 .73.73 0 1.63 0ZM24 0v1.94a4.395 4.395 0 0 1-4.395 4.396h-10.6a1.613 1.613 0 0 1-1.613-1.613v-3.11C7.392.723 8.114 0 9.005 0Zm-6.782 11.734a.618.618 0 0 1 0 1.108l-8.902 4.412a.64.64 0 0 1-.924-.573V7.895a.64.64 0 0 1 .924-.573Z"/></svg>',
-
-
-
-
-
-
-
-
-
+        // https://icon-sets.iconify.design/majesticons/users-line/ - MIT
+        userLine: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="9" cy="9" r="4"/><path d="M16 19c0-3.314-3.134-6-7-6s-7 2.686-7 6m13-6a4 4 0 1 0-3-6.646"/><path d="M22 19c0-3.314-3.134-6-7-6c-.807 0-2.103-.293-3-1.235"/></g></svg>',
+        // https://icon-sets.iconify.design/svg-spinners/blocks-wave/ - MIT https://github.com/n3r4zzurr0/svg-spinners/blob/main/LICENSE
+        spinner: '<svg  class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="7.33" height="7.33" x="1" y="1" fill="currentColor"><animate id="SVGzjrPLenI" attributeName="x" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="y" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="width" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="8.33" y="1" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="1;4;1"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="1" y="8.33" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="1;4;1"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="15.66" y="1" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="8.33" y="8.33" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="1" y="15.66" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="15.66" y="8.33" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="8.33" y="15.66" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="15.66" y="15.66" fill="currentColor"><animate id="SVGXAURnSRI" attributeName="x" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="7.33;1.33;7.33"/></rect></svg>',
 
 
         /* PERSONALIZADOS - Sin licencia */
         live: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="red" opacity="0.2"/><circle cx="12" cy="12" r="5" fill="red"/></svg>',
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-        // https://www.svgrepo.com/svg/309446/cloud-backup
-        // https://www.svgrepo.com/svg/309451/code
-
         check: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24" fill="var(--ypp-success)"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>',
         bookmarkFill: '<svg class="ypp-svg-reset ypp-fill-none" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="var(--ypp-success)" d="M5 6c0-1.4 0-2.1.272-2.635a2.5 2.5 0 0 1 1.093-1.093C6.9 2 7.6 2 9 2h6c1.4 0 2.1 0 2.635.272a2.5 2.5 0 0 1 1.092 1.093C19 3.9 19 4.6 19 6v13.208c0 1.056 0 1.583-.217 1.856a1 1 0 0 1-.778.378c-.349.002-.764-.324-1.593-.976L12 17l-4.411 3.466c-.83.652-1.245.978-1.594.976a1 1 0 0 1-.778-.378C5 20.791 5 20.264 5 19.208z"/></svg>',
-        // close: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
-        // trash: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M6 19c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2V7H6v12zM19 4h-3.5l-1-1h-5l-1 1H5v2h14V4z"/></svg>',
-        download: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>',
-        upload: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M9 16h6v-6h4l-7-7-7 7h4zm-4 2h14v2H5z"/></svg>',
         playlist: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>',
         playlistRemove: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M15.964 4.634h-12v2h12zM15.964 8.634h-12v2h12zM3.964 12.634h8v2h-8zM12.965 13.71l1.414-1.415 2.121 2.121 2.121-2.12 1.415 1.413-2.122 2.122 2.122 2.12-1.415 1.415-2.121-2.121-2.121 2.121-1.415-1.414 2.122-2.122z"/></svg>',
 
-
-
-
-        // https://www.svgrepo.com/svg/187087/push-pin - CC0 License
-        // pin: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" xml:space="preserve"><defs><path id="a" fill="#a31c09" d="m342.08 279.177 58.606-58.606c-24.594-6.727-48.746-21.389-69.853-42.496-21.116-21.116-35.257-45.789-41.366-70.991l-59.727 59.719-48.719 48.719c6.118 25.212 22.581 47.554 43.697 68.661 21.107 21.116 44.067 36.97 68.661 43.697l48.701-48.703z"/></defs><path fill="#a31c09" d="M505.605 190.556c-13.789 13.789-66.887-16.949-118.599-68.661s-82.45-104.81-68.661-118.599 66.887 16.949 118.599 68.661 82.45 104.811 68.661 118.599"/><path fill="#d9dbe8" d="m0 508.9 112.358-162.295 49.937 49.938z"/><path fill="#ce3929" d="M387.007 121.894c-51.712-51.712-82.45-104.81-68.661-118.599-49.991 49.991-39.23 123.065 12.482 174.777s121.671 65.589 171.652 15.607l-.786-.821c-18.069 6.577-66.93-23.207-114.687-70.964"/><use xlink:href="#a"/><path fill="#ce3929" d="M311.324 389.978c2.348-21.486-1.607-44.226-11.829-68.22l-6.118 6.126c-24.594-6.735-47.554-22.59-68.661-43.697-21.116-21.107-37.579-43.458-43.697-68.661l6.241-6.241-.274-.282c-24.143-10.346-47.016-14.345-68.626-11.979-40.157 4.378-64.071 45.877-47.634 82.785 12.509 28.072 35.566 60.734 66.322 91.489 30.746 30.747 63.417 53.813 91.489 66.313 36.901 16.437 78.4-7.477 82.787-47.633"/></svg>',
-
-
         warning: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 34 34" xmlns="http://www.w3.org/2000/svg"><path fill="#FFCC4D" d="M2.65 35C.81 35 0 33.66.85 32.03l15.6-30.06c.86-1.63 2.24-1.63 3.1 0l15.6 30.06c.85 1.63.04 2.97-1.8 2.97H2.65z"/><path fill="#231F20" d="M15.58 28.95A2.42 2.42 0 0 1 18 26.53a2.42 2.42 0 0 1 2.42 2.42A2.42 2.42 0 0 1 18 31.37a2.42 2.42 0 0 1-2.42-2.42zm.19-18.29c0-1.3.96-2.1 2.23-2.1 1.24 0 2.23.83 2.23 2.1V22.6c0 1.27-.99 2.1-2.23 2.1-1.27 0-2.23-.8-2.23-2.1V10.66z"/></svg>',
-        import: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 4v10m0 0 3-3m-3 3-3-3"/></svg>',
-        export: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke="#1C274C" stroke-linecap="round" stroke-width="1.5" d="M4 12a8 8 0 1 0 16 0" opacity=".5"/><path stroke="#1C274C" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 14V4m0 0 3 3m-3-3L9 7"/></svg>',
         error: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="red" d="M13 10.66q0 .4-.28.68l-1.38 1.38q-.28.28-.68.28t-.69-.28L7 9.75l-2.97 2.97q-.28.28-.69.28-.4 0-.68-.28l-1.38-1.38Q1 11.06 1 10.66t.28-.69L4.25 7 1.28 4.03Q1 3.75 1 3.34q0-.4.28-.68l1.38-1.38Q2.94 1 3.34 1t.69.28L7 4.25l2.97-2.97q.28-.28.69-.28.4 0 .68.28l1.38 1.38q.28.28.28.68t-.28.69L9.75 7l2.97 2.97q.28.28.28.69z"/></svg>',
 
-
-
-
-
         video: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>',
-        shorts: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M17.77 10.32c-.77-.32-1.2-.5-1.2-.5L18 8.44c1.02-.93 1.05-2.52.07-3.49-.97-.98-2.56-.95-3.49.07l-6.9 6.27c-.77.32-1.2.5-1.2.5l-1.43 1.38c-1.02.93-1.05 2.52-.07 3.49.97.98 2.56.95 3.49-.07l6.9-6.27zM8.5 15V9l5 3-5 3z"/></svg>',
         calendar: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M19 4h-1V2h-2v2H8V2H6v2H5c-1.11 0-1.99.9-1.99 2L3 20c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 16H5V10h14v10zm0-12H5V6h14v2z"/></svg>',
         user: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>',
         hourglass: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M6 2v6h.01L6 8.01 10 12l-4 4 .01.01H6V22h12v-5.99h-.01L18 16l-4-4 4-3.99-.01-.01H18V2h-12zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z"/></svg>',
@@ -5864,6 +5908,46 @@ regular-item.ypp-fill-none {
         }
 
         return el;
+    }
+
+    /**
+     * Aplica validación y restricción numérica automática a un campo de entrada.
+     * Sanitiza caracteres no permitidos, controla rangos y formatea ceros a la izquierda.
+     *
+     * @param {HTMLInputElement} el - Elemento input a proteger.
+     * @param {Object} [options] - Opciones de configuración.
+     * @param {number} [options.min=0] - Valor mínimo permitido.
+     * @param {number} [options.max] - Valor máximo permitido.
+     * @param {() => void} [options.onInput] - Callback opcional tras cada cambio válido.
+     */
+    function applyNumericClamping(el, { min = 0, max, onInput } = {}) {
+        if (!el) return;
+
+        const clamp = () => {
+            // Sanitizar: Solo dígitos
+            let sanitized = el.value.replace(/\D/g, '');
+
+            if (el.value !== sanitized) {
+                el.value = sanitized;
+            }
+
+            let val = parseInt(el.value, 10);
+            if (isNaN(val)) return;
+
+            // Aplicar límites
+            if (val < min) val = min;
+            if (max !== undefined && val > max) val = max;
+
+            // Formateo visual (evitar ceros a la izquierda como "020")
+            const formatted = String(val);
+            if (el.value !== formatted) {
+                el.value = formatted;
+            }
+
+            if (onInput) onInput();
+        };
+
+        el.addEventListener('input', clamp);
     }
 
     // MARK: 🔧 UI Helpers
@@ -7685,7 +7769,7 @@ regular-item.ypp-fill-none {
             };
         }
 
-        logLog('getSavedVideoData', `✗ No se encontraron datos para el video`);
+        logLog('getSavedVideoData', `✗ No se encontraron datos guardados para el video`);
         return null;
     }
 
@@ -8075,7 +8159,9 @@ regular-item.ypp-fill-none {
                                         data?.header?.playlistHeaderRenderer?.title?.runs?.[0]?.text ||
                                         data?.metadata?.playlistMetadataRenderer?.title ||
                                         data?.microformat?.microformatDataRenderer?.title
-                                } catch (_) { }
+                                } catch (e) {
+                                    logError('getPlaylistName', 'Error al parsear ytInitialData para metadatos de playlist:', e);
+                                }
                             }
 
                             if (!title || title === 'null') {
@@ -8088,10 +8174,14 @@ regular-item.ypp-fill-none {
                             resolve(title);
 
                         } catch (e) {
+                            logError('getPlaylistName', 'Error al procesar respuesta de playlist:', e);
                             resolve(playlistId);
                         }
                     },
-                    onerror: () => resolve(playlistId)
+                    onerror: (err) => {
+                        logError('getPlaylistName', 'Error de red al obtener nombre de playlist:', err);
+                        resolve(playlistId);
+                    }
                 });
             });
         })();
@@ -9247,7 +9337,8 @@ regular-item.ypp-fill-none {
 
              <label class="ypp-label">
                 <span>${t('minSecondsBetweenSaves')}: </span>
-                <input type="number" class="ypp-input-small" name="minSecondsBetweenSaves" value="${settings.minSecondsBetweenSaves}" min="1" max="9999">
+                 <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small" name="minSecondsBetweenSaves" value="${settings.minSecondsBetweenSaves}" min="1" max="9999">
+                 <span class="ypp-label-small">${SVG_ICONS.info} ${t('maxLimit')}: 3600</span>
             </label>
         </div>
     </div>
@@ -9281,7 +9372,7 @@ regular-item.ypp-fill-none {
             <div class="ypp-settings-second-level-section">
                 <label class="ypp-label">
                     <span>${t('staticFinishPercent')}: </span>
-                    <input type="number" class="ypp-input-small" name="staticFinishPercent" value="${settings.staticFinishPercent}" min="1" max="99">
+                     <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small" name="staticFinishPercent" value="${settings.staticFinishPercent}" min="1" max="99">
                     <span class="ypp-percent-symbol">%</span>
                 </label>
                 <div class="ypp-settings-third-level-section">
@@ -9314,7 +9405,7 @@ regular-item.ypp-fill-none {
                         </label>
                         <label class="ypp-label" style="margin-top: 5px;">
                             <span>${t('githubInterval')}: </span>
-                            <input type="number" class="ypp-input-small ypp-interval-input" name="${type}_interval" value="${s.interval || 24}" min="1" max="24">
+                             <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small ypp-interval-input" name="${type}_interval" value="${s.interval || 24}" min="1" max="24">
                         </label>
                     </div>
 
@@ -9559,16 +9650,11 @@ regular-item.ypp-fill-none {
             body.querySelector(`[name="${name}"]`)?.addEventListener('change', updateAlertPreview);
         });
 
-        // Event listeners para inputs de interval (enforce min 1, max 24)
+        // Aplicar clamping numérico a inputs específicos de settings
+        applyNumericClamping(body.querySelector('[name="minSecondsBetweenSaves"]'), { min: 1, max: 3600 });
+        applyNumericClamping(body.querySelector('[name="staticFinishPercent"]'), { min: 1, max: 99 });
         body.querySelectorAll('.ypp-interval-input').forEach(input => {
-            input.addEventListener('input', (e) => {
-                const value = parseInt(e.target.value, 10);
-                if (value < 1) {
-                    e.target.value = 1;
-                } else if (value > 24) {
-                    e.target.value = 24;
-                }
-            });
+            applyNumericClamping(input, { min: 1, max: 24 });
         });
 
         // Inicializar preview
@@ -12226,8 +12312,7 @@ regular-item.ypp-fill-none {
             if (!wrapper.contains(e.target)) closeList();
         };
 
-        trigger.addEventListener('click', (e) => {
-            e.stopPropagation();
+        trigger.addEventListener('click', () => {
             isOpen ? closeList() : openList();
         });
 
@@ -12235,31 +12320,39 @@ regular-item.ypp-fill-none {
     }
 
     /**
-     * Crea el selector de orden con iconos SVG usando createCustomDropdown.
-     * @param {string} currentValue - Valor de orden activo.
-     * @param {(value: string) => void} onChange - Callback al cambiar el orden.
+     * Crea un selector de ordenamiento con iconos dinámicos para orden ascendente/descendente.
+     * @param {'recent'|'oldest'|'titleAZ'|'titleZA'|'authorAZ'|'authorZA'|'durationShort'|'durationLong'|'yourMostWatched'|'yourLeastWatched'|'mostViewsYoutube'|'leastViewsYoutube'|'progressDESC'|'progressASC'} currentValue - Valor inicial.
+     * @param {(value: string) => void} onChange - Callback al cambiar.
      * @returns {HTMLElement}
      */
     function createSortSelector(currentValue, onChange) {
-        const wrapper = createElement('div', { className: 'ypp-d-flex ypp-filter-1' });
-        const label = createElement('label', {
-            className: 'ypp-label ypp-label-filters',
-            text: `${t('sortBy')}:`,
-            atribute: { for: 'sort-dropdown' }
+        const wrapper = createElement('div', { className: 'ypp-range-filter-section' });
+
+        const updateActive = (val) => wrapper.classList.toggle('active', val !== CONFIG.defaultFilters.orderBy);
+        updateActive(currentValue);
+
+        const chipLabel = createElement('span', {
+            className: 'ypp-filter-chip-label',
+            html: `${SVG_ICONS.sortDesc} ${t('sortBy')}`
         });
 
         const dropdown = createCustomDropdown({
             id: 'sort-dropdown',
             initialValue: currentValue,
-            onChange,
+            onChange: (val) => {
+                updateActive(val);
+                onChange(val);
+            },
             options: [
                 { isGroup: true, label: t('sortBy'), icon: SVG_ICONS.sortDesc },
                 { value: 'recent', label: t('mostRecent'), icon: SVG_ICONS.calendar },
                 { value: 'oldest', label: t('oldest'), icon: SVG_ICONS.calendar },
 
-                { isGroup: true, label: `${t('titleAZ')} / ${t('authorAZ')}`, icon: SVG_ICONS.sortDesc },
+                { isGroup: true, label: `${t('titleAZ')}`, icon: SVG_ICONS.sortDesc },
                 { value: 'titleAZ', label: t('titleAZ'), icon: SVG_ICONS.sortDesc },
                 { value: 'titleZA', label: t('titleZA'), icon: SVG_ICONS.sortAsc },
+
+                { isGroup: true, label: `${t('authorAZ')}`, icon: SVG_ICONS.user },
                 { value: 'authorAZ', label: t('authorAZ'), icon: SVG_ICONS.user },
                 { value: 'authorZA', label: t('authorZA'), icon: SVG_ICONS.user },
 
@@ -12271,17 +12364,17 @@ regular-item.ypp-fill-none {
                 { value: 'yourMostWatched', label: t('yourMostWatched'), icon: SVG_ICONS.fire },
                 { value: 'yourLeastWatched', label: t('yourLeastWatched'), icon: SVG_ICONS.ice },
 
-                { isGroup: true, label: t('mostViewsYoutube'), icon: SVG_ICONS.graph },
-                { value: 'mostViewsYoutube', label: t('mostViewsYoutube'), icon: SVG_ICONS.graph },
-                { value: 'leastViewsYoutube', label: t('leastViewsYoutube'), icon: SVG_ICONS.graph },
+                { isGroup: true, label: t('mostViewsYoutube'), icon: SVG_ICONS.userLine },
+                { value: 'mostViewsYoutube', label: t('mostViewsYoutube'), icon: SVG_ICONS.thumbsup },
+                { value: 'leastViewsYoutube', label: t('leastViewsYoutube'), icon: SVG_ICONS.thumbsdown },
 
-                { isGroup: true, label: t('progressDESC'), icon: SVG_ICONS.graph },
-                { value: 'progressDESC', label: t('progressDESC'), icon: SVG_ICONS.graph },
-                { value: 'progressASC', label: t('progressASC'), icon: SVG_ICONS.graph }
+                { isGroup: true, label: t('progressDESC'), icon: SVG_ICONS.progressOneHundred },
+                { value: 'progressDESC', label: t('progressDESC'), icon: SVG_ICONS.progressOneHundred },
+                { value: 'progressASC', label: t('progressASC'), icon: SVG_ICONS.progressZero }
             ]
         });
 
-        wrapper.appendChild(label);
+        wrapper.appendChild(chipLabel);
         wrapper.appendChild(dropdown);
         return wrapper;
     }
@@ -12291,54 +12384,95 @@ regular-item.ypp-fill-none {
     // ------------------------------------------
 
     /**
-     * Crea el selector de filtro de tipo con iconos SVG usando createCustomDropdown.
-     * @param {string} currentValue - Valor de filtro activo.
-     * @param {(value: string) => void} onChange - Callback al cambiar el filtro.
+     * Crea un selector de filtros con iconos dinámicos para orden ascendente/descendente.
+     * @param {'all'|'video'|'shorts'|'preview'|'live'|'playlist'|'completed'|'completedOnce'|'fixedTime'|'protected'} currentValue - Valor inicial.
+     * @param {(value: string) => void} onChange - Callback al cambiar.
      * @returns {HTMLElement}
      */
     function createFilterSelector(currentValue, onChange) {
-        const wrapper = createElement('div', { className: 'ypp-d-flex ypp-filter-2' });
-        const label = createElement('label', {
-            className: 'ypp-label ypp-label-filters',
-            text: `${t('filterByType')}:`,
-            atribute: { for: 'filter-dropdown' }
+        const wrapper = createElement('div', { className: 'ypp-range-filter-section' });
+
+        const updateActive = (val) => wrapper.classList.toggle('active', val !== CONFIG.defaultFilters.filterBy);
+        updateActive(currentValue);
+
+        const chipLabel = createElement('span', {
+            className: 'ypp-filter-chip-label',
+            html: `${SVG_ICONS.funnel} ${t('filterByType')}`
         });
 
         const dropdown = createCustomDropdown({
             id: 'filter-dropdown',
             initialValue: currentValue,
-            onChange,
+            onChange: (val) => {
+                updateActive(val);
+                onChange(val);
+            },
             options: [
                 { value: 'all', label: t('all'), icon: SVG_ICONS.search },
                 { value: 'video', label: t('videos'), icon: SVG_ICONS.video },
-                { value: 'shorts', label: t('shorts'), icon: SVG_ICONS.shorts },
+                { value: 'shorts', label: t('shorts'), icon: SVG_ICONS.smartphone },
                 { value: 'preview', label: t('previews'), icon: SVG_ICONS.eye },
                 { value: 'live', label: t('liveStreams'), icon: SVG_ICONS.live },
                 { value: 'playlist', label: t('playlist'), icon: SVG_ICONS.playlist },
                 { value: 'completed', label: t('completedVideos'), icon: SVG_ICONS.check },
-                { value: 'completedOnce', label: t('completedOnce'), icon: SVG_ICONS.check },
-                { value: 'fixedTime', label: t('videosWithFixedTime'), icon: SVG_ICONS.timer },
+                { value: 'completedOnce', label: t('completedOnce'), icon: SVG_ICONS.check + SVG_ICONS.numberOneCircle },
+                { value: 'fixedTime', label: t('videosWithFixedTime'), icon: SVG_ICONS.timer + SVG_ICONS.pin },
                 { value: 'protected', label: t('protectedVideos'), icon: SVG_ICONS.shieldYesFill }
             ]
         });
 
-        wrapper.appendChild(label);
+        wrapper.appendChild(chipLabel);
         wrapper.appendChild(dropdown);
         return wrapper;
     }
 
     /**
      * Crea un filtro híbrido que combina un selector de presets con campos de rango personalizados.
+     * Diseño compacto: chip-label encima, dropdown + inputs Min-Max en una sola fila.
      * @param {'views'|'percent'} type - Tipo de filtro.
      * @param {number} minVal - Valor mínimo actual.
      * @param {number} maxVal - Valor máximo actual.
      * @param {(min: number, max: number) => void} onChange - Callback al cambiar.
+     * @returns {HTMLElement}
      */
     function createRangeFilter(type, minVal, maxVal, onChange) {
         const wrapper = createElement('div', { className: 'ypp-range-filter-section' });
 
+        const isDefault = (min, max) => {
+            if (type === 'views') return min === CONFIG.defaultFilters.minViews && max === CONFIG.defaultFilters.maxViews;
+            if (type === 'percent') return min === CONFIG.defaultFilters.minPercent && max === CONFIG.defaultFilters.maxPercent;
+            return true;
+        };
+
+        const getProgressIcon = (p) => {
+            if (p >= 95) return SVG_ICONS.progressOneHundred;
+            if (p >= 66) return SVG_ICONS.progressSixtySix;
+            if (p >= 33) return SVG_ICONS.progressThirtyThree;
+            return SVG_ICONS.progressZero;
+        };
+
+        const getIconForRange = (min, max) => {
+            if (type === 'views') return SVG_ICONS.userLine;
+            return getProgressIcon(min);
+        };
+
         const labelKey = type === 'views' ? 'views' : (type === 'percent' ? 'percentWatched' : '');
-        const label = createElement('label', { className: 'ypp-label ypp-label-filters', text: `${t(labelKey)}:` });
+        const iconFor = type === 'views' ? SVG_ICONS.userLine : SVG_ICONS.progressOneHundred;
+
+        // Chip-label compacto con icono dinámico
+        const chipIcon = createElement('span', { className: 'ypp-filter-chip-icon', html: getIconForRange(minVal, maxVal) });
+        const chipLabel = createElement('span', {
+            className: 'ypp-filter-chip-label',
+            html: `${iconFor} ${t(labelKey)}`
+        });
+
+        const updateActive = (min, max) => {
+            wrapper.classList.toggle('active', !isDefault(min, max));
+            if (type === 'percent' && chipIcon) {
+                setInnerHTML(chipIcon, getProgressIcon(min));
+            }
+        };
+        updateActive(minVal, maxVal);
 
         const controls = createElement('div', { className: 'ypp-range-controls' });
 
@@ -12382,21 +12516,19 @@ regular-item.ypp-fill-none {
         presets.push({ label: t('custom'), min: -1, max: -1, isCustom: true });
 
         // Determine initial selected preset value
-        const matchingPreset = presets.find(p => !p.isCustom && minVal === p.min && (p.max === 0 || maxVal === p.max));
-        const initialPresetValue = matchingPreset
-            ? JSON.stringify({ min: matchingPreset.min, max: matchingPreset.max })
+        const initialMatchingPreset = presets.find(p => !p.isCustom && minVal === p.min && maxVal === p.max);
+        const initialPresetValue = initialMatchingPreset
+            ? JSON.stringify({ min: initialMatchingPreset.min, max: initialMatchingPreset.max })
             : 'custom';
 
-        // Icon helpers
-        const iconFor = type === 'views' ? SVG_ICONS.graph : SVG_ICONS.graph;
 
-        /** Shared reference to update dropdown label when inputs change */
+        /** Referencia compartida para sincronizar el label del dropdown al cambiar inputs */
         let dropdownRef = null;
 
         const dropdownOptions = presets.map(p => ({
             value: p.isCustom ? 'custom' : JSON.stringify({ min: p.min, max: p.max }),
             label: p.label,
-            icon: p.isCustom ? SVG_ICONS.settings : iconFor
+            icon: p.isCustom ? SVG_ICONS.settings : (type === 'percent' ? getProgressIcon(p.min) : SVG_ICONS.userLine)
         }));
 
         const dropdown = createCustomDropdown({
@@ -12409,6 +12541,7 @@ regular-item.ypp-fill-none {
                     const { min, max } = JSON.parse(val);
                     inputMin.value = min;
                     inputMax.value = max;
+                    updateActive(min, max);
                     onChange(min, max);
                 } catch (_) { }
             }
@@ -12423,7 +12556,9 @@ regular-item.ypp-fill-none {
         const inputMin = createElement('input', {
             className: 'ypp-range-input',
             atribute: {
-                type: 'number',
+                type: 'text',
+                inputmode: 'numeric',
+                pattern: '[0-9]*',
                 placeholder: t('minLimit'),
                 title: t('minLimit'),
                 min: 0,
@@ -12438,7 +12573,9 @@ regular-item.ypp-fill-none {
         const inputMax = createElement('input', {
             className: 'ypp-range-input',
             atribute: {
-                type: 'number',
+                type: 'text',
+                inputmode: 'numeric',
+                pattern: '[0-9]*',
                 placeholder: t('maxLimit'),
                 title: t('maxLimit'),
                 min: 0,
@@ -12450,34 +12587,60 @@ regular-item.ypp-fill-none {
 
         // Sincronización: inputs → dropdown label + filtro
         const updateFromInputs = () => {
-            const min = parseInt(inputMin.value) || 0;
-            const max = parseInt(inputMax.value) || 0;
+            let min = parseInt(inputMin.value, 10) || 0;
+            let max = parseInt(inputMax.value, 10) || 0;
 
-            // Forzar visualmente el dropdown a "Personalizado" ("custom") si no lo está
-            const customOpt = dropdownRef.querySelector('.ypp-dropdown-item[data-value="custom"]');
-            if (customOpt && customOpt.getAttribute('aria-selected') !== 'true') {
-                customOpt.click();
+            // Corrección inteligente de rango: el campo que tiene el foco "manda"
+            if (max > 0 && max < min) {
+                if (document.activeElement === inputMax) {
+                    min = max;
+                    inputMin.value = min;
+                } else {
+                    max = min;
+                    inputMax.value = max;
+                }
             }
 
+            // Sincronizar dropdown con presets si hay coincidencia exacta
+            const currentPreset = presets.find(p => !p.isCustom && min === p.min && max === p.max);
+            const targetValue = currentPreset ? JSON.stringify({ min: currentPreset.min, max: currentPreset.max }) : 'custom';
+
+            const targetOpt = dropdownRef.querySelector(`.ypp-dropdown-item[data-value='${targetValue}']`);
+            if (targetOpt && targetOpt.getAttribute('aria-selected') !== 'true') {
+                targetOpt.click();
+            }
+
+            updateActive(min, max);
             onChange(min, max);
         };
         const debouncedUpdate = debounce(updateFromInputs, 400);
+        // Validación de límites y sincronización
+        applyNumericClamping(inputMin, { min: 0, max: type === 'percent' ? 100 : undefined });
+        applyNumericClamping(inputMax, { min: 0, max: type === 'percent' ? 100 : undefined });
+
         inputMin.addEventListener('input', debouncedUpdate);
         inputMax.addEventListener('input', debouncedUpdate);
 
         customGroup.appendChild(minWrapper);
-        customGroup.appendChild(createElement('span', { text: ' - ' }));
+        customGroup.appendChild(createElement('span', { className: 'ypp-range-separator', text: '-' }));
         customGroup.appendChild(maxWrapper);
 
         controls.appendChild(dropdown);
         controls.appendChild(customGroup);
-        wrapper.appendChild(label);
+
+        wrapper.appendChild(chipLabel);
         wrapper.appendChild(controls);
+
         return wrapper;
     }
 
+    /**
+     * Crea un campo de búsqueda con icono dinámico para buscar videos.
+     * @param {string} currentValue - Valor inicial.
+     * @param {(value: string) => void} onChange - Callback al cambiar.
+     * @returns {HTMLElement}
+     */
     function createSearchInput(currentValue, onChange) {
-
         const wrapper = createElement('div', { className: 'ypp-searchbar' });
         const input = createElement('input', {
             className: 'ypp-search-input',
@@ -13038,7 +13201,7 @@ regular-item.ypp-fill-none {
         const wrapper = createElement('div', { className: 'ypp-floatingBtnContainer' });
         const btnConfig = createElement('div', {
             className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
-            html: `${SVG_ICONS.settings} ${t('youtubePlaybackPlox')}`,
+            html: `${SVG_ICONS.settingsFill} ${t('youtubePlaybackPlox')}`,
             onClickEvent: async () => { await showSettingsUI(); }
         });
         wrapper.appendChild(btnConfig);
@@ -13143,7 +13306,8 @@ regular-item.ypp-fill-none {
 
         advancedSection.appendChild(filtersGrid);
 
-        // Range Filters group
+        // Range Filters group — se agrega a filtersGrid para que display:contents
+        // los integre directamente como columns 3 y 4 del grid de 4 columnas.
         const rangeGroup = createElement('div', { className: 'ypp-range-filters-group' });
 
         rangeGroup.appendChild(createRangeFilter('views', currentMinViews, currentMaxViews,
@@ -13166,7 +13330,7 @@ regular-item.ypp-fill-none {
             }
         ));
 
-        advancedSection.appendChild(rangeGroup);
+        filtersGrid.appendChild(rangeGroup);
         videosContainer.appendChild(advancedSection);
 
         // Toggle logic for Advanced Filters
@@ -13233,7 +13397,7 @@ regular-item.ypp-fill-none {
         const btnSettings = createElement('button', {
             id: 'ypp-settings-btn',
             className: 'ypp-btn ypp-btn-outline-primary ypp-shadow-md',
-            html: `${SVG_ICONS.settings} ${t('settings')}`,
+            html: `${SVG_ICONS.settingsFill} ${t('settings')}`,
             onClickEvent: async () => { await showSettingsUI(); }
         });
 
@@ -13574,7 +13738,16 @@ regular-item.ypp-fill-none {
 
 
         const liveHtml = `<div class="ypp-progressInfo" style="font-weight: bold;">${SVG_ICONS.live} ${t('live')}</div>`;
-        const percentHtml = `<div class="ypp-progressInfo" style="color: ${getProgressColorForText(percent)}; font-weight: bold;">${SVG_ICONS.graph} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds(remaining))} ${t('remaining')})</div>`;
+
+
+        let iconPercent;
+        if (percent >= 95) iconPercent = SVG_ICONS.progressOneHundred;
+        else if (percent >= 66) iconPercent = SVG_ICONS.progressSixtySix;
+        else if (percent >= 33) iconPercent = SVG_ICONS.progressThirtyThree;
+        else iconPercent = SVG_ICONS.progressZero;
+
+        const percentHtml = `<div class="ypp-progressInfo" style="color: ${getProgressColorForText(percent)}; font-weight: bold;">
+        ${iconPercent} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds(remaining))} ${t('remaining')})</div>`;
 
         let progressHtml = '';
         if (!isCompleted) {
@@ -13880,7 +14053,7 @@ regular-item.ypp-fill-none {
                             // Convertir strings de JSON a objetos nativos para que GM_setValue los maneje correctamente
                             let dataToSave = data;
                             if (typeof data === 'string') {
-                                try { dataToSave = JSON.parse(data); } catch (e) { }
+                                try { dataToSave = JSON.parse(data); } catch (e) { logError('cleanupNonVideoData', 'Error al parsear metadato IDB:', e); }
                             }
                             await GM_setValue(gmKey, dataToSave);
                         }
@@ -13925,7 +14098,7 @@ regular-item.ypp-fill-none {
                             if (raw) {
                                 const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
                                 let dataToSave = raw;
-                                try { dataToSave = JSON.parse(raw); } catch (e) { }
+                                try { dataToSave = JSON.parse(raw); } catch (e) { logError('cleanupNonVideoData', 'Error al parsear config LS:', e); }
                                 await GM_setValue(gmKey, dataToSave);
                                 localStorage.removeItem(key);
                                 logInfo('cleanupNonVideoData', `🚚 Cache/Config LS migrado a GM: ${key}`);
@@ -13941,7 +14114,9 @@ regular-item.ypp-fill-none {
                                     await StorageAsync.set(normalizedId, normData);
                                     localStorage.removeItem(key);
                                     logInfo('cleanupNonVideoData', `🚚 Vídeo rescatado de LS: ${normalizedId}`);
-                                } catch (_) { }
+                                } catch (e) {
+                                    logError('cleanupNonVideoData', 'Error al rescatar vídeo desde localStorage:', e);
+                                }
                             }
                         }
                     }

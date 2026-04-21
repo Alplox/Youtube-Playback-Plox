@@ -2,6 +2,11 @@
 
 ### Fixed
 
+- **Range Input Synchronization**: Improved the behavior of Views and Percentage range filters.
+    - **Sanitization**: Fixed a bug where non-numeric characters (like "e", ".", or "-") were allowed by switching inputs to `type="text"` with `inputmode="numeric"`.
+    - **Auto-Preset Detection**: Added real-time synchronization so that if manual inputs match a standard preset (e.g., 0-0 for All, or 1M+), the dropdown automatically selects that preset instead of remaining as "Custom".
+    - **Dynamic Icons**: The percentage range filter now updates its icon (0%, 33%, 66%, 100%) in real-time based on the minimum value selected, consistent with the video list design.
+
 - **Seek Message Persistence**: Fixed an issue where the "Resumed at X:XX" (seek) message would disappear even if the video remained paused. Now, the message persists while the video is paused and only clears after playback begins.
 - **Redundant Cleanup Loop**: Fixed an issue where `loadTranslations` would re-add the translation cache to `localStorage` on every load, causing `cleanupNonVideoData` to repeatedly perform migration logic and logs.
 - **Management Mode Selection Reset**: Fixed an issue where the selected videos count and button states remained active after deleting selected videos in Management Mode. Now calls `updateManagementFooterState()` after clearing selection to properly reset the UI state.
@@ -9,6 +14,8 @@
 - **Deprecated unescape Replacement**: Replaced deprecated `unescape()` function with modern `TextEncoder` for UTF-8 to base64 encoding in GitHub repository backup, eliminating TypeScript deprecation warnings.
 - **CSP Violation in Settings Modal**: Fixed Content-Security-Policy violation when opening the Settings modal by removing inline `oninput` handler from interval inputs and replacing with programmatic `addEventListener` calls. Also added validation to enforce minimum value of 1 for interval inputs.
 - **Code Style Improvements**: Replaced loose equality operators (`==`, `!=`) with strict equality operators (`===`, `!==`) in 14 null comparisons throughout the codebase to follow ES2025 best practices.
+- **Dropdown Overlap**: Fixed a bug where multiple custom dropdowns (Sort, Filter by type, etc.) in the advanced filters panel could remain open simultaneously. Removed `e.stopPropagation()` from triggers to allow the global outside-click listener to correctly close other open dropdowns when a new one is clicked.
+- **Improved Error Logging**: Added `logError` calls to critical silent catch blocks in `loadTranslations`, `getPlaylistName`, and `cleanupNonVideoData` to improve troubleshooting for failed network requests and corrupted metadata migration.
 - **Theme Detection**: Added `applyTheme()` function to set the attribute `[data-theme="dark"]` during initialization and `observeThemeChanges()` with MutationObserver to automatically update when YouTube toggles between light/dark modes.
 
 ### Added
@@ -39,6 +46,7 @@
 - **Management Footer Visual Hierarchy**: Reorganized management actions into grouped sections (selection/data/destructive/session), applied semantic button variants, and added dynamic disabled/count states for selected-only actions to improve clarity and prevent accidental clicks.
 - **Hidden Selection Recovery**: Fixed an edge case where selected videos could become hidden after applying filters with no clear way to deselect them. The management footer now indicates hidden selected count and allows clearing all selections directly from the selection toggle flow.
 - **Dedicated Selection Reset**: Added a dedicated `Clear selection` action in Management Mode and new fallback-only translation keys to explicitly indicate hidden selected items in current results.
+- **Advanced Filters UI Redesign**: Compacted the advanced filters panel from a 2-row layout into a single unified 4-column grid. Sort, Type, Views, and Percent filters now share the same row. Each filter column shows a chip-label (icon + name) above its control for clarity. Range filters (Views/Percent) are now fully inline: preset dropdown and Min–Max inputs share a single horizontal row. Removed the old external text labels in favor of consistent chip-labels across all filter columns.
 
 ### Removed
 

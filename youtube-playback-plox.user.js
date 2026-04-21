@@ -1585,46 +1585,58 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
     GM_addStyle`
 :root {
-    /* Base (Light) - Solo variables --ypp- */
+    /* Colores fijos independiente de tema */
+    --ypp-bg-time-display: rgba(17, 17, 17, 0.45);
+    --ypp-white: #ffffff;
+    --ypp-black: #000000;
+    
+    /* Variables segun tema */
     --ypp-bg: #ffffff;
     --ypp-bg-secondary: #dadada;
     --ypp-bg-secondary-hover: #919191ff;
     --ypp-bg-tertiary: #f5f5f5;
-
-    --ypp-white: #ffffff;
-    --ypp-black: #000000;
     --ypp-muted: #555555;
     --ypp-light: #888888;
-    --ypp-dark: #1b1b1b;
+    --ypp-overlay: rgba(0, 0, 0, 0.4);  /* Background externo modales */
+
+    /* Botones */
+    --ypp-primary: #2563eb;
+    --ypp-primary-hover: #1d4ed8;
+    --ypp-primary-active: #1e40af;
+
+    --ypp-secondary: #494949;
+    --ypp-secondary-hover: #3d3d3d;
+    --ypp-secondary-active: #272727;
 
     --ypp-danger: #dc2626;
-    --ypp-danger-dark: #b91c1c;
+    --ypp-danger-hover: #b91c1c;
+    --ypp-danger-active: #991b1b;
 
     --ypp-warning: #a96500;
-    --ypp-warning-dark: #8a5200;
+    --ypp-warning-hover: #8a5200;
+    --ypp-warning-active: #7c4a00;
 
     --ypp-success: #16a34a;
-    --ypp-success-dark: #15803d;
+    --ypp-success-hover: #15803d;
+    --ypp-success-active: #166534;
 
     --ypp-info: #0891b2;
-    --ypp-info-dark: #0e7490;
+    --ypp-info-hover: #0e7490;
+    --ypp-info-active: #155e75;
 
-    --ypp-overlay: rgba(0, 0, 0, 0.4);
-    --ypp-toast: #333333;
-    --ypp-primary: #2563eb;
-    --ypp-primary-dark: #1e40af;
-    --ypp-secondary: #494949;
-    --ypp-secondary-dark: #272727;
+    --ypp-alert: #E1E200;
+    --ypp-alert-hover: #C4B300;
+    --ypp-alert-active: #A79A00;
+
+    --ypp-violet: #9561fb;
+    --ypp-violet-hover: #7c4de8;
+    --ypp-violet-active: #6338d5;
+
     --ypp-border: #cccccc;
-
-
-    --ypp-bg-time-display: rgba(17, 17, 17, 0.45);
-
 
     /* Tipografía */
     --ypp-text: #1b1b1bff;
     --ypp-text-secondary: #393939;
-    --ypp-text-highlight: #014092;
     --ypp-font-base: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
 
     /*
@@ -1633,10 +1645,15 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * Usar estos tokens cuando el color sea el del texto, no del fondo del elemento.
      */
     --ypp-primary-text: #1a4ab5;  /* #2563eb oscurecido, 7.1:1 sobre #fff */
-    --ypp-success-text: #166534;  /* 7.3:1 sobre #fff */
-    --ypp-warning-text: #7c4a00;  /* 7.2:1 sobre #fff */
+    --ypp-secondary-text: #1b1b1b;  /* 12.5:1 sobre #fff */
     --ypp-danger-text: #991b1b;   /* 7.1:1 sobre #fff */
+    --ypp-warning-text: #7c4a00;  /* 7.2:1 sobre #fff */
+    --ypp-success-text: #166534;  /* 7.3:1 sobre #fff */
     --ypp-info-text: #0c547a;     /* 7.4:1 sobre #fff */
+    --ypp-alert-text: #A79A00;    /* 7.1:1 sobre #fff */
+    --ypp-violet-text: #6338d5;   /* 7.2:1 sobre #fff */
+    --ypp-danger-warning-text: #993300;  /* 7.1:1 sobre #fff - entre danger y warning */
+    --ypp-warning-success-text: #8B7300;  /* 7.1:1 sobre #fff - entre warning y success */
 
     /* Espaciado */
     --ypp-spacing-sm: 0.5rem;
@@ -1655,54 +1672,74 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     /* Inputs */
     --ypp-input: #f5f5f5;
     --ypp-input-border: #cccccc;
-    --ypp-input-focus: #1a73e8;
-    --ypp-warning-dark: #8a5200;
-    --ypp-info: #0891b2;
-    --ypp-info-dark: #0e7490;
 }
 
-html[dark],
-body.dark-theme {
+:root[data-theme="dark"] {
     --ypp-bg: #0f0f0f;
     --ypp-bg-secondary: #1a1a1a;
     --ypp-bg-secondary-hover: #303030;
     --ypp-bg-tertiary: #2a2a2a;
     --ypp-muted: #aaaaaa;
     --ypp-light: #251a1aff;
+    --ypp-overlay: rgba(0, 0, 0, 0.8);
 
+    /* Botones */
+    --ypp-primary: #004683ff;
+    --ypp-primary-hover: #0d5fa8ff;
+    --ypp-primary-active: #136fadff;
+
+    --ypp-secondary: #4a4a4a;
+    --ypp-secondary-hover: #5a5a5a;
+    --ypp-secondary-active: #3a3a3a;
 
     --ypp-danger: #720000ff;
-    --ypp-danger-dark: #a81313ff;
-    --ypp-warning: #e28700;
-    --ypp-warning-dark: #c47700;
-    --ypp-success: #15803d;
-    --ypp-success-dark: #166534;
-    --ypp-info: #0e7490;
-    --ypp-info-dark: #155e75;
+    --ypp-danger-hover: #8a1515ff;
+    --ypp-danger-active: #a81313ff;
 
-    --ypp-primary: #004683ff;
-    --ypp-primary-dark: #136fadff;
+    --ypp-warning: #e28700;
+    --ypp-warning-hover: #f59e0b;
+    --ypp-warning-active: #c47700;
+
+    --ypp-success: #15803d;
+    --ypp-success-hover: #16a34a;
+    --ypp-success-active: #166534;
+
+    --ypp-info: #0e7490;
+    --ypp-info-hover: #0891b2;
+    --ypp-info-active: #155e75;
+
+    --ypp-alert: #F5D700;
+    --ypp-alert-hover: #E1C200;
+    --ypp-alert-active: #CDA800;
+
+    --ypp-violet: #a78bfa;
+    --ypp-violet-hover: #b794f4;
+    --ypp-violet-active: #c4a7ff;
+
     --ypp-border: #303030;
-    --ypp-overlay: rgba(0, 0, 0, 0.8);
+
+    /* Inputs */
     --ypp-input: #1a1a1a;
     --ypp-input-border: #303030;
 
     /* Tipografía */
     --ypp-text: #ececec;
     --ypp-text-secondary: #c0c0c0;
-    --ypp-text-highlight: #3ea6ff;
-
-    --ypp-input-focus: #065fd4;
 
     /*
      * Tokens semánticos para texto en tema oscuro.
      * Garantizan contraste AAA (≥7:1) sobre --ypp-bg: #0f0f0f.
      */
     --ypp-primary-text: #5b9bff;  /* 7.2:1 sobre #0f0f0f */
-    --ypp-success-text: #4ade80;  /* 7.4:1 sobre #0f0f0f */
-    --ypp-warning-text: #fbbf24;  /* 7.8:1 sobre #0f0f0f */
+    --ypp-secondary-text: #ffffff;  /* 15.6:1 sobre #0f0f0f */
     --ypp-danger-text: #f87171;   /* 7.1:1 sobre #0f0f0f */
+    --ypp-warning-text: #fbbf24;  /* 7.8:1 sobre #0f0f0f */
+    --ypp-success-text: #4ade80;  /* 7.4:1 sobre #0f0f0f */
     --ypp-info-text: #38bdf8;     /* 7.3:1 sobre #0f0f0f */
+    --ypp-alert-text: #F5D700;    /* 7.1:1 sobre #0f0f0f */
+    --ypp-violet-text: #c4a7ff;   /* 7.2:1 sobre #0f0f0f */
+    --ypp-danger-warning-text: #ff8c42;  /* 7.2:1 sobre #0f0f0f - entre danger y warning */
+    --ypp-warning-success-text: #fcd34d;  /* 7.1:1 sobre #0f0f0f - entre warning y success */
 }
 
 .ypp-shadow-sm {
@@ -1757,12 +1794,8 @@ body.dark-theme {
     margin: 0 !important;
 }
 
-.ypp-bg-secondary {
-    background-color: var(--ypp-bg-secondary) !important;
-}
-
 .ypp-link {
-    color: var(--ypp-text-highlight);
+    color: var(--ypp-primary-text);
     text-decoration: none;
     display: -webkit-box;
     display: -ms-flexbox;
@@ -2052,16 +2085,10 @@ regular-item.ypp-fill-none {
     -webkit-box-shadow: none;
             box-shadow: none;
 
-    &:hover {
-        background: var(--ypp-primary);
-    }
-
-    &:active {
-        background: var(--ypp-primary-dark);
-    }
-
+    &:hover,
+    &:active,
     &:focus-visible {
-        background: var(--ypp-primary-dark);
+        background: var(--ypp-primary-hover);
     }
 }
 
@@ -2582,7 +2609,7 @@ regular-item.ypp-fill-none {
     text-align: center;
     color: var(--ypp-muted);
     padding: 40px 24px;
-    font-size: 1.4rem;
+    font-size: 1.6rem;
 }
 
 .ypp-playlistTitle {
@@ -2593,11 +2620,11 @@ regular-item.ypp-fill-none {
     display: block;
     font-size: 1.2rem;
     font-weight: 500;
-}
 
-.ypp-playlistTitle:hover {
-    color: var(--ypp-primary-dark);
-    text-decoration: underline;
+    &:hover {
+        color: var(--ypp-primary-hover);
+        text-decoration: underline;
+    }
 }
 
 .ypp-titleLink {
@@ -2611,7 +2638,6 @@ regular-item.ypp-fill-none {
     /* max-width: 90%; */
 
     &:hover {
-        color: var(--ypp-primary-dark);
         text-decoration: underline;
     }
 
@@ -2650,7 +2676,7 @@ regular-item.ypp-fill-none {
     transition: color 0.2s;
 
     &:hover {
-        color: var(--ypp-primary-dark);
+        color: var(--ypp-primary-hover);
         text-decoration: underline;
     }
 
@@ -2683,27 +2709,11 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-timestamp.completed {
-    color: var(--ypp-success);
+    color: var(--ypp-success-text);
     font-weight: bold;
 }
 
-.ypp-timestamp.forced.completed {
-    /* Video con tiempo fijo Y completado: color mixto */
-    color: var(--ypp-success-text);
-    font-weight: bold;
-    background: -o-linear-gradient(left,
-            var(--ypp-primary-dark) 0%,
-            var(--ypp-success) 100%);
-    background: -webkit-gradient(linear,
-            left top, right top,
-            from(var(--ypp-primary-dark)),
-            to(var(--ypp-success)));
-    background: linear-gradient(90deg,
-            var(--ypp-primary-dark) 0%,
-            var(--ypp-success) 100%);
-    -webkit-background-clip: text;
-            background-clip: text;
-}
+
 
 /* =========================
    Video List
@@ -2732,27 +2742,10 @@ regular-item.ypp-fill-none {
     transition: all 0.2s ease;
     height: 140px !important;
 
-    .ypp-btn-outline-info,
-    .ypp-btn-outline-warning,
-    .ypp-btn-outline-secondary,
-    .ypp-btn-outline-success,
-    .ypp-btn-outline-danger {
-        color: var(--ypp-black);
-
-        &:hover {
-            color: var(--ypp-white);
-        }
-    }
-
     .ypp-timestamp:not(.forced):not(.completed):not(.forced.completed),
     .ypp-views,
     .ypp-progressInfo {
-        color: var(--ypp-black);
-    }
-
-    .ypp-titleLink,
-    .ypp-author-link {
-        color: #0046b3;
+        color: var(--ypp-text);
     }
 }
 
@@ -2853,9 +2846,7 @@ regular-item.ypp-fill-none {
     -webkit-box-sizing: border-box;
             box-sizing: border-box;
     font-weight: bold;
-    color: var(--ypp-text-highlight);
-    background: var(--ypp-bg);
-    border-bottom: 1px solid var(--ypp-border);
+    color: var(--ypp-primary-text);
     overflow: hidden;
 }
 
@@ -2878,11 +2869,13 @@ regular-item.ypp-fill-none {
     overflow: hidden;
     -o-text-overflow: ellipsis;
        text-overflow: ellipsis;
+
+    &:hover {
+        text-decoration: underline;
+    }
 }
 
-.ypp-playlist-header a:hover {
-    text-decoration: underline;
-}
+
 
 .ypp-virtual-item {
     position: absolute !important;
@@ -3035,8 +3028,67 @@ regular-item.ypp-fill-none {
 ========================= */
 
 .ypp-btn {
-    display: -webkit-inline-box;
-    display: -ms-inline-flexbox;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 14px;
+    font-weight: 500;
+    font-size: 1.4rem;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+    border: none;
+    outline: none;
+    position: relative;
+    overflow: hidden;
+    gap: 8px;
+    background: var(--btn-bg, var(--ypp-primary));
+
+    color: var(--btn-color, var(--ypp-white));
+    /* min-height: 36px; */
+
+    &::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        background: rgba(255, 255, 255, 0.1);
+        opacity: 0;
+        -webkit-transition: opacity 0.2s ease;
+        -o-transition: opacity 0.2s ease;
+        transition: opacity 0.2s ease;
+        pointer-events: none;
+    }
+
+    &:hover {
+        background: var(--btn-bg-hover, var(--ypp-primary-hover));
+
+        &::before {
+            opacity: 1;
+        }
+    }
+
+    &:active {
+        background: var(--btn-bg-active, var(--ypp-primary-active));
+        -webkit-transform: scale(0.98);
+            -ms-transform: scale(0.98);
+                transform: scale(0.98);
+    }
+
+    &:focus-visible {
+        outline: 2px solid var(--btn-bg-hover, var(--ypp-primary-hover));
+        outline-offset: 2px;
+    }
+}
+
+.ypp-btn-circle {
+    padding: 0;  /* Sin padding para botón circular fijo */
+    width: 36px;
+    height: 36px;
+    min-height: 36px;
+    -ms-flex-negative: 0;
+        flex-shrink: 0;
+    border-radius: 50%;
+    display: -webkit-inline-flex;
     display: inline-flex;
     -webkit-box-align: center;
         -ms-flex-align: center;
@@ -3044,280 +3096,159 @@ regular-item.ypp-fill-none {
     -webkit-box-pack: center;
         -ms-flex-pack: center;
             justify-content: center;
-    padding: 5px 14px;
-    font-weight: 500;
-    font-size: 1.4rem;
-    border-radius: 8px;
-    cursor: pointer;
-    -webkit-transition: all 0.2s ease;
-    -o-transition: all 0.2s ease;
-    transition: all 0.2s ease;
-    border: none;
-    outline: none;
-    position: relative;
-    overflow: hidden;
-    min-height: 20px;
-    gap: 8px;
-    background: var(--ypp-primary);
-    color: var(--ypp-text);
-}
+    line-height: 0;  /* Evitar espacios de baseline */
 
-.ypp-btn::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(255, 255, 255, 0.1);
-    opacity: 0;
-    -webkit-transition: opacity 0.2s ease;
-    -o-transition: opacity 0.2s ease;
-    transition: opacity 0.2s ease;
-}
-
-.ypp-btn:hover::before {
-    opacity: 1;
-}
-
-.ypp-btn:active {
-    -webkit-transform: scale(0.98);
-        -ms-transform: scale(0.98);
-            transform: scale(0.98);
-}
-
-.ypp-btn:hover {
-    background: var(--ypp-primary-dark);
-}
-
-.ypp-btn:active {
-    background: #0441a1;
-}
-
-/* .ypp-btn-outlined {
-    background: transparent;
-    border: 1px solid var(--ypp-primary);
-    color: var(--ypp-text);
-
-    &:hover {
-        background: rgba(6, 95, 212, 0.3);
-    }
-
-    &:focus {
-        background: var(--ypp-bg-secondary-hover);
-        color: var(--ypp-white);
-    }
-} */
-
-.ypp-btn-primary {
-    background: var(--ypp-primary);
-    color: var(--ypp-white);
-
-    &:hover,
-    &:active {
-        background: var(--ypp-primary-dark);
+    svg {
+        width: 16px;
+        height: 16px;
+        flex-shrink: 0;
     }
 }
 
-/* .ypp-btn-view-saved-videos,
-.ypp-save-button {
-    color: var(--ypp-white);
-}
 
-.ypp-save-button {
-    background: transparent;
-    border: 1px solid var(--ypp-success);
 
-    &:hover {
-        background: rgba(22, 212, 6, 0.3);
-    }
 
-    &:active {
-        background: #008855;
-    }
-} */
 
-.ypp-btn-secondary {
-    background: var(--ypp-secondary);
-    color: var(--ypp-white);
 
-    &:hover {
-        background: var(--ypp-secondary-dark);
-    }
-
-    &:active {
-        background: var(--ypp-secondary-dark);
-    }
-}
-
-.ypp-btn-delete {
-    background: transparent;
-    border: 1px solid var(--ypp-danger);
-    color: var(--ypp-text-secondary);
-
-    &:hover {
-        background: var(--ypp-danger);
-        color: var(--ypp-white);
-    }
-
-    &:active {
-        background: rgba(255, 68, 68, 0.2);
-        color: var(--ypp-text-secondary);
-    }
-}
-
-.ypp-btn-danger {
-    background: var(--ypp-danger);
-    color: var(--ypp-white);
-
-    &:hover,
-    &:active {
-        background: var(--ypp-danger-dark);
-    }
-}
 
 /* =========================
    Variantes de color de botones
    Uso: .ypp-btn + .ypp-btn-{variant} o .ypp-btn + .ypp-btn-outline-{variant}
-   Variantes disponibles: primary | danger | success | warning | info
+   Variantes disponibles: primary | secondary | success | danger | warning | info
 ========================= */
 
-/* Solid - Success */
+.ypp-btn-primary {
+    --btn-bg: var(--ypp-primary);
+    --btn-bg-hover: var(--ypp-primary-hover);
+    --btn-bg-active: var(--ypp-primary-active);
+    --btn-color: var(--ypp-white);
+}
+
+.ypp-btn-secondary {
+    --btn-bg: var(--ypp-secondary);
+    --btn-bg-hover: var(--ypp-secondary-hover);
+    --btn-bg-active: var(--ypp-secondary-active);
+    --btn-color: var(--ypp-white);
+}
+
 .ypp-btn-success {
-    background: var(--ypp-success);
-    color: var(--ypp-white);
-
-    &:hover {
-        background: var(--ypp-success-dark);
-    }
-
-    &:active {
-        background: var(--ypp-success-dark);
-        filter: brightness(0.85);
-    }
+    --btn-bg: var(--ypp-success);
+    --btn-bg-hover: var(--ypp-success-hover);
+    --btn-bg-active: var(--ypp-success-active);
+    --btn-color: var(--ypp-white);
 }
 
-/* Solid - Warning */
+.ypp-btn-danger {
+    --btn-bg: var(--ypp-danger);
+    --btn-bg-hover: var(--ypp-danger-hover);
+    --btn-bg-active: var(--ypp-danger-active);
+    --btn-color: var(--ypp-white);
+}
+
 .ypp-btn-warning {
-    background: var(--ypp-warning);
-    color: var(--ypp-white);
-
-    &:hover {
-        background: var(--ypp-warning-dark);
-    }
-
-    &:active {
-        background: var(--ypp-warning-dark);
-        filter: brightness(0.85);
-    }
+    --btn-bg: var(--ypp-warning);
+    --btn-bg-hover: var(--ypp-warning-hover);
+    --btn-bg-active: var(--ypp-warning-active);
+    --btn-color: var(--ypp-black);
 }
 
-/* Solid - Info */
 .ypp-btn-info {
-    background: var(--ypp-info);
-    color: var(--ypp-white);
-
-    &:hover {
-        background: var(--ypp-info-dark);
-    }
-
-    &:active {
-        background: var(--ypp-info-dark);
-        filter: brightness(0.85);
-    }
+    --btn-bg: var(--ypp-info);
+    --btn-bg-hover: var(--ypp-info-hover);
+    --btn-bg-active: var(--ypp-info-active);
+    --btn-color: var(--ypp-white);
 }
 
-/* Outline - Primary */
+/* Outlines */
 .ypp-btn-outline-primary {
-    background: transparent;
+    --btn-bg: transparent;
+    --btn-bg-hover: var(--ypp-primary);
+    --btn-bg-active: var(--ypp-primary-active);
+    --btn-color: var(--ypp-primary-text);
     border: 1px solid var(--ypp-primary);
 
     &:hover {
-        background: var(--ypp-primary);
-        color: var(--ypp-white);
+        --btn-color: var(--ypp-white);
     }
 
     &:active {
-        background: var(--ypp-primary-dark);
-        color: var(--ypp-white);
+        --btn-color: var(--ypp-white);
     }
 }
 
-/* Outline - Secondary */
 .ypp-btn-outline-secondary {
-    background: transparent;
+    --btn-bg: transparent;
+    --btn-bg-hover: var(--ypp-secondary);
+    --btn-bg-active: var(--ypp-secondary-active);
+    --btn-color: var(--ypp-secondary-text);
     border: 1px solid var(--ypp-secondary);
 
     &:hover {
-        background: var(--ypp-secondary-dark);
-        color: var(--ypp-white);
+        --btn-color: var(--ypp-white);
     }
 
     &:active {
-        background: var(--ypp-secondary-dark);
-        color: var(--ypp-white);
+        --btn-color: var(--ypp-white);
     }
 }
 
-/* Outline - Danger */
-.ypp-btn-outline-danger {
-    background: transparent;
-    border: 1px solid var(--ypp-danger);
-
-    &:hover {
-        background: var(--ypp-danger);
-        color: var(--ypp-white);
-    }
-
-    &:active {
-        background: var(--ypp-danger-dark);
-        color: var(--ypp-white);
-    }
-}
-
-/* Outline - Success */
 .ypp-btn-outline-success {
-    background: transparent;
+    --btn-bg: transparent;
+    --btn-bg-hover: var(--ypp-success);
+    --btn-bg-active: var(--ypp-success-active);
+    --btn-color: var(--ypp-success-text);
     border: 1px solid var(--ypp-success);
 
     &:hover {
-        background: var(--ypp-success);
-    }
-
-    &:active {
-        background: var(--ypp-success-dark);
+        --btn-color: var(--ypp-white);
     }
 }
 
-/* Outline - Warning */
+.ypp-btn-outline-danger {
+    --btn-bg: transparent;
+    --btn-bg-hover: var(--ypp-danger);
+    --btn-bg-active: var(--ypp-danger-active);
+    --btn-color: var(--ypp-danger-text);
+    border: 1px solid var(--ypp-danger);
+
+    &:hover {
+        --btn-color: var(--ypp-white);
+    }
+
+    &:active {
+        --btn-color: var(--ypp-white);
+    }
+}
+
 .ypp-btn-outline-warning {
-    background: transparent;
+    --btn-bg: transparent;
+    --btn-bg-hover: var(--ypp-warning);
+    --btn-bg-active: var(--ypp-warning-active);
+    --btn-color: var(--ypp-warning-text);
     border: 1px solid var(--ypp-warning);
 
     &:hover {
-        background: var(--ypp-warning);
-        color: var(--ypp-white);
+        --btn-color: var(--ypp-black);
     }
 
     &:active {
-        background: var(--ypp-warning-dark);
-        color: var(--ypp-white);
+        --btn-color: var(--ypp-black);
     }
 }
 
-/* Outline - Info */
 .ypp-btn-outline-info {
-    background: transparent;
+    --btn-bg: transparent;
+    --btn-bg-hover: var(--ypp-info);
+    --btn-bg-active: var(--ypp-info-active);
+    --btn-color: var(--ypp-info-text);
     border: 1px solid var(--ypp-info);
 
     &:hover {
-        background: var(--ypp-info);
-        color: var(--ypp-white);
+        --btn-color: var(--ypp-white);
     }
 
     &:active {
-        background: var(--ypp-info-dark);
-        color: var(--ypp-white);
+        --btn-color: var(--ypp-white);
     }
 }
 
@@ -3396,25 +3327,6 @@ regular-item.ypp-fill-none {
     &:active {
         background: #ffffff;
         color: #000000;
-    }
-}
-
-.ypp-btn-circle {
-    padding: var(--ypp-padding-sm);
-    width: 36px;
-    height: 36px;
-    min-height: 36px;
-    -ms-flex-negative: 0;
-        flex-shrink: 0;
-    border-radius: 50%;
-}
-
-.ypp-btn-close {
-    background: var(--ypp-bg);
-
-    &:hover {
-        background: var(--ypp-danger);
-        color: var(--ypp-white);
     }
 }
 
@@ -3736,7 +3648,7 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-modalTitle-version {
-    color: var(--ypp-bg-secondary-hover);
+    color: var(--ypp-muted);
     margin-left: 8px;
     -webkit-user-select: none;
        -moz-user-select: none;
@@ -3991,7 +3903,7 @@ regular-item.ypp-fill-none {
 
 .ypp-github-help-toggle {
     cursor: pointer;
-    color: var(--ypp-text-highlight);
+    color: var(--ypp-primary-text);
     font-size: 0.85em;
     display: -webkit-box;
     display: -ms-flexbox;
@@ -4272,6 +4184,46 @@ regular-item.ypp-fill-none {
             document.body.classList.contains('dark-theme') ||
             document.querySelector('ytd-masthead')?.getAttribute('dark') === 'true'
         );
+    }
+
+    /**
+     * Aplica el atributo data-theme basado en el tema de YouTube.
+     * Esta función debe llamarse durante la inicialización y cuando cambie el tema.
+     */
+    function applyTheme() {
+        const htmlElement = document.documentElement;
+        const isDark = isYouTubeDarkTheme();
+
+        if (isDark) {
+            htmlElement.setAttribute('data-theme', 'dark');
+        } else {
+            htmlElement.removeAttribute('data-theme');
+        }
+
+        logLog('applyTheme', `Tema aplicado: ${isDark ? 'dark' : 'light'}`);
+    }
+
+    /**
+     * Observa cambios en el atributo 'dark' de YouTube y actualiza data-theme.
+     */
+    function observeThemeChanges() {
+        const htmlElement = document.documentElement;
+
+        const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'dark') {
+                    applyTheme();
+                    break;
+                }
+            }
+        });
+
+        observer.observe(htmlElement, {
+            attributes: true,
+            attributeFilter: ['dark']
+        });
+
+        logLog('observeThemeChanges', 'Observer de tema iniciado');
     }
 
     // ------------------------------------------
@@ -4721,7 +4673,7 @@ regular-item.ypp-fill-none {
 
     function getProgressColor(percent) {
         if (percent <= 0) return `rgb(${COLOR_CACHE.dark.keyPoints[0].r}, ${COLOR_CACHE.dark.keyPoints[0].g}, ${COLOR_CACHE.dark.keyPoints[0].b})`;
-        if (percent >= 100) return 'var(--ypp-success)';
+        if (percent >= (cachedSettings?.staticFinishPercent ?? 100)) return 'var(--ypp-success)';
 
         const theme = isYouTubeDarkTheme() ? COLOR_CACHE.dark : COLOR_CACHE.light;
 
@@ -4750,6 +4702,19 @@ regular-item.ypp-fill-none {
         const b = startPoint.b + factor.db * ratio;
 
         return `rgb(${r}, ${g}, ${b})`;
+    }
+
+    function getProgressColorForText(percent) {
+        // Usar variables CSS del sistema para mantener contraste AAA (≥7:1)
+        if (percent <= 0) return 'var(--ypp-danger-text)';
+        if (percent >= (cachedSettings?.staticFinishPercent ?? 100)) return 'var(--ypp-success-text)';
+
+        // Transición con 5 rangos para coincidir mejor con getProgressColor (0%, 33%, 66%, 95%)
+        if (percent <= 20) return 'var(--ypp-danger-text)';
+        else if (percent <= 40) return 'var(--ypp-danger-warning-text)';
+        else if (percent <= 60) return 'var(--ypp-warning-text)';
+        else if (percent <= 80) return 'var(--ypp-warning-success-text)';
+        else return 'var(--ypp-success-text)';
     }
 
     // ------------------------------------------
@@ -8643,8 +8608,8 @@ regular-item.ypp-fill-none {
             isManual=${isManual}
         `);
 
-        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime)) {
-            return; // Preservar el mensaje importante
+        if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime) && !isManual) {
+            return; // Preservar el mensaje importante (excepto en modo manual)
         }
 
         // Actualizar contenido y visibilidad usando helper compartido
@@ -9436,7 +9401,7 @@ regular-item.ypp-fill-none {
                     </div>
 
                     <div style="margin-top: 10px; padding-top: 5px; border-top: 1px solid var(--ypp-border-color); font-size: 0.9em;">
-                        <strong style="color: var(--ypp-primary);">${t('githubCleanupGuide')}:</strong><br>
+                        <strong>${t('githubCleanupGuide')}:</strong><br>
                         - ${t('githubCleanupStep1')}<br>
                         - ${t('githubCleanupStep2')}
                     </div>
@@ -9515,11 +9480,11 @@ regular-item.ypp-fill-none {
         const header = createElement('div', { className: 'ypp-modalHeader' });
         setInnerHTML(header, `
             <h1 class="ypp-modalTitle">️${SVG_ICONS.settings} ${t('settings')} <span class="ypp-modalTitle-version">v${SCRIPT_VERSION}</span></h1>
-            <button class="ypp-btn ypp-btn-circle ypp-btn-close" aria-label="${t('close')}" title="${t('close')}" type="button">
+            <button class="ypp-btn ypp-btn-circle ypp-btn-outline-danger" id="btn-close-settings" aria-label="${t('close')}" title="${t('close')}" type="button">
                 ${SVG_ICONS.close}
             </button>
         `);
-        header.querySelector('.ypp-btn-close').addEventListener('click', closeModal);
+        header.querySelector('#btn-close-settings').addEventListener('click', closeModal);
 
         // Body
         const settingsHTML = `
@@ -10407,39 +10372,69 @@ regular-item.ypp-fill-none {
 
 
     /**
-     * Copia texto al portapapeles
+     * Copia texto al portapapeles usando Clipboard API
+     * @param {string} text - Texto a copiar
+     * @param {HTMLElement} button - Botón que muestra feedback visual
      */
     async function copyToClipboard(text, button) {
-        try {
-            await navigator.clipboard.writeText(text);
-            const originalText = button.innerHTML;
+        if (!text || !button) {
+            logWarn('copyToClipboard', 'Parámetros inválidos: text o button son undefined');
+            return;
+        }
+
+        const originalHTML = button.innerHTML;
+        const originalClassName = button.className;
+
+        // Helper para mostrar estado de éxito temporalmente
+        const showSuccess = (restoreIcon = SVG_ICONS.copy) => {
             setInnerHTML(button, `${SVG_ICONS.check} ${t('linkCopied')}`);
             button.className = 'ypp-btn ypp-btn-success';
-
             setTimeout(() => {
-                setInnerHTML(button, originalText);
-                button.className = 'ypp-btn ypp-btn-primary';
+                setInnerHTML(button, `${restoreIcon} ${t('copyLink')}`);
+                button.className = originalClassName;
             }, 2000);
+        };
 
+        try {
+            // Verificar si Clipboard API está disponible
+            if (!navigator.clipboard?.writeText) {
+                throw new Error('Clipboard API no disponible');
+            }
+
+            await navigator.clipboard.writeText(text);
+            showSuccess();
             logLog('copyToClipboard', 'Enlace copiado al portapapeles');
         } catch (err) {
-            logError('copyToClipboard', 'Error al copiar al portapapeles:', err);
-            // Fallback para navegadores que no soportan clipboard API
-            const textarea = createElement('textarea', {
-                value: text
-            });
-            document.body.appendChild(textarea);
-            textarea.select();
-            document.execCommand('copy');
-            document.body.removeChild(textarea);
+            logError('copyToClipboard', 'Error con Clipboard API, usando fallback:', err);
 
-            setInnerHTML(button, `${SVG_ICONS.check} ${t('linkCopied')}`);
-            button.className = 'ypp-btn ypp-btn-success';
+            // Fallback para navegadores antiguos o sin permisos
+            try {
+                const textarea = createElement('textarea', {
+                    value: text,
+                    style: 'position: fixed; opacity: 0; pointer-events: none;'
+                });
+                document.body.appendChild(textarea);
+                textarea.select();
 
-            setTimeout(() => {
-                setInnerHTML(button, `${SVG_ICONS.copy} ${t('copyLink')}`);
-                button.className = 'ypp-btn ypp-btn-primary';
-            }, 2000);
+                const successful = document.execCommand('copy');
+                document.body.removeChild(textarea);
+
+                if (successful) {
+                    showSuccess();
+                    logLog('copyToClipboard', 'Enlace copiado vía fallback execCommand');
+                } else {
+                    throw new Error('execCommand("copy") falló');
+                }
+            } catch (fallbackErr) {
+                logError('copyToClipboard', 'Fallback también falló:', fallbackErr);
+                // Mostrar error visual al usuario
+                setInnerHTML(button, `${SVG_ICONS.x} ${t('error')}`);
+                button.className = 'ypp-btn ypp-btn-danger';
+                setTimeout(() => {
+                    setInnerHTML(button, originalHTML);
+                    button.className = originalClassName;
+                }, 2000);
+            }
         }
     }
 
@@ -13091,7 +13086,7 @@ regular-item.ypp-fill-none {
             html: `${SVG_ICONS.clockRotateLeft} ${t('youtubePlaybackPlox')} <span class="ypp-modalTitle-version">v${SCRIPT_VERSION}</span>`
         });
         const closeBtn = createElement('button', {
-            className: 'ypp-btn ypp-btn-circle ypp-btn-close',
+            className: 'ypp-btn ypp-btn-circle ypp-btn-outline-danger',
             html: SVG_ICONS.close,
             atribute: { 'aria-label': t('close') },
             onClickEvent: closeModalVideos
@@ -13223,7 +13218,7 @@ regular-item.ypp-fill-none {
 
         const btnToggleManagement = createElement('button', {
             id: 'ypp-management-mode-btn',
-            className: 'ypp-btn ypp-btn-warning ypp-shadow-md',
+            className: 'ypp-btn ypp-btn-primary ypp-shadow-md',
             html: `${SVG_ICONS.compose} ${t('manageVideos')}`,
             onClickEvent: async () => { await toggleManagementMode(); }
         });
@@ -13273,9 +13268,10 @@ regular-item.ypp-fill-none {
     // ------------------------------------------
 
     /**
-     * Genera un color único basado en el hash de una cadena
+     * Genera un color de fondo para playlist basado en el hash de una cadena
+     * Usa variables CSS del sistema de botones que garantizan contraste AAA.
      * @param {string} str - Cadena para generar el color
-     * @returns {string} Color en formato HSL
+     * @returns {string} Variable CSS con opacity para fondo suave
      */
     function generatePlaylistColor(str) {
         if (!str) return 'var(--ypp-bg-secondary)';
@@ -13285,15 +13281,26 @@ regular-item.ypp-fill-none {
             hash = str.charCodeAt(i) + ((hash << 5) - hash);
         }
 
-        // Generar un tono entre 0-360, con saturación y luminosidad fijas para consistencia
-        const hue = Math.abs(hash) % 360;
-        return `hsl(${hue}, 45%, 95%)`; // Colores suaves para el fondo
+        // Usar paleta de colores del sistema que cumplen contraste AAA
+        // No usar --ypp-success para no chocar con .ypp-protected-item y tampoco usar --ypp-danger
+        const variants = [
+            'var(--ypp-primary)',
+            'var(--ypp-secondary)',
+            'var(--ypp-warning)',
+            'var(--ypp-info)',
+            'var(--ypp-alert)',
+            'var(--ypp-violet)',
+        ];
+        const index = Math.abs(hash) % variants.length;
+        // Versión con opacity para fondo suave (15%)
+        return `color-mix(in srgb, ${variants[index]}, transparent 85%)`;
     }
 
     /**
-     * Genera un color de borde más intenso para la playlist
+     * Genera un color de borde para playlist basado en el hash de una cadena
+     * Usa variables CSS del sistema de botones que garantizan contraste AAA.
      * @param {string} str - Cadena para generar el color
-     * @returns {string} Color en formato HSL
+     * @returns {string} Variable CSS para el borde
      */
     function generatePlaylistBorderColor(str) {
         if (!str) return 'var(--ypp-border)';
@@ -13303,8 +13310,18 @@ regular-item.ypp-fill-none {
             hash = str.charCodeAt(i) + ((hash << 5) - hash);
         }
 
-        const hue = Math.abs(hash) % 360;
-        return `hsl(${hue}, 60%, 70%)`; // Color más intenso para el borde
+        // Usar la misma paleta que el fondo para consistencia
+        // No usar --ypp-success para no chocar con .ypp-protected-item y tampoco usar --ypp-danger
+        const variants = [
+            'var(--ypp-primary)',
+            'var(--ypp-secondary)',
+            'var(--ypp-warning)',
+            'var(--ypp-info)',
+            'var(--ypp-alert)',
+            'var(--ypp-violet)',
+        ];
+        const index = Math.abs(hash) % variants.length;
+        return variants[index]; // Color completo para borde visible
     }
 
     async function handleForceTimeAction(videoId) {
@@ -13314,7 +13331,6 @@ regular-item.ypp-fill-none {
             logWarn('handleForceTimeAction', `No se encontró información para el video ${videoId}`);
             return;
         }
-
 
         let duration = normalizeSeconds(info.lengthSeconds) || 0;
 
@@ -13350,7 +13366,6 @@ regular-item.ypp-fill-none {
 
         await updateVideoList();
     }
-
 
     async function handleUnlinkPlaylistAction(videoId) {
         if (!confirm(t('confirmRemoveFromPlaylist'))) return;
@@ -13559,7 +13574,7 @@ regular-item.ypp-fill-none {
 
 
         const liveHtml = `<div class="ypp-progressInfo" style="font-weight: bold;">${SVG_ICONS.live} ${t('live')}</div>`;
-        const percentHtml = `<div class="ypp-progressInfo" style="color: ${getProgressColor(percent)}; font-weight: bold;">${SVG_ICONS.graph} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds(remaining))} ${t('remaining')})</div>`;
+        const percentHtml = `<div class="ypp-progressInfo" style="color: ${getProgressColorForText(percent)}; font-weight: bold;">${SVG_ICONS.graph} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds(remaining))} ${t('remaining')})</div>`;
 
         let progressHtml = '';
         if (!isCompleted) {
@@ -13753,13 +13768,10 @@ regular-item.ypp-fill-none {
         GM_registerMenuCommand(`📚 ${t('viewAllHistory')}`, async () => {
             // Guardar filtros y esperar a que se complete
             await Filters.set({ filterBy: 'all', searchQuery: '' });
-            // Establecer filtro global y mostrar lista
-            currentFilterBy = 'all';
             try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error abriendo listado de historial:', e); }
         });
         GM_registerMenuCommand(`✅ ${t('viewCompletedVideos')}`, async () => {
             await Filters.set({ filterBy: 'completed' });
-            currentFilterBy = 'completed';
             try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error abriendo listado de completados:', e); }
         });
     }
@@ -14180,6 +14192,16 @@ regular-item.ypp-fill-none {
                 /*  injectStyles(); */
                 injectProgressBarCSS();
                 logInfo('initializeGlobal', '✅ Comandos y estilos registrados');
+
+                // --- Aplicar tema de YouTube ---
+                try {
+                    applyTheme();
+                    observeThemeChanges();
+                    logInfo('initializeGlobal', '✅ Sistema de tema iniciado');
+                } catch (error) {
+                    logError('initializeGlobal', '❌ Error al iniciar sistema de tema:', error);
+                }
+
                 // Crear botón flotante si está habilitado en settings
                 if (typeof createFloatingButton === 'function') {
                     await createFloatingButton();

@@ -9,6 +9,7 @@
 - **Deprecated unescape Replacement**: Replaced deprecated `unescape()` function with modern `TextEncoder` for UTF-8 to base64 encoding in GitHub repository backup, eliminating TypeScript deprecation warnings.
 - **CSP Violation in Settings Modal**: Fixed Content-Security-Policy violation when opening the Settings modal by removing inline `oninput` handler from interval inputs and replacing with programmatic `addEventListener` calls. Also added validation to enforce minimum value of 1 for interval inputs.
 - **Code Style Improvements**: Replaced loose equality operators (`==`, `!=`) with strict equality operators (`===`, `!==`) in 14 null comparisons throughout the codebase to follow ES2025 best practices.
+- **Theme Detection**: Added `applyTheme()` function to set the attribute `[data-theme="dark"]` during initialization and `observeThemeChanges()` with MutationObserver to automatically update when YouTube toggles between light/dark modes.
 
 ### Added
 
@@ -21,6 +22,8 @@
 - **Granular Alert System**: Replaced the previous fixed alert styles with a granular system. Users can now independently toggle icons, messages, and timestamps for video alerts.
 - **Live Alert Preview**: Added a real-time preview in the Settings modal that shows exactly how alerts will look based on the selected configuration.
 - **History Button Toggle**: Added a new setting to show or hide the "Saved Videos" history button in the playback bar.
+- **Button System Refactor**: Refactored the button CSS system to use CSS custom properties (`--btn-bg`, `--btn-bg-hover`, `--btn-bg-active`, `--btn-color`) for each variant.
+- **Playlist Color Refactor**: Refactored `generatePlaylistColor()` and `generatePlaylistBorderColor()` to use CSS variables from the button system (`--ypp-primary`, `--ypp-info`, `--ypp-success`, `--ypp-warning`) instead of HSL color generation. This ensures AAA contrast compliance with the new button and text color system. Background colors use `color-mix()` with 15% opacity for a soft appearance, while borders use full color for visibility.
 
 ### Changed
 

@@ -6,7 +6,6 @@
     - **Sanitization**: Fixed a bug where non-numeric characters (like "e", ".", or "-") were allowed by switching inputs to `type="text"` with `inputmode="numeric"`.
     - **Auto-Preset Detection**: Added real-time synchronization so that if manual inputs match a standard preset (e.g., 0-0 for All, or 1M+), the dropdown automatically selects that preset instead of remaining as "Custom".
     - **Dynamic Icons**: The percentage range filter now updates its icon (0%, 33%, 66%, 100%) in real-time based on the minimum value selected, consistent with the video list design.
-
 - **Seek Message Persistence**: Fixed an issue where the "Resumed at X:XX" (seek) message would disappear even if the video remained paused. Now, the message persists while the video is paused and only clears after playback begins.
 - **Redundant Cleanup Loop**: Fixed an issue where `loadTranslations` would re-add the translation cache to `localStorage` on every load, causing `cleanupNonVideoData` to repeatedly perform migration logic and logs.
 - **Management Mode Selection Reset**: Fixed an issue where the selected videos count and button states remained active after deleting selected videos in Management Mode. Now calls `updateManagementFooterState()` after clearing selection to properly reset the UI state.
@@ -34,6 +33,8 @@
 
 ### Changed
 
+- **Motion & Spring UI**: Implemented cascading staggered entry animations for modal windows and applied organic spring physics interpolation (`cubic-bezier`) to Toast notifications and expanding filter panels for a fluid feel.
+- **Skeleton Loaders**: Replaced loading spinner with fully composed Skeleton UI cards reflecting layout structures.
 - **Alert Logic Refactor**: Completely refactored the internal alert construction logic to support dynamic combinations of icon, text, and time components.
 - **Settings UI Optimization**: Modernized the Notifications section of the settings modal for better clarity and usability.
 - **Metadata Synchronization**: Improved metadata extraction by leveraging the latest API refiring capabilities for better accuracy during seamless transitions.

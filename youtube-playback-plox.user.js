@@ -140,7 +140,7 @@
     'use strict';
 
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    const level = L.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const S = {
         debug: 'color:#6a9955;',
@@ -298,6 +298,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "rendered": "Rendered",
             "configurationSaved": "Configuration saved",
             "noSavedVideos": "No saved videos.",
+            "emptyStateSubtitle": "Try clearing your filters or exploring more videos.",
             "progressSaved": "Progress saved",
             "errorSaving": "Error saving progress",
             "unknownError": "Unknown error",
@@ -512,6 +513,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "rendered": "Renderizados",
             "configurationSaved": "Configuración guardada",
             "noSavedVideos": "No hay videos guardados.",
+            "emptyStateSubtitle": "Intenta borrar tus filtros o explorar más vídeos.",
             "progressSaved": "Progreso guardado",
             "errorSaving": "Error guardando progreso",
             "unknownError": "Error desconocido",
@@ -726,6 +728,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "rendered": "Rendus",
             "configurationSaved": "Configuration enregistrée",
             "noSavedVideos": "Aucune vidéo enregistrée.",
+            "emptyStateSubtitle": "Essayez de vider vos filtres ou d'explorer plus de vidéos.",
             "progressSaved": "Progrès enregistré",
             "errorSaving": "Erreur lors de l'enregistrement de la progression",
             "unknownError": "Erreur inconnue",
@@ -1637,7 +1640,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     /* Tipografía */
     --ypp-text: #1b1b1bff;
     --ypp-text-secondary: #393939;
-    --ypp-font-base: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    --ypp-font-base: system-ui, -apple-system, BlinkMacSystemFont, "Roboto", "Segoe UI", "Helvetica Neue", sans-serif;
 
     /*
      * Tokens semánticos para texto
@@ -1886,11 +1889,143 @@ regular-item.ypp-fill-none {
 
             flex-direction: column;
     opacity: 0;
+    box-shadow: 
+        0 8px 30px rgba(0, 0, 0, 0.15);
     -webkit-transform: translate(-50%, -50%) translateY(20px) scale(0.95);
         -ms-transform: translate(-50%, -50%) translateY(20px) scale(0.95);
             transform: translate(-50%, -50%) translateY(20px) scale(0.95);
     -webkit-animation: videosModalSlideIn 0.3s ease-out forwards;
             animation: videosModalSlideIn 0.3s ease-out forwards;
+}
+
+:root[data-theme="dark"] .ypp-videosContainer {
+    box-shadow: 
+        inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
+        0 8px 30px rgba(0, 0, 0, 0.4);
+}
+
+.ypp-videosContainer > *, .ypp-modalBox > * {
+    opacity: 0;
+    -webkit-animation: ypp-stagger-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+            animation: ypp-stagger-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.ypp-videosContainer > *:nth-child(1), .ypp-modalBox > *:nth-child(1) { -webkit-animation-delay: 50ms; animation-delay: 50ms; }
+.ypp-videosContainer > *:nth-child(2), .ypp-modalBox > *:nth-child(2) { -webkit-animation-delay: 100ms; animation-delay: 100ms; }
+.ypp-videosContainer > *:nth-child(3), .ypp-modalBox > *:nth-child(3) { -webkit-animation-delay: 150ms; animation-delay: 150ms; }
+.ypp-videosContainer > *:nth-child(4), .ypp-modalBox > *:nth-child(4) { -webkit-animation-delay: 200ms; animation-delay: 200ms; }
+.ypp-videosContainer > *:nth-child(5), .ypp-modalBox > *:nth-child(5) { -webkit-animation-delay: 250ms; animation-delay: 250ms; }
+
+@-webkit-keyframes ypp-stagger-fade-in {
+    from { opacity: 0; -webkit-transform: translateY(15px); }
+    to { opacity: 1; -webkit-transform: translateY(0); }
+}
+
+@keyframes ypp-stagger-fade-in {
+    from { opacity: 0; transform: translateY(15px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@-webkit-keyframes ypp-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+@keyframes ypp-pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+}
+
+.ypp-skeleton-container {
+    display: flex;
+    flex-direction: column;
+    padding: 0 16px; /* Padding for scrollbar track alignment */
+    width: 100%;
+    box-sizing: border-box;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+}
+
+.ypp-skeleton-entry {
+    display: flex;
+    gap: 16px;
+    background: transparent;
+    border-bottom: 1px solid var(--ypp-border);
+    padding: 12px 16px;
+    height: 120px;
+    align-items: center;
+}
+
+.ypp-skeleton-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
+.ypp-skeleton-circle {
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    border: 1px solid var(--ypp-border);
+    background: transparent;
+    -webkit-animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.ypp-skeleton-thumb {
+    width: 140px;
+    height: 80px;
+    background: var(--ypp-border);
+    border-radius: 6px;
+    -webkit-animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.ypp-skeleton-lines {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.ypp-skeleton-line {
+    height: 12px;
+    background: var(--ypp-border);
+    border-radius: 4px;
+    -webkit-animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+            animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+.ypp-skeleton-line.title { width: 80%; height: 16px; margin-bottom: 4px; }
+.ypp-skeleton-line.meta { width: 40%; }
+.ypp-skeleton-line.meta-short { width: 60%; }
+
+.ypp-empty-state-composed {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 80px 20px;
+    text-align: center;
+    color: var(--ypp-muted);
+
+    svg {
+        width: 64px;
+        height: 64px;
+        margin-bottom: 20px;
+        opacity: 0.4;
+    }
+
+    h3 {
+        margin: 0 0 10px 0;
+        font-size: 1.6rem;
+        color: var(--ypp-text);
+        font-weight: 500;
+    }
+
+    p {
+        margin: 0;
+        font-size: 1.3rem;
+    }
 }
 
 @-webkit-keyframes videosModalSlideIn {
@@ -1907,12 +2042,6 @@ regular-item.ypp-fill-none {
         -webkit-transform: translate(-50%, -50%) translateY(0) scale(1);
                 transform: translate(-50%, -50%) translateY(0) scale(1);
     }
-}
-
-.ypp-virtual-loading {
-    display: flex;
-    align-items: center;
-    gap: var(--ypp-spacing-sm)
 }
 
 /* =========================
@@ -2085,10 +2214,20 @@ regular-item.ypp-fill-none {
     -webkit-box-shadow: none;
             box-shadow: none;
 
-    &:hover,
-    &:active,
+    &:hover {
+        background: var(--ypp-primary-hover);
+    }
+
+    &:active {
+        background: var(--ypp-primary-hover);
+        transform: scale(0.94);
+        transition: transform 0.1s ease;
+    }
+
     &:focus-visible {
         background: var(--ypp-primary-hover);
+        outline: transparent;
+        box-shadow: 0 0 0 2px var(--ypp-bg-time-display), 0 0 0 4px var(--ypp-primary);
     }
 }
 
@@ -2161,6 +2300,8 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-filters-top-row {
+    position: relative;
+    z-index: 10;
     display: flex;
     align-items: center;
     /* gap: var(--ypp-spacing-md); */
@@ -2232,6 +2373,17 @@ regular-item.ypp-fill-none {
     &:hover {
         background: var(--ypp-bg-secondary);
     }
+
+    &:active {
+        transform: scale(0.96);
+        background: var(--ypp-bg-secondary);
+        transition: transform 0.1s ease;
+    }
+
+    &:focus-visible {
+        outline: transparent;
+        box-shadow: inset 0 0 0 2px var(--ypp-primary);
+    }
 }
 
 
@@ -2259,25 +2411,36 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-filters-advanced {
-    transition: max-height 0.25s ease-out, padding 0.25s ease, opacity 0.2s ease;
+    position: relative;
+    z-index: 5;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.3s ease;
     background: var(--ypp-bg-secondary);
-    border-bottom: 1px solid var(--ypp-border);
-    display: none;
+    border-bottom: 0 solid var(--ypp-border);
+    display: flex;
+    flex-direction: column;
+    /* overflow: hidden; */
+    max-height: 0;
+    opacity: 0;
     padding: 0 var(--ypp-spacing-lg);
+    gap: var(--ypp-spacing-sm);
+    pointer-events: none;
+    -webkit-animation: none !important;
+            animation: none !important;
+}
 
-    &.expanded {
-        display: flex;
-        flex-direction: column;
-        gap: var(--ypp-spacing-sm);
-        padding: var(--ypp-spacing-sm) var(--ypp-spacing-lg);
-    }
+.ypp-filters-advanced.expanded {
+    max-height: 90%;
+    /* max-height: 200px; */
+    opacity: 1;
+    padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
+    border-bottom: 1px solid var(--ypp-border);
+    pointer-events: auto;
 }
 
 .ypp-filters-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--ypp-spacing-md);
-    align-items: start;
 }
 
 .ypp-range-filter-section {
@@ -2526,21 +2689,6 @@ regular-item.ypp-fill-none {
             box-sizing: border-box;
 }
 
-.ypp-virtual-loading {
-    display: -webkit-box;
-    display: -ms-flexbox;
-    display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
-    padding: var(--ypp-spacing-lg);
-    color: var(--ypp-text);
-    font-size: 2rem;
-}
-
 .ypp-virtual-stats {
     position: sticky;
     top: 0;
@@ -2680,13 +2828,6 @@ regular-item.ypp-fill-none {
 /* =========================
    Tipografía
 ========================= */
-
-.ypp-emptyMsg {
-    text-align: center;
-    color: var(--ypp-muted);
-    padding: 40px 24px;
-    font-size: 1.6rem;
-}
 
 .ypp-playlistTitle {
     margin: 8px 0 4px;
@@ -3493,9 +3634,10 @@ regular-item.ypp-fill-none {
     border: 1px solid var(--ypp-border);
     font-size: 1.4rem;
     max-width: 300px;
-    -webkit-animation: slideInRight 0.3s ease-out;
-            animation: slideInRight 0.3s ease-out;
-    -webkit-transition: opacity 0.2s ease;
+    -webkit-animation: ypp-spring-toast-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            animation: ypp-spring-toast-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    -webkit-transition: opacity 0.2s ease, -webkit-transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     -o-transition: opacity 0.2s ease;
     transition: opacity 0.2s ease;
     -webkit-backdrop-filter: blur(10px);
@@ -3518,6 +3660,16 @@ regular-item.ypp-fill-none {
     -webkit-transform: scaleX(1);
         -ms-transform: scaleX(1);
             transform: scaleX(1);
+}
+
+@-webkit-keyframes ypp-spring-toast-in {
+    0% { opacity: 0; -webkit-transform: translateY(20px) scale(0.9); }
+    100% { opacity: 1; -webkit-transform: translateY(0) scale(1); }
+}
+
+@keyframes ypp-spring-toast-in {
+    0% { opacity: 0; transform: translateY(20px) scale(0.9); }
+    100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .ypp-toast.persistent {
@@ -10916,7 +11068,7 @@ regular-item.ypp-fill-none {
             let lastMiniplayerSrc = '';
 
             observers.miniplayer = new MutationObserver((mutations) => {
-                // miniplayer no puede existir en /watch — destruir su display si quedó huérfano
+                // miniplayer no puede existir en /watch - destruir su display si quedó huérfano
                 if (currentPageType === 'watch') {
                     destroyMiniplayerTimeDisplay();
                     return;
@@ -12445,6 +12597,7 @@ regular-item.ypp-fill-none {
         };
 
         const getProgressIcon = (p) => {
+            if (p >= 99)  return SVG_ICONS.check;
             if (p >= 95) return SVG_ICONS.progressOneHundred;
             if (p >= 66) return SVG_ICONS.progressSixtySix;
             if (p >= 33) return SVG_ICONS.progressThirtyThree;
@@ -12740,12 +12893,26 @@ regular-item.ypp-fill-none {
 
         // Si el scroller ya existe, solo actualizar stats sin destruir el DOM
         const scrollerElCheck = document.getElementById('ypp-virtual-scroller-container');
-        let loadingIndicator = listContainer.querySelector('.ypp-virtual-loading');
+        let loadingIndicator = listContainer.querySelector('.ypp-skeleton-container');
 
         if (!loadingIndicator) {
             loadingIndicator = createElement('div', {
-                className: 'ypp-virtual-loading',
-                html: `${SVG_ICONS.spinner} ${t('loading')}...`
+                className: 'ypp-skeleton-container',
+                html: Array(4).fill(`
+                    <div class="ypp-skeleton-entry">
+                        <div class="ypp-skeleton-thumb"></div>
+                        <div class="ypp-skeleton-lines">
+                            <div class="ypp-skeleton-line title"></div>
+                            <div class="ypp-skeleton-line meta"></div>
+                            <div class="ypp-skeleton-line meta-short"></div>
+                        </div>
+                        <div class="ypp-skeleton-actions">
+                            <div class="ypp-skeleton-circle"></div>
+                            <div class="ypp-skeleton-circle"></div>
+                            <div class="ypp-skeleton-circle"></div>
+                        </div>
+                    </div>
+                `).join('')
             });
         }
 
@@ -12756,30 +12923,38 @@ regular-item.ypp-fill-none {
                 virtualScroller = null;
             }
             setInnerHTML(listContainer, '');
+            const dummyStats = createElement('div', {
+                className: 'ypp-virtual-stats',
+                id: 'ypp-virtual-stats',
+                style: 'display: none;', // Oculto durante el esqueleto
+                html: `${SVG_ICONS.spinner} ${t('loading')}...`
+            });
+            listContainer.appendChild(dummyStats);
             listContainer.appendChild(loadingIndicator);
         } else {
             // Actualización: usar overlay para no ocultar scroller y evitar pérdida de scroll/parpadeo
             loadingIndicator.style.cssText = `
                 position: absolute;
-                top: 0; left: 0; right: 0; bottom: 0;
-                background: rgba(15, 15, 15, 0.7);
-                display: flex;
-                align-items: center;
-                justify-content: center;
-                z-index: 1000;
-                color: var(--ypp-white);
-                backdrop-filter: blur(2px);
-                -webkit-backdrop-filter: blur(2px);
+                top: 35px; left: 0; right: 0; bottom: 0;
+                background: var(--ypp-bg);
+                z-index: 5;
+                overflow: hidden;
             `;
             if (!loadingIndicator.parentElement) listContainer.appendChild(loadingIndicator);
             loadingIndicator.style.display = 'flex';
 
             const statsEl = document.querySelector('#ypp-virtual-stats');
-            if (statsEl) setInnerHTML(statsEl, `${SVG_ICONS.spinner} ${t('loading')}...`);
+            if (statsEl) {
+                statsEl.style.display = 'flex'; // Asegurar visibilidad en actualización
+                setInnerHTML(statsEl, `${SVG_ICONS.spinner} ${t('loading')}...`);
+            }
         }
 
         // Guardar posición de scroll antes de actualizar
         const currentScrollTop = virtualScroller?.container?.scrollTop ?? 0;
+
+        // PARA CONGELAR LOS SKELETONS INFINITAMENTE, TESTEO
+        // await new Promise(() => {}); 
 
         const keys = await Storage.keys();
         // Cargar todos los datos en lotes paralelos
@@ -12953,7 +13128,7 @@ regular-item.ypp-fill-none {
         // Si ya existe el scroller y el contenedor en el DOM, solo actualizar items y restaurar scroll
         // Manejar estado vacío (sin resultados) para evitar que se quede la lista previa
         const scrollerEl = document.getElementById('ypp-virtual-scroller-container');
-        let emptyMsg = listContainer.querySelector('.ypp-emptyMsg');
+        let emptyMsg = listContainer.querySelector('.ypp-empty-state-composed');
 
         if (filteredItems.length === 0) {
             if (loadingIndicator) loadingIndicator.style.display = 'none';
@@ -12961,7 +13136,14 @@ regular-item.ypp-fill-none {
             if (virtualScroller) virtualScroller.updateItems([]);
 
             if (!emptyMsg) {
-                emptyMsg = createElement('p', { className: 'ypp-emptyMsg', text: t('noSavedVideos') });
+                emptyMsg = createElement('div', {
+                    className: 'ypp-empty-state-composed',
+                    html: `
+                        ${SVG_ICONS.search}
+                        <h3>${t('noSavedVideos')}</h3>
+                        <p>${t('emptyStateSubtitle')}</p>
+                    `
+                });
                 listContainer.appendChild(emptyMsg);
             }
             emptyMsg.style.display = 'block';
@@ -13014,12 +13196,10 @@ regular-item.ypp-fill-none {
         // Crear barra de estadísticas
         const statsBar = createElement('div', {
             className: 'ypp-virtual-stats',
-            id: 'ypp-virtual-stats'
+            id: 'ypp-virtual-stats',
+            html: `<span>${filteredItems.length} ${t('videos')}</span><span id="ypp-storage-usage"></span>`
         });
-        setInnerHTML(statsBar, `
-            <span>${filteredItems.length} ${t('videos')}</span>
-            <span id="ypp-storage-usage"></span>
-        `);
+        
         listContainer.appendChild(statsBar);
 
         DOMHelpers.removeExact('ui:storageUsage');
@@ -13306,7 +13486,7 @@ regular-item.ypp-fill-none {
 
         advancedSection.appendChild(filtersGrid);
 
-        // Range Filters group — se agrega a filtersGrid para que display:contents
+        // Range Filters group - se agrega a filtersGrid para que display:contents
         // los integre directamente como columns 3 y 4 del grid de 4 columnas.
         const rangeGroup = createElement('div', { className: 'ypp-range-filters-group' });
 

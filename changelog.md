@@ -2,6 +2,8 @@
 
 ### Fixed
 
+- **Fixed Time Completion**: Resolved a bug where video completion was not registered in the watch history when a video had a fixed start time. Additionally, fixed an issue where clicking "Replay" would reset the video to 0:00 instead of the fixed start time; the script now correctly detects replays and re-applies the saved fixed position.
+- **Fixed Time ReferenceError**: Fixed a `ReferenceError ('alertStyles' is not defined)` in `syncFixedTimeUI` that occurred when assigning a new fixed start time, migrating the alert style purely to dynamic configurations.
 - **Range Input Synchronization**: Improved the behavior of Views and Percentage range filters.
     - **Sanitization**: Fixed a bug where non-numeric characters (like "e", ".", or "-") were allowed by switching inputs to `type="text"` with `inputmode="numeric"`.
     - **Auto-Preset Detection**: Added real-time synchronization so that if manual inputs match a standard preset (e.g., 0-0 for All, or 1M+), the dropdown automatically selects that preset instead of remaining as "Custom".

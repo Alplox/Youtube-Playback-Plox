@@ -7593,7 +7593,7 @@ regular-item.ypp-fill-none {
      * Lógica interna compartida para guardar videos que no son Shorts ni Directos (Watch o Miniplayer).
      * @private
      */
-    async function internalSaveRegularVideo(currentTime, videoInfo, videoEl, logContext = 'saveRegularVideo', options = {}) {
+    async function internalSaveRegularVideo(player, currentTime, videoInfo, videoEl, logContext = 'saveRegularVideo', options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
 
 
@@ -7612,9 +7612,35 @@ regular-item.ypp-fill-none {
         if (sourceData && sourceData.forceResumeTime > 0) {
             if (isFinished) {
                 logLog(logContext, `Video ${videoId} completado, manteniendo tiempo fijo`);
-                // Normalizar para asegurar Format A y marcar como completado
-                const base = normalizeVideoData({ ...sourceData, isCompleted: true, watchProgress: 0 });
+
+                const session = activeProcessingSessions.get(videoEl);
+                const history = [...(sourceData.completionHistory || [])];
+
+                if (session && !session.hasLoggedCompletion) {
+                    history.push(now);
+                    session.hasLoggedCompletion = true;
+                    logInfo(logContext, `Registro de finalización añadido para video con tiempo fijo: ${videoId}`);
+                }
+
+                // Normalizar para asegurar Format A y marcar como completado, preservando el historial
+                const base = normalizeVideoData({
+                    ...sourceData,
+                    isCompleted: true,
+                    watchProgress: 0,
+                    completionHistory: history
+                });
                 await Storage.set(videoId, base);
+            } else if (currentTime < 1) {
+                // Detectar si el usuario pulsó "Replay" (el tiempo saltó a < 1s en una sesión activa tras completarse)
+                const session = activeProcessingSessions.get(videoEl);
+                if (session && session.hasLoggedCompletion) {
+                    logLog(logContext, `Replay detectado para video con tiempo fijo (${videoId}). Re-aplicando seek a ${sourceData.forceResumeTime}s`);
+                    // Resetear bandera para permitir registrar la siguiente finalización
+                    session.hasLoggedCompletion = false;
+                    // Re-aplicar el resume (que se encarga de re-notificar el seek)
+                    PlaybackController.resume(player, videoId, videoEl, sourceData, session.type);
+                    return { success: false, reason: 'replay_fixed_time_reapplied' };
+                }
             }
             return { success: false, reason: 'fixed_time_no_overwrite' };
         }
@@ -7662,8 +7688,8 @@ regular-item.ypp-fill-none {
      * @param {Object} videoInfo - Información del video
      * @returns {Object} Resultado
      */
-    async function saveRegularVideo(currentTime, videoInfo, videoEl, options = {}) {
-        return await internalSaveRegularVideo(currentTime, videoInfo, videoEl, 'saveRegularVideo', options);
+    async function saveRegularVideo(player, currentTime, videoInfo, videoEl, options = {}) {
+        return await internalSaveRegularVideo(player, currentTime, videoInfo, videoEl, 'saveRegularVideo', options);
     }
 
     // MARK: 💾 Save Miniplayer
@@ -7673,8 +7699,8 @@ regular-item.ypp-fill-none {
      * @param {Object} videoInfo - Información del video
      * @returns {Object} Resultado
      */
-    async function saveMiniplayer(currentTime, videoInfo, videoEl, options = {}) {
-        return await internalSaveRegularVideo(currentTime, videoInfo, videoEl, 'saveMiniplayer', options);
+    async function saveMiniplayer(player, currentTime, videoInfo, videoEl, options = {}) {
+        return await internalSaveRegularVideo(player, currentTime, videoInfo, videoEl, 'saveMiniplayer', options);
     }
 
     // MARK: 💾 Save Shorts
@@ -7684,7 +7710,7 @@ regular-item.ypp-fill-none {
      * @param {Object} videoInfo - Información del short (videoId, title, author, duration, etc.)
      * @returns {Object} Resultado de la operación
      */
-    async function saveShortsVideo(currentTime, videoInfo, videoEl, options = {}) {
+    async function saveShortsVideo(player, currentTime, videoInfo, videoEl, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
         logLog('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
 
@@ -7696,6 +7722,43 @@ regular-item.ypp-fill-none {
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
         const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
+
+        // Si tiene tiempo fijo, no sobreescribir
+        if (sourceData && sourceData.forceResumeTime > 0) {
+            if (isFinished) {
+                logLog('saveShortsVideo', `Short ${videoId} completado, manteniendo tiempo fijo`);
+
+                const session = activeProcessingSessions.get(videoEl);
+                const history = [...(sourceData.completionHistory || [])];
+
+                if (session && !session.hasLoggedCompletion) {
+                    history.push(now);
+                    session.hasLoggedCompletion = true;
+                    logInfo('saveShortsVideo', `Registro de finalización añadido para short con tiempo fijo: ${videoId}`);
+                }
+
+                // Normalizar para asegurar Format A y marcar como completado, preservando el historial
+                const base = normalizeVideoData({
+                    ...sourceData,
+                    isCompleted: true,
+                    watchProgress: 0,
+                    completionHistory: history
+                });
+                await Storage.set(videoId, base);
+            } else if (currentTime < 1) {
+                // Detectar si el usuario pulsó "Replay" (el tiempo saltó a < 1s en una sesión activa tras completarse)
+                const session = activeProcessingSessions.get(videoEl);
+                if (session && session.hasLoggedCompletion) {
+                    logLog('saveShortsVideo', `Replay detectado para short con tiempo fijo (${videoId}). Re-aplicando seek a ${sourceData.forceResumeTime}s`);
+                    // Resetear bandera para permitir registrar la siguiente finalización
+                    session.hasLoggedCompletion = false;
+                    // Re-aplicar el resume
+                    PlaybackController.resume(player, videoId, videoEl, sourceData, session.type);
+                    return { success: false, reason: 'replay_fixed_time_reapplied' };
+                }
+            }
+            return { success: false, reason: 'fixed_time_no_overwrite' };
+        }
 
         const videoData = {
             ...sourceData,
@@ -7743,7 +7806,7 @@ regular-item.ypp-fill-none {
      * @param {string} previewType - 'preview_watch' o 'preview_shorts'
      * @returns {Object} Resultado de la operación
      */
-    async function savePreview(currentTime, videoInfo, videoEl, previewType, options = {}) {
+    async function savePreview(player, currentTime, videoInfo, videoEl, previewType, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
         logLog('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
 
@@ -7819,7 +7882,7 @@ regular-item.ypp-fill-none {
      * @param {HTMLVideoElement} videoEl - Elemento de video
      * @returns {Object} Resultado de la operación
      */
-    async function saveLivestream(currentTime, videoInfo, videoEl, options = {}) {
+    async function saveLivestream(player, currentTime, videoInfo, videoEl, options = {}) {
         const { videoId, lengthSeconds: duration } = videoInfo;
         logLog('saveLivestream', `Guardando livestream ${videoId} en ${currentTime}s`);
 
@@ -8437,11 +8500,29 @@ regular-item.ypp-fill-none {
             if (currentPlayerId === videoId) {
                 if (isFixedTime) {
                     display.dataset.isFixedTime = 'true';
-                    // Generar y mostrar mensaje persistente
+                    // Extraer preferencias de configuración con fallbacks
+                    const {
+                        showAlertIcon = CONFIG.defaultSettings.showAlertIcon,
+                        showAlertText = CONFIG.defaultSettings.showAlertText,
+                        showAlertTime = CONFIG.defaultSettings.showAlertTime
+                    } = cachedSettings;
+
                     const timeStr = formatTime(normalizeSeconds(timeValue));
                     const icon = `${SVG_ICONS.stopWatch}${SVG_ICONS.pin}`;
-                    const text = `${t('alwaysStartFrom')}: ${timeStr}`;
-                    const message = (alertStyles[cachedSettings.alertStyle])(icon, text, timeStr);
+                    const baseText = t('alwaysStartFrom');
+
+                    let message = "";
+                    if (showAlertIcon) message += icon + " ";
+                    if (showAlertText) message += baseText;
+                    if (showAlertTime) {
+                        if (showAlertText) message += ": " + timeStr;
+                        else message += timeStr;
+                    }
+                    message = message.trim();
+
+                    // Si el usuario tiene todo desactivado, forzar mostrar *algo* en este caso crítico
+                    if (!message) message = icon;
+
                     showDisplayMessage(display, message);
                 } else {
                     delete display.dataset.isFixedTime;
@@ -11763,7 +11844,8 @@ regular-item.ypp-fill-none {
             const currentTime = videoEl.currentTime || (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
             const duration = videoEl.duration || (typeof player?.getDuration === 'function' ? player.getDuration() : 0);
 
-            if (!isFinite(currentTime) || currentTime < 0.1 || isNaN(duration) || duration <= 0) return;
+            // Permitir times muy bajos (0) para detectar "Replay" en videos con tiempo fijo
+            if (!isFinite(currentTime) || currentTime < 0 || isNaN(duration) || duration <= 0) return;
 
             if (videoEl.paused) {
                 logInfo('saveStatus', `Video ${type} - ${videoId} pausado`)
@@ -11844,10 +11926,10 @@ regular-item.ypp-fill-none {
             try {
                 switch (finalType) {
                     case 'live':
-                        result = await saveLivestream(currentTime, videoInfo, videoEl, saveOptions);
+                        result = await saveLivestream(player, currentTime, videoInfo, videoEl, saveOptions);
                         break;
                     case 'shorts':
-                        result = await saveShortsVideo(currentTime, videoInfo, videoEl, saveOptions);
+                        result = await saveShortsVideo(player, currentTime, videoInfo, videoEl, saveOptions);
                         break;
                     case 'preview':
                         {
@@ -11865,17 +11947,17 @@ regular-item.ypp-fill-none {
                                 videoEl.dataset.yppShortsPreview = String(isShortsPreview);
                             }
                             const specificPreviewType = isShortsPreview ? 'preview_shorts' : 'preview_watch';
-                            result = await savePreview(currentTime, videoInfo, videoEl, specificPreviewType, saveOptions);
+                            result = await savePreview(player, currentTime, videoInfo, videoEl, specificPreviewType, saveOptions);
                         }
                         break;
                     case 'watch':
-                        result = await saveRegularVideo(currentTime, videoInfo, videoEl, saveOptions);
+                        result = await saveRegularVideo(player, currentTime, videoInfo, videoEl, saveOptions);
                         break;
                     case 'miniplayer':
-                        result = await saveMiniplayer(currentTime, videoInfo, videoEl, saveOptions);
+                        result = await saveMiniplayer(player, currentTime, videoInfo, videoEl, saveOptions);
                         break;
                     default:
-                        result = await saveRegularVideo(currentTime, videoInfo, videoEl, saveOptions);
+                        result = await saveRegularVideo(player, currentTime, videoInfo, videoEl, saveOptions);
                         break;
                 }
             } catch (e) {
@@ -12597,7 +12679,7 @@ regular-item.ypp-fill-none {
         };
 
         const getProgressIcon = (p) => {
-            if (p >= 99)  return SVG_ICONS.check;
+            if (p >= 99) return SVG_ICONS.check;
             if (p >= 95) return SVG_ICONS.progressOneHundred;
             if (p >= 66) return SVG_ICONS.progressSixtySix;
             if (p >= 33) return SVG_ICONS.progressThirtyThree;
@@ -13199,7 +13281,7 @@ regular-item.ypp-fill-none {
             id: 'ypp-virtual-stats',
             html: `<span>${filteredItems.length} ${t('videos')}</span><span id="ypp-storage-usage"></span>`
         });
-        
+
         listContainer.appendChild(statsBar);
 
         DOMHelpers.removeExact('ui:storageUsage');

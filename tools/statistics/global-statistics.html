@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>YPP - Viewing Timeline</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../shared.css" />
+    <style>
+        :root {
+            --surface2: var(--surface-2);
+            --accent2: var(--success);
+            --danger: var(--danger);
+            --muted: var(--text-muted);
+            --dot-size: 10px;
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Header ── */
+        header {
+            padding: 28px 40px 24px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        header svg {
+            flex-shrink: 0;
+        }
+
+        header h1 {
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: -.5px;
+        }
+
+        header p {
+            font-size: .8rem;
+            color: var(--muted);
+            margin-top: 2px;
+        }
+
+        /* ── Drop zone ── */
+        #drop-zone {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 20px;
+            padding: 60px 24px;
+            cursor: pointer;
+            transition: background .2s;
+        }
+
+        #drop-zone.drag-over {
+            background: #1e1e30;
+        }
+
+        #drop-zone .icon {
+            font-size: 3.5rem;
+        }
+
+        #drop-zone h2 {
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        #drop-zone p {
+            font-size: .85rem;
+            color: var(--muted);
+        }
+
+        #drop-zone label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 24px;
+            border-radius: 999px;
+            background: var(--accent);
+            color: #fff;
+            font-size: .85rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .15s;
+        }
+
+        #drop-zone label:hover {
+            opacity: .85;
+        }
+
+        #file-input {
+            display: none;
+        }
+
+        /* ── Main content ── */
+        #app {
+            display: none;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        #app.visible {
+            display: flex;
+        }
+
+        /* toolbar */
+        #toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 16px 32px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            flex-wrap: wrap;
+        }
+
+        #toolbar input[type="search"] {
+            flex: 1;
+            min-width: 220px;
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            padding: 8px 14px;
+            font-size: .85rem;
+            outline: none;
+            transition: border-color .15s;
+        }
+
+        #toolbar input[type="search"]:focus {
+            border-color: var(--accent);
+        }
+
+        #toolbar select {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: var(--text);
+            padding: 8px 12px;
+            font-size: .85rem;
+            cursor: pointer;
+            outline: none;
+        }
+
+        #stat-bar {
+            display: flex;
+            gap: 24px;
+            padding: 12px 32px;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            font-size: .8rem;
+            color: var(--muted);
+            flex-wrap: wrap;
+        }
+
+        #stat-bar span b {
+            color: var(--text);
+        }
+
+        /* ── Timeline ── */
+        #timeline-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 28px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .video-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            transition: border-color .2s;
+        }
+
+        .video-card:hover {
+            border-color: var(--accent);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: flex-start;
+            gap: 14px;
+            padding: 16px 20px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .card-thumb {
+            width: 100px;
+            height: 56px;
+            border-radius: 6px;
+            object-fit: cover;
+            flex-shrink: 0;
+            background: var(--surface2);
+        }
+
+        .card-info {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .card-title {
+            font-size: .9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .card-meta {
+            display: flex;
+            gap: 16px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: .72rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: var(--surface2);
+            color: var(--muted);
+            border: 1px solid var(--border);
+        }
+
+        .chip.accent {
+            background: #2a2545;
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+
+        .chip.green {
+            background: #1a3028;
+            border-color: var(--accent2);
+            color: var(--accent2);
+        }
+
+        .chip.red {
+            background: #2e1a1a;
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        .card-toggle {
+            font-size: .75rem;
+            color: var(--muted);
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+
+        .card-body {
+            display: none;
+            padding: 0 20px 20px;
+            flex-direction: column;
+            gap: 18px;
+            border-top: 1px solid var(--border);
+            padding-top: 16px;
+        }
+
+        .card-body.open {
+            display: flex;
+        }
+
+        /* ── Heatmap ── */
+        .section-label {
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            margin-bottom: 6px;
+        }
+
+        .heatmap {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+        }
+
+        .heat-cell {
+            width: 13px;
+            height: 13px;
+            border-radius: 3px;
+            background: var(--surface2);
+            cursor: default;
+            transition: transform .1s;
+            position: relative;
+        }
+
+        .heat-cell:hover {
+            transform: scale(1.4);
+            z-index: 10;
+        }
+
+        .heat-cell[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: -30px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111;
+            color: #fff;
+            font-size: .65rem;
+            padding: 3px 7px;
+            border-radius: 5px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* ── Event timeline ── */
+        .event-rail {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .event-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: .78rem;
+            color: var(--muted);
+        }
+
+        .event-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--accent);
+            flex-shrink: 0;
+        }
+
+        .event-item .ts {
+            color: var(--text);
+            font-variant-numeric: tabular-nums;
+        }
+
+        .event-item .dow {
+            color: var(--accent2);
+            font-size: .7rem;
+        }
+
+        /* ── Hour distribution ── */
+        .hour-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 3px;
+            height: 40px;
+        }
+
+        .hour-bar {
+            flex: 1;
+            background: var(--accent);
+            border-radius: 2px 2px 0 0;
+            min-height: 2px;
+            opacity: .7;
+            transition: opacity .15s;
+            cursor: default;
+            position: relative;
+        }
+
+        .hour-bar:hover {
+            opacity: 1;
+        }
+
+        .hour-labels {
+            display: flex;
+            gap: 3px;
+            margin-top: 2px;
+        }
+
+        .hour-lbl {
+            flex: 1;
+            font-size: .55rem;
+            color: var(--muted);
+            text-align: center;
+        }
+
+        .empty-state {
+            color: var(--muted);
+            font-size: .82rem;
+            font-style: italic;
+        }
+
+        /* ── scrollbar ── */
+        #timeline-container::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        #timeline-container::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        #timeline-container::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 99px;
+        }
+
+        /* ── reset btn ── */
+        #reset-btn {
+            padding: 7px 16px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: transparent;
+            color: var(--muted);
+            cursor: pointer;
+            font-size: .8rem;
+            transition: border-color .15s, color .15s;
+            margin-left: auto;
+        }
+
+        #reset-btn:hover {
+            border-color: var(--danger);
+            color: var(--danger);
+        }
+
+        /* ── Global Analytics Panel ── */
+        #analytics-panel {
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            padding: 20px 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .analytics-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 16px;
+        }
+
+        @media (max-width: 800px) {
+            .analytics-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .analytics-card {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+        }
+
+        .analytics-card h3 {
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        /* Year heatmap */
+        #year-heatmap-wrap {
+            background: var(--surface2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 14px 16px;
+        }
+
+        #year-heatmap-wrap h3 {
+            font-size: .72rem;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: var(--muted);
+            margin-bottom: 10px;
+        }
+
+        #year-heatmap {
+            display: flex;
+            gap: 3px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .yhm-col {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .yhm-cell {
+            width: 11px;
+            height: 11px;
+            border-radius: 2px;
+            flex-shrink: 0;
+            cursor: default;
+            transition: transform .1s;
+            position: relative;
+        }
+
+        .yhm-cell:hover {
+            transform: scale(1.5);
+            z-index: 10;
+        }
+
+        .yhm-cell[title]:hover::after {
+            content: attr(title);
+            position: absolute;
+            top: -28px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #111;
+            color: #fff;
+            font-size: .6rem;
+            padding: 2px 6px;
+            border-radius: 4px;
+            white-space: nowrap;
+            pointer-events: none;
+            z-index: 100;
+        }
+
+        /* Top channels */
+        .channel-bar-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: .75rem;
+            margin-bottom: 5px;
+        }
+
+        .channel-bar-label {
+            min-width: 100px;
+            max-width: 130px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            color: var(--text);
+        }
+
+        .channel-bar-track {
+            flex: 1;
+            height: 6px;
+            background: var(--border);
+            border-radius: 99px;
+            overflow: hidden;
+        }
+
+        .channel-bar-fill {
+            height: 100%;
+            background: var(--accent);
+            border-radius: 99px;
+        }
+
+        .channel-bar-count {
+            color: var(--muted);
+            min-width: 28px;
+            text-align: right;
+        }
+
+        /* Weekday bars */
+        .wday-bars {
+            display: flex;
+            align-items: flex-end;
+            gap: 5px;
+            height: 50px;
+        }
+
+        .wday-bar {
+            flex: 1;
+            background: var(--accent2);
+            border-radius: 3px 3px 0 0;
+            min-height: 2px;
+            opacity: .75;
+            cursor: default;
+        }
+
+        .wday-bar:hover {
+            opacity: 1;
+        }
+
+        .wday-labels {
+            display: flex;
+            gap: 5px;
+            margin-top: 4px;
+        }
+
+        .wday-lbl {
+            flex: 1;
+            font-size: .6rem;
+            color: var(--muted);
+            text-align: center;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <svg width="30" height="30" viewBox="0 0 30 30" fill="none">
+            <rect width="30" height="30" rx="8" fill="#7c6fff" />
+            <polygon points="11,8 24,15 11,22" fill="white" />
+        </svg>
+        <div>
+            <h1>YPP Viewing Timeline</h1>
+            <p>YouTube Playback Plox - Offline Analytics</p>
+        </div>
+    </header>
+
+    <!-- Drop zone -->
+    <div id="drop-zone">
+        <div class="icon"><img src="../icons/file-directory-24.svg" alt="" width="56" height="56" style="color: var(--icon-muted);"></div>
+        <h2>Load your backup</h2>
+        <p>Drop a YPP backup <code>.json</code> file here, or click to browse</p>
+        <label>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+            </svg>
+            Open JSON
+            <input type="file" id="file-input" accept=".json" />
+        </label>
+    </div>
+
+    <!-- App -->
+    <div id="app">
+        <div id="toolbar">
+            <input type="search" id="search" placeholder="Search video title or channel…" />
+            <select id="sort-select">
+                <option value="total-desc">Most watched first</option>
+                <option value="total-asc">Least watched first</option>
+                <option value="recent">Most recently watched</option>
+                <option value="title">Title A→Z</option>
+            </select>
+            <select id="filter-type">
+                <option value="all">All types</option>
+                <option value="video">Video</option>
+                <option value="shorts">Shorts</option>
+                <option value="live">Live</option>
+            </select>
+            <button id="reset-btn">✕ Reset</button>
+        </div>
+        <div id="stat-bar">
+            <span>Videos loaded: <b id="s-total">0</b></span>
+            <span>With completion data: <b id="s-with">0</b></span>
+            <span>Total completions: <b id="s-comps">0</b></span>
+            <span>Date range: <b id="s-range">-</b></span>
+        </div>
+
+        <!-- Global analytics -->
+        <div id="analytics-panel">
+            <div id="year-heatmap-wrap">
+                <h3><img src="../icons/calendar-24.svg" alt="" width="18" height="18" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-primary);">Completions Calendar (all videos)</h3>
+                <div id="year-heatmap"></div>
+            </div>
+            <div class="analytics-grid">
+                <div class="analytics-card" id="hour-card">
+                    <h3><img src="../icons/clock-24.svg" alt="" width="18" height="18" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-primary);">Activity by hour of day</h3>
+                    <div id="global-hour-bars" class="hour-bars"></div>
+                    <div class="hour-labels">
+                        <div class="hour-lbl">0h</div>
+                        <div class="hour-lbl" style="flex:6">6h</div>
+                        <div class="hour-lbl" style="flex:6">12h</div>
+                        <div class="hour-lbl" style="flex:6">18h</div>
+                        <div class="hour-lbl">23h</div>
+                    </div>
+                </div>
+                <div class="analytics-card" id="wday-card">
+                    <h3><img src="../icons/calendar-24.svg" alt="" width="18" height="18" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-primary);">Activity by day of week</h3>
+                    <div id="global-wday-bars" class="wday-bars"></div>
+                    <div class="wday-labels" id="global-wday-labels"></div>
+                </div>
+                <div class="analytics-card" id="channel-card">
+                    <h3><img src="../icons/megaphone-24.svg" alt="" width="18" height="18" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-primary);">Most-watched channels</h3>
+                    <div id="global-channels"></div>
+                </div>
+            </div>
+        </div>
+
+        <div id="timeline-container"></div>
+    </div>
+
+    <script>
+        'use strict';
+
+        const $ = id => document.getElementById(id);
+        const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+        const fmtDate = ts => new Date(ts).toLocaleDateString(undefined, { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric' });
+        const fmtTime = ts => new Date(ts).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+        const fmtFull = ts => `${fmtDate(ts)} · ${fmtTime(ts)}`;
+
+        let allVideos = [];
+
+        // ── Drag & Drop ──────────────────────────────────────────────
+        const dropZone = $('drop-zone');
+        const fileInput = $('file-input');
+
+        ['dragenter', 'dragover'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.add('drag-over'); }));
+        ['dragleave', 'drop'].forEach(e => dropZone.addEventListener(e, ev => { ev.preventDefault(); dropZone.classList.remove('drag-over'); }));
+        dropZone.addEventListener('drop', ev => loadFile(ev.dataTransfer.files[0]));
+        fileInput.addEventListener('change', ev => loadFile(ev.target.files[0]));
+
+        function loadFile(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = e => {
+                try { processData(JSON.parse(e.target.result)); }
+                catch (err) { alert('Could not parse JSON: ' + err.message); }
+            };
+            reader.readAsText(file);
+        }
+
+        /**
+         * Normaliza y valida el historial de completados para la herramienta offline.
+         * Alineado con el formato actual del userscript:
+         * `completionHistory: { events:number[], daily:Record<string, number>, total:number }`
+         * @param {any} completionHistory - Dato crudo (objeto, array legacy o undefined)
+         * @param {boolean} isCompleted - Estado completado del video
+         * @param {number|null} timeWatched - Timestamp guardado del último guardado/completado
+         * @returns {{events:number[], daily:Record<string, number>, total:number} | null}
+         */
+        function normalizeCompletionHistory(completionHistory, isCompleted, timeWatched) {
+            const now = Date.now();
+            /** @type {{events:number[], daily:Record<string, number>, total:number}} */
+            let history;
+
+            if (completionHistory && typeof completionHistory === 'object' && !Array.isArray(completionHistory) && Array.isArray(completionHistory.events)) {
+                history = {
+                    events: Array.isArray(completionHistory.events) ? [...completionHistory.events] : [],
+                    daily: completionHistory.daily && typeof completionHistory.daily === 'object' ? { ...completionHistory.daily } : {},
+                    total: Number.isFinite(completionHistory.total) ? completionHistory.total : (completionHistory.events?.length || 0)
+                };
+            } else if (Array.isArray(completionHistory) && completionHistory.length > 0) {
+                history = { events: [...completionHistory], daily: {}, total: completionHistory.length };
+            } else {
+                history = null;
+            }
+
+            // Sembrado retrocompatible (igual idea que normalizeVideoData del script)
+            if (!history && isCompleted && Number.isFinite(timeWatched) && timeWatched > 0) {
+                history = { events: [timeWatched], daily: {}, total: 1 };
+            }
+
+            if (!history) return null;
+
+            // Sanitizar / validar timestamps
+            history.events = history.events
+                .filter(ts => Number.isFinite(ts) && ts > 0 && ts < (now + 60000))
+                .sort((a, b) => a - b);
+
+            history.total = Number.isFinite(history.total) ? history.total : history.events.length;
+            if (history.total < history.events.length) history.total = history.events.length;
+
+            // Regenerar daily si falta o está vacío
+            if (!history.daily || typeof history.daily !== 'object') history.daily = {};
+            if (history.events.length > 0 && Object.keys(history.daily).length === 0) {
+                history.daily = {};
+                history.events.forEach(ts => {
+                    const day = new Date(ts).toISOString().slice(0, 10);
+                    history.daily[day] = (history.daily[day] || 0) + 1;
+                });
+            }
+
+            return history;
+        }
+
+        // ── Data Processing ──────────────────────────────────────────
+        function processData(raw) {
+            // Accept both array format and object-keyed format
+            const entries = Array.isArray(raw)
+                ? raw
+                : Object.entries(raw).map(([k, v]) => (typeof v === 'object' && v !== null ? { videoId: k, ...v } : null)).filter(Boolean);
+
+            allVideos = entries
+                .filter(v => v && (v.videoId || v.id))
+                .map(v => {
+                    const id = v.videoId || v.id;
+
+                    const isCompleted = !!v.isCompleted;
+                    const timeWatched = Number.isFinite(v.timeWatched) ? v.timeWatched : null;
+                    const history = normalizeCompletionHistory(v.completionHistory, isCompleted, timeWatched);
+
+                    return {
+                        id,
+                        title: v.title || id,
+                        author: v.author || '',
+                        type: v.type || 'video',
+                        watchProgress: v.watchProgress || 0,
+                        lengthSeconds: v.lengthSeconds || 0,
+                        isCompleted,
+                        timeWatched,
+                        history
+                    };
+                });
+
+            renderStats();
+            renderGlobalAnalytics();
+            renderTimeline();
+            dropZone.style.display = 'none';
+            const app = $('app');
+            app.classList.add('visible');
+        }
+
+        // ── Stats bar ──────────────────────────────────────────────────
+        function renderStats() {
+            const withHistory = allVideos.filter(v => v.history);
+            let totalComps = 0, allTs = [];
+            withHistory.forEach(v => {
+                totalComps += v.history.total;
+                allTs.push(...v.history.events);
+            });
+            allTs.sort((a, b) => a - b);
+            $('s-total').textContent = allVideos.length;
+            $('s-with').textContent = withHistory.length;
+            $('s-comps').textContent = totalComps;
+            $('s-range').textContent = allTs.length
+                ? `${new Date(allTs[0]).toLocaleDateString()} → ${new Date(allTs[allTs.length - 1]).toLocaleDateString()}`
+                : '-';
+        }
+
+        // ── Sorting & Filtering ────────────────────────────────────────
+        function getSorted(videos) {
+            const sort = $('sort-select').value;
+            const type = $('filter-type').value;
+            const query = $('search').value.toLowerCase();
+
+            let filtered = videos.filter(v => {
+                if (type !== 'all' && v.type !== type) return false;
+                if (query && !v.title.toLowerCase().includes(query) && !v.author.toLowerCase().includes(query)) return false;
+                return true;
+            });
+
+            return filtered.sort((a, b) => {
+                if (sort === 'total-desc') return (b.history?.total || 0) - (a.history?.total || 0);
+                if (sort === 'total-asc') return (a.history?.total || 0) - (b.history?.total || 0);
+                if (sort === 'recent') {
+                    const la = a.history?.events?.at(-1) || a.timeWatched || 0;
+                    const lb = b.history?.events?.at(-1) || b.timeWatched || 0;
+                    return lb - la;
+                }
+                if (sort === 'title') return a.title.localeCompare(b.title);
+                return 0;
+            });
+        }
+
+        // ── Heatmap ──────────────────────────────────────────────────
+        function buildHeatmap(daily) {
+            const keys = Object.keys(daily).sort();
+            if (!keys.length) return `<p class="empty-state">No daily data</p>`;
+
+            const max = Math.max(...Object.values(daily));
+            const cells = keys.map(day => {
+                const count = daily[day];
+                const intensity = max > 0 ? count / max : 0;
+                const color = `hsla(255, 100%, 75%, ${0.15 + intensity * 0.85})`;
+                const d = new Date(day + 'T00:00:00Z');
+                const label = `${DAYS[d.getUTCDay()]} ${day} - ${count} view${count !== 1 ? 's' : ''}`;
+                return `<div class="heat-cell" style="background:${color}" title="${label}"></div>`;
+            }).join('');
+            return `<div class="heatmap">${cells}</div>`;
+        }
+
+        // ── Hour distribution ───────────────────────────────────────
+        function buildHourChart(events) {
+            const counts = new Array(24).fill(0);
+            events.forEach(ts => counts[new Date(ts).getHours()]++);
+            const max = Math.max(...counts, 1);
+            const bars = counts.map((c, h) => {
+                const pct = Math.round((c / max) * 100);
+                const label = `${String(h).padStart(2, '0')}:00 - ${c} view${c !== 1 ? 's' : ''}`;
+                return `<div class="hour-bar" style="height:${Math.max(pct, 3)}%" title="${label}"></div>`;
+            }).join('');
+            const lbls = [0, 6, 12, 18, 23].map(h => `<div class="hour-lbl" style="flex:${h === 23 ? 1 : 5}">${String(h).padStart(2, '0')}</div>`).join('');
+            return `<div class="hour-bars">${bars}</div>
+          <div class="hour-labels">
+            <div class="hour-lbl">0h</div>
+            <div class="hour-lbl" style="flex:6">6h</div>
+            <div class="hour-lbl" style="flex:6">12h</div>
+            <div class="hour-lbl" style="flex:6">18h</div>
+            <div class="hour-lbl">23h</div>
+          </div>`;
+        }
+
+        // ── Card Builder ─────────────────────────────────────────────
+        function buildCard(v, idx) {
+            const typeColor = { video: '', shorts: 'green', live: 'red' }[v.type] || '';
+            const thumbUrl = `https://i.ytimg.com/vi/${v.id}/mqdefault.jpg`;
+            const watchUrl = v.type === 'shorts'
+                ? `https://www.youtube.com/shorts/${v.id}`
+                : `https://www.youtube.com/watch?v=${v.id}`;
+            const secondsEpsilon = 0.75;
+            const isNearEnd = Number.isFinite(v.lengthSeconds) && v.lengthSeconds > 0 && (v.watchProgress >= (v.lengthSeconds - secondsEpsilon));
+            const pct = v.lengthSeconds > 0
+                ? (v.isCompleted || isNearEnd
+                    ? 100
+                    : Math.min(100, Math.round((v.watchProgress / v.lengthSeconds) * 100)))
+                : 0;
+
+            let bodyHtml = '';
+
+            if (v.history && v.history.events.length > 0) {
+                const events = [...v.history.events].sort((a, b) => a - b);
+
+                // Heatmap section
+                bodyHtml += `
+      <div>
+        <div class="section-label"><img src="../icons/calendar-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Heatmap (by day)</div>
+        ${buildHeatmap(v.history.daily)}
+      </div>
+      <div>
+        <div class="section-label"><img src="../icons/clock-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Activity by hour</div>
+        ${buildHourChart(events)}
+      </div>
+      <div>
+        <div class="section-label"><img src="../icons/clock-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Event Log (${events.length} event${events.length !== 1 ? 's' : ''})</div>
+        <div class="event-rail">
+          ${events.slice().reverse().map(ts => `
+            <div class="event-item">
+              <div class="event-dot"></div>
+              <span class="ts">${fmtFull(ts)}</span>
+              <span class="dow">${DAYS[new Date(ts).getDay()]}</span>
+            </div>`).join('')}
+        </div>
+      </div>`;
+            } else {
+                bodyHtml = `<p class="empty-state">No completion events recorded for this video.</p>`;
+            }
+
+            return `
+    <div class="video-card" id="card-${idx}">
+      <div class="card-header" onclick="toggleCard(${idx})">
+        <img class="card-thumb"
+             src="${thumbUrl}"
+             onerror="this.src='data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2256%22><rect width=%22100%25%22 height=%22100%25%22 fill=%22%231e1e26%22/></svg>'"
+             loading="lazy" alt="" />
+        <div class="card-info">
+          <div class="card-title">${escHtml(v.title)}</div>
+          <div class="card-meta">
+            ${v.author ? `<span class="chip">${escHtml(v.author)}</span>` : ''}
+            <span class="chip ${typeColor}">${v.type}</span>
+            ${v.history ? `<span class="chip accent"><img src="../icons/check-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-success);">${v.history.total} watch${v.history.total !== 1 ? 'es' : ''}</span>` : ''}
+            ${v.isCompleted ? `<span class="chip green">Completed</span>` : (pct > 0 ? `<span class="chip">${pct}%</span>` : '')}
+            ${v.history?.events?.length ? `<span class="chip">Last: ${fmtDate(Math.max(...v.history.events))}</span>` : ''}
+          </div>
+          <div class="card-meta" style="margin-top:4px">
+            <a href="${watchUrl}" target="blank" style="font-size:.7rem;color:var(--accent);text-decoration:none;"><img src="../icons/play-24.svg" alt="" width="12" height="12" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-accent);">Open on YouTube</a>
+          </div>
+        </div>
+        <div class="card-toggle" id="toggle-${idx}"><img src="../icons/chevron-down-16.svg" alt="" width="16" height="16" style="color: var(--icon-muted);"></div>
+      </div>
+      <div class="card-body" id="body-${idx}">
+        ${bodyHtml}
+      </div>
+    </div>`;
+        }
+
+        function toggleCard(idx) {
+            const body = $(`body-${idx}`);
+            const toggle = $(`toggle-${idx}`);
+            const open = body.classList.toggle('open');
+            toggle.innerHTML = open ? '<img src="../icons/chevron-up-16.svg" alt="" width="16" height="16" style="color: var(--icon-muted);">' : '<img src="../icons/chevron-down-16.svg" alt="" width="16" height="16" style="color: var(--icon-muted);">';
+        }
+
+        function escHtml(s) {
+            return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+        }
+
+        // ── Global Analytics ─────────────────────────────────────────
+        function renderGlobalAnalytics() {
+            const allTs = [];
+            const dailyMap = {};
+            const hourCounts = new Array(24).fill(0);
+            const wdayCounts = new Array(7).fill(0);
+            const channelMap = {};
+
+            allVideos.forEach(v => {
+                if (!v.history) return;
+                v.history.events.forEach(ts => {
+                    allTs.push(ts);
+                    const day = new Date(ts).toISOString().slice(0, 10);
+                    dailyMap[day] = (dailyMap[day] || 0) + 1;
+                    hourCounts[new Date(ts).getHours()]++;
+                    wdayCounts[new Date(ts).getDay()]++;
+                });
+                if (v.author && v.history.total > 0) {
+                    channelMap[v.author] = (channelMap[v.author] || 0) + v.history.total;
+                }
+            });
+
+            buildYearHeatmap(dailyMap, allTs);
+            buildGlobalHourChart(hourCounts);
+            buildGlobalWdayChart(wdayCounts);
+            buildTopChannels(channelMap);
+        }
+
+        function buildYearHeatmap(dailyMap, allTs) {
+            const container = $('year-heatmap');
+            if (!allTs.length) { container.innerHTML = '<p class="empty-state">No data</p>'; return; }
+
+            const max = Math.max(...Object.values(dailyMap), 1);
+            const last = new Date(Math.max(...allTs));
+            const first = new Date(last);
+            first.setFullYear(last.getFullYear() - 1);
+
+            const start = new Date(first);
+            start.setDate(start.getDate() - start.getDay());
+
+            const weeks = [];
+            const cur = new Date(start);
+            while (cur <= last) {
+                const col = [];
+                for (let d = 0; d < 7; d++) {
+                    const iso = cur.toISOString().slice(0, 10);
+                    const count = dailyMap[iso] || 0;
+                    const inRange = cur >= first && cur <= last;
+                    if (inRange) {
+                        const intensity = count / max;
+                        const color = count
+                            ? `hsla(255, 100%, 75%, ${0.12 + intensity * 0.88})`
+                            : 'var(--surface)';
+                        const label = count ? `${iso} - ${count} completion${count !== 1 ? 's' : ''}` : iso;
+                        col.push(`<div class="yhm-cell" style="background:${color}" title="${label}"></div>`);
+                    } else {
+                        col.push(`<div class="yhm-cell" style="background:transparent"></div>`);
+                    }
+                    cur.setDate(cur.getDate() + 1);
+                }
+                weeks.push(`<div class="yhm-col">${col.join('')}</div>`);
+            }
+            container.innerHTML = weeks.join('');
+        }
+
+        function buildGlobalHourChart(counts) {
+            const max = Math.max(...counts, 1);
+            $('global-hour-bars').innerHTML = counts.map((c, h) => {
+                const pct = Math.round((c / max) * 100);
+                return `<div class="hour-bar" style="height:${Math.max(pct, 2)}%" title="${String(h).padStart(2, '0')}:00 - ${c} event${c !== 1 ? 's' : ''}"></div>`;
+            }).join('');
+        }
+
+        function buildGlobalWdayChart(counts) {
+            const max = Math.max(...counts, 1);
+            $('global-wday-bars').innerHTML = counts.map((c, i) => {
+                const pct = Math.round((c / max) * 100);
+                return `<div class="wday-bar" style="height:${Math.max(pct, 2)}%" title="${DAYS[i]} - ${c} event${c !== 1 ? 's' : ''}"></div>`;
+            }).join('');
+            $('global-wday-labels').innerHTML = DAYS.map(d => `<div class="wday-lbl">${d}</div>`).join('');
+        }
+
+        function buildTopChannels(channelMap) {
+            const sorted = Object.entries(channelMap).sort((a, b) => b[1] - a[1]).slice(0, 8);
+            const maxVal = sorted[0]?.[1] || 1;
+            $('global-channels').innerHTML = sorted.length
+                ? sorted.map(([ch, n]) => `
+                    <div class="channel-bar-row">
+                        <span class="channel-bar-label" title="${escHtml(ch)}">${escHtml(ch)}</span>
+                        <div class="channel-bar-track"><div class="channel-bar-fill" style="width:${Math.round(n / maxVal * 100)}%"></div></div>
+                        <span class="channel-bar-count">${n}</span>
+                    </div>`).join('')
+                : '<p class="empty-state">No channel data</p>';
+        }
+
+        // ── Render ───────────────────────────────────────────────────
+        function renderTimeline() {
+            const sorted = getSorted(allVideos);
+            const container = $('timeline-container');
+            if (!sorted.length) {
+                container.innerHTML = `<p class="empty-state" style="padding:40px;text-align:center">No videos match your filter.</p>`;
+                return;
+            }
+            container.innerHTML = sorted.map((v, i) => buildCard(v, i)).join('');
+        }
+
+        // ── Controls ─────────────────────────────────────────────────
+        $('search').addEventListener('input', renderTimeline);
+        $('sort-select').addEventListener('change', renderTimeline);
+        $('filter-type').addEventListener('change', renderTimeline);
+        $('reset-btn').addEventListener('click', () => {
+            $('search').value = '';
+            $('sort-select').value = 'total-desc';
+            $('filter-type').value = 'all';
+            $('app').classList.remove('visible');
+            dropZone.style.display = '';
+            fileInput.value = '';
+            allVideos = [];
+        });
+    </script>
+</body>
+
+</html>

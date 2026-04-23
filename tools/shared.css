@@ -1,0 +1,140 @@
+/* Shared theme for tools pages (import from tool HTML files)
+   Source of truth: tools/converters/to-obsidian.html */
+
+/* ── Reset & Tokens ─────────────────────────────────── */
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+
+:root {
+    --bg: #0e0f11;
+    --surface: #161820;
+    --surface-2: #1e2027;
+    --border: #2a2d3a;
+    /* Single desaturated accent color (teal, saturation < 80%) */
+    --accent: #4fd1c5;
+    --accent-dim: rgba(79, 209, 197, 0.12);
+    /* Semantic colors - neutral base with accent for success */
+    --danger: #f87171;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --success: #4fd1c5;
+    --warning: #fbbf24;
+    --radius: 12px;
+    --radius-sm: 8px;
+    --shadow: 0 4px 32px rgba(0, 0, 0, 0.4);
+    /* Icon colors - better contrast with dark background */
+    --icon-primary: #f1f5f9;
+    --icon-muted: #94a3b8;
+    --icon-accent: #4fd1c5;
+    --icon-success: #4fd1c5;
+    --icon-danger: #f87171;
+    --icon-warning: #fbbf24;
+}
+
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+}
+
+a {
+    color: inherit;
+}
+
+:focus-visible {
+    outline: 2px solid rgba(79, 209, 197, 0.5);
+    outline-offset: 3px;
+}
+
+/* Convenience: allow pages to opt into the Obsidian-tool centered layout */
+body.ypp-tool-centered {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 2rem 1rem 4rem;
+    gap: 2rem;
+}
+
+body.ypp-tool-centered header {
+    max-width: 700px;
+}
+
+.logo {
+    display: inline-flex;
+    align-items: center;
+    gap: .6rem;
+    font-size: .8rem;
+    font-weight: 600;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.logo-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--accent);
+    border-radius: 50%;
+}
+
+body.ypp-tool-centered h1 {
+    font-size: clamp(1.8rem, 4vw, 2.6rem);
+    font-weight: 700;
+    line-height: 1.2;
+    color: var(--text);
+    margin-bottom: .75rem;
+}
+
+header p {
+    color: var(--text-muted);
+    font-size: .95rem;
+    line-height: 1.6;
+}
+
+.card {
+    width: 100%;
+    max-width: 720px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 2rem;
+    box-shadow: var(--shadow);
+}
+
+/* Icon utility classes for consistent sizing */
+.icon-inline {
+    display: inline-flex;
+    align-items: center;
+    vertical-align: middle;
+}
+
+.icon-inline img {
+    display: block;
+}
+
+.icon-sm {
+    width: 16px;
+    height: 16px;
+}
+
+.icon-md {
+    width: 18px;
+    height: 18px;
+}
+
+.icon-lg {
+    width: 24px;
+    height: 24px;
+}
+
+.icon-xl {
+    width: 32px;
+    height: 32px;
+}

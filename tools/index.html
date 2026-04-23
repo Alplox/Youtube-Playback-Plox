@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Playback Plox - Tools</title>
+    <meta name="description" content="Browser-based tools for YouTube Playback Plox: converters and statistics for your saved watch history.">
+    <meta name="color-scheme" content="dark">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #ff2d2d;
+            --primary-dark: #e31212;
+            --bg: #0b0c10;
+            --surface: rgba(255, 255, 255, 0.06);
+            --surface-hover: rgba(255, 255, 255, 0.09);
+            --text: #f5f6f8;
+            --text-secondary: rgba(245, 246, 248, 0.72);
+            --border: rgba(255, 255, 255, 0.12);
+            --shadow: rgba(255, 45, 45, 0.12);
+            --radius: 14px;
+            --radius-sm: 10px;
+        }
+
+        body {
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.6;
+            min-height: 100dvh;
+            text-rendering: geometricPrecision;
+        }
+
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            pointer-events: none;
+            background:
+                radial-gradient(900px 500px at 20% 5%, rgba(255, 45, 45, 0.14), transparent 60%),
+                radial-gradient(800px 450px at 85% 20%, rgba(255, 45, 45, 0.08), transparent 65%);
+            opacity: 0.95;
+            z-index: 0;
+        }
+
+        .skip-link {
+            position: absolute;
+            left: -9999px;
+            top: 10px;
+            background: rgba(255, 255, 255, 0.12);
+            border: 1px solid var(--border);
+            color: var(--text);
+            padding: 10px 12px;
+            border-radius: 10px;
+            text-decoration: none;
+            z-index: 10;
+        }
+
+        .skip-link:focus {
+            left: 12px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            position: relative;
+            z-index: 1;
+        }
+
+        header {
+            text-align: center;
+            padding: 3.25rem 0 2.75rem;
+            border-bottom: 1px solid var(--border);
+            margin-bottom: 3rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .logo svg {
+            width: 64px;
+            height: 64px;
+        }
+
+        h1 {
+            font-size: clamp(2.1rem, 3.2vw, 2.75rem);
+            font-weight: 760;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.04em;
+            line-height: 1.05;
+            text-wrap: balance;
+        }
+
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+        }
+
+        .get-script-section {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.075), rgba(255, 255, 255, 0.045));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2.5rem;
+            margin-bottom: 3rem;
+            text-align: center;
+            box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
+        }
+
+        .get-script-section h2 {
+            font-size: 1.75rem;
+            margin-bottom: 1rem;
+        }
+
+        .get-script-section p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .install-buttons {
+            display: flex;
+            gap: 1rem;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .install-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.875rem 1.75rem;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 650;
+            letter-spacing: -0.01em;
+            text-decoration: none;
+            cursor: pointer;
+            transition: background 220ms ease, transform 120ms ease, box-shadow 220ms ease;
+            will-change: transform;
+        }
+
+        .install-btn:hover {
+            background: var(--primary-dark);
+            transform: translateY(-1px);
+            box-shadow: 0 12px 30px var(--shadow);
+        }
+
+        .install-btn:active {
+            transform: translateY(0px) scale(0.99);
+        }
+
+        .install-btn:focus-visible {
+            outline: 2px solid rgba(255, 45, 45, 0.65);
+            outline-offset: 3px;
+        }
+
+        .install-btn svg {
+            width: 20px;
+            height: 20px;
+            fill: white;
+        }
+
+        .install-btn.secondary {
+            background: var(--surface-hover);
+            border: 1px solid var(--border);
+        }
+
+        .install-btn.secondary:hover {
+            background: var(--border);
+        }
+
+        .requirements {
+            margin-top: 1.5rem;
+            padding: 1rem;
+            background: rgba(255, 0, 0, 0.1);
+            border-radius: 8px;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .requirements strong {
+            color: var(--primary);
+        }
+
+        .tools-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 2rem;
+            margin-bottom: 3rem;
+        }
+
+        .tool-card {
+            background: linear-gradient(180deg, rgba(255, 255, 255, 0.065), rgba(255, 255, 255, 0.04));
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 2rem;
+            transition: transform 180ms ease, box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
+            cursor: pointer;
+            text-decoration: none;
+            color: inherit;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.22);
+        }
+
+        .tool-card:hover {
+            background: var(--surface-hover);
+            border-color: var(--primary);
+            transform: translateY(-4px);
+            box-shadow: 0 16px 60px rgba(0, 0, 0, 0.32), 0 14px 44px var(--shadow);
+        }
+
+        .tool-card:active {
+            transform: translateY(-2px) scale(0.995);
+        }
+
+        .tool-card:focus-visible {
+            outline: 2px solid rgba(255, 45, 45, 0.65);
+            outline-offset: 4px;
+        }
+
+        .tool-icon {
+            width: 56px;
+            height: 56px;
+            margin-bottom: 1.5rem;
+            padding: 12px;
+            background: radial-gradient(80px 80px at 30% 30%, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.05)),
+                linear-gradient(180deg, rgba(255, 45, 45, 0.9), rgba(227, 18, 18, 0.9));
+            border-radius: 14px;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.14);
+        }
+
+        .tool-icon svg {
+            width: 100%;
+            height: 100%;
+            fill: white;
+        }
+
+        .tool-card h2 {
+            font-size: 1.5rem;
+            margin-bottom: 0.75rem;
+            font-weight: 600;
+        }
+
+        .tool-card p {
+            color: var(--text-secondary);
+            margin-bottom: 1.5rem;
+            flex-grow: 1;
+        }
+
+        .tool-meta {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+        }
+
+        .tool-meta span {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: rgba(255, 45, 45, 0.16);
+            border: 1px solid rgba(255, 45, 45, 0.28);
+            color: white;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        footer {
+            text-align: center;
+            padding: 2rem 0;
+            border-top: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        footer a {
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 2rem;
+            }
+
+            .tools-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <a class="skip-link" href="#tools">Skip to tools</a>
+    <div class="container">
+        <header>
+            <div class="logo">
+                <svg viewBox="0 0 24 24" fill="#ff0000">
+                    <path d="M19.615 3.184c-3.604-.246-11.631-.245-15.23 0-3.897.266-4.356 2.62-4.385 8.816.029 6.185.484 8.549 4.385 8.816 3.6.245 11.626.246 15.23 0 3.897-.266 4.356-2.62 4.385-8.816-.029-6.185-.484-8.549-4.385-8.816zm-10.615 12.816v-8l8 3.993-8 4.007z"/>
+                </svg>
+                <h1>YouTube Playback Plox</h1>
+            </div>
+            <p class="subtitle">Browser-based tools for managing your YouTube watch history</p>
+        </header>
+
+        <section class="get-script-section">
+            <h2><img src="icons/download-24.svg" alt="" width="20" height="20" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-accent);">Get the Script</h2>
+            <p>Install the main userscript to save your YouTube video progress, manage your watch history, and more.</p>
+            <div class="install-buttons">
+                <a href="https://github.com/Alplox/Youtube-Playback-Plox/raw/main/youtube-playback-plox.user.js" class="install-btn">
+                    <svg viewBox="0 0 24 24"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM5 18v2h14v-2H5z"/></svg>
+                    Install Script
+                </a>
+                <a href="https://github.com/Alplox/Youtube-Playback-Plox" target="_blank" class="install-btn secondary">
+                    <svg viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+                    View on GitHub
+                </a>
+            </div>
+            <div class="requirements">
+                <strong><img src="icons/alert-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-warning);">Requires:</strong> Tampermonkey, ScriptCat, or Firemonkey userscript manager
+            </div>
+        </section>
+
+        <main id="tools">
+            <h2 style="margin-bottom: 2rem; font-size: 1.75rem;"><img src="icons/tools-24.svg" alt="" width="28" height="28" style="vertical-align: text-bottom; margin-right: 8px; color: var(--icon-primary);">Browser Tools</h2>
+            <div class="tools-grid">
+            <!-- Convert to Obsidian -->
+            <a href="converters/to-obsidian.html" class="tool-card">
+                <div class="tool-icon">
+               <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 512 512"><radialGradient id="b" cx="0" cy="0" r="1" gradientTransform="matrix(-59 -225 150 -39 161.4 470)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".4"/><stop offset="1" stop-opacity=".1"/></radialGradient><radialGradient id="c" cx="0" cy="0" r="1" gradientTransform="matrix(50 -379 280 37 360 374.2)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".6"/><stop offset="1" stop-color="#fff" stop-opacity=".1"/></radialGradient><radialGradient id="d" cx="0" cy="0" r="1" gradientTransform="matrix(69 -319 218 47 175.4 307)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".8"/><stop offset="1" stop-color="#fff" stop-opacity=".4"/></radialGradient><radialGradient id="e" cx="0" cy="0" r="1" gradientTransform="matrix(-96 -163 187 -111 335.3 512.2)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".3"/><stop offset="1" stop-opacity=".3"/></radialGradient><radialGradient id="f" cx="0" cy="0" r="1" gradientTransform="matrix(-36 166 -112 -24 310 128.2)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".2"/></radialGradient><radialGradient id="g" cx="0" cy="0" r="1" gradientTransform="matrix(88 89 -190 187 111 220.2)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity=".4"/></radialGradient><radialGradient id="h" cx="0" cy="0" r="1" gradientTransform="matrix(9 130 -276 20 215 284)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity=".3"/></radialGradient><radialGradient id="i" cx="0" cy="0" r="1" gradientTransform="matrix(-198 -104 327 -623 400 399.2)" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".2"/><stop offset=".5" stop-color="#fff" stop-opacity=".2"/><stop offset="1" stop-color="#fff" stop-opacity=".3"/></radialGradient><clipPath id="a"><path d="M.2.2h512v512H.2z"/></clipPath><g clip-path="url(#a)"><path fill="#fff" stroke="#000" stroke-opacity=".25" d="M382.3 475.6c-3.1 23.4-26 41.6-48.7 35.3-32.4-8.9-69.9-22.8-103.6-25.4l-51.7-4a34 34 0 0 1-22-10.2l-89-91.7a34 34 0 0 1-6.7-37.7s55-121 57.1-127.3c2-6.3 9.6-61.2 14-90.6 1.2-7.9 5-15 11-20.3L248 8.9a34.1 34.1 0 0 1 49.6 4.3L386 125.6a37 37 0 0 1 7.6 22.4c0 21.3 1.8 65 13.6 93.2 11.5 27.3 32.5 57 43.5 71.5a17.3 17.3 0 0 1 1.3 19.2 1494 1494 0 0 1-44.8 70.6c-15 22.3-21.9 49.9-25 73.1z"/><path fill="url(#b)" d="M165.9 478.3c41.4-84 40.2-144.2 22.6-187-16.2-39.6-46.3-64.5-70-80-.6 2.3-1.3 4.4-2.2 6.5L60.6 342a34 34 0 0 0 6.6 37.7l89.1 91.7a34 34 0 0 0 9.6 7z"/><path fill="url(#c)" d="M278.4 307.8c11.2 1.2 22.2 3.6 32.8 7.6 34 12.7 65 41.2 90.5 96.3 1.8-3.1 3.6-6.2 5.6-9.2a1536 1536 0 0 0 44.8-70.6 17 17 0 0 0-1.3-19.2c-11-14.6-32-44.2-43.5-71.5-11.8-28.2-13.5-72-13.6-93.2 0-8.1-2.6-16-7.6-22.4L297.6 13.2a34 34 0 0 0-1.5-1.7 96 96 0 0 1 2 54 198.3 198.3 0 0 1-17.6 41.3l-7.2 14.2a171 171 0 0 0-19.4 71c-1.2 29.4 4.8 66.4 24.5 115.8"/><path fill="url(#d)" d="M278.4 307.8c-19.7-49.4-25.8-86.4-24.5-115.9a171 171 0 0 1 19.4-71c2.3-4.8 4.8-9.5 7.2-14.1 7.1-13.9 14-27 17.6-41.4a96 96 0 0 0-2-54A34.1 34.1 0 0 0 248 9l-105.4 94.8a34.1 34.1 0 0 0-10.9 20.3l-12.8 85-.5 2.3c23.8 15.5 54 40.4 70.1 80a147 147 0 0 1 7.8 24.8c28-6.8 55.7-11 82.1-8.3z"/><path fill="url(#e)" d="M333.6 511c22.7 6.2 45.6-12 48.7-35.4a187 187 0 0 1 19.4-63.9c-25.6-55-56.5-83.6-90.4-96.3-36-13.4-75.2-9-115 .7 8.9 40.4 3.6 93.3-30.4 162.2 4 1.8 8.1 3 12.5 3.3 0 0 24.4 2 53.6 4.1 29 2 72.4 17.1 101.6 25.2z"/><g fill-rule="evenodd" clip-rule="evenodd"><path fill="url(#f)" d="M254.1 190c-1.3 29.2 2.4 62.8 22.1 112.1l-6.2-.5c-17.7-51.5-21.5-78-20.2-107.6a174.7 174.7 0 0 1 20.4-72c2.4-4.9 8-14.1 10.5-18.8 7.1-13.7 11.9-21 16-33.6 5.7-17.5 4.5-25.9 3.8-34.1 4.6 29.9-12.7 56-25.7 82.4a177.1 177.1 0 0 0-20.7 72z"/><path fill="url(#g)" d="M194.3 293.4c2.4 5.4 4.6 9.8 6 16.5L195 311c-2.1-7.8-3.8-13.4-6.8-20-17.8-42-46.3-63.6-69.7-79.5 28.2 15.2 57.2 39 75.7 81.9z"/><path fill="url(#h)" d="M200.6 315.1c9.8 46-1.2 104.2-33.6 160.9 27.1-56.2 40.2-110.1 29.3-160z"/><path fill="url(#i)" d="M312.5 311c53.1 19.9 73.6 63.6 88.9 100-19-38.1-45.2-80.3-90.8-96-34.8-11.8-64.1-10.4-114.3 1l-1.1-5c53.2-12.1 81-13.5 117.3 0"/></g></g></svg> </div>
+                <h2>Convert to Obsidian</h2>
+                <p>Convert your JSON or FreeTube backups into Markdown files. Includes ZIP mode for Obsidian Bases database compatibility.</p>
+                <div class="tool-meta">
+                    <span class="badge">JSON</span>
+                    <span class="badge">FreeTube</span>
+                    <span class="badge">ZIP</span>
+                </div>
+            </a>
+
+            <!-- Global Statistics -->
+            <a href="statistics/global-statistics.html" class="tool-card">
+                <div class="tool-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M3 3h2v18H3V3zm16 6h2v12h-2V9zM11 13h2v8h-2v-8zM7 10h2v11H7V10zm8-7h2v18h-2V3z"/>
+                    </svg>
+                </div>
+                <h2>Global Statistics</h2>
+                <p>Analyze your saved history: totals, breakdowns by type and channel, and time watched insights.</p>
+                <div class="tool-meta">
+                    <span class="badge">Stats</span>
+                    <span class="badge">Charts</span>
+                </div>
+            </a>
+
+            <!-- Placeholder for future tools -->
+            <!--
+            <a href="#" class="tool-card">
+                <div class="tool-icon">
+                    <svg viewBox="0 0 24 24">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                    </svg>
+                </div>
+                <h2>Coming Soon</h2>
+                <p>More tools will be added here in the future.</p>
+                <div class="tool-meta">
+                    <span class="badge">WIP</span>
+                </div>
+            </a>
+            -->
+        </main>
+
+        <footer>
+            <p>
+                Part of <a href="https://github.com/Alplox/Youtube-Playback-Plox" target="_blank">YouTube Playback Plox</a> • 
+                <a href="https://github.com/Alplox/Youtube-Playback-Plox/blob/main/LICENSE" target="_blank">MIT License</a>
+            </p>
+        </footer>
+    </div>
+</body>
+</html>

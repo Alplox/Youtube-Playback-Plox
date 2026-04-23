@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Playback Plox → Obsidian Markdown</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../shared.css" />
+    <style>
+        /* ── Mode toggle ─────────────────────────────────────── */
+        .mode-toggle {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: .5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .mode-btn {
+            padding: .9rem 1rem;
+            border-radius: var(--radius-sm);
+            border: 2px solid var(--border);
+            background: var(--surface-2);
+            color: var(--text-muted);
+            font-family: inherit;
+            font-size: .9rem;
+            font-weight: 500;
+            cursor: pointer;
+            text-align: center;
+            transition: border-color .2s, color .2s, background .2s;
+        }
+
+        .mode-btn.active {
+            border-color: var(--accent);
+            color: var(--text);
+            background: var(--accent-dim);
+        }
+
+        .mode-btn .mode-icon {
+            font-size: 1.4rem;
+            display: block;
+            margin-bottom: .3rem;
+        }
+
+        .mode-btn .mode-label {
+            font-weight: 600;
+            display: block;
+        }
+
+        .mode-btn .mode-sub {
+            font-size: .75rem;
+            color: var(--text-muted);
+            margin-top: .2rem;
+        }
+
+        .mode-btn.active .mode-sub {
+            color: var(--accent);
+        }
+
+        /* ── Drop Zone ──────────────────────────────────────── */
+        #drop-zone {
+            border: 2px dashed var(--border);
+            border-radius: var(--radius);
+            padding: 3rem 2rem;
+            text-align: center;
+            cursor: pointer;
+            transition: border-color .2s, background .2s;
+            position: relative;
+        }
+
+        #drop-zone:hover,
+        #drop-zone.drag-over {
+            border-color: var(--accent);
+            background: var(--accent-dim);
+        }
+
+        #drop-zone input[type="file"] {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            cursor: pointer;
+        }
+
+        .drop-icon {
+            font-size: 2.5rem;
+            margin-bottom: .75rem;
+            line-height: 1;
+        }
+
+        .drop-label {
+            font-size: 1rem;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: .4rem;
+        }
+
+        .drop-sub {
+            font-size: .8rem;
+            color: var(--text-muted);
+        }
+
+        .badge-row {
+            display: flex;
+            gap: .5rem;
+            justify-content: center;
+            margin-top: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            font-size: .72rem;
+            font-weight: 600;
+            padding: .25rem .65rem;
+            border-radius: 999px;
+            letter-spacing: .04em;
+        }
+
+        .badge-json {
+            background: #1e3a5f;
+            color: var(--accent);
+            border: 1px solid #2d5a9e44;
+        }
+
+        .badge-ft {
+            background: #1a3a2a;
+            color: var(--success);
+            border: 1px solid #34d39944;
+        }
+
+        /* ── Options ────────────────────────────────────────── */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+
+        @media (max-width: 550px) {
+            .options-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .option-group label {
+            display: block;
+            font-size: .75rem;
+            font-weight: 600;
+            color: var(--text-muted);
+            letter-spacing: .06em;
+            text-transform: uppercase;
+            margin-bottom: .4rem;
+        }
+
+        .option-group select,
+        .option-group input[type="text"] {
+            width: 100%;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-sm);
+            color: var(--text);
+            font-family: inherit;
+            font-size: .85rem;
+            padding: .55rem .75rem;
+            outline: none;
+            transition: border-color .2s;
+            appearance: none;
+        }
+
+        .option-group select:focus,
+        .option-group input[type="text"]:focus {
+            border-color: var(--accent);
+        }
+
+        .toggle-row {
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+            margin-top: .6rem;
+        }
+
+        .toggle-row input[type="checkbox"] {
+            accent-color: var(--accent);
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        .toggle-row span {
+            font-size: .85rem;
+            color: var(--text-muted);
+            cursor: pointer;
+        }
+
+        /* ── Info box (ZIP mode tips) ───────────────────────── */
+        .info-box {
+            margin-top: 1.25rem;
+            padding: 1rem 1.25rem;
+            background: #1a1f35;
+            border: 1px solid #2d3a6a;
+            border-radius: var(--radius-sm);
+            font-size: .82rem;
+            line-height: 1.65;
+            color: var(--text-muted);
+        }
+
+        .info-box strong {
+            color: #93c5fd;
+        }
+
+        .info-box code {
+            background: #0f1629;
+            border-radius: 4px;
+            padding: .1rem .35rem;
+            font-size: .78rem;
+            color: #c4b5fd;
+        }
+
+        /* ── Button ─────────────────────────────────────────── */
+        #btn-convert {
+            margin-top: 1.75rem;
+            width: 100%;
+            padding: .85rem 1.5rem;
+            border: none;
+            border-radius: var(--radius-sm);
+            background: linear-gradient(135deg, var(--accent), #5b50d4);
+            color: #fff;
+            font-family: inherit;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity .2s, transform .1s;
+        }
+
+        #btn-convert:disabled {
+            opacity: .35;
+            cursor: not-allowed;
+        }
+
+        #btn-convert:not(:disabled):hover {
+            opacity: .9;
+            transform: translateY(-1px);
+        }
+
+        #btn-convert:not(:disabled):active {
+            transform: translateY(0);
+        }
+
+        /* ── Status ─────────────────────────────────────────── */
+        #status-bar {
+            display: none;
+            align-items: center;
+            gap: .6rem;
+            padding: .75rem 1rem;
+            border-radius: var(--radius-sm);
+            font-size: .85rem;
+            font-weight: 500;
+            margin-top: 1.25rem;
+        }
+
+        #status-bar.info {
+            background: #1e2d48;
+            color: var(--accent);
+            display: flex;
+        }
+
+        #status-bar.success {
+            background: #0f2d20;
+            color: var(--success);
+            display: flex;
+        }
+
+        #status-bar.error {
+            background: #2d0f0f;
+            color: #f87171;
+            display: flex;
+        }
+
+        #status-bar.warn {
+            background: #2d200f;
+            color: var(--warning);
+            display: flex;
+        }
+
+        /* ── Preview ─────────────────────────────────────────── */
+        #preview-section {
+            display: none;
+            width: 100%;
+            max-width: 720px;
+        }
+
+        .preview-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: .75rem;
+            flex-wrap: wrap;
+            gap: .5rem;
+        }
+
+        .preview-header h2 {
+            font-size: 1rem;
+            font-weight: 600;
+        }
+
+        .btn-sm {
+            padding: .4rem .9rem;
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: .8rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: 1px solid var(--border);
+            transition: background .15s;
+        }
+
+        .btn-copy {
+            background: var(--surface-2);
+            color: var(--text);
+        }
+
+        .btn-copy:hover {
+            background: var(--border);
+        }
+
+        .btn-download {
+            background: var(--accent);
+            color: var(--bg);
+            border-color: transparent;
+        }
+
+        .btn-download:hover {
+            filter: brightness(1.15);
+        }
+
+        #preview-box {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 1.5rem;
+            font-family: 'Courier New', monospace;
+            font-size: .78rem;
+            line-height: 1.65;
+            color: #c9d1d9;
+            white-space: pre-wrap;
+            word-break: break-word;
+            max-height: 480px;
+            overflow-y: auto;
+        }
+
+        .btn-row {
+            display: flex;
+            gap: .6rem;
+            flex-wrap: wrap;
+        }
+
+        .stats-row {
+            display: flex;
+            gap: .6rem;
+            flex-wrap: wrap;
+            margin-bottom: 1rem;
+        }
+
+        .stat-chip {
+            font-size: .75rem;
+            padding: .3rem .7rem;
+            border-radius: 999px;
+            background: var(--surface-2);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+        }
+
+        .stat-chip strong {
+            color: var(--text);
+        }
+
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: var(--border);
+            border-radius: 3px;
+        }
+    </style>
+</head>
+
+<body class="ypp-tool-centered">
+
+    <!-- Header -->
+    <header>
+        <div class="logo">
+            <span class="logo-dot"></span>YouTube Playback Plox<span class="logo-dot"></span>
+        </div>
+        <h1>Export → Obsidian Bases</h1>
+        <p>Convierte tu backup de <a href="https://github.com/Alplox/Youtube-Playback-Plox">YouTube Playback Plox</a> a
+            Markdown compatible con <strong>Obsidian Bases</strong>.</p>
+    </header>
+
+    <!-- Main card -->
+    <div class="card">
+
+        <!-- Step 1: Mode -->
+        <div class="card-title">1 - Elige el modo de exportación</div>
+
+        <div class="mode-toggle">
+            <button class="mode-btn active" id="mode-zip" onclick="setMode('zip')">
+                <span class="mode-icon"><img src="../icons/archive-24.svg" alt="" width="24" height="24" style="vertical-align: text-bottom; margin-right: 8px; color: var(--icon-primary);"></span>
+                <span class="mode-label">Un archivo por video (ZIP)</span>
+                <span class="mode-sub"><img src="../icons/star-16.svg" alt="" width="12" height="12" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-accent);">Recomendado para Obsidian Bases</span>
+            </button>
+            <button class="mode-btn" id="mode-single" onclick="setMode('single')">
+                <span class="mode-icon"><img src="../icons/file-24.svg" alt="" width="24" height="24" style="vertical-align: text-bottom; margin-right: 8px; color: var(--icon-primary);"></span>
+                <span class="mode-label">Un solo archivo .md</span>
+                <span class="mode-sub">Para leer / pegar en Obsidian</span>
+            </button>
+        </div>
+
+        <div class="info-box" id="zip-info">
+            <strong><img src="../icons/package-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-accent);">Modo ZIP - Obsidian Bases</strong><br />
+            Genera un <code>.zip</code> con una nota <code>.md</code> por video dentro de una carpeta
+            <code>YouTube/</code>.
+            Al descomprimirlo en tu vault y crear una <strong>Base</strong> apuntando a esa carpeta,
+            podrás ver tus videos como tarjetas con propiedades filtrables
+            (<code>channel</code>, <code>percentWatched</code>, <code>type</code>, etc.).
+        </div>
+
+        <!-- Step 2: Upload -->
+        <div class="card-title" style="margin-top:1.75rem;">2 - Sube tu archivo de backup</div>
+
+        <div id="drop-zone">
+            <input type="file" id="file-input" accept=".json,.db,.ndjson,.jsonl" />
+            <div class="drop-icon"><img src="../icons/file-directory-24.svg" alt="" width="40" height="40" style="color: var(--icon-muted);"></div>
+            <div class="drop-label">Arrastra el archivo aquí o haz clic para buscar</div>
+            <div class="drop-sub">Formatos aceptados:</div>
+            <div class="badge-row">
+                <span class="badge badge-json">JSON nativo (.json)</span>
+                <span class="badge badge-ft">FreeTube (.db / .ndjson)</span>
+            </div>
+        </div>
+
+        <!-- Step 3: Options -->
+        <div class="card-title" style="margin-top:1.75rem;">3 - Configura la salida</div>
+
+        <div class="options-grid">
+            <div class="option-group">
+                <label for="opt-sort">Ordenar por</label>
+                <select id="opt-sort">
+                    <option value="timeWatched-desc">Fecha visto (más reciente)</option>
+                    <option value="timeWatched-asc">Fecha visto (más antiguo)</option>
+                    <option value="title-asc">Título (A → Z)</option>
+                    <option value="title-desc">Título (Z → A)</option>
+                    <option value="progress-desc">Progreso (más visto)</option>
+                    <option value="progress-asc">Progreso (menos visto)</option>
+                    <option value="duration-desc">Duración (más largo)</option>
+                </select>
+            </div>
+
+            <div class="option-group" id="opt-group-wrapper">
+                <label for="opt-group">Agrupar por (solo modo single)</label>
+                <select id="opt-group">
+                    <option value="none">Sin agrupación</option>
+                    <option value="type">Tipo de video</option>
+                    <option value="month">Mes visto</option>
+                    <option value="author">Canal</option>
+                    <option value="playlist">Playlist</option>
+                </select>
+            </div>
+
+            <div class="option-group">
+                <label for="opt-filter-type">Filtrar por tipo</label>
+                <select id="opt-filter-type">
+                    <option value="all">Todos</option>
+                    <option value="video">Videos regulares</option>
+                    <option value="shorts">Shorts</option>
+                    <option value="live">Livestreams</option>
+                    <option value="preview">Previews</option>
+                </select>
+            </div>
+
+            <div class="option-group">
+                <label for="opt-folder">Carpeta en el vault (modo ZIP)</label>
+                <input type="text" id="opt-folder" value="YouTube/History" placeholder="YouTube/History" />
+            </div>
+
+            <div class="option-group">
+                <label for="opt-tag">Prefijo de tag Obsidian</label>
+                <input type="text" id="opt-tag" value="youtube" placeholder="youtube" />
+            </div>
+        </div>
+
+        <div class="toggle-row">
+            <input type="checkbox" id="opt-thumbnail" checked />
+            <span>Incluir embed de thumbnail <code>![thumbnail](url)</code></span>
+        </div>
+        <div class="toggle-row">
+            <input type="checkbox" id="opt-completed" />
+            <span>Solo videos completados o casi completados (≥ 85%)</span>
+        </div>
+        <div class="toggle-row">
+            <input type="checkbox" id="opt-callout" checked />
+            <span>Usar callout blocks de Obsidian para metadatos</span>
+        </div>
+        <div class="toggle-row">
+            <input type="checkbox" id="opt-date-prefix" />
+            <span>Incluir fecha como prefijo en nombre de archivo (modo ZIP)</span>
+        </div>
+
+        <div id="status-bar"></div>
+
+        <button id="btn-convert" disabled>Generar Markdown</button>
+    </div>
+
+    <!-- Preview / Results -->
+    <section id="preview-section" class="card">
+        <div class="card-title">4 - Vista previa y descarga</div>
+        <div class="stats-row" id="stats-row"></div>
+        <div class="preview-header">
+            <h2 id="preview-title"><img src="../icons/file-24.svg" alt="" width="20" height="20" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-primary);">preview</h2>
+            <div class="btn-row">
+                <button class="btn-sm btn-copy" id="btn-copy" style="display:none"><img src="../icons/copy-16.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Copiar</button>
+                <button class="btn-sm btn-download" id="btn-download"><img src="../icons/download-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Descargar</button>
+            </div>
+        </div>
+        <pre id="preview-box"></pre>
+    </section>
+
+    <script>
+        'use strict';
+
+        /* ═══════════════════════════════════════════════════════
+         * MiniZip - lightweight ZIP builder (STORE, no compression)
+         * Works in any browser with no external dependencies.
+         * Spec reference: https://pkware.cachefly.net/webdocs/casestudies/APPNOTE.TXT
+         * ═══════════════════════════════════════════════════════ */
+
+        const MiniZip = (() => {
+            const te = new TextEncoder();
+
+            /**
+             * Encodes a number as a little-endian Uint8Array of `bytes` length.
+             * @param {number} value
+             * @param {number} bytes
+             * @returns {Uint8Array}
+             */
+            const le = (value, bytes) => {
+                const buf = new Uint8Array(bytes);
+                for (let i = 0; i < bytes; i++) { buf[i] = value & 0xff; value >>>= 8; }
+                return buf;
+            };
+
+            /**
+             * CRC-32 lookup table (standard polynomial 0xEDB88320).
+             * @type {Int32Array}
+             */
+            const CRC_TABLE = (() => {
+                const t = new Int32Array(256);
+                for (let i = 0; i < 256; i++) {
+                    let c = i;
+                    for (let j = 0; j < 8; j++) c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                    t[i] = c;
+                }
+                return t;
+            })();
+
+            /**
+             * Computes CRC-32 checksum of a Uint8Array.
+             * @param {Uint8Array} data
+             * @returns {number}
+             */
+            const crc32 = (data) => {
+                let crc = -1;
+                for (let i = 0; i < data.length; i++) crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ data[i]) & 0xff];
+                return (crc ^ -1) >>> 0;
+            };
+
+            /**
+             * Converts a Date to a DOS date+time pair [dosTime, dosDate].
+             * @param {Date} d
+             * @returns {[number, number]}
+             */
+            const dosDateTime = (d) => {
+                const time = ((d.getHours() & 0x1F) << 11) | ((d.getMinutes() & 0x3F) << 5) | ((d.getSeconds() >> 1) & 0x1F);
+                const date = (((d.getFullYear() - 1980) & 0x7F) << 9) | (((d.getMonth() + 1) & 0x0F) << 5) | (d.getDate() & 0x1F);
+                return [time, date];
+            };
+
+            /**
+             * Builds a ZIP Blob from a map of { filename → string content }.
+             * Uses STORE method (no compression) for simplicity and speed.
+             * @param {Map<string, string>} files  filename → utf-8 string
+             * @returns {Blob}
+             */
+            const build = (files) => {
+                const parts = [];
+                const central = [];
+                let offset = 0;
+                const now = new Date();
+                const [dosTime, dosDate] = dosDateTime(now);
+
+                for (const [name, content] of files) {
+                    const nameBytes = te.encode(name);
+                    const dataBytes = te.encode(content);
+                    const crc = crc32(dataBytes);
+                    const size = dataBytes.length;
+
+                    // ── Local file header (signature 0x04034b50) ──
+                    const lfh = new Uint8Array(30 + nameBytes.length);
+                    const lfhView = new DataView(lfh.buffer);
+                    lfhView.setUint32(0, 0x04034b50, true);  // signature
+                    lfhView.setUint16(4, 20, true);  // version needed (2.0)
+                    lfhView.setUint16(6, 0x0800, true);  // general purpose bit flag (Bit 11 = UTF-8)
+                    lfhView.setUint16(8, 0, true);  // compression method: STORE
+                    lfhView.setUint16(10, dosTime, true);  // last mod time
+                    lfhView.setUint16(12, dosDate, true);  // last mod date
+                    lfhView.setUint32(14, crc, true);  // crc-32
+                    lfhView.setUint32(18, size, true);  // compressed size
+                    lfhView.setUint32(22, size, true);  // uncompressed size
+                    lfhView.setUint16(26, nameBytes.length, true); // filename length
+                    lfhView.setUint16(28, 0, true);  // extra field length
+                    lfh.set(nameBytes, 30);
+
+                    parts.push(lfh, dataBytes);
+
+                    // ── Central directory entry (signature 0x02014b50) ──
+                    const cde = new Uint8Array(46 + nameBytes.length);
+                    const cdeView = new DataView(cde.buffer);
+                    cdeView.setUint32(0, 0x02014b50, true);  // signature
+                    cdeView.setUint16(4, 20, true);  // version made by
+                    cdeView.setUint16(6, 20, true);  // version needed
+                    cdeView.setUint16(8, 0x0800, true);  // bit flag (Bit 11 = UTF-8)
+                    cdeView.setUint16(10, 0, true);  // compression: STORE
+                    cdeView.setUint16(12, dosTime, true);
+                    cdeView.setUint16(14, dosDate, true);
+                    cdeView.setUint32(16, crc, true);
+                    cdeView.setUint32(20, size, true);
+                    cdeView.setUint32(24, size, true);
+                    cdeView.setUint16(28, nameBytes.length, true);
+                    cdeView.setUint16(30, 0, true);  // extra
+                    cdeView.setUint16(32, 0, true);  // comment
+                    cdeView.setUint16(34, 0, true);  // disk start
+                    cdeView.setUint16(36, 0, true);  // internal attrs
+                    cdeView.setUint32(38, 0, true);  // external attrs
+                    cdeView.setUint32(42, offset, true);  // relative offset of LFH
+                    cde.set(nameBytes, 46);
+                    central.push(cde);
+
+                    offset += 30 + nameBytes.length + size;
+                }
+
+                // ── End of central directory (signature 0x06054b50) ──
+                const centralSize = central.reduce((s, c) => s + c.length, 0);
+                const eocd = new Uint8Array(22);
+                const eocdView = new DataView(eocd.buffer);
+                eocdView.setUint32(0, 0x06054b50, true);
+                eocdView.setUint16(4, 0, true);  // disk number
+                eocdView.setUint16(6, 0, true);  // disk with CD start
+                eocdView.setUint16(8, central.length, true);  // entries on disk
+                eocdView.setUint16(10, central.length, true);  // total entries
+                eocdView.setUint32(12, centralSize, true);  // CD size
+                eocdView.setUint32(16, offset, true);  // CD offset
+                eocdView.setUint16(20, 0, true);  // comment length
+
+                return new Blob([...parts, ...central, eocd], { type: 'application/zip' });
+            };
+
+            return { build };
+        })();
+
+        /* ─── State ──────────────────────────────────────────── */
+        let currentMode = 'zip';   // 'zip' | 'single'
+        let generatedMarkdown = '';      // used in single mode
+        let generatedZip = null;    // JSZip instance (zip mode)
+        let parsedVideos = [];
+        let detectedFormat = '';
+
+        /* ─── DOM ────────────────────────────────────────────── */
+        const fileInput = document.getElementById('file-input');
+        const dropZone = document.getElementById('drop-zone');
+        const btnConvert = document.getElementById('btn-convert');
+        const statusBar = document.getElementById('status-bar');
+        const previewSection = document.getElementById('preview-section');
+        const previewBox = document.getElementById('preview-box');
+        const statsRow = document.getElementById('stats-row');
+        const btnCopy = document.getElementById('btn-copy');
+        const btnDownload = document.getElementById('btn-download');
+        const previewTitle = document.getElementById('preview-title');
+        const zipInfo = document.getElementById('zip-info');
+
+        /* ─── Mode toggle ────────────────────────────────────── */
+
+        /**
+         * Switches between 'zip' and 'single' export modes.
+         * @param {'zip'|'single'} mode
+         */
+        const setMode = (mode) => {
+            currentMode = mode;
+            document.getElementById('mode-zip').classList.toggle('active', mode === 'zip');
+            document.getElementById('mode-single').classList.toggle('active', mode === 'single');
+            zipInfo.style.display = mode === 'zip' ? 'block' : 'none';
+            document.getElementById('opt-folder').closest('.option-group').style.display = mode === 'zip' ? '' : 'none';
+            document.getElementById('opt-group-wrapper').style.display = mode === 'single' ? '' : 'none';
+            // Reset preview if mode changes
+            previewSection.style.display = 'none';
+            generatedMarkdown = '';
+            generatedZip = null;
+        };
+
+        /* ─── Helpers ────────────────────────────────────────── */
+
+        /**
+         * Shows a styled status message.
+         * @param {string} html
+         * @param {'info'|'success'|'error'|'warn'} type
+         */
+        const showStatus = (html, type = 'info') => {
+            statusBar.className = type;
+            statusBar.innerHTML = html;
+        };
+
+        /**
+         * Formats a Unix timestamp (ms) to "YYYY-MM-DD".
+         * @param {number} ts
+         * @returns {string}
+         */
+        const formatDate = (ts) => {
+            if (!ts || ts <= 0) return 'Unknown';
+            try { return new Date(ts).toISOString().split('T')[0]; }
+            catch { return 'Unknown'; }
+        };
+
+        /**
+         * Formats a Unix timestamp (ms) to "YYYY-MM".
+         * @param {number} ts
+         * @returns {string}
+         */
+        const formatMonth = (ts) => {
+            if (!ts || ts <= 0) return 'Unknown';
+            try { return new Date(ts).toISOString().slice(0, 7); }
+            catch { return 'Unknown'; }
+        };
+
+        /**
+         * Converts total seconds to "H:MM:SS" or "M:SS".
+         * @param {number} seconds
+         * @returns {string}
+         */
+        const formatDuration = (seconds) => {
+            if (!seconds || seconds <= 0) return '?:??';
+            const s = Math.floor(seconds);
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+            return `${m}:${String(sec).padStart(2, '0')}`;
+        };
+
+        /**
+         * Calculates watch percentage 0–100.
+         * @param {number} progress
+         * @param {number} total
+         * @param {boolean} [isCompleted=false]
+         * @returns {number}
+         */
+        const watchPercent = (progress, total, isCompleted = false) => {
+            const p = Number(progress) || 0;
+            const t = Number(total) || 0;
+            if (t <= 0) return 0;
+
+            const secondsEpsilon = 0.75;
+            const isNearEnd = p >= (t - secondsEpsilon);
+            if (isCompleted || isNearEnd) return 100;
+
+            return Math.min(100, Math.round((p / t) * 100));
+        };
+
+        /**
+         * Returns a 10-char emoji progress bar.
+         * @param {number} percent
+         * @returns {string}
+         */
+        const progressBar = (percent) => {
+            const filled = Math.round(percent / 10);
+            return '█'.repeat(filled) + '░'.repeat(10 - filled);
+        };
+
+        /**
+         * Normalizes raw type string to canonical value.
+         * @param {string|undefined} rawType
+         * @returns {string}
+         */
+        const normalizeType = (rawType) => {
+            const t = (rawType ?? '').toLowerCase();
+            if (t.includes('short')) return 'shorts';
+            if (t.includes('live')) return 'live';
+            if (t.includes('preview')) return 'preview';
+            return 'video';
+        };
+
+        /**
+         * Escapes characters that can break YAML frontmatter strings.
+         * @param {string} str
+         * @returns {string}
+         */
+        const escYaml = (str) => (str ?? '').replace(/"/g, '\\"').replace(/\n/g, ' ');
+
+        /**
+         * Escapes characters that can break Markdown inline text.
+         * @param {string} str
+         * @returns {string}
+         */
+        const escMd = (str) => (str ?? '').replace(/[|`[\]]/g, '\\$&');
+
+        /**
+         * Sanitizes a string to be safe as a filename.
+         * @param {string} str
+         * @param {number} maxLen
+         * @returns {string}
+         */
+        const safeFilename = (str, maxLen = 80) => {
+            return (str ?? 'untitled')
+                .replace(/[<>:"/\\|?*#^[\]{}%\x00-\x1F]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim()
+                .slice(0, maxLen) || 'untitled';
+        };
+
+        /**
+         * Normaliza completionHistory al formato actual del script:
+         * `{ events:number[], daily:Record<string,number>, total:number }`.
+         * Acepta arrays legacy y siembra desde `isCompleted + timeWatched`.
+         * @param {any} completionHistory
+         * @param {boolean} isCompleted
+         * @param {number} timeWatched
+         * @returns {{events:number[], daily:Record<string, number>, total:number} | null}
+         */
+        const normalizeCompletionHistory = (completionHistory, isCompleted, timeWatched) => {
+            const now = Date.now();
+            let history;
+
+            if (completionHistory && typeof completionHistory === 'object' && !Array.isArray(completionHistory) && Array.isArray(completionHistory.events)) {
+                history = {
+                    events: [...completionHistory.events],
+                    daily: completionHistory.daily && typeof completionHistory.daily === 'object' ? { ...completionHistory.daily } : {},
+                    total: Number.isFinite(completionHistory.total) ? completionHistory.total : completionHistory.events.length
+                };
+            } else if (Array.isArray(completionHistory) && completionHistory.length > 0) {
+                history = { events: [...completionHistory], daily: {}, total: completionHistory.length };
+            } else {
+                history = null;
+            }
+
+            if (!history && isCompleted && Number.isFinite(timeWatched) && timeWatched > 0) {
+                history = { events: [timeWatched], daily: {}, total: 1 };
+            }
+
+            if (!history) return null;
+
+            history.events = history.events
+                .filter(ts => Number.isFinite(ts) && ts > 0 && ts < (now + 60000))
+                .sort((a, b) => a - b);
+
+            history.total = Number.isFinite(history.total) ? history.total : history.events.length;
+            if (history.total < history.events.length) history.total = history.events.length;
+
+            if (!history.daily || typeof history.daily !== 'object') history.daily = {};
+            if (history.events.length > 0 && Object.keys(history.daily).length === 0) {
+                history.daily = {};
+                for (const ts of history.events) {
+                    const day = new Date(ts).toISOString().slice(0, 10);
+                    history.daily[day] = (history.daily[day] || 0) + 1;
+                }
+            }
+
+            return history;
+        };
+
+        /* ─── Parsers ────────────────────────────────────────── */
+
+        /**
+         * Normalizes a raw video object from any format into a unified internal schema.
+         * @param {Object} raw
+         * @returns {Object}
+         */
+        const normalizeEntry = (raw) => ({
+            videoId: raw.videoId || '',
+            title: raw.title || 'Unknown title',
+            author: raw.author || 'Unknown channel',
+            authorId: raw.authorId || '',
+            watchProgress: raw.watchProgress ?? raw.timestamp ?? 0,
+            lengthSeconds: raw.lengthSeconds ?? raw.duration ?? 0,
+            timeWatched: raw.timeWatched ?? raw.lastUpdated ?? raw.savedAt ?? 0,
+            type: normalizeType(raw.type ?? raw.videoType),
+            isLive: raw.isLive || false,
+            isCompleted: raw.isCompleted || false,
+            playlistTitle: raw.playlistTitle ?? null,
+            lastViewedPlaylistId: raw.lastViewedPlaylistId ?? null,
+            isProtected: raw.isProtected || false,
+            forceResumeTime: raw.forceResumeTime ?? 0,
+            viewCount: raw.viewCount ?? 0,
+            description: raw.description || '',
+            completionHistory: normalizeCompletionHistory(raw.completionHistory, !!raw.isCompleted, raw.timeWatched ?? raw.lastUpdated ?? raw.savedAt ?? 0),
+        });
+
+        /**
+         * Parses the native YouTube Playback Plox JSON object (key → videoData map).
+         * @param {Object} json
+         * @returns {Array<Object>}
+         */
+        const parseNativeJSON = (json) =>
+            Object.entries(json)
+                .filter(([key]) => key !== '__metadata__')
+                .map(([, value]) => normalizeEntry(value))
+                .filter(v => v.videoId);
+
+        /**
+         * Parses FreeTube NDJSON format - one JSON object per line.
+         * @param {string} text
+         * @returns {Array<Object>}
+         */
+        const parseFreeTubeNDJSON = (text) => {
+            const entries = [];
+            for (const line of text.split('\n')) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                try {
+                    const obj = JSON.parse(trimmed);
+                    if (obj?.videoId) entries.push(normalizeEntry(obj));
+                } catch { /* skip malformed lines */ }
+            }
+            return entries;
+        };
+
+        /**
+         * Auto-detects the file format and returns parsed videos.
+         * @param {string} text
+         * @returns {{ videos: Array<Object>, format: string }}
+         */
+        const detectAndParse = (text) => {
+            const trimmed = text.trim();
+
+            if (trimmed.startsWith('{')) {
+                try {
+                    const json = JSON.parse(trimmed);
+                    if (json.__metadata__ || Object.values(json).some(v => v?.videoId)) {
+                        const videos = parseNativeJSON(json);
+                        if (videos.length > 0) return { videos, format: 'Native JSON' };
+                    }
+                } catch { /* not valid JSON object */ }
+            }
+
+            if (trimmed.startsWith('[')) {
+                try {
+                    const arr = JSON.parse(trimmed);
+                    if (Array.isArray(arr) && arr[0]?.videoId) {
+                        return { videos: arr.map(normalizeEntry).filter(v => v.videoId), format: 'FreeTube JSON Array' };
+                    }
+                } catch { /* not valid JSON array */ }
+            }
+
+            const ndEntries = parseFreeTubeNDJSON(trimmed);
+            if (ndEntries.length > 0) return { videos: ndEntries, format: 'FreeTube NDJSON (.db)' };
+
+            return { videos: [], format: 'Unknown' };
+        };
+
+        /* ─── Markdown Builders ──────────────────────────────── */
+
+        /**
+         * Reads current option values from the UI.
+         * @returns {Object}
+         */
+        const readOptions = () => ({
+            sort: document.getElementById('opt-sort').value,
+            group: document.getElementById('opt-group').value,
+            filterType: document.getElementById('opt-filter-type').value,
+            tagPrefix: (document.getElementById('opt-tag').value || 'youtube').trim().replace(/\s+/g, '-'),
+            folder: (document.getElementById('opt-folder').value || 'YouTube/History').trim().replace(/\\/g, '/'),
+            thumbnail: document.getElementById('opt-thumbnail').checked,
+            completedOnly: document.getElementById('opt-completed').checked,
+            callout: document.getElementById('opt-callout').checked,
+            datePrefix: document.getElementById('opt-date-prefix').checked,
+        });
+
+        /**
+         * Sorts an array of normalized videos by the given sort key.
+         * @param {Array<Object>} videos
+         * @param {string} sortKey  e.g. "timeWatched-desc"
+         * @returns {Array<Object>}
+         */
+        const sortVideos = (videos, sortKey) => {
+            const [field, dir] = sortKey.split('-');
+            const asc = dir === 'asc' ? 1 : -1;
+            return [...videos].sort((a, b) => {
+                switch (field) {
+                    case 'timeWatched': return (a.timeWatched - b.timeWatched) * asc;
+                    case 'title': return a.title.localeCompare(b.title) * asc;
+                    case 'progress': return (watchPercent(a.watchProgress, a.lengthSeconds, a.isCompleted) - watchPercent(b.watchProgress, b.lengthSeconds, b.isCompleted)) * asc;
+                    case 'duration': return (a.lengthSeconds - b.lengthSeconds) * asc;
+                    default: return 0;
+                }
+            });
+        };
+
+        /**
+         * Generates the Markdown content for a single video note.
+         * Designed to be the sole content of an individual .md file (ZIP mode)
+         * or a section block in a monolithic file (single mode).
+         *
+         * @param {Object} video - Normalized video entry.
+         * @param {Object} opts  - Output options.
+         * @param {boolean} [standaloneNote=false] - If true, includes a document-level YAML frontmatter.
+         * @returns {string}
+         */
+        const videoToMarkdown = (video, opts, standaloneNote = false) => {
+            const { videoId, title, author, authorId, watchProgress, lengthSeconds,
+                timeWatched, type, playlistTitle, viewCount, description, completionHistory, isProtected, forceResumeTime } = video;
+
+            const ytUrl = type === 'shorts'
+                ? `https://www.youtube.com/shorts/${videoId}`
+                : `https://www.youtube.com/watch?v=${videoId}`;
+            const channelUrl = authorId
+                ? `https://www.youtube.com/channel/${authorId}`
+                : `https://www.youtube.com/results?search_query=${encodeURIComponent(author)}`;
+            const thumbUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+            const percent = watchPercent(watchProgress, lengthSeconds, video.isCompleted);
+            const duration = formatDuration(lengthSeconds);
+            const watched = formatDuration(watchProgress);
+            const dateStr = formatDate(timeWatched);
+
+            let block = '';
+
+            // ── YAML frontmatter (Properties for Obsidian Bases) ─
+            block += `---\n`;
+            block += `title: "${escYaml(title)}"\n`;
+            block += `channel: "${escYaml(author)}"\n`;
+            if (authorId) block += `channelId: "${authorId}"\n`;
+            block += `videoId: "${videoId}"\n`;
+            block += `type: ${type}\n`;
+            block += `watchProgress: ${Math.round(watchProgress)}\n`;
+            block += `lengthSeconds: ${Math.round(lengthSeconds)}\n`;
+            block += `percentWatched: ${percent}\n`;
+            block += `dateWatched: ${dateStr}\n`;
+            if (timeWatched > 0) block += `dateWatchedTimestamp: ${timeWatched}\n`;
+            if (playlistTitle) block += `playlist: "${escYaml(playlistTitle)}"\n`;
+            if (viewCount > 0) block += `viewCount: ${viewCount}\n`;
+
+            const watchedCount = completionHistory?.total || completionHistory?.events?.length || 0;
+            block += `watchedCount: ${watchedCount}\n`;
+            if (watchedCount > 0) {
+                block += `completionHistory:\n`;
+                (completionHistory?.events || []).forEach(ts => {
+                    block += `  - ${formatDate(ts)}\n`;
+                });
+            }
+
+            block += `isCompleted: ${video.isCompleted}\n`;
+            block += `isLive: ${video.isLive}\n`;
+            if (isProtected) block += `isProtected: true\n`;
+            if (Number(forceResumeTime) > 0) block += `forceResumeTime: ${Math.round(forceResumeTime)}\n`;
+            block += `cover: "${thumbUrl}"\n`;
+            block += `tags:\n  - ${opts.tagPrefix}\n  - ${opts.tagPrefix}/${type}\n`;
+            block += `url: "${ytUrl}"\n`;
+            block += `---\n\n`;
+
+            // ── Heading (only H1 for standalone notes, H2 for single-file sections) ─
+            const headingLevel = standaloneNote ? '#' : '##';
+            block += `${headingLevel} [${escMd(title)}](${ytUrl})\n\n`;
+
+            // ── Thumbnail ─────────────────────────────────────────
+            if (opts.thumbnail) {
+                block += `[![thumbnail](${thumbUrl})](${ytUrl})\n\n`;
+            }
+
+            // ── Metadata block ────────────────────────────────────
+            if (opts.callout) {
+                block += `> [!info]- 📺 Información del video\n`;
+                block += `> | Campo       | Valor |\n`;
+                block += `> |------------|-------|\n`;
+                block += `> | **Canal**   | [${escMd(author)}](${channelUrl}) |\n`;
+                block += `> | **Tipo**    | ${type} |\n`;
+                block += `> | **Duración**| ${duration} |\n`;
+                block += `> | **Visto**   | ${watched} / ${duration} → **${percent}%** |\n`;
+                block += `> | **Progreso**| \`${progressBar(percent)}\` |\n`;
+                block += `> | **Fecha**   | ${dateStr} |\n`;
+
+                const watchedCount = completionHistory?.total || completionHistory?.events?.length || 0;
+                if (watchedCount > 0) {
+                    block += `> | **Veces completado** | ${watchedCount} |\n`;
+                }
+
+                if (playlistTitle) block += `> | **Playlist**| ${escMd(playlistTitle)} |\n`;
+                if (viewCount > 0) block += `> | **Vistas**  | ${viewCount.toLocaleString()} |\n`;
+                block += `> \n`;
+                block += `> 🔗 [Ver en YouTube](${ytUrl})\n`;
+            } else {
+                block += `- **Canal:** [${escMd(author)}](${channelUrl})\n`;
+                block += `- **Tipo:** ${type}\n`;
+                block += `- **Progreso:** ${watched} / ${duration} → ${percent}% \`${progressBar(percent)}\`\n`;
+                block += `- **Fecha visto:** ${dateStr}\n`;
+                if (watchedCount > 0) {
+                    block += `- **Veces completado:** ${watchedCount}\n`;
+                }
+                if (playlistTitle) block += `- **Playlist:** ${escMd(playlistTitle)}\n`;
+                block += `- 🔗 [Ver en YouTube](${ytUrl})\n`;
+            }
+
+            block += `\n#${opts.tagPrefix} #${opts.tagPrefix}/${type}\n`;
+
+            // ── Description ──────────────────────────────────────
+            if (description && description.trim()) {
+                block += `\n---\n`;
+                if (opts.callout) {
+                    block += `> [!quote]- Descripción\n`;
+                    block += `> ${description.trim().replace(/\n/g, '\n> ')}\n`;
+                } else {
+                    block += `### Descripción\n\n${description.trim()}\n`;
+                }
+            }
+
+            if (!standaloneNote) block += '\n---\n\n';
+
+            return block;
+        };
+
+        /* ─── ZIP Builder ────────────────────────────────────── */
+
+        /**
+         * Builds a ZIP Blob containing one .md file per video using MiniZip (no external deps).
+         * Files are placed inside the folder path configured by the user.
+         * Also generates an _index.md summary file.
+         *
+         * @param {Array<Object>} videos
+         * @param {Object} opts
+         * @param {string} format
+         * @returns {Blob}  Ready-to-download ZIP Blob
+         */
+        const buildZip = (videos, opts, format) => {
+            /** @type {Map<string, string>} filename (incl. folder prefix) → utf-8 content */
+            const files = new Map();
+            const folder = opts.folder.replace(/\/$/, ''); // strip trailing slash
+            const now = new Date().toISOString().split('T')[0];
+
+            // Track filenames to avoid duplicates within the same folder
+            const usedNames = new Set();
+
+            for (const video of videos) {
+                const safeName = safeFilename(video.title);
+                const videoDate = formatDate(video.timeWatched);
+
+                // Filename: "[YYYY-MM-DD - ]Title.md"
+                let basename = opts.datePrefix ? `${videoDate} - ${safeName}.md` : `${safeName}.md`;
+
+                // Deduplicate: if already used, append videoId suffix
+                if (usedNames.has(basename)) {
+                    basename = opts.datePrefix
+                        ? `${videoDate} - ${safeName} [${video.videoId}].md`
+                        : `${safeName} [${video.videoId}].md`;
+                }
+                usedNames.add(basename);
+
+                files.set(`${folder}/${basename}`, videoToMarkdown(video, opts, true));
+            }
+
+            // ── Index file (_index.md) ────────────────────────────
+            const typeCounts = videos.reduce((acc, v) => {
+                acc[v.type] = (acc[v.type] || 0) + 1; return acc;
+            }, {});
+            const totalWatch = videos.reduce((s, v) => s + v.watchProgress, 0);
+
+            let idx = `---\ntitle: YouTube Playback Index\n`;
+            idx += `generated: ${now}\nsource: ${format}\ntotal: ${videos.length}\n`;
+            idx += `tags: [${opts.tagPrefix}, ${opts.tagPrefix}/index]\n---\n\n`;
+            idx += `# 📺 YouTube Playback - Índice\n\n`;
+            idx += `> Generado el **${now}** desde un backup **${format}** - ${videos.length} videos.\n\n`;
+            idx += `## Estadísticas\n\n`;
+            idx += `| Métrica | Valor |\n|--------|-------|\n`;
+            idx += `| Total de videos | ${videos.length} |\n`;
+            idx += `| Tiempo total visto | ${formatDuration(totalWatch)} |\n`;
+            for (const [type, count] of Object.entries(typeCounts)) {
+                idx += `| ${type} | ${count} |\n`;
+            }
+            idx += `\n## Propiedades disponibles en Obsidian Bases\n\n`;
+            idx += `| Propiedad | Descripción |\n|-----------|-------------|\n`;
+            idx += `| \`title\` | Título del video |\n`;
+            idx += `| \`channel\` | Nombre del canal |\n`;
+            idx += `| \`type\` | video / shorts / live / preview |\n`;
+            idx += `| \`percentWatched\` | Porcentaje visto (0–100) |\n`;
+            idx += `| \`dateWatched\` | Fecha YYYY-MM-DD |\n`;
+            idx += `| \`watchProgress\` | Segundos vistos |\n`;
+            idx += `| \`lengthSeconds\` | Duración total (s) |\n`;
+            idx += `| \`isCompleted\` | Booleano |\n`;
+            idx += `| \`cover\` | URL del thumbnail para tarjetas |\n`;
+            idx += `| \`url\` | Enlace directo a YouTube |\n`;
+
+            files.set(`${folder}/_index.md`, idx);
+            return MiniZip.build(files);
+        };
+
+        /* ─── Single-file Builder ────────────────────────────── */
+
+        /**
+         * Groups videos by the chosen groupBy key.
+         * @param {Array<Object>} videos
+         * @param {string} groupBy
+         * @returns {Map<string, Array<Object>>}
+         */
+        const groupVideos = (videos, groupBy) => {
+            const groups = new Map();
+            for (const v of videos) {
+                let key;
+                switch (groupBy) {
+                    case 'type': key = v.type.charAt(0).toUpperCase() + v.type.slice(1); break;
+                    case 'month': key = formatMonth(v.timeWatched); break;
+                    case 'author': key = v.author || 'Unknown'; break;
+                    case 'playlist': key = v.playlistTitle || 'Sin playlist'; break;
+                    default: key = 'all'; break;
+                }
+                if (!groups.has(key)) groups.set(key, []);
+                groups.get(key).push(v);
+            }
+            return groups;
+        };
+
+        /**
+         * Builds a single consolidated Markdown document.
+         * @param {Array<Object>} videos
+         * @param {Object} opts
+         * @param {string} format
+         * @returns {string}
+         */
+        const buildSingleFile = (videos, opts, format) => {
+            const now = new Date().toISOString().split('T')[0];
+            let md = '';
+
+            md += `---\ntitle: YouTube Playback History\ngenerated: ${now}\n`;
+            md += `source: ${format}\ntotal: ${videos.length}\n`;
+            md += `tags: [${opts.tagPrefix}, ${opts.tagPrefix}/history]\n---\n\n`;
+            md += `# 📺 YouTube Playback History\n\n`;
+            md += `> Generado el **${now}** - ${videos.length} video${videos.length !== 1 ? 's' : ''}.\n\n`;
+
+            const totalWatched = videos.reduce((s, v) => s + v.watchProgress, 0);
+            const totalDuration = videos.reduce((s, v) => s + v.lengthSeconds, 0);
+            const typeCounts = videos.reduce((acc, v) => { acc[v.type] = (acc[v.type] || 0) + 1; return acc; }, {});
+
+            md += `> [!summary]- 📊 Estadísticas\n`;
+            md += `> - **Videos:** ${videos.length}\n`;
+            md += `> - **Tiempo visto:** ${formatDuration(totalWatched)}\n`;
+            md += `> - **Duración total:** ${formatDuration(totalDuration)}\n`;
+            for (const [type, count] of Object.entries(typeCounts)) {
+                md += `> - **${type}:** ${count}\n`;
+            }
+            md += '\n';
+
+            const groups = groupVideos(videos, opts.group);
+            for (const [groupLabel, gVideos] of groups) {
+                if (opts.group !== 'none' && groups.size > 1) md += `# ${groupLabel}\n\n`;
+                for (const video of gVideos) {
+                    md += videoToMarkdown(video, opts, false);
+                }
+            }
+            return md;
+        };
+
+        /* ─── File I/O ───────────────────────────────────────── */
+
+        /**
+         * Reads a File as UTF-8 text.
+         * @param {File} file
+         * @returns {Promise<string>}
+         */
+        const readFileAsText = (file) => new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+            reader.readAsText(file, 'UTF-8');
+        });
+
+        /**
+         * Handles a dropped or selected file: reads it, parses it, updates UI.
+         * @param {File} file
+         */
+        const processFile = async (file) => {
+            showStatus('<img src="../icons/stopwatch-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-muted);">Leyendo archivo…', 'info');
+            btnConvert.disabled = true;
+            generatedMarkdown = '';
+            generatedZip = null;
+
+            try {
+                const text = await readFileAsText(file);
+                if (!text.trim()) { showStatus('<img src="../icons/alert-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-warning);">El archivo está vacío.', 'warn'); return; }
+
+                const { videos, format } = detectAndParse(text);
+
+                if (!videos.length) {
+                    showStatus('<img src="../icons/x-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-danger);">No se encontraron videos. Asegúrate de que el archivo sea un backup de YouTube Playback Plox.', 'error');
+                    return;
+                }
+
+                detectedFormat = format;
+                parsedVideos = videos;
+                showStatus(`<img src="../icons/check-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-success);">Formato detectado: <strong>${format}</strong> - ${videos.length} entradas. Haz clic en <em>Generar Markdown</em>.`, 'success');
+                btnConvert.disabled = false;
+            } catch (err) {
+                showStatus(`<img src="../icons/x-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-danger);">Error: ${err.message}`, 'error');
+            }
+        };
+
+        /* ─── Conversion ─────────────────────────────────────── */
+
+        /**
+         * Main conversion handler. Applies filters, sort, then builds output (ZIP or single file).
+         */
+        const runConversion = async () => {
+            if (!parsedVideos.length) return;
+            btnConvert.disabled = true;
+            showStatus('<img src="../icons/gear-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-muted);">Generando…', 'info');
+
+            try {
+                const opts = readOptions();
+
+                // Filter
+                let videos = parsedVideos.filter(v => {
+                    if (opts.filterType !== 'all' && v.type !== opts.filterType) return false;
+                    if (opts.completedOnly && watchPercent(v.watchProgress, v.lengthSeconds, v.isCompleted) < 85) return false;
+                    return true;
+                });
+
+                if (!videos.length) {
+                    showStatus('<img src="../icons/alert-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-warning);">Ningún video coincide con los filtros actuales.', 'warn');
+                    previewSection.style.display = 'none';
+                    return; // finally re-enables the button
+                }
+
+                videos = sortVideos(videos, opts.sort);
+
+                // Stats chips
+                const totalWatched = videos.reduce((s, v) => s + v.watchProgress, 0);
+                const minDate = Math.min(...videos.map(v => v.timeWatched).filter(Boolean));
+                statsRow.innerHTML = [
+                    `<span class="stat-chip"><img src="../icons/video-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);"><strong>${videos.length}</strong> videos</span>`,
+                    `<span class="stat-chip"><img src="../icons/stopwatch-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);"><strong>${formatDuration(totalWatched)}</strong> visto</span>`,
+                    `<span class="stat-chip"><img src="../icons/calendar-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">desde <strong>${formatDate(minDate)}</strong></span>`,
+                ].join('');
+
+                if (currentMode === 'zip') {
+                    // buildZip is synchronous and returns a Blob directly
+                    generatedZip = buildZip(videos, opts, detectedFormat);
+
+                    // Preview: first file content
+                    const firstVideo = videos[0];
+                    const preview = videoToMarkdown(firstVideo, opts, true);
+                    previewBox.textContent = `// Vista previa del primer archivo:\n// ${safeFilename(firstVideo.title)}.md\n\n` + preview;
+                    previewTitle.innerHTML = `<img src="../icons/package-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-accent);">${opts.folder}/ (${videos.length} archivos + _index.md)`;
+                    btnCopy.style.display = 'none';
+                    btnDownload.innerHTML = '<img src="../icons/download-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Descargar ZIP';
+
+                } else {
+                    generatedMarkdown = buildSingleFile(videos, opts, detectedFormat);
+                    const maxPreview = 5000;
+                    previewBox.textContent = generatedMarkdown.length > maxPreview
+                        ? generatedMarkdown.slice(0, maxPreview) + '\n\n… (vista previa truncada - el archivo descargado estará completo)'
+                        : generatedMarkdown;
+                    previewTitle.innerHTML = `<img src="../icons/file-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">youtube-playback-history.md`;
+                    btnCopy.style.display = '';
+                    btnDownload.innerHTML = '<img src="../icons/download-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Descargar .md';
+                }
+
+                previewSection.style.display = 'block';
+                previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                showStatus(`<img src="../icons/check-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-success);">Listo - <strong>${videos.length}</strong> videos convertidos.`, 'success');
+
+            } catch (err) {
+                console.error('[Playback→Obsidian] runConversion error:', err);
+                showStatus(`<img src="../icons/x-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-danger);">Error al generar: ${err.message}`, 'error');
+            } finally {
+                // Always re-enable the button, even on error
+                btnConvert.disabled = false;
+            }
+        };
+
+        /* ─── Download ───────────────────────────────────────── */
+
+        /**
+         * Triggers the appropriate download based on current mode.
+         */
+        const downloadOutput = async () => {
+            const date = new Date().toISOString().split('T')[0];
+
+            if (currentMode === 'zip' && generatedZip) {
+                // generatedZip is already a Blob from MiniZip.build() - no async needed
+                const url = URL.createObjectURL(generatedZip);
+                const a = Object.assign(document.createElement('a'), {
+                    href: url, download: `youtube-playback-plox-obsidian-${date}.zip`
+                });
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+                return;
+            }
+
+            if (currentMode === 'single' && generatedMarkdown) {
+                const blob = new Blob([generatedMarkdown], { type: 'text/markdown;charset=utf-8' });
+                const url = URL.createObjectURL(blob);
+                const a = Object.assign(document.createElement('a'), {
+                    href: url, download: `youtube-playback-plox-obsidian-${date}.md`
+                });
+                document.body.appendChild(a); a.click(); a.remove();
+                URL.revokeObjectURL(url);
+            }
+        };
+
+        /* ─── Event Listeners ────────────────────────────────── */
+
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files?.[0];
+            if (file) processFile(file);
+        });
+
+        dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+        dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            const file = e.dataTransfer?.files?.[0];
+            if (file) processFile(file);
+        });
+
+        btnConvert.addEventListener('click', runConversion);
+        btnDownload.addEventListener('click', downloadOutput);
+
+        btnCopy.addEventListener('click', async () => {
+            if (!generatedMarkdown) return;
+            try {
+                await navigator.clipboard.writeText(generatedMarkdown);
+                const orig = btnCopy.textContent;
+                btnCopy.innerHTML = '<img src="../icons/check-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-success);">Copiado!';
+                setTimeout(() => { btnCopy.textContent = orig; }, 1800);
+            } catch {
+                btnCopy.innerHTML = '<img src="../icons/alert-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-danger);">Error';
+                setTimeout(() => { btnCopy.textContent = 'Copiar'; }, 1800);
+            }
+        });
+
+        // Initialize mode UI state
+        setMode('zip');
+    </script>
+</body>
+
+</html>

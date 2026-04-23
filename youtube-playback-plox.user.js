@@ -10671,11 +10671,20 @@ regular-item.ypp-fill-none {
                 setInnerHTML(btnSelectAll, allSelected
                     ? `${SVG_ICONS.close} ${t('deselectAllResults')}`
                     : `${SVG_ICONS.check} ${t('selectAllResults')}`);
+
+                btnClearSelection.disabled = size === 0;
+
+                const copyBtn = document.getElementById('ypp-playlist-copy-link-btn');
+                const openBtn = document.getElementById('ypp-playlist-open-link-btn');
+
+                if (copyBtn) copyBtn.disabled = size === 0;
+                if (openBtn) openBtn.disabled = size === 0;
             };
 
             playlistArea.addEventListener('ypp-selection-changed', refreshPlaylistState);
 
             const copyBtn = createElement('button', {
+                id: 'ypp-playlist-copy-link-btn',
                 className: 'ypp-btn ypp-btn-info ypp-shadow-md',
                 html: `${SVG_ICONS.copy} ${t('copyLink')}`,
                 onClickEvent: () => {
@@ -10689,6 +10698,7 @@ regular-item.ypp-fill-none {
             });
 
             const openBtn = createElement('button', {
+                id: 'ypp-playlist-open-link-btn',
                 className: 'ypp-btn ypp-btn-outline-primary ypp-shadow-md',
                 html: `${t('openPlaylist')} ${SVG_ICONS.linkExternal}`,
                 onClickEvent: () => {

@@ -4548,6 +4548,16 @@ regular-item.ypp-fill-none {
         thumbsup: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M8.347.631A.75.75 0 0 1 9.123.26l.238.04a3.25 3.25 0 0 1 2.591 4.098L11.494 6h.665a3.25 3.25 0 0 1 3.118 4.167l-1.135 3.859A2.75 2.75 0 0 1 11.503 16H6.586a3.75 3.75 0 0 1-2.184-.702A1.75 1.75 0 0 1 3 16H1.75A1.75 1.75 0 0 1 0 14.25v-6.5C0 6.784.784 6 1.75 6h3.417a.25.25 0 0 0 .217-.127ZM4.75 13.649l.396.33c.404.337.914.521 1.44.521h4.917a1.25 1.25 0 0 0 1.2-.897l1.135-3.859A1.75 1.75 0 0 0 12.159 7.5H10.5a.75.75 0 0 1-.721-.956l.731-2.558a1.75 1.75 0 0 0-1.127-2.14L6.69 6.611a1.75 1.75 0 0 1-1.523.889H4.75ZM3.25 7.5h-1.5a.25.25 0 0 0-.25.25v6.5c0 .138.112.25.25.25H3a.25.25 0 0 0 .25-.25Z"/></svg>',
         // https://icon-sets.iconify.design/octicon/thumbsdown-16/
         thumbsdown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M7.653 15.369a.75.75 0 0 1-.776.371l-.238-.04a3.25 3.25 0 0 1-2.591-4.099L4.506 10h-.665A3.25 3.25 0 0 1 .723 5.833l1.135-3.859A2.75 2.75 0 0 1 4.482 0H9.43c.78.003 1.538.25 2.168.702A1.75 1.75 0 0 1 12.989 0h1.272A1.75 1.75 0 0 1 16 1.75v6.5A1.75 1.75 0 0 1 14.25 10h-3.417a.25.25 0 0 0-.217.127ZM11.25 2.351l-.396-.33a2.25 2.25 0 0 0-1.44-.521H4.496a1.25 1.25 0 0 0-1.199.897L2.162 6.256A1.75 1.75 0 0 0 3.841 8.5H5.5a.75.75 0 0 1 .721.956l-.731 2.558a1.75 1.75 0 0 0 1.127 2.14L9.31 9.389a1.75 1.75 0 0 1 1.523-.889h.417Zm1.5 6.149h1.5a.25.25 0 0 0 .25-.25v-6.5a.25.25 0 0 0-.25-.25H13a.25.25 0 0 0-.25.25Z"/></svg>',
+        // https://icon-sets.iconify.design/octicon/alert/
+        warning: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z" fill="currentColor"/></svg>',
+        // https://icon-sets.iconify.design/octicon/people-16/
+        people: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M2 5.5a3.5 3.5 0 1 1 5.898 2.549a5.51 5.51 0 0 1 3.034 4.084a.75.75 0 1 1-1.482.235a4 4 0 0 0-7.9 0a.75.75 0 0 1-1.482-.236A5.5 5.5 0 0 1 3.102 8.05A3.5 3.5 0 0 1 2 5.5M11 4a3.001 3.001 0 0 1 2.22 5.018a5 5 0 0 1 2.56 3.012a.749.749 0 0 1-.885.954a.75.75 0 0 1-.549-.514a3.51 3.51 0 0 0-2.522-2.372a.75.75 0 0 1-.574-.73v-.352a.75.75 0 0 1 .416-.672A1.5 1.5 0 0 0 11 5.5A.75.75 0 0 1 11 4m-5.5-.5a2 2 0 1 0-.001 3.999A2 2 0 0 0 5.5 3.5"/></svg>',
+        // https://icon-sets.iconify.design/iconamoon/arrow-down-2-fill/
+        chevronDown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7 9a1 1 0 0 0-.707 1.707l5 5a1 1 0 0 0 1.414 0l5-5A1 1 0 0 0 17 9z" clip-rule="evenodd"/></svg>',
+        // https://icon-sets.iconify.design/octicon/bug-16/
+        bug: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M4.72.22a.75.75 0 0 1 1.06 0l1 .999a3.5 3.5 0 0 1 2.441 0l.999-1a.748.748 0 0 1 1.265.332a.75.75 0 0 1-.205.729l-.775.776c.616.63.995 1.493.995 2.444v.327q0 .15-.025.292c.408.14.764.392 1.029.722l1.968-.787a.75.75 0 0 1 .556 1.392L13 7.258V9h2.25a.75.75 0 0 1 0 1.5H13v.5q-.002.615-.141 1.186l2.17.868a.75.75 0 0 1-.557 1.392l-2.184-.873A5 5 0 0 1 8 16a5 5 0 0 1-4.288-2.427l-2.183.873a.75.75 0 0 1-.558-1.392l2.17-.868A5 5 0 0 1 3 11v-.5H.75a.75.75 0 0 1 0-1.5H3V7.258L.971 6.446a.75.75 0 0 1 .558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a2 2 0 0 1-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 0 1 0-1.06m.53 6.28a.75.75 0 0 0-.75.75V11a3.5 3.5 0 1 0 7 0V7.25a.75.75 0 0 0-.75-.75ZM6.173 5h3.654A.17.17 0 0 0 10 4.827V4.5a2 2 0 1 0-4 0v.327c0 .096.077.173.173.173"/></svg>',
+
+
 
 
         /* SVG REPO  ------------------------------------ */
@@ -4567,13 +4577,16 @@ regular-item.ypp-fill-none {
         progressOneHundred: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M5 5a5 5 0 0 0-5 5v4a5 5 0 0 0 5 5h14a5 5 0 0 0 5-5v-4a5 5 0 0 0-5-5zm-3 5a3 3 0 0 1 3-3h14a3 3 0 0 1 3 3v4a3 3 0 0 1-3 3H5a3 3 0 0 1-3-3zm16-1a2 2 0 0 0-2 2v2a2 2 0 1 0 4 0v-2a2 2 0 0 0-2-2m-8 2a2 2 0 1 1 4 0v2a2 2 0 1 1-4 0zM6 9a2 2 0 0 0-2 2v2a2 2 0 1 0 4 0v-2a2 2 0 0 0-2-2" clip-rule="evenodd"/></svg>',
         // https://www.svgrepo.com/svg/489146/smartphone-01 - PD License
         smartphone: '<svg class="ypp-svg-reset" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.012M6 5v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2"/></svg>',
+        // https://www.svgrepo.com/svg/345233/translate - MIT
+        translate: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M4.545 6.714 4.11 8H3l1.862-5h1.284L8 8H6.833l-.435-1.286zm1.634-.736L5.5 3.956h-.049l-.679 2.022z"/><path d="M0 2a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-3H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zm7.138 9.995q.289.451.63.846c-.748.575-1.673 1.001-2.768 1.292.178.217.451.635.555.867 1.125-.359 2.08-.844 2.886-1.494.777.665 1.739 1.165 2.93 1.472.133-.254.414-.673.629-.89-1.125-.253-2.057-.694-2.82-1.284.681-.747 1.222-1.651 1.621-2.757H14V8h-3v1.047h.765c-.318.844-.74 1.546-1.272 2.13a6 6 0 0 1-.415-.492 2 2 0 0 1-.94.31"/></svg>',
+
 
 
         /* OTROS */
         // https://svgicons.com/icon/285913/freetube - CC0 1.0
         freetubeIconFill: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4.707 0c.9 0 1.629.73 1.629 1.63V24H4.099a4.1 4.1 0 0 1-2.898-1.2A4.1 4.1 0 0 1 0 19.9V1.63C0 .73.73 0 1.63 0ZM24 0v1.94a4.395 4.395 0 0 1-4.395 4.396h-10.6a1.613 1.613 0 0 1-1.613-1.613v-3.11C7.392.723 8.114 0 9.005 0Zm-6.782 11.734a.618.618 0 0 1 0 1.108l-8.902 4.412a.64.64 0 0 1-.924-.573V7.895a.64.64 0 0 1 .924-.573Z"/></svg>',
         // https://icon-sets.iconify.design/majesticons/users-line/ - MIT
-        userLine: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="9" cy="9" r="4"/><path d="M16 19c0-3.314-3.134-6-7-6s-7 2.686-7 6m13-6a4 4 0 1 0-3-6.646"/><path d="M22 19c0-3.314-3.134-6-7-6c-.807 0-2.103-.293-3-1.235"/></g></svg>',
+        // people: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><circle cx="9" cy="9" r="4"/><path d="M16 19c0-3.314-3.134-6-7-6s-7 2.686-7 6m13-6a4 4 0 1 0-3-6.646"/><path d="M22 19c0-3.314-3.134-6-7-6c-.807 0-2.103-.293-3-1.235"/></g></svg>',
         // https://icon-sets.iconify.design/svg-spinners/blocks-wave/ - MIT https://github.com/n3r4zzurr0/svg-spinners/blob/main/LICENSE
         spinner: '<svg  class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="7.33" height="7.33" x="1" y="1" fill="currentColor"><animate id="SVGzjrPLenI" attributeName="x" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="y" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="width" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="0;SVGXAURnSRI.end+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="8.33" y="1" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="1;4;1"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="1" y="8.33" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="1;4;1"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.1s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="15.66" y="1" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="8.33" y="8.33" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="1" y="15.66" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="1;4;1"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.2s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="15.66" y="8.33" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="8.33" y="15.66" fill="currentColor"><animate attributeName="x" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="8.33;11.33;8.33"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.3s" dur="0.6s" values="7.33;1.33;7.33"/></rect><rect width="7.33" height="7.33" x="15.66" y="15.66" fill="currentColor"><animate id="SVGXAURnSRI" attributeName="x" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="y" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="15.66;18.66;15.66"/><animate attributeName="width" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="7.33;1.33;7.33"/><animate attributeName="height" begin="SVGzjrPLenI.begin+0.4s" dur="0.6s" values="7.33;1.33;7.33"/></rect></svg>',
 
@@ -4586,7 +4599,6 @@ regular-item.ypp-fill-none {
         playlist: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M15 6H3v2h12V6zm0 4H3v2h12v-2zM3 16h8v-2H3v2zM17 6v8.18c-.31-.11-.65-.18-1-.18-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3V8h3V6h-5z"/></svg>',
         playlistRemove: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"><path fill="currentColor" d="M15.964 4.634h-12v2h12zM15.964 8.634h-12v2h12zM3.964 12.634h8v2h-8zM12.965 13.71l1.414-1.415 2.121 2.121 2.121-2.12 1.415 1.413-2.122 2.122 2.122 2.12-1.415 1.415-2.121-2.121-2.121 2.121-1.415-1.414 2.122-2.122z"/></svg>',
 
-        warning: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 34 34" xmlns="http://www.w3.org/2000/svg"><path fill="#FFCC4D" d="M2.65 35C.81 35 0 33.66.85 32.03l15.6-30.06c.86-1.63 2.24-1.63 3.1 0l15.6 30.06c.85 1.63.04 2.97-1.8 2.97H2.65z"/><path fill="#231F20" d="M15.58 28.95A2.42 2.42 0 0 1 18 26.53a2.42 2.42 0 0 1 2.42 2.42A2.42 2.42 0 0 1 18 31.37a2.42 2.42 0 0 1-2.42-2.42zm.19-18.29c0-1.3.96-2.1 2.23-2.1 1.24 0 2.23.83 2.23 2.1V22.6c0 1.27-.99 2.1-2.23 2.1-1.27 0-2.23-.8-2.23-2.1V10.66z"/></svg>',
         error: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path fill="red" d="M13 10.66q0 .4-.28.68l-1.38 1.38q-.28.28-.68.28t-.69-.28L7 9.75l-2.97 2.97q-.28.28-.69.28-.4 0-.68-.28l-1.38-1.38Q1 11.06 1 10.66t.28-.69L4.25 7 1.28 4.03Q1 3.75 1 3.34q0-.4.28-.68l1.38-1.38Q2.94 1 3.34 1t.69.28L7 4.25l2.97-2.97q.28-.28.69-.28.4 0 .68.28l1.38 1.38q.28.28.28.68t-.28.69L9.75 7l2.97 2.97q.28.28.28.69z"/></svg>',
 
         video: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>',
@@ -4595,8 +4607,6 @@ regular-item.ypp-fill-none {
         hourglass: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M6 2v6h.01L6 8.01 10 12l-4 4 .01.01H6V22h12v-5.99h-.01L18 16l-4-4 4-3.99-.01-.01H18V2h-12zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z"/></svg>',
         fire: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>',
         ice: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M22 11h-4.17l3.24-3.24-1.41-1.41L15 11h-2V9l4.65-4.65-1.41-1.41L13 6.17V2h-2v4.17L7.76 2.93 6.35 4.34 11 9v2H9L4.35 6.35 2.94 7.76 6.17 11H2v2h4.17l-3.24 3.24 1.41 1.41L9 13h2v2l-4.65 4.65 1.41 1.41L11 17.83V22h2v-4.17l3.24 3.24 1.41-1.41L13 15v-2h2l4.65 4.65 1.41-1.41L17.83 13H22v-2z"/></svg>',
-        sort: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M3 18h6v-2H3v2zM3 6v2h18V6H3zm0 7h12v-2H3v2z"/></svg>',
-        chevronDown: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M7 10l5 5 5-5z"/></svg>'
     };
 
     // ------------------------------------------
@@ -7267,11 +7277,29 @@ regular-item.ypp-fill-none {
         // siembra una única entrada usando `timeWatched` como fecha de la última compleción
         // registrada. Es idempotente: solo actúa en el primer ciclo lectura/escritura
         // post-actualización, ya que tras guardar el array deja de estar vacío.
-        let resolvedCompletionHistory = Array.isArray(data.completionHistory)
-            ? data.completionHistory
-            : [];
-        if (resolvedIsCompleted && resolvedCompletionHistory.length === 0) {
-            resolvedCompletionHistory = [resolvedTimeWatched];
+        let resolvedCompletionHistory = data.completionHistory;
+
+        // Migración silenciosa de seguridad: si es un array o indefinido, inicializa la estructura analítica O(1).
+        if (!resolvedCompletionHistory || Array.isArray(resolvedCompletionHistory)) {
+            const arr = Array.isArray(resolvedCompletionHistory) ? resolvedCompletionHistory : [];
+            resolvedCompletionHistory = {
+                events: [...arr],
+                daily: {},
+                total: arr.length
+            };
+        }
+
+        // Siembra idempotente de historial
+        if (resolvedIsCompleted && resolvedCompletionHistory.events.length === 0 && resolvedTimeWatched) {
+            resolvedCompletionHistory.events = [resolvedTimeWatched];
+            resolvedCompletionHistory.total = 1;
+        }
+
+        if (resolvedCompletionHistory.events.length > 0) {
+            resolvedCompletionHistory.events = resolvedCompletionHistory.events
+                .filter(ts => Number.isFinite(ts) && ts > 0 && ts < Date.now() + 60000)
+                .sort((a, b) => a - b)
+                .slice(-50); // Mantenemos 50 como capa de seguridad de Storage frente a desbordamientos asíncronos.
         }
 
         const result = {
@@ -7588,6 +7616,49 @@ regular-item.ypp-fill-none {
         return { imported: importedCount, failed: failedCount, total: freeTubeData.length };
     }
 
+    // MARK: 🔄 Insert Completion Event
+    /**
+     * Helper encargado de inyectar el evento de completado respetando 
+     * segregación SQRS {events, daily, total} para mapas de calor.
+     * @param {Object} history - Histórico actual.
+     * @param {number} now - Timestamp exacto actual.
+     * @param {number} duration - Duración original del video.
+     */
+    function insertCompletionEvent(history, now, duration = 0) {
+        const base = (!history || Array.isArray(history))
+            ? {
+                events: Array.isArray(history) ? [...history] : [],
+                daily: {},
+                total: Array.isArray(history) ? history.length : 0
+            }
+            : {
+                events: [...(history.events || [])],
+                daily: { ...(history.daily || {}) },
+                total: history.total || 0
+            };
+
+        const last = base.events.at(-1);
+        const debounceThreshold =
+            duration > 0
+                ? Math.max(1000, Math.min(5000, duration * 0.1 * 1000))
+                : 2000;
+
+        if (!last || now - last > debounceThreshold) {
+            const day = new Date(now).toISOString().slice(0, 10);
+
+            base.events.push(now);
+            base.daily[day] = (base.daily[day] || 0) + 1;
+            base.total += 1;
+
+            // const MAX_EVENTS = 1000;
+            // if (base.events.length > MAX_EVENTS) {
+            //     base.events.shift(); // FIFO: elimina el más antiguo si supera el límite
+            // }
+        }
+
+        return base;
+    }
+
     // MARK: 💾 Internal Save Regular Video
     /**
      * Lógica interna compartida para guardar videos que no son Shorts ni Directos (Watch o Miniplayer).
@@ -7606,7 +7677,12 @@ regular-item.ypp-fill-none {
         logLog(logContext, `Guardando video ${videoId} en ${currentTime}s`);
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
-        const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
+        const progress = duration > 0 ? (currentTime / duration) : 0;
+        const defaultPercent = (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent) / 100;
+        const isFinished = duration > 0 && (
+            progress >= defaultPercent ||
+            (duration <= 60 && currentTime >= duration - 0.75)
+        );
 
         // Si tiene tiempo fijo, no sobreescribir
         if (sourceData && sourceData.forceResumeTime > 0) {
@@ -7614,10 +7690,10 @@ regular-item.ypp-fill-none {
                 logLog(logContext, `Video ${videoId} completado, manteniendo tiempo fijo`);
 
                 const session = activeProcessingSessions.get(videoEl);
-                const history = [...(sourceData.completionHistory || [])];
+                let history = sourceData.completionHistory;
 
                 if (session && !session.hasLoggedCompletion) {
-                    history.push(now);
+                    history = insertCompletionEvent(history, now, duration);
                     session.hasLoggedCompletion = true;
                     logInfo(logContext, `Registro de finalización añadido para video con tiempo fijo: ${videoId}`);
                 }
@@ -7652,15 +7728,22 @@ regular-item.ypp-fill-none {
             timeWatched: now,
             type: 'video',
             isCompleted: isFinished,
-            completionHistory: sourceData?.completionHistory || []
+            completionHistory: sourceData?.completionHistory
         };
 
         const session = activeProcessingSessions.get(videoEl);
         if (isFinished && session && !session.hasLoggedCompletion) {
-            videoData.completionHistory.push(now);
+            videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
             session.hasLoggedCompletion = true;
-        } else if (session && currentTime < (duration * 0.15) && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
-            session.hasLoggedCompletion = false;
+        } else if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
+            const prev = sourceData?.watchProgress || 0;
+            const delta = prev - currentTime;
+            const isNearStart = currentTime < Math.max(1, duration * 0.2);
+            const wasNearEnd = prev > (duration * 0.75);
+            const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
+            if (wasLoop) {
+                session.hasLoggedCompletion = false;
+            }
         }
 
         // Normalizar antes de guardar para asegurar Format A y limpieza de legacy
@@ -7721,7 +7804,12 @@ regular-item.ypp-fill-none {
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
-        const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
+        const progress = duration > 0 ? (currentTime / duration) : 0;
+        const defaultPercent = (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent) / 100;
+        const isFinished = duration > 0 && (
+            progress >= defaultPercent ||
+            (duration <= 60 && currentTime >= duration - 0.75)
+        );
 
         // Si tiene tiempo fijo, no sobreescribir
         if (sourceData && sourceData.forceResumeTime > 0) {
@@ -7729,10 +7817,10 @@ regular-item.ypp-fill-none {
                 logLog('saveShortsVideo', `Short ${videoId} completado, manteniendo tiempo fijo`);
 
                 const session = activeProcessingSessions.get(videoEl);
-                const history = [...(sourceData.completionHistory || [])];
+                let history = sourceData.completionHistory;
 
                 if (session && !session.hasLoggedCompletion) {
-                    history.push(now);
+                    history = insertCompletionEvent(history, now, duration);
                     session.hasLoggedCompletion = true;
                     logInfo('saveShortsVideo', `Registro de finalización añadido para short con tiempo fijo: ${videoId}`);
                 }
@@ -7767,17 +7855,23 @@ regular-item.ypp-fill-none {
             timeWatched: now,
             type: 'shorts',
             isCompleted: isFinished,
-            completionHistory: sourceData?.completionHistory || []
+            completionHistory: sourceData?.completionHistory
         };
 
         const session = activeProcessingSessions.get(videoEl);
         if (isFinished && session && !session.hasLoggedCompletion) {
-            videoData.completionHistory.push(now);
+            videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
             session.hasLoggedCompletion = true;
-        } else if (session && currentTime < (duration * 0.15) && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
-            session.hasLoggedCompletion = false;
+        } else if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
+            const prev = sourceData?.watchProgress || 0;
+            const delta = prev - currentTime;
+            const isNearStart = currentTime < Math.max(1, duration * 0.2);
+            const wasNearEnd = prev > (duration * 0.75);
+            const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
+            if (wasLoop) {
+                session.hasLoggedCompletion = false;
+            }
         }
-        // nota: (duration * 0.15) 15% para asegurar que las finalizaciones se registren de manera confiable incluso para videos de corta duración donde el intervalo de guardado de 1s podría perderse durante reinicio.
 
         const normalizedData = normalizeVideoData(videoData);
         const storageResult = await Storage.set(videoId, normalizedData);
@@ -7817,7 +7911,12 @@ regular-item.ypp-fill-none {
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
-        const isFinished = duration > 0 && (currentTime / duration) * 100 >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent);
+        const progress = duration > 0 ? (currentTime / duration) : 0;
+        const defaultPercent = (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent) / 100;
+        const isFinished = duration > 0 && (
+            progress >= defaultPercent ||
+            (duration <= 60 && currentTime >= duration - 0.75)
+        );
 
         logLog('savePreview', `Saving Preview: videoId=${videoId}, cur=${currentTime.toFixed(2)}, dur=${duration.toFixed(2)}, isFinished=${isFinished}`);
 
@@ -7839,19 +7938,26 @@ regular-item.ypp-fill-none {
             timeWatched: now,
             type: resolvedVideoType,
             isCompleted: safeIsFinished,
-            completionHistory: sourceData?.completionHistory || []
+            completionHistory: sourceData?.completionHistory
         };
 
         if (safeIsFinished) {
             const session = activeProcessingSessions.get(videoEl);
             if (session && !session.hasLoggedCompletion) {
-                videoData.completionHistory.push(now);
+                videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
                 session.hasLoggedCompletion = true;
             }
         } else {
             const session = activeProcessingSessions.get(videoEl);
-            if (session && currentTime < (duration * 0.15) && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
-                session.hasLoggedCompletion = false;
+            if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
+                const prev = sourceData?.watchProgress || 0;
+                const delta = prev - currentTime;
+                const isNearStart = currentTime < Math.max(1, duration * 0.2);
+                const wasNearEnd = prev > (duration * 0.75);
+                const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
+                if (wasLoop) {
+                    session.hasLoggedCompletion = false;
+                }
             }
         }
 
@@ -9498,7 +9604,7 @@ regular-item.ypp-fill-none {
 
         const wrapper = createElement('div', { className: 'ypp-settings-section' });
         const label = createElement('label', { className: 'ypp-label ypp-label-language', styles: { display: 'flex', alignItems: 'center', gap: '10px' } });
-        const span = createElement('span', { text: `${t('language')}: ` });
+        const span = createElement('span', { html: `${SVG_ICONS.translate} ${t('language')}: ` });
 
         const dropdown = createCustomDropdown({
             id: 'language-dropdown',
@@ -9826,7 +9932,7 @@ regular-item.ypp-fill-none {
                 </div>
                 <div class="ypp-support-options">
                     <h3 style="margin:10px 0; display:flex; align-items:center; gap:8px; font-size:1.4rem; color: var(--ypp-text);">
-                        ${SVG_ICONS.warning} ${t('supportLogsTitle')}
+                        ${SVG_ICONS.bug} ${t('supportLogsTitle')}
                     </h3>
                     <textarea readonly class="ypp-log-textarea ypp-shadow-sm" spellcheck="false" placeholder="${t('noLogs')}">${(window.MyScriptLogger._errorLogs && window.MyScriptLogger._errorLogs.length > 0)
                 ? window.MyScriptLogger._errorLogs.join('\n')
@@ -10002,6 +10108,7 @@ regular-item.ypp-fill-none {
                 const logData = [
                     `--- YouTube Playback Plox Logs ---`,
                     `Script Version: ${SCRIPT_VERSION}`,
+                    `Current Settings: ${JSON.stringify(cachedSettings)}`,
                     `User Agent: ${navigator.userAgent}`,
                     `Storage Backend: ${storageInfo.indexedDBSupported ? 'IndexedDB' : 'Fallback'} (Cache: ${storageInfo.cacheSize || 0})`,
                     `Date: ${new Date().toISOString()}`,
@@ -11859,7 +11966,7 @@ regular-item.ypp-fill-none {
                 const timeSinceRelevantStart = Date.now() - Math.max(sessionStartTime, lastResumeTimestamp);
 
                 if (diff < -5 && timeSinceRelevantStart < 3000) {
-                    logWarn('saveStatus', `⚠️ Saltando guardado: Posible reset del player tras carga/resume (diff: ${diff.toFixed(2)}s, age: ${timeSinceRelevantStart}ms)`);
+                    logInfo('saveStatus', `Saltando guardado: Posible reset del player tras carga/resume (diff: ${diff.toFixed(2)}s, age: ${timeSinceRelevantStart}ms)`);
                     return { success: false, reason: 'player_reset_detected' };
                 }
 
@@ -12598,7 +12705,7 @@ regular-item.ypp-fill-none {
                 { value: 'yourMostWatched', label: t('yourMostWatched'), icon: SVG_ICONS.fire },
                 { value: 'yourLeastWatched', label: t('yourLeastWatched'), icon: SVG_ICONS.ice },
 
-                { isGroup: true, label: t('mostViewsYoutube'), icon: SVG_ICONS.userLine },
+                { isGroup: true, label: t('mostViewsYoutube'), icon: SVG_ICONS.people },
                 { value: 'mostViewsYoutube', label: t('mostViewsYoutube'), icon: SVG_ICONS.thumbsup },
                 { value: 'leastViewsYoutube', label: t('leastViewsYoutube'), icon: SVG_ICONS.thumbsdown },
 
@@ -12687,12 +12794,12 @@ regular-item.ypp-fill-none {
         };
 
         const getIconForRange = (min, max) => {
-            if (type === 'views') return SVG_ICONS.userLine;
+            if (type === 'views') return SVG_ICONS.people;
             return getProgressIcon(min);
         };
 
         const labelKey = type === 'views' ? 'views' : (type === 'percent' ? 'percentWatched' : '');
-        const iconFor = type === 'views' ? SVG_ICONS.userLine : SVG_ICONS.progressOneHundred;
+        const iconFor = type === 'views' ? SVG_ICONS.people : SVG_ICONS.progressOneHundred;
 
         // Chip-label compacto con icono dinámico
         const chipIcon = createElement('span', { className: 'ypp-filter-chip-icon', html: getIconForRange(minVal, maxVal) });
@@ -12763,7 +12870,7 @@ regular-item.ypp-fill-none {
         const dropdownOptions = presets.map(p => ({
             value: p.isCustom ? 'custom' : JSON.stringify({ min: p.min, max: p.max }),
             label: p.label,
-            icon: p.isCustom ? SVG_ICONS.settings : (type === 'percent' ? getProgressIcon(p.min) : SVG_ICONS.userLine)
+            icon: p.isCustom ? SVG_ICONS.settings : (type === 'percent' ? getProgressIcon(p.min) : SVG_ICONS.people)
         }));
 
         const dropdown = createCustomDropdown({
@@ -13035,7 +13142,7 @@ regular-item.ypp-fill-none {
         // Guardar posición de scroll antes de actualizar
         const currentScrollTop = virtualScroller?.container?.scrollTop ?? 0;
 
-        // PARA CONGELAR LOS SKELETONS INFINITAMENTE, TESTEO
+        // TEST: PARA CONGELAR LOS SKELETONS INFINITAMENTE
         // await new Promise(() => {}); 
 
         const keys = await Storage.keys();
@@ -13098,7 +13205,7 @@ regular-item.ypp-fill-none {
         let filteredItems = allItems.filter(item => {
             const vType = item.info.type;
             if (currentFilterBy === 'completed') return item.info.isCompleted === true;
-            if (currentFilterBy === 'completedOnce') return item.info.completionHistory?.length > 0;
+            if (currentFilterBy === 'completedOnce') return item.info.completionHistory?.total > 0;
             if (currentFilterBy === 'fixedTime') return item.info.forceResumeTime && item.info.forceResumeTime > 0;
             if (currentFilterBy === 'protected') return item.info.isProtected === true;
             if (currentFilterBy === 'playlist') return item.type === 'playlist-video';
@@ -13157,8 +13264,8 @@ regular-item.ypp-fill-none {
 
             if (currentOrderBy === 'durationShort') return item.info.lengthSeconds || 0;
             if (currentOrderBy === 'durationLong') return -(item.info.lengthSeconds || 0);
-            if (currentOrderBy === 'yourMostWatched') return -(item.info.completionHistory?.length || 0);
-            if (currentOrderBy === 'yourLeastWatched') return (item.info.completionHistory?.length || 0);
+            if (currentOrderBy === 'yourMostWatched') return -(item.info.completionHistory?.total || 0);
+            if (currentOrderBy === 'yourLeastWatched') return (item.info.completionHistory?.total || 0);
             if (currentOrderBy === 'mostViewsYoutube') return -(item.info.viewCount || 0);
             if (currentOrderBy === 'leastViewsYoutube') return (item.info.viewCount || 0);
             if (currentOrderBy === 'progressDESC' || currentOrderBy === 'progress') {
@@ -14017,9 +14124,6 @@ regular-item.ypp-fill-none {
             else if (percent !== null) progressHtml = percentHtml;
         }
 
-        // Obtener la mejor miniatura validada asíncronamente
-        const validatedThumbUrl = await getValidatedThumbnail(videoId);
-
         // Estilos playlist
         let wrapperStyle = '';
         let playlistBorderColor = '';
@@ -14037,6 +14141,8 @@ regular-item.ypp-fill-none {
         }
 
         const selectionClass = isPlaylistCreationMode || isManagementMode ? 'selection-mode' : '';
+        const thumbClass = type === 'shorts' ? 'ypp-thumb-shorts' : 'ypp-thumb';
+        const thumbWidth = type === 'shorts' ? '55px' : '155px';
 
         const html = `
             <div
@@ -14047,7 +14153,10 @@ regular-item.ypp-fill-none {
             >
                 ${isPlaylistCreationMode || isManagementMode ? `<input type="checkbox" data-action="toggle-selection" class="ypp-video-checkbox" data-video-id="${escapeHTML(videoId)}" ${selectedVideos.has(videoId) ? 'checked' : ''}>` : ''}
 
-                <img class="${type === 'shorts' ? 'ypp-thumb-shorts' : 'ypp-thumb'}" title="${title}" alt="${title}" src="${validatedThumbUrl}" loading="lazy" width="320" height="180" draggable="false">
+                <div class="ypp-thumb-wrapper" style="position: relative; flex-shrink: 0; margin-right: var(--ypp-spacing-sm); width: ${thumbWidth}; height: 85px; border-radius: var(--ypp-spacing-md); overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--ypp-bg-secondary);">
+                    <div class="ypp-skeleton-thumb" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; margin: 0; border-radius: 0;"></div>
+                    <img class="${thumbClass}" title="${title}" alt="${title}" style="opacity: 0; transition: opacity 0.3s ease; position: relative; z-index: 2; width: 100%; height: 100%; object-fit: cover; margin: 0; border-radius: 0; max-width: none; max-height: none;" loading="lazy" draggable="false">
+                </div>
 
                 <div class="ypp-infoDiv">
                     <a class="ypp-titleLink" title="${title}" href="https://www.youtube.com/watch?v=${escapeHTML(videoId)}${playlistKey ? '&list=' + escapeHTML(playlistKey) : ''}" target="_blank" rel="noopener noreferrer">
@@ -14069,16 +14178,16 @@ regular-item.ypp-fill-none {
                     <div class="ypp-views">
                         ${viewsText}
                         ${(() => {
-                if (!info.completionHistory?.length) return '';
+                if (!info.completionHistory?.total) return '';
                 const history = info.completionHistory;
                 const limit = 10;
-                const recent = history.slice(-limit).reverse();
-                const hasMore = history.length > limit;
+                const recent = history.events.slice(-limit).reverse();
+                const hasMore = history.total > recent.length;
                 let tooltip = `${t('watchedHistory')}:\n` +
                     recent.map(ts => new Date(ts).toLocaleString().replace(',', '')).join('\n');
-                if (hasMore) tooltip += `\n... (+${history.length - limit})`;
+                if (hasMore) tooltip += `\n... (+${history.total - recent.length})`;
 
-                return `<span class="ypp-watched-count" title="${escapeHTML(tooltip)}"> [${SVG_ICONS.check} ${t('watchedCount', { count: history.length }, 'Watched ' + history.length + ' times')}]</span>`;
+                return `<span class="ypp-watched-count" title="${escapeHTML(tooltip)}"> [${SVG_ICONS.check} ${t('watchedCount', { count: history.total }, 'Watched ' + history.total + ' times')}]</span>`;
             })()}
                     </div>
                     <div class="ypp-timestamp ${timestampClass}">${timestampText}</div>
@@ -14109,7 +14218,34 @@ regular-item.ypp-fill-none {
                 </div>
             </div>
         `;
-        return html;
+
+        const wrapper = document.createElement('div');
+        setInnerHTML(wrapper, html.trim());
+        const el = wrapper.firstElementChild;
+
+        // Cargar asíncronamente la imagen y actualizar
+        const imgEl = el.querySelector('img');
+        const skeletonEl = el.querySelector('.ypp-skeleton-thumb');
+
+        getValidatedThumbnail(videoId).then(url => {
+            if (!imgEl) return;
+            imgEl.onload = () => {
+                imgEl.style.opacity = '1';
+                setTimeout(() => { if (skeletonEl) skeletonEl.remove(); }, 300);
+            };
+            imgEl.onerror = () => {
+                imgEl.style.opacity = '1';
+                if (skeletonEl) skeletonEl.remove();
+            };
+            imgEl.src = url;
+            // Hack para asegurar que onload se dispare si está en caché
+            if (imgEl.complete) imgEl.onload();
+        }).catch(() => {
+            if (imgEl) imgEl.style.opacity = '1';
+            if (skeletonEl) skeletonEl.remove();
+        });
+
+        return el;
     }
 
     // ------------------------------------------
@@ -14255,7 +14391,7 @@ regular-item.ypp-fill-none {
      * Consolida el rescate de localStorage/GM_setValue y normalización del esquema de vídeos.
      */
     async function cleanupNonVideoData() {
-        const MIGRATION_VERSION = 5;
+        const MIGRATION_VERSION = 6;
         const MIGRATION_KEY = CONFIG.STORAGE_KEYS.migration;
 
         try {
@@ -14436,10 +14572,11 @@ regular-item.ypp-fill-none {
                         // Caso B: Normalizar vídeo individual
                         else {
                             const normalized = normalizeVideoData(data, key);
-                            // Detectar campos antiguos (timestamp, etc.)
+                            // Detectar campos antiguos o estructura completionHistory plana (0.0.9-8)
+                            const hadLegacyArray = Array.isArray(data.completionHistory);
                             const hadLegacy = data.timestamp !== undefined || data.duration !== undefined || data.lastUpdated !== undefined || data.viewsNumber !== undefined;
 
-                            if (hadLegacy || lastMigrationVersion < 4) {
+                            if (hadLegacy || hadLegacyArray || lastMigrationVersion < 6) {
                                 await StorageAsync.set(key, normalized);
                                 migrated++;
                             }

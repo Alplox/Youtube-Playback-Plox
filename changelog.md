@@ -2,7 +2,9 @@
 
 ### Fixed
 
-- **Fixed Time Completion**: Resolved a bug where video completion was not registered in the watch history when a video had a fixed start time. Additionally, fixed an issue where clicking "Replay" would reset the video to 0:00 instead of the fixed start time; the script now correctly detects replays and re-applies the saved fixed position.
+- **Robust Loop Tracking**: Fixed a bug where automated replays (especially in auto-looping Shorts) failed to accurately record multiple views in the same session due to narrow time reset thresholds. Implementing relative delta tracking and hybrid finish calculations now ensures seamless loop counting for shorts and normal videos of any duration.
+- **Completion History Memory Safety**: Hardened the video data processing architecture by enforcing immutable array cloning for `completionHistory` across all save operations (preventing accidental context mutations) and introducing a strict 50-entry timeline cap with 2-second timestamp deduplication in `normalizeVideoData` to restrict unbounded IndexedDB storage growth.
+- **Fixed Time Completion**: Resolved a bug where video completion was not registered in the watch history when a video had a fixed start time. Additionally, fixed an issue where clicking "Replay" would reset the video to 0:00 instead of the fixed start time; the script now correctly detects replays and re-applies the saved fixed position. #32
 - **Fixed Time ReferenceError**: Fixed a `ReferenceError ('alertStyles' is not defined)` in `syncFixedTimeUI` that occurred when assigning a new fixed start time, migrating the alert style purely to dynamic configurations.
 - **Range Input Synchronization**: Improved the behavior of Views and Percentage range filters.
     - **Sanitization**: Fixed a bug where non-numeric characters (like "e", ".", or "-") were allowed by switching inputs to `type="text"` with `inputmode="numeric"`.
@@ -35,6 +37,8 @@
 
 ### Changed
 
+- **Refactor**: Migrate `completionHistory` to structured CQRS object (events/daily/total) enabling unbounded analytical metrics and O(1) sorting performance, decoupled from strict normalization processes.
+- **Asynchronous Thumbnail Skeletons**: Improved the Saved Videos modal UX by rendering video list items instantly with a skeleton layout for the thumbnail while the valid image URL loads asynchronously, preventing layout blocks and empty gaps during fast scrolling.
 - **Motion & Spring UI**: Implemented cascading staggered entry animations for modal windows and applied organic spring physics interpolation (`cubic-bezier`) to Toast notifications and expanding filter panels for a fluid feel.
 - **Skeleton Loaders**: Replaced loading spinner with fully composed Skeleton UI cards reflecting layout structures.
 - **Alert Logic Refactor**: Completely refactored the internal alert construction logic to support dynamic combinations of icon, text, and time components.

@@ -14083,8 +14083,37 @@ regular-item.ypp-fill-none {
             forceResumeTime
         } = info;
 
-        const remaining = Math.max(lengthSeconds - watchProgress, 0);
-        const percent = lengthSeconds ? Math.min(100, Math.round((watchProgress / lengthSeconds) * 100)) : null;
+        // Margen de seguridad para considerar un video como "terminado"
+        // Si faltan menos de 0.75 segundos, ya se considera “terminado”
+        const EPSILON = 0.75;
+
+        // Validar duración
+        const hasValidLength = Number.isFinite(lengthSeconds) && lengthSeconds > 0;
+
+        // ¿Está prácticamente al final?
+        const isNearEnd = hasValidLength && watchProgress >= lengthSeconds - EPSILON;
+
+        // ¿Se considera terminado?
+        const isDone = isCompleted || isNearEnd;
+
+        // Tiempo restante
+        const remaining = isDone
+            ? 0
+            : Math.max(lengthSeconds - watchProgress, 0);
+
+        // Porcentaje visto
+        let percent = null;
+
+        if (hasValidLength) {
+            if (isDone) {
+                percent = 100;
+            } else {
+                percent = Math.min(
+                    100,
+                    Math.round((watchProgress / lengthSeconds) * 100)
+                );
+            }
+        }
 
         const isPlaylistItem = !!playlistKey;
         const finalPlaylistTitle = escapeHTML(playlistTitle || playlistKey || '');

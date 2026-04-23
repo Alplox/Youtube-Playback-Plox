@@ -129,7 +129,7 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1799814/YouTube%20Helper%20API.js
+// @require      https://update.greasyfork.org/scripts/549881/1804326/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 // ------------------------------------------
@@ -7287,6 +7287,15 @@ regular-item.ypp-fill-none {
                 daily: {},
                 total: arr.length
             };
+        }
+
+        // Regenerar daily si está vacío pero hay eventos (caso de datos migrados)
+        if (resolvedCompletionHistory.events.length > 0 && Object.keys(resolvedCompletionHistory.daily).length === 0) {
+            resolvedCompletionHistory.daily = {};
+            for (const ts of resolvedCompletionHistory.events) {
+                const day = new Date(ts).toISOString().slice(0, 10);
+                resolvedCompletionHistory.daily[day] = (resolvedCompletionHistory.daily[day] || 0) + 1;
+            }
         }
 
         // Siembra idempotente de historial

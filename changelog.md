@@ -2,6 +2,7 @@
 
 ### Fixed
 
+- **Completion History Daily Regeneration**: Fixed a bug where the `daily` object in `completionHistory` remained empty after migration from legacy array format. Added logic in `normalizeVideoData` to regenerate `daily` counts from existing `events` when `daily` is empty but events are present.
 - **Robust Loop Tracking**: Fixed a bug where automated replays (especially in auto-looping Shorts) failed to accurately record multiple views in the same session due to narrow time reset thresholds. Implementing relative delta tracking and hybrid finish calculations now ensures seamless loop counting for shorts and normal videos of any duration.
 - **Completion History Memory Safety**: Hardened the video data processing architecture by enforcing immutable array cloning for `completionHistory` across all save operations (preventing accidental context mutations) and introducing a strict 50-entry timeline cap with 2-second timestamp deduplication in `normalizeVideoData` to restrict unbounded IndexedDB storage growth.
 - **Fixed Time Completion**: Resolved a bug where video completion was not registered in the watch history when a video had a fixed start time. Additionally, fixed an issue where clicking "Replay" would reset the video to 0:00 instead of the fixed start time; the script now correctly detects replays and re-applies the saved fixed position. #32

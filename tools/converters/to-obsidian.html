@@ -398,85 +398,85 @@
             <span class="logo-dot"></span>YouTube Playback Plox<span class="logo-dot"></span>
         </div>
         <h1>Export → Obsidian Bases</h1>
-        <p>Convierte tu backup de <a href="https://github.com/Alplox/Youtube-Playback-Plox">YouTube Playback Plox</a> a
-            Markdown compatible con <strong>Obsidian Bases</strong>.</p>
+        <p>Convert your <a href="https://github.com/Alplox/Youtube-Playback-Plox">YouTube Playback Plox</a> backup to
+            Markdown compatible with <strong>Obsidian Bases</strong>.</p>
     </header>
 
     <!-- Main card -->
     <div class="card">
 
         <!-- Step 1: Mode -->
-        <div class="card-title">1 - Elige el modo de exportación</div>
+        <div class="card-title">1 - Choose export mode</div>
 
         <div class="mode-toggle">
             <button class="mode-btn active" id="mode-zip" onclick="setMode('zip')">
                 <span class="mode-icon"><img src="../icons/archive-24.svg" alt="" width="24" height="24" style="vertical-align: text-bottom; margin-right: 8px; color: var(--icon-primary);"></span>
-                <span class="mode-label">Un archivo por video (ZIP)</span>
-                <span class="mode-sub"><img src="../icons/star-16.svg" alt="" width="12" height="12" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-accent);">Recomendado para Obsidian Bases</span>
+                <span class="mode-label">One file per video (ZIP)</span>
+                <span class="mode-sub"><img src="../icons/star-16.svg" alt="" width="12" height="12" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-accent);">Recommended for Obsidian Bases</span>
             </button>
             <button class="mode-btn" id="mode-single" onclick="setMode('single')">
                 <span class="mode-icon"><img src="../icons/file-24.svg" alt="" width="24" height="24" style="vertical-align: text-bottom; margin-right: 8px; color: var(--icon-primary);"></span>
-                <span class="mode-label">Un solo archivo .md</span>
-                <span class="mode-sub">Para leer / pegar en Obsidian</span>
+                <span class="mode-label">Single .md file</span>
+                <span class="mode-sub">For reading / pasting into Obsidian</span>
             </button>
         </div>
 
         <div class="info-box" id="zip-info">
-            <strong><img src="../icons/package-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-accent);">Modo ZIP - Obsidian Bases</strong><br />
-            Genera un <code>.zip</code> con una nota <code>.md</code> por video dentro de una carpeta
-            <code>YouTube/</code>.
-            Al descomprimirlo en tu vault y crear una <strong>Base</strong> apuntando a esa carpeta,
-            podrás ver tus videos como tarjetas con propiedades filtrables
+            <strong><img src="../icons/package-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-accent);">ZIP Mode - Obsidian Bases</strong><br />
+            Generates a <code>.zip</code> with one <code>.md</code> note per video inside a
+            <code>YouTube/</code> folder.
+            After extracting to your vault and creating a <strong>Base</strong> pointing to that folder,
+            you can view your videos as cards with filterable properties
             (<code>channel</code>, <code>percentWatched</code>, <code>type</code>, etc.).
         </div>
 
         <!-- Step 2: Upload -->
-        <div class="card-title" style="margin-top:1.75rem;">2 - Sube tu archivo de backup</div>
+        <div class="card-title" style="margin-top:1.75rem;">2 - Upload your backup file</div>
 
         <div id="drop-zone">
             <input type="file" id="file-input" accept=".json,.db,.ndjson,.jsonl" />
             <div class="drop-icon"><img src="../icons/file-directory-24.svg" alt="" width="40" height="40" style="color: var(--icon-muted);"></div>
-            <div class="drop-label">Arrastra el archivo aquí o haz clic para buscar</div>
-            <div class="drop-sub">Formatos aceptados:</div>
+            <div class="drop-label">Drag file here or click to browse</div>
+            <div class="drop-sub">Accepted formats:</div>
             <div class="badge-row">
-                <span class="badge badge-json">JSON nativo (.json)</span>
+                <span class="badge badge-json">Native JSON (.json)</span>
                 <span class="badge badge-ft">FreeTube (.db / .ndjson)</span>
             </div>
         </div>
 
         <!-- Step 3: Options -->
-        <div class="card-title" style="margin-top:1.75rem;">3 - Configura la salida</div>
+        <div class="card-title" style="margin-top:1.75rem;">3 - Configure output</div>
 
         <div class="options-grid">
             <div class="option-group">
-                <label for="opt-sort">Ordenar por</label>
+                <label for="opt-sort">Sort by</label>
                 <select id="opt-sort">
-                    <option value="timeWatched-desc">Fecha visto (más reciente)</option>
-                    <option value="timeWatched-asc">Fecha visto (más antiguo)</option>
-                    <option value="title-asc">Título (A → Z)</option>
-                    <option value="title-desc">Título (Z → A)</option>
-                    <option value="progress-desc">Progreso (más visto)</option>
-                    <option value="progress-asc">Progreso (menos visto)</option>
-                    <option value="duration-desc">Duración (más largo)</option>
+                    <option value="timeWatched-desc">Date watched (newest)</option>
+                    <option value="timeWatched-asc">Date watched (oldest)</option>
+                    <option value="title-asc">Title (A → Z)</option>
+                    <option value="title-desc">Title (Z → A)</option>
+                    <option value="progress-desc">Progress (most watched)</option>
+                    <option value="progress-asc">Progress (least watched)</option>
+                    <option value="duration-desc">Duration (longest)</option>
                 </select>
             </div>
 
             <div class="option-group" id="opt-group-wrapper">
-                <label for="opt-group">Agrupar por (solo modo single)</label>
+                <label for="opt-group">Group by (single mode only)</label>
                 <select id="opt-group">
-                    <option value="none">Sin agrupación</option>
-                    <option value="type">Tipo de video</option>
-                    <option value="month">Mes visto</option>
-                    <option value="author">Canal</option>
+                    <option value="none">No grouping</option>
+                    <option value="type">Video type</option>
+                    <option value="month">Month watched</option>
+                    <option value="author">Channel</option>
                     <option value="playlist">Playlist</option>
                 </select>
             </div>
 
             <div class="option-group">
-                <label for="opt-filter-type">Filtrar por tipo</label>
+                <label for="opt-filter-type">Filter by type</label>
                 <select id="opt-filter-type">
-                    <option value="all">Todos</option>
-                    <option value="video">Videos regulares</option>
+                    <option value="all">All</option>
+                    <option value="video">Regular videos</option>
                     <option value="shorts">Shorts</option>
                     <option value="live">Livestreams</option>
                     <option value="preview">Previews</option>
@@ -484,47 +484,47 @@
             </div>
 
             <div class="option-group">
-                <label for="opt-folder">Carpeta en el vault (modo ZIP)</label>
+                <label for="opt-folder">Folder in vault (ZIP mode)</label>
                 <input type="text" id="opt-folder" value="YouTube/History" placeholder="YouTube/History" />
             </div>
 
             <div class="option-group">
-                <label for="opt-tag">Prefijo de tag Obsidian</label>
+                <label for="opt-tag">Obsidian tag prefix</label>
                 <input type="text" id="opt-tag" value="youtube" placeholder="youtube" />
             </div>
         </div>
 
         <div class="toggle-row">
             <input type="checkbox" id="opt-thumbnail" checked />
-            <span>Incluir embed de thumbnail <code>![thumbnail](url)</code></span>
+            <span>Include thumbnail embed <code>![thumbnail](url)</code></span>
         </div>
         <div class="toggle-row">
             <input type="checkbox" id="opt-completed" />
-            <span>Solo videos completados o casi completados (≥ 85%)</span>
+            <span>Only completed or nearly completed videos (≥ 85%)</span>
         </div>
         <div class="toggle-row">
             <input type="checkbox" id="opt-callout" checked />
-            <span>Usar callout blocks de Obsidian para metadatos</span>
+            <span>Use Obsidian callout blocks for metadata</span>
         </div>
         <div class="toggle-row">
             <input type="checkbox" id="opt-date-prefix" />
-            <span>Incluir fecha como prefijo en nombre de archivo (modo ZIP)</span>
+            <span>Include date as filename prefix (ZIP mode)</span>
         </div>
 
         <div id="status-bar"></div>
 
-        <button id="btn-convert" disabled>Generar Markdown</button>
+        <button id="btn-convert" disabled>Generate Markdown</button>
     </div>
 
     <!-- Preview / Results -->
     <section id="preview-section" class="card">
-        <div class="card-title">4 - Vista previa y descarga</div>
+        <div class="card-title">4 - Preview and download</div>
         <div class="stats-row" id="stats-row"></div>
         <div class="preview-header">
             <h2 id="preview-title"><img src="../icons/file-24.svg" alt="" width="20" height="20" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-primary);">preview</h2>
             <div class="btn-row">
-                <button class="btn-sm btn-copy" id="btn-copy" style="display:none"><img src="../icons/copy-16.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Copiar</button>
-                <button class="btn-sm btn-download" id="btn-download"><img src="../icons/download-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Descargar</button>
+                <button class="btn-sm btn-copy" id="btn-copy" style="display:none"><img src="../icons/copy-16.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Copy</button>
+                <button class="btn-sm btn-download" id="btn-download"><img src="../icons/download-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Download</button>
             </div>
         </div>
         <pre id="preview-box"></pre>
@@ -831,9 +831,9 @@
         };
 
         /**
-         * Normaliza completionHistory al formato actual del script:
+         * Normalizes completionHistory to the current script format:
          * `{ events:number[], daily:Record<string,number>, total:number }`.
-         * Acepta arrays legacy y siembra desde `isCompleted + timeWatched`.
+         * Accepts legacy arrays and seeds from `isCompleted + timeWatched`.
          * @param {any} completionHistory
          * @param {boolean} isCompleted
          * @param {number} timeWatched
@@ -1079,35 +1079,35 @@
 
             // ── Metadata block ────────────────────────────────────
             if (opts.callout) {
-                block += `> [!info]- 📺 Información del video\n`;
-                block += `> | Campo       | Valor |\n`;
+                block += `> [!info]- Video Information\n`;
+                block += `> | Field       | Value |\n`;
                 block += `> |------------|-------|\n`;
-                block += `> | **Canal**   | [${escMd(author)}](${channelUrl}) |\n`;
-                block += `> | **Tipo**    | ${type} |\n`;
-                block += `> | **Duración**| ${duration} |\n`;
-                block += `> | **Visto**   | ${watched} / ${duration} → **${percent}%** |\n`;
-                block += `> | **Progreso**| \`${progressBar(percent)}\` |\n`;
-                block += `> | **Fecha**   | ${dateStr} |\n`;
+                block += `> | **Channel**   | [${escMd(author)}](${channelUrl}) |\n`;
+                block += `> | **Type**    | ${type} |\n`;
+                block += `> | **Duration**| ${duration} |\n`;
+                block += `> | **Watched**   | ${watched} / ${duration} → **${percent}%** |\n`;
+                block += `> | **Progress**| \`${progressBar(percent)}\` |\n`;
+                block += `> | **Date**   | ${dateStr} |\n`;
 
                 const watchedCount = completionHistory?.total || completionHistory?.events?.length || 0;
                 if (watchedCount > 0) {
-                    block += `> | **Veces completado** | ${watchedCount} |\n`;
+                    block += `> | **Times completed** | ${watchedCount} |\n`;
                 }
 
                 if (playlistTitle) block += `> | **Playlist**| ${escMd(playlistTitle)} |\n`;
-                if (viewCount > 0) block += `> | **Vistas**  | ${viewCount.toLocaleString()} |\n`;
+                if (viewCount > 0) block += `> | **Views**  | ${viewCount.toLocaleString()} |\n`;
                 block += `> \n`;
-                block += `> 🔗 [Ver en YouTube](${ytUrl})\n`;
+                block += `> 🔗 [Watch on YouTube](${ytUrl})\n`;
             } else {
-                block += `- **Canal:** [${escMd(author)}](${channelUrl})\n`;
-                block += `- **Tipo:** ${type}\n`;
-                block += `- **Progreso:** ${watched} / ${duration} → ${percent}% \`${progressBar(percent)}\`\n`;
-                block += `- **Fecha visto:** ${dateStr}\n`;
+                block += `- **Channel:** [${escMd(author)}](${channelUrl})\n`;
+                block += `- **Type:** ${type}\n`;
+                block += `- **Progress:** ${watched} / ${duration} → ${percent}% \`${progressBar(percent)}\`\n`;
+                block += `- **Date watched:** ${dateStr}\n`;
                 if (watchedCount > 0) {
-                    block += `- **Veces completado:** ${watchedCount}\n`;
+                    block += `- **Times completed:** ${watchedCount}\n`;
                 }
                 if (playlistTitle) block += `- **Playlist:** ${escMd(playlistTitle)}\n`;
-                block += `- 🔗 [Ver en YouTube](${ytUrl})\n`;
+                block += `- 🔗 [Watch on YouTube](${ytUrl})\n`;
             }
 
             block += `\n#${opts.tagPrefix} #${opts.tagPrefix}/${type}\n`;
@@ -1116,10 +1116,10 @@
             if (description && description.trim()) {
                 block += `\n---\n`;
                 if (opts.callout) {
-                    block += `> [!quote]- Descripción\n`;
+                    block += `> [!quote]- Description\n`;
                     block += `> ${description.trim().replace(/\n/g, '\n> ')}\n`;
                 } else {
-                    block += `### Descripción\n\n${description.trim()}\n`;
+                    block += `### Description\n\n${description.trim()}\n`;
                 }
             }
 
@@ -1176,27 +1176,27 @@
             let idx = `---\ntitle: YouTube Playback Index\n`;
             idx += `generated: ${now}\nsource: ${format}\ntotal: ${videos.length}\n`;
             idx += `tags: [${opts.tagPrefix}, ${opts.tagPrefix}/index]\n---\n\n`;
-            idx += `# 📺 YouTube Playback - Índice\n\n`;
-            idx += `> Generado el **${now}** desde un backup **${format}** - ${videos.length} videos.\n\n`;
-            idx += `## Estadísticas\n\n`;
-            idx += `| Métrica | Valor |\n|--------|-------|\n`;
-            idx += `| Total de videos | ${videos.length} |\n`;
-            idx += `| Tiempo total visto | ${formatDuration(totalWatch)} |\n`;
+            idx += `# 📺 YouTube Playback - Index\n\n`;
+            idx += `> Generated on **${now}** from a **${format}** backup - ${videos.length} videos.\n\n`;
+            idx += `## Statistics\n\n`;
+            idx += `| Metric | Value |\n|--------|-------|\n`;
+            idx += `| Total videos | ${videos.length} |\n`;
+            idx += `| Total time watched | ${formatDuration(totalWatch)} |\n`;
             for (const [type, count] of Object.entries(typeCounts)) {
                 idx += `| ${type} | ${count} |\n`;
             }
-            idx += `\n## Propiedades disponibles en Obsidian Bases\n\n`;
-            idx += `| Propiedad | Descripción |\n|-----------|-------------|\n`;
-            idx += `| \`title\` | Título del video |\n`;
-            idx += `| \`channel\` | Nombre del canal |\n`;
+            idx += `\n## Available properties in Obsidian Bases\n\n`;
+            idx += `| Property | Description |\n|-----------|-------------|\n`;
+            idx += `| \`title\` | Video title |\n`;
+            idx += `| \`channel\` | Channel name |\n`;
             idx += `| \`type\` | video / shorts / live / preview |\n`;
-            idx += `| \`percentWatched\` | Porcentaje visto (0–100) |\n`;
-            idx += `| \`dateWatched\` | Fecha YYYY-MM-DD |\n`;
-            idx += `| \`watchProgress\` | Segundos vistos |\n`;
-            idx += `| \`lengthSeconds\` | Duración total (s) |\n`;
-            idx += `| \`isCompleted\` | Booleano |\n`;
-            idx += `| \`cover\` | URL del thumbnail para tarjetas |\n`;
-            idx += `| \`url\` | Enlace directo a YouTube |\n`;
+            idx += `| \`percentWatched\` | Percentage watched (0–100) |\n`;
+            idx += `| \`dateWatched\` | Date YYYY-MM-DD |\n`;
+            idx += `| \`watchProgress\` | Seconds watched |\n`;
+            idx += `| \`lengthSeconds\` | Total duration (s) |\n`;
+            idx += `| \`isCompleted\` | Boolean |\n`;
+            idx += `| \`cover\` | Thumbnail URL for cards |\n`;
+            idx += `| \`url\` | Direct link to YouTube |\n`;
 
             files.set(`${folder}/_index.md`, idx);
             return MiniZip.build(files);
@@ -1218,7 +1218,7 @@
                     case 'type': key = v.type.charAt(0).toUpperCase() + v.type.slice(1); break;
                     case 'month': key = formatMonth(v.timeWatched); break;
                     case 'author': key = v.author || 'Unknown'; break;
-                    case 'playlist': key = v.playlistTitle || 'Sin playlist'; break;
+                    case 'playlist': key = v.playlistTitle || 'No playlist'; break;
                     default: key = 'all'; break;
                 }
                 if (!groups.has(key)) groups.set(key, []);
@@ -1242,16 +1242,16 @@
             md += `source: ${format}\ntotal: ${videos.length}\n`;
             md += `tags: [${opts.tagPrefix}, ${opts.tagPrefix}/history]\n---\n\n`;
             md += `# 📺 YouTube Playback History\n\n`;
-            md += `> Generado el **${now}** - ${videos.length} video${videos.length !== 1 ? 's' : ''}.\n\n`;
+            md += `> Generated on **${now}** - ${videos.length} video${videos.length !== 1 ? 's' : ''}.\n\n`;
 
             const totalWatched = videos.reduce((s, v) => s + v.watchProgress, 0);
             const totalDuration = videos.reduce((s, v) => s + v.lengthSeconds, 0);
             const typeCounts = videos.reduce((acc, v) => { acc[v.type] = (acc[v.type] || 0) + 1; return acc; }, {});
 
-            md += `> [!summary]- 📊 Estadísticas\n`;
+            md += `> [!summary]- 📊 Statistics\n`;
             md += `> - **Videos:** ${videos.length}\n`;
-            md += `> - **Tiempo visto:** ${formatDuration(totalWatched)}\n`;
-            md += `> - **Duración total:** ${formatDuration(totalDuration)}\n`;
+            md += `> - **Time watched:** ${formatDuration(totalWatched)}\n`;
+            md += `> - **Total duration:** ${formatDuration(totalDuration)}\n`;
             for (const [type, count] of Object.entries(typeCounts)) {
                 md += `> - **${type}:** ${count}\n`;
             }
@@ -1277,7 +1277,7 @@
         const readFileAsText = (file) => new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.onload = (e) => resolve(e.target.result);
-            reader.onerror = () => reject(new Error('No se pudo leer el archivo'));
+            reader.onerror = () => reject(new Error('Could not read file'));
             reader.readAsText(file, 'UTF-8');
         });
 
@@ -1286,25 +1286,25 @@
          * @param {File} file
          */
         const processFile = async (file) => {
-            showStatus('<img src="../icons/stopwatch-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-muted);">Leyendo archivo…', 'info');
+            showStatus('<img src="../icons/stopwatch-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-muted);">Reading file…', 'info');
             btnConvert.disabled = true;
             generatedMarkdown = '';
             generatedZip = null;
 
             try {
                 const text = await readFileAsText(file);
-                if (!text.trim()) { showStatus('<img src="../icons/alert-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-warning);">El archivo está vacío.', 'warn'); return; }
+                if (!text.trim()) { showStatus('<img src="../icons/alert-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-warning);">File is empty.', 'warn'); return; }
 
                 const { videos, format } = detectAndParse(text);
 
                 if (!videos.length) {
-                    showStatus('<img src="../icons/x-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-danger);">No se encontraron videos. Asegúrate de que el archivo sea un backup de YouTube Playback Plox.', 'error');
+                    showStatus('<img src="../icons/x-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-danger);">No videos found. Make sure the file is a YouTube Playback Plox backup.', 'error');
                     return;
                 }
 
                 detectedFormat = format;
                 parsedVideos = videos;
-                showStatus(`<img src="../icons/check-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-success);">Formato detectado: <strong>${format}</strong> - ${videos.length} entradas. Haz clic en <em>Generar Markdown</em>.`, 'success');
+                showStatus(`<img src="../icons/check-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-success);">Format detected: <strong>${format}</strong> - ${videos.length} entries. Click <em>Generate Markdown</em>.`, 'success');
                 btnConvert.disabled = false;
             } catch (err) {
                 showStatus(`<img src="../icons/x-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-danger);">Error: ${err.message}`, 'error');
@@ -1319,7 +1319,7 @@
         const runConversion = async () => {
             if (!parsedVideos.length) return;
             btnConvert.disabled = true;
-            showStatus('<img src="../icons/gear-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-muted);">Generando…', 'info');
+            showStatus('<img src="../icons/gear-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-muted);">Generating…', 'info');
 
             try {
                 const opts = readOptions();
@@ -1332,7 +1332,7 @@
                 });
 
                 if (!videos.length) {
-                    showStatus('<img src="../icons/alert-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-warning);">Ningún video coincide con los filtros actuales.', 'warn');
+                    showStatus('<img src="../icons/alert-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-warning);">No videos match the current filters.', 'warn');
                     previewSection.style.display = 'none';
                     return; // finally re-enables the button
                 }
@@ -1344,8 +1344,8 @@
                 const minDate = Math.min(...videos.map(v => v.timeWatched).filter(Boolean));
                 statsRow.innerHTML = [
                     `<span class="stat-chip"><img src="../icons/video-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);"><strong>${videos.length}</strong> videos</span>`,
-                    `<span class="stat-chip"><img src="../icons/stopwatch-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);"><strong>${formatDuration(totalWatched)}</strong> visto</span>`,
-                    `<span class="stat-chip"><img src="../icons/calendar-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">desde <strong>${formatDate(minDate)}</strong></span>`,
+                    `<span class="stat-chip"><img src="../icons/stopwatch-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);"><strong>${formatDuration(totalWatched)}</strong> watched</span>`,
+                    `<span class="stat-chip"><img src="../icons/calendar-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">since <strong>${formatDate(minDate)}</strong></span>`,
                 ].join('');
 
                 if (currentMode === 'zip') {
@@ -1355,29 +1355,29 @@
                     // Preview: first file content
                     const firstVideo = videos[0];
                     const preview = videoToMarkdown(firstVideo, opts, true);
-                    previewBox.textContent = `// Vista previa del primer archivo:\n// ${safeFilename(firstVideo.title)}.md\n\n` + preview;
-                    previewTitle.innerHTML = `<img src="../icons/package-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-accent);">${opts.folder}/ (${videos.length} archivos + _index.md)`;
+                    previewBox.textContent = `// Preview of first file:\n// ${safeFilename(firstVideo.title)}.md\n\n` + preview;
+                    previewTitle.innerHTML = `<img src="../icons/package-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-accent);">${opts.folder}/ (${videos.length} files + _index.md)`;
                     btnCopy.style.display = 'none';
-                    btnDownload.innerHTML = '<img src="../icons/download-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Descargar ZIP';
+                    btnDownload.innerHTML = '<img src="../icons/download-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Download ZIP`;
 
                 } else {
                     generatedMarkdown = buildSingleFile(videos, opts, detectedFormat);
                     const maxPreview = 5000;
                     previewBox.textContent = generatedMarkdown.length > maxPreview
-                        ? generatedMarkdown.slice(0, maxPreview) + '\n\n… (vista previa truncada - el archivo descargado estará completo)'
+                        ? generatedMarkdown.slice(0, maxPreview) + '\n\n… (preview truncated - downloaded file will be complete)'
                         : generatedMarkdown;
                     previewTitle.innerHTML = `<img src="../icons/file-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">youtube-playback-history.md`;
                     btnCopy.style.display = '';
-                    btnDownload.innerHTML = '<img src="../icons/download-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Descargar .md';
+                    btnDownload.innerHTML = '<img src="../icons/download-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-primary);">Download .md';
                 }
 
                 previewSection.style.display = 'block';
                 previewSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                showStatus(`<img src="../icons/check-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-success);">Listo - <strong>${videos.length}</strong> videos convertidos.`, 'success');
+                showStatus(`<img src="../icons/check-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-success);">Ready - <strong>${videos.length}</strong> videos converted.`, 'success');
 
             } catch (err) {
                 console.error('[Playback→Obsidian] runConversion error:', err);
-                showStatus(`<img src="../icons/x-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-danger);">Error al generar: ${err.message}`, 'error');
+                showStatus(`<img src="../icons/x-circle-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-danger);">Error generating: ${err.message}`, 'error');
             } finally {
                 // Always re-enable the button, even on error
                 btnConvert.disabled = false;
@@ -1438,11 +1438,11 @@
             try {
                 await navigator.clipboard.writeText(generatedMarkdown);
                 const orig = btnCopy.textContent;
-                btnCopy.innerHTML = '<img src="../icons/check-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-success);">Copiado!';
+                btnCopy.innerHTML = '<img src="../icons/check-24.svg" alt="" width="14" height="14" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-success);">Copied!';
                 setTimeout(() => { btnCopy.textContent = orig; }, 1800);
             } catch {
-                btnCopy.innerHTML = '<img src="../icons/alert-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 4px; color: var(--icon-danger);">Error';
-                setTimeout(() => { btnCopy.textContent = 'Copiar'; }, 1800);
+                btnCopy.innerHTML = '<img src="../icons/alert-24.svg" alt="" width="16" height="16" style="vertical-align: text-bottom; margin-right: 6px; color: var(--icon-danger);">Error';
+                setTimeout(() => { btnCopy.textContent = 'Copy'; }, 1800);
             }
         });
 

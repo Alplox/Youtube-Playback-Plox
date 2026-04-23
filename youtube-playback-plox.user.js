@@ -7308,7 +7308,6 @@ regular-item.ypp-fill-none {
             resolvedCompletionHistory.events = resolvedCompletionHistory.events
                 .filter(ts => Number.isFinite(ts) && ts > 0 && ts < Date.now() + 60000)
                 .sort((a, b) => a - b)
-                .slice(-50); // Mantenemos 50 como capa de seguridad de Storage frente a desbordamientos asíncronos.
         }
 
         const result = {

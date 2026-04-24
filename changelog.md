@@ -1,3 +1,9 @@
+# 0.0.9-10
+
+### Added
+
+- **Persistent Storage**: Implemented `navigator.storage.persist()` during initialization. This protects the IndexedDB video progress database from being automatically deleted by the browser when the device runs out of disk space, ensuring a much more reliable storage and preventing unexpected data loss. (Have to be accepted by the user, depending on the browser)
+
 # 0.0.9-9
 
 ### Fixed

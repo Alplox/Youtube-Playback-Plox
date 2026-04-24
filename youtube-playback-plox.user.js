@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-9
+// @version      0.0.9-10
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -4942,9 +4942,6 @@ regular-item.ypp-fill-none {
 
         /**
          * Inicializa la capa asíncrona: detecta IndexedDB, migra datos si es necesario y llena caché.
-         */
-        /**
-         * Inicializa la capa asíncrona: detecta IndexedDB, migra datos si es necesario y llena caché.
          * Solo migra claves con prefijo YT_PLAYBACK_PLOX_ y las almacena en IndexedDB sin prefijo.
          */
         async function initialize() {
@@ -4952,6 +4949,16 @@ regular-item.ypp-fill-none {
             readyPromise = (async () => {
                 try {
                     logInfo('Iniciando StorageAsync...');
+
+                    if (navigator.storage && navigator.storage.persist) {
+                        try {
+                            const isPersisted = await navigator.storage.persist();
+                            logInfo(`Almacenamiento persistente: ${isPersisted ? 'CONCEDIDO' : 'DENEGADO'}`);
+                        } catch (persistErr) {
+                            logWarn('Error al solicitar almacenamiento persistente:', persistErr);
+                        }
+                    }
+
                     const result = await IndexedDBAdapter.bootstrap([]);
                     // Poblar caché en memoria desde IndexedDB
                     for (const entry of result.entries) {

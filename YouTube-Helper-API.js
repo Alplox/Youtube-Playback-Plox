@@ -2,7 +2,7 @@
 // @name            YouTube Helper API
 // @author          ElectroKnight22
 // @namespace       electroknight22_helper_api_namespace
-// @version         0.10.0-Plox
+// @version         0.10.1-Plox
 // @license         MIT
 // @description     A helper api for YouTube scripts that provides easy and consistent access for commonly needed functions, objects, and values.
 // ==/UserScript==
@@ -738,6 +738,7 @@ const youtubeHelperApi = (function () {
         appState.video.realCurrentProgress = apiProxy.getCurrentTime();
         appState.video.isTimeSpecified = searchParams.has('t');
         appState.video.playlistId = apiProxy.getPlaylistId();
+        appState.video.isInPlaylist = !!appState.video.playlistId;
 
         debug.logDetailed('Video state updated', appState.video);
     }

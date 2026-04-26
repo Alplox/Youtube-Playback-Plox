@@ -1,3 +1,47 @@
+# 0.0.9-11
+
+### Fixed
+
+- **Memory Leak Prevention in Caches**: Implemented LRU (Least Recently Used) eviction with size limits for `AdDetector` caches to prevent unbounded memory growth during long sessions. `_videoMetadataCache` now limits to 100 entries and `_adIdCache` to 50 entries, with automatic eviction of oldest entries when limits are reached. `_adIdCache` also promotes entries on access to maintain LRU ordering.
+- **Ad Detection Hardening**: Integrated high-fidelity signals from YouTube's internal API (`adPlacements`) into `AdDetector`, providing near-instant detection even before DOM markers appear.
+- **Improved Preview Ad Blocking**: Refined the "Link Association" strategy to correctly identify ads in the Home feed grid by associating isolated previews with their source thumbnails and "Sponsored" badges.
+- **Performance & Polling Optimization**: Increased the ad re-evaluation grace period in `VideoObserverManager` from 500ms to 3000ms, eliminating the "ping-pong" effect and significantly reducing main-thread overhead during active ad playback.
+- **Modern Selector Support**: Updated `AdSelectors` to include modern YouTube view-model markers and expanded the `playerAdClasses` to consistently cover all player types (Watch, Shorts, Preview).
+- **Enhanced Ad Selectors**: Added new YouTube ad UI selectors extracted from paused ad HTML analysis to improve ad detection coverage:
+  - **Avatar/Advertiser Card**: Added `.ytp-ad-avatar--size-m`, `.ytp-ad-avatar--circular`, `.ytp-ad-avatar-lockup-card__text_container`, and `.ytp-ad-avatar-lockup-card__description--hidden--in--small--player` for better advertiser card detection.
+  - **Ad Buttons**: Added `.ytp-ad-button-vm--style-filled-white`, `.ytp-ad-button-vm--size-default`, `.ytp-ad-hover-text-container`, `.ytp-ad-info-hover-text-short`, and `.ytp-ad-hover-text-callout` for modern button variants.
+  - **Progress Indicators**: Added `.ytp-ad-pod-index--stark`, `.ytp-ad-persistent-progress-bar-container`, `.ytp-ad-persistent-progress-bar-container--clean-player`, `.ytp-ad-persistent-progress-bar`, and `.ytp-ad-progress-list` for persistent progress bar detection.
+- **Critical False Positive Fix in `AdDetector`**: The first check in `isNodeWithinAdContainer` was using `inAnyAdContainers`, which includes `inPlayerAdContainers` selectors (`.ytp-ad-module`, `.video-ads`, `#player-ads`). These are **permanent nodes** that YouTube keeps in the `#movie_player` DOM at all times — even when no ad is playing. This caused any `<video>` element inside the player to always return `true`, blocking legitimate video sessions. Step 1 now only checks `inFeedAdContainers` (elements that are definitively ad-specific). Player-internal detection is handled exclusively in Step 2 via class checks, `adPlacements` API signal, and `findVisibleAdUi`.
+- **Dead Code Removal**: Deleted `hasShortDurationAdUi` and `classifyClickedLink` from `AdDetector` — both had zero call sites in the entire script. Also removed the orphaned `inAnyAdContainers` and `shortDurationAdUi` keys from `AdSelectorText` and the `ytd-in-feed-ad-layout-renderer` entry from `activeAdUi` (a page-level element that can never appear inside a player root).
+- **Session Resume After Ad**: Fixed a bug where sessions terminated by ad detection (mid-interval) would never restart after the ad ended. The session now calls `enqueueVideo` when stopping due to an ad, which registers the video in `activeAdWaiters`. Once the `<video>` element stops reporting as an ad, `activeAdWaiters` automatically triggers a new session. `videoTypeCache` is also cleared to unblock the deduplication guard.
+- **False Positive Ad Recovery Hardening**: Improved ad-recovery flow by centralizing waiter registration and adding a periodic fallback check (2s). This guarantees automatic session re-enqueue even when `timeupdate`/`play` events do not fire after a temporary false ad detection.
+- **Preview ID Drift Guard**: Hardened preview session kill-switch against transient player ID drift (shared inline player). The session now tolerates brief mismatches when `src` has not changed and forces a safe re-bootstrap if a real preview ID switch occurs without observer handoff.
+- **Optimized Metadata Resolution**: Implemented a global `_videoMetadataCache` (Map) with a 5-minute TTL to drastically reduce redundant DOM lookups and API calls.
+- **Responsive Ad Detection**: Added a 250ms `WeakMap` cache to `AdDetector.isNodeWithinAdContainer`, eliminating performance bottlenecks during high-frequency hover events.
+- **Throttled Session Starts**: Introduced a 150ms debounce for Preview sessions to prevent CPU spikes when scrolling through the Home feed.
+- **Efficient UI Visibility**: Optimized `isVisiblyDisplayed` to prioritize layout-based checks (rect), reducing main-thread blocking by avoiding unnecessary CSS computations.
+- **Metadata Cooldown**: Added a 30-second cooldown for metadata refreshes in the `saveStatus` interval loop, preventing excessive overhead in long sessions.
+- **Ghost Cleanup (Preview & Miniplayer)**: Resolved a "memory leak" where hidden preview and miniplayer elements continued triggering background logs; sessions are now terminated immediately if the player is hidden (0 width/height).
+- **Navigation Robustness**: Fixed a race condition where the Player API reported stale IDs during SPA transitions; implemented Video ID validation against URL and a session-aware navigation guard.
+- **Preview ID Validation**: Added context-based ID check for inline previews to prevent stale IDs from previous hover sessions from being processed.
+- **Manual Save Stability**: Fixed a `TypeError` in manual save mode by adding null guards for video metadata and bypassing the refresh cooldown when info is missing.
+- **Performance Regression**: Resolved a major issue causing browser lag and UI freezes during video previews. Implemented a 250ms `WeakMap` cache for `getPlayerVideoId` and throttled ad detection checks in the `VideoObserverManager` (activeAdWaiters) to 500ms intervals.
+- **Ad Detection Resilience**: Hardened ad detection with language-agnostic view-model selectors and added detection for ad-serving containers in the Home feed grid.
+- **Improved Visibility Check**: Re-implemented `isVisiblyDisplayed` with a balance between speed and accuracy to handle YouTube's modern DOM structures.
+
+
+
+
+- **Theater Mode Navigation Guard**: Prevented an unnecessary playback re-seek when toggling Theater Mode. The script now verifies both the video ID and the page type during navigation events; if both remain identical (as they do during layout-only shifts), the aggressive teardown and re-initialization of the session is bypassed. This ensures uninterrupted playback while still correctly handling transitions between different player contexts (e.g., Miniplayer to Watch). #36
+- **Memory Leak Prevention (SPA Safety)**: Fortified the script to ensure stable memory footprint during extended YouTube SPA navigation sessions:
+  - **Namespace Validation**: Replaced local IIFE flags with a global `window.__YPP__` namespace initialization guard, preventing duplicate script injection collisions across userscripts managers and dynamic iframes.
+  - **Full Teardown Cleanup**: Implemented an aggressive teardown strategy when navigating away from video objects. The script now proactively cancels display timers, and neutralizes nested closures instead of silently waiting for garbage collection.
+
+## Changed
+
+- Refactor/Fix: `getWatchPlayer` now uses `querySelectorAll` with filtering to support multiple `#movie_player` instances and exclude the one belonging to the active miniplayer.
+- **README.md**: Updated the README.md files.
+
 # 0.0.9-10
 
 ### Added

@@ -2,7 +2,7 @@
 // @name            YouTube Helper API
 // @author          ElectroKnight22
 // @namespace       electroknight22_helper_api_namespace
-// @version         0.10.0
+// @version         0.10.1
 // @license         MIT
 // @description     A helper api for YouTube scripts that provides easy and consistent access for commonly needed functions, objects, and values.
 // ==/UserScript==
@@ -524,8 +524,18 @@ const youtubeHelperApi = (function () {
                 if (!appState?.player?.api) return resolve(null);
                 const playerResponse = apiProxy.getPlayerResponse();
                 if (playerResponse) return resolve(playerResponse);
+
+                const timeout = setTimeout(() => {
+                    appState.player.videoElement?.removeEventListener('loadedmetadata', check);
+                    debug.logDetailed('Player API ready, but missing playerResponse. Cancelling request...');
+                    resolve(null);
+                }, 10000);
+
                 debug.logTypical('Player API ready, but missing playerResponse. Waiting for metadata...');
-                appState.player.videoElement.addEventListener('loadedmetadata', check, { once: true });
+                appState.player.videoElement.addEventListener('loadedmetadata', () => {
+                    clearTimeout(timeout);
+                    check();
+                }, { once: true });
             }
             check();
         });
@@ -773,7 +783,7 @@ const youtubeHelperApi = (function () {
         reloadVideo(appState.video.realCurrentProgress);
     }
 
-    function setupMediaEventRefire() {
+    function setupMediaEventRefire(signal) {
         const video = appState.player.videoElement;
         const nativePlayerEventsToRefire = ['play', 'pause', 'seeking', 'seeked', 'ended', 'volumechange'];
 
@@ -791,15 +801,21 @@ const youtubeHelperApi = (function () {
 
                 debug.logAll('refiring event', customEvent);
                 privateEventTarget.dispatchEvent(customEvent);
-            });
+            }, { signal });
         });
     }
 
+    let videoEventController = null;
     const timeUpdateTrackedElements = new WeakMap();
     function trackPlaybackProgress() {
         if (!appState.player.videoElement)
             return debug.logDetailed('No video element found when attempting to track progress.');
         if (timeUpdateTrackedElements.has(appState.player.videoElement)) return;
+        if (videoEventController) videoEventController.abort();
+
+        videoEventController = new AbortController();
+        const signal = videoEventController.signal;
+
         const updateProgress = () => {
             debug.logOverkill(`TimeUpdate: ${appState.player.videoElement.currentTime}`);
             if (!appState.player.isPlayingAds && appState.player.videoElement.currentTime > 0) {
@@ -808,18 +824,21 @@ const youtubeHelperApi = (function () {
             updateVideoLanguage();
         };
 
-        setupMediaEventRefire();
-        appState.player.videoElement.addEventListener('timeupdate', updateProgress);
+        setupMediaEventRefire(signal);
+        appState.player.videoElement.addEventListener('timeupdate', updateProgress, { signal });
         timeUpdateTrackedElements.set(appState.player.videoElement, true);
     }
 
     const currentlyObservedContainers = new WeakMap();
+    let activeAdObserver = null;
     function trackAdState() {
         if (!appState.player.playerObject) return;
         if (currentlyObservedContainers.has(appState.player.playerObject)) return;
-        const adStateObserver = new MutationObserver(updateAdState);
-        adStateObserver.observe(appState.player.playerObject, { attributes: true, attributeFilter: ['class'] });
-        currentlyObservedContainers.set(appState.player.playerObject, adStateObserver);
+        if (activeAdObserver) activeAdObserver.disconnect();
+
+        activeAdObserver = new MutationObserver(updateAdState);
+        activeAdObserver.observe(appState.player.playerObject, { attributes: true, attributeFilter: ['class'] });
+        currentlyObservedContainers.set(appState.player.playerObject, activeAdObserver);
     }
 
     let updateLocked = false;
@@ -926,6 +945,9 @@ const youtubeHelperApi = (function () {
             },
         };
         instance.root.youtubeHelperRegistry.instances.set(instance.id, apiObject);
+        window.addEventListener('unload', () => {
+            instance.root.youtubeHelperRegistry.instances.delete(instance.id);
+        });
     }
 
     function initializeApiState() {

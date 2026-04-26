@@ -2,6 +2,12 @@
 
 ### Fixed
 
+- **Anti Re-Seek Cooldown for Miniplayer**: Added a guarded resume policy for miniplayer sessions. Resume is now skipped when playback is already active near the saved progress or when the same miniplayer/video already received a resume attempt in the last 5 seconds, preventing repeated seeks after SPA navigation churn.
+- **Miniplayer ID Source Fix**: Corrected miniplayer session ID resolution to prioritize the miniplayer player's own `videoId` over the global Helper API video ID. This prevents false "ID cambiado" session kills and restores stable miniplayer saving during home/search navigation.
+- **Preview Bootstrap Guard While Miniplayer Active**: Fixed a preview bootstrap condition that was effectively always true (`||`), causing preview sessions to be enqueued during miniplayer playback. Preview processing is now suppressed while miniplayer is active to prevent competing seek/session churn.
+- **Miniplayer Transition Handoff**: Added explicit handoff logic for miniplayer `src`/ID transitions. When a new video takes over the same miniplayer `<video>` element, the old session now re-queues the element instead of stopping permanently on `ID cambiado`, preventing false dead-stops on legitimate next-video changes.
+- **Inline Preview Watchdog**: Added a lightweight watchdog loop for active inline previews to re-enqueue preview sessions when YouTube reuses the same player without emitting reliable `src` mutations. This fixes delayed/missed preview saving starts in edge cases.
+- **Preview First-Save Fast Path**: Added an immediate preview save attempt (~220ms after session start) instead of waiting for the first periodic tick. This improves short-hover reliability where users leave before the default 1s interval.
 - **Memory Leak Prevention in Caches**: Implemented LRU (Least Recently Used) eviction with size limits for `AdDetector` caches to prevent unbounded memory growth during long sessions. `_videoMetadataCache` now limits to 100 entries and `_adIdCache` to 50 entries, with automatic eviction of oldest entries when limits are reached. `_adIdCache` also promotes entries on access to maintain LRU ordering.
 - **Ad Detection Hardening**: Integrated high-fidelity signals from YouTube's internal API (`adPlacements`) into `AdDetector`, providing near-instant detection even before DOM markers appear.
 - **Improved Preview Ad Blocking**: Refined the "Link Association" strategy to correctly identify ads in the Home feed grid by associating isolated previews with their source thumbnails and "Sponsored" badges.
@@ -31,7 +37,7 @@
 
 
 
-
+- **Miniplayer Preservation During SPA Navigation**: Prevented forced observer/bootstrap reinitialization when a preserved miniplayer session is already active on non-watch navigation. This avoids unnecessary session restarts and redundant seek re-application during normal miniplayer playback continuity.
 - **Theater Mode Navigation Guard**: Prevented an unnecessary playback re-seek when toggling Theater Mode. The script now verifies both the video ID and the page type during navigation events; if both remain identical (as they do during layout-only shifts), the aggressive teardown and re-initialization of the session is bypassed. This ensures uninterrupted playback while still correctly handling transitions between different player contexts (e.g., Miniplayer to Watch). #36
 - **Memory Leak Prevention (SPA Safety)**: Fortified the script to ensure stable memory footprint during extended YouTube SPA navigation sessions:
   - **Namespace Validation**: Replaced local IIFE flags with a global `window.__YPP__` namespace initialization guard, preventing duplicate script injection collisions across userscripts managers and dynamic iframes.

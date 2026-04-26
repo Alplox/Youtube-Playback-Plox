@@ -2,6 +2,12 @@
 
 ### Fixed
 
+- **RouteContextResolver + ContextLock Unificado**: Added a centralized route resolver with active-node scoring and anti-flip hysteresis to arbitrate `watch/shorts/miniplayer/preview` ownership per `<video>`. Session start/save now requires a strict context lock, preventing cross-player contamination and accidental saves under the wrong context.
+- **Session Orchestrator + Session State Machine**: Refactored session lifecycle control into a single orchestrator with explicit states (`starting/active/transitioning/stopping/finalized`), strong finalization, identity-key + transition-token dedupe, and invariant tracking. This removes scattered start/stop paths and reduces duplicate session churn during SPA transitions.
+- **Explicit Handoff for Valid ID/src Transitions**: Replaced blind kill-on-`hasIdChanged` behavior in preview/miniplayer valid transitions with explicit `intraNodeHandoff` logic. Legitimate src/video transitions now hand off session ownership instead of terminating processing.
+- **Session-Scoped Fallback Manager**: Moved retry/watchdog behavior to a token-validated `SessionFallbackManager` bound to active sessions. Fallback callbacks now abort immediately on stale/finalized sessions to avoid zombie retries and cross-session interference.
+- **Structured Session Telemetry + Fail-Safe Mode**: Added structured telemetry (`decision`, `reason`, `context`, `sessionId`, `transitionToken`) across routing and save decisions. Introduced auto-activated safe mode (`FailSafeManager`) that degrades complex handoffs to simple restart paths under repeated invariant/transition failures.
+
 - **Anti Re-Seek Cooldown for Miniplayer**: Added a guarded resume policy for miniplayer sessions. Resume is now skipped when playback is already active near the saved progress or when the same miniplayer/video already received a resume attempt in the last 5 seconds, preventing repeated seeks after SPA navigation churn.
 - **Miniplayer ID Source Fix**: Corrected miniplayer session ID resolution to prioritize the miniplayer player's own `videoId` over the global Helper API video ID. This prevents false "ID cambiado" session kills and restores stable miniplayer saving during home/search navigation.
 - **Preview Bootstrap Guard While Miniplayer Active**: Fixed a preview bootstrap condition that was effectively always true (`||`), causing preview sessions to be enqueued during miniplayer playback. Preview processing is now suppressed while miniplayer is active to prevent competing seek/session churn.

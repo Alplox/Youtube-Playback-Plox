@@ -11091,6 +11091,228 @@ regular-item.ypp-fill-none {
     // ------------------------------------------
 
     /**
+     * Resuelve el contexto real de un video y aplica bloqueo estricto para evitar contaminación.
+     */
+    const RouteContextResolver = (() => {
+        const CONTEXTS = Object.freeze(['watch', 'shorts', 'miniplayer', 'preview']);
+        const SCORE_STICKINESS_MS = 220;
+        const SCORE_DELTA_THRESHOLD = 2;
+        let activeSelection = null;
+
+        const getContextRoot = (videoEl, context) => {
+            if (!videoEl) return null;
+            if (context === 'watch') return videoEl.closest(S.IDS.MOVIE_PLAYER);
+            if (context === 'shorts') return videoEl.closest(S.IDS.SHORTS_PLAYER);
+            if (context === 'miniplayer') return videoEl.closest(S.ELEMENTS.MINIPLAYER_ELEMENT);
+            if (context === 'preview') return videoEl.closest(S.IDS.INLINE_PREVIEW_PLAYER) || videoEl.closest(S.IDS.VIDEO_PREVIEW_CONTAINER);
+            return null;
+        };
+
+        const computeContextScore = (videoEl, context) => {
+            if (!videoEl || !videoEl.isConnected) return -999;
+            const root = getContextRoot(videoEl, context);
+            if (!root) return -999;
+
+            let score = 0;
+            score += 20;
+            if (isVisiblyDisplayed(videoEl)) score += 10;
+            if (!videoEl.paused) score += 8;
+            if ((videoEl.readyState || 0) >= 2) score += 6;
+            if ((videoEl.currentSrc || videoEl.src || '').length > 0) score += 4;
+            if (context === 'preview' && DOMHelpers.getMiniplayerPlayer()) score -= 50;
+            if (context === 'watch' && currentPageType !== 'watch') score -= 12;
+            if (context === 'shorts' && currentPageType !== 'shorts') score -= 12;
+            return score;
+        };
+
+        const resolveContext = (videoEl, preferredContext = null) => {
+            if (!videoEl || !videoEl.isConnected) return null;
+            const candidates = [];
+
+            for (const context of CONTEXTS) {
+                const score = computeContextScore(videoEl, context);
+                if (score > -999) candidates.push({ context, score });
+            }
+
+            if (!candidates.length) return null;
+            candidates.sort((a, b) => b.score - a.score);
+            let winner = candidates[0];
+            if (preferredContext) {
+                const preferred = candidates.find(c => c.context === preferredContext);
+                if (preferred && (winner.score - preferred.score) <= 1) winner = preferred;
+            }
+
+            const now = Date.now();
+            if (
+                activeSelection &&
+                activeSelection.videoEl === videoEl &&
+                activeSelection.context !== winner.context &&
+                (now - activeSelection.ts) <= SCORE_STICKINESS_MS &&
+                (winner.score - activeSelection.score) < SCORE_DELTA_THRESHOLD
+            ) {
+                winner = activeSelection;
+            } else {
+                activeSelection = { ...winner, videoEl, ts: now };
+            }
+
+            return winner.context;
+        };
+
+        const canProcessContext = (videoEl, context) => {
+            if (!videoEl || !context || !videoEl.isConnected) return false;
+            if (AdDetector.isNodeWithinAdContainer(videoEl)) return false;
+            if (context === 'preview') {
+                if (currentPageType === 'watch' || currentPageType === 'shorts') return false;
+                if (DOMHelpers.getMiniplayerPlayer()) return false;
+            }
+            if (context === 'watch' && currentPageType !== 'watch') return false;
+            if (context === 'shorts' && currentPageType !== 'shorts') return false;
+            if (context === 'miniplayer' && !DOMHelpers.getMiniplayerPlayer()) return false;
+            return !!getContextRoot(videoEl, context);
+        };
+
+        const isContextLocked = (videoEl, expectedContext) => {
+            if (!expectedContext) return false;
+            const resolvedContext = resolveContext(videoEl, expectedContext);
+            return resolvedContext === expectedContext && canProcessContext(videoEl, expectedContext);
+        };
+
+        return {
+            resolveContext,
+            canProcessContext,
+            isContextLocked
+        };
+    })();
+
+    const SessionTelemetry = (() => {
+        let safeModeState = 'off';
+        const emit = (event, payload = {}) => {
+            logInfo('sessionTelemetry', `[${event}]`, {
+                safeModeState,
+                ...payload
+            });
+        };
+        return {
+            emit,
+            setSafeModeState: (state) => { safeModeState = state === 'safe' ? 'safe' : 'off'; }
+        };
+    })();
+
+    const EventPreFilter = {
+        shouldDrop(videoEl) {
+            if (!videoEl) return true;
+            if (!(videoEl instanceof HTMLVideoElement)) return true;
+            if (!videoEl.isConnected) return true;
+            const src = videoEl.currentSrc || videoEl.src || '';
+            if (!src) return true;
+            return false;
+        }
+    };
+
+    const FailSafeManager = (() => {
+        const counters = {
+            invalidTransition: [],
+            duplicateSession: [],
+            invariantViolation: []
+        };
+        let safeModeStart = 0;
+        const WINDOW_MS = 20_000;
+        const ENTER_THRESHOLD = 7;
+        const STABLE_EXIT_MS = 45_000;
+
+        const prune = (arr) => {
+            const now = Date.now();
+            while (arr.length && now - arr[0] > WINDOW_MS) arr.shift();
+        };
+
+        const getTotal = () => {
+            Object.values(counters).forEach(prune);
+            return counters.invalidTransition.length + counters.duplicateSession.length + counters.invariantViolation.length;
+        };
+
+        const track = (type, reason) => {
+            if (!counters[type]) return;
+            counters[type].push(Date.now());
+            prune(counters[type]);
+            const total = getTotal();
+            if (total >= ENTER_THRESHOLD && !safeModeStart) {
+                safeModeStart = Date.now();
+                SessionTelemetry.setSafeModeState('safe');
+                SessionTelemetry.emit('safeModeEntered', { reason: reason || type, triggerCount: total });
+            }
+        };
+
+        const maybeExit = () => {
+            if (!safeModeStart) return;
+            if (getTotal() === 0 && (Date.now() - safeModeStart) > STABLE_EXIT_MS) {
+                const duration = Date.now() - safeModeStart;
+                safeModeStart = 0;
+                SessionTelemetry.setSafeModeState('off');
+                SessionTelemetry.emit('safeModeExited', { safeModeDurationMs: duration });
+            }
+        };
+
+        return {
+            isSafeMode: () => !!safeModeStart,
+            track,
+            maybeExit
+        };
+    })();
+
+    const SessionFallbackManager = (() => {
+        const fallbackTimers = new WeakMap();
+        const clear = (videoEl) => {
+            const state = fallbackTimers.get(videoEl);
+            if (!state) return;
+            if (state.retryTimeoutId) clearTimeout(state.retryTimeoutId);
+            if (state.watchdogId) clearInterval(state.watchdogId);
+            fallbackTimers.delete(videoEl);
+        };
+
+        const ensureForSession = (session, source) => {
+            if (!session?.videoEl || !session.sessionToken || session.isFinalized) return;
+            clear(session.videoEl);
+
+            const previewTtlMs = 2500;
+            const defaultTtlMs = 5000;
+            const ttlMs = session.type === 'preview' ? previewTtlMs : defaultTtlMs;
+            const watchdogMs = session.type === 'preview' ? 700 : 1100;
+            const retries = session.type === 'preview' ? 1 : 2;
+            let tries = 0;
+
+            const retryTimeoutId = setTimeout(() => {
+                if (session.isFinalized || session.sessionToken !== (activeProcessingSessions.get(session.videoEl)?.sessionToken)) return;
+                if (!RouteContextResolver.isContextLocked(session.videoEl, session.type)) return;
+                SessionTelemetry.emit('fallbackRetry', { source, context: session.type, sessionId: session.sessionId, transitionToken: session.transitionToken });
+                try {
+                    VideoObserverManager.enqueueWithResolver(session.videoEl, session.type, 'fallbackRetry');
+                } catch (_) { }
+                tries++;
+            }, 180);
+
+            const startedAt = Date.now();
+            const watchdogId = setInterval(() => {
+                if (session.isFinalized) return clear(session.videoEl);
+                if (session.sessionToken !== (activeProcessingSessions.get(session.videoEl)?.sessionToken)) return clear(session.videoEl);
+                if (!RouteContextResolver.isContextLocked(session.videoEl, session.type)) return clear(session.videoEl);
+                if ((Date.now() - startedAt) > ttlMs || tries >= retries) return clear(session.videoEl);
+                tries++;
+                SessionTelemetry.emit('fallbackWatchdog', { source, context: session.type, sessionId: session.sessionId, transitionToken: session.transitionToken });
+                try {
+                    VideoObserverManager.enqueueWithResolver(session.videoEl, session.type, 'fallbackWatchdog');
+                } catch (_) { }
+            }, watchdogMs);
+
+            fallbackTimers.set(session.videoEl, { retryTimeoutId, watchdogId });
+        };
+
+        return {
+            ensureForSession,
+            clear
+        };
+    })();
+
+    /**
      * Maneja la observación y procesamiento de videos de forma aislada por tipo.
      */
     const VideoObserverManager = (() => {
@@ -11119,8 +11341,9 @@ regular-item.ypp-fill-none {
             pendingVideos.clear();
 
             batch.forEach(video => {
-                const type = videoTypeCache.get(video);
-                if (!type) return;
+                const cachedType = videoTypeCache.get(video);
+                const type = RouteContextResolver.resolveContext(video, cachedType || null);
+                if (!type || !RouteContextResolver.canProcessContext(video, type)) return;
 
                 // Si el video ya no tiene src, ignorar
                 if (!video.src) return;
@@ -11289,8 +11512,10 @@ regular-item.ypp-fill-none {
          * @param {HTMLVideoElement} videoElement - El video a encolar.
          * @param {string} type - El tipo de video (watch, shorts, miniplayer, preview).
          */
-        const enqueueVideo = (videoElement, type) => {
+        const enqueueVideo = (videoElement, type, triggerSource = 'observer') => {
             if (!videoElement) return;
+            if (EventPreFilter.shouldDrop(videoElement)) return;
+            if (!RouteContextResolver.canProcessContext(videoElement, type)) return;
             // Protección: No encolar videos que son detectados como anuncios
             if (AdDetector.isNodeWithinAdContainer(videoElement)) {
                 logInfo('VideoObserverManager', `🚫 Omitiendo video [${type}] detectado como anuncio por AdDetector`);
@@ -11304,12 +11529,24 @@ regular-item.ypp-fill-none {
             }
 
             logLog('VideoObserverManager', `📥 Encolando video [${type}] para procesar (Total pend: ${pendingVideos.size + 1})`);
+            SessionTelemetry.emit('routingDecision', {
+                decision: 'enqueue',
+                reason: triggerSource,
+                context: type
+            });
             videoTypeCache.set(videoElement, type);
             pendingVideos.add(videoElement);
 
             if (!isBatchProcessing) {
                 setTimeout(processBatch, 0);
             }
+        };
+
+        const enqueueWithResolver = (videoElement, preferredType = null, triggerSource = 'observer') => {
+            if (!videoElement || !videoElement.isConnected) return;
+            const resolvedContext = RouteContextResolver.resolveContext(videoElement, preferredType);
+            if (!resolvedContext || !RouteContextResolver.canProcessContext(videoElement, resolvedContext)) return;
+            enqueueVideo(videoElement, resolvedContext, triggerSource);
         };
 
         /**
@@ -11321,7 +11558,7 @@ regular-item.ypp-fill-none {
             try {
                 videoTypeCache.delete(videoElement);
             } catch (_) { }
-            enqueueVideo(videoElement, 'miniplayer');
+            enqueueVideo(videoElement, 'miniplayer', 'miniplayerTransition');
         };
 
         // Instancias de observadores
@@ -11641,7 +11878,7 @@ regular-item.ypp-fill-none {
 
             observers.preview = new MutationObserver((mutations) => {
                 // Safeguard: solo procesar como "preview" si no estamos en la página de shorts o watch
-                if (currentPageType !== 'shorts' || currentPageType !== 'watch') return;
+                if (currentPageType === 'shorts' || currentPageType === 'watch') return;
                 // Filtrar mutaciones que provienen de nuestros propios elementos de UI para evitar bucles infinitos o flickering
                 const filteredMutations = mutations.filter(m => {
                     const target = m.target;
@@ -11805,6 +12042,7 @@ regular-item.ypp-fill-none {
             clearCache,
             waitForAdClear: scheduleAdRecovery,
             requeueMiniplayer,
+            enqueueWithResolver,
             hasMiniplayerTransition: (videoElement) => miniplayerTransitions.has(videoElement),
             clearMiniplayerTransition: (videoElement) => miniplayerTransitions.delete(videoElement)
         };
@@ -11823,6 +12061,159 @@ regular-item.ypp-fill-none {
     const previewTransitions = new Set(); // Marca elementos en transición para evitar condiciones de carrera
     /** @type {WeakMap<HTMLVideoElement, { videoId: string, ts: number }>} */
     const recentResumeAttempts = new WeakMap();
+    let sessionIdCounter = 0;
+    let transitionTokenCounter = 0;
+
+    const SessionOrchestrator = (() => {
+        const VALID_STATES = new Set(['idle', 'starting', 'active', 'inAd', 'transitioning', 'stopping', 'finalized']);
+        const transitions = new Map([
+            ['idle', new Set(['starting'])],
+            ['starting', new Set(['active', 'inAd', 'stopping', 'finalized'])],
+            ['active', new Set(['inAd', 'transitioning', 'stopping', 'finalized'])],
+            ['inAd', new Set(['active', 'stopping', 'finalized'])],
+            ['transitioning', new Set(['active', 'stopping', 'finalized'])],
+            ['stopping', new Set(['finalized'])],
+            ['finalized', new Set([])]
+        ]);
+        const dedupeByKey = new Map();
+        const DEDUPE_MS = 450;
+
+        const buildSessionId = (videoEl, context, videoId) => {
+            sessionIdCounter += 1;
+            return `${context}:${videoId || 'unknown'}:${sessionIdCounter}`;
+        };
+
+        const buildIdentityKey = (videoEl, context, videoId) => {
+            const src = videoEl?.currentSrc || videoEl?.src || 'no-src';
+            const ready = Number(videoEl?.readyState || 0);
+            const duration = Number(videoEl?.duration || 0);
+            return `${context}|${videoId || 'unknown'}|${src}|${ready}|${Math.round(duration)}`;
+        };
+
+        const canTransition = (session, nextState) => {
+            const from = session?.state || 'idle';
+            if (!VALID_STATES.has(from) || !VALID_STATES.has(nextState)) return false;
+            return transitions.get(from)?.has(nextState) || false;
+        };
+
+        const transitionState = (session, nextState, reason = 'stateChange') => {
+            if (!session) return false;
+            if (!canTransition(session, nextState)) {
+                FailSafeManager.track('invalidTransition', reason);
+                SessionTelemetry.emit('invalidTransition', {
+                    sessionId: session.sessionId,
+                    context: session.type,
+                    transitionToken: session.transitionToken,
+                    fromState: session.state,
+                    toState: nextState,
+                    reason
+                });
+                return false;
+            }
+            session.state = nextState;
+            return true;
+        };
+
+        const startSession = (videoEl, context, videoId, player, source = 'observer') => {
+            const now = Date.now();
+            const identityKey = buildIdentityKey(videoEl, context, videoId);
+            const dedupeKey = `${identityKey}|${source}`;
+            const dedupeTs = dedupeByKey.get(dedupeKey) || 0;
+            if ((now - dedupeTs) < DEDUPE_MS) {
+                SessionTelemetry.emit('routingDecision', {
+                    decision: 'dedupe',
+                    reason: source,
+                    context,
+                    videoId
+                });
+                return { accepted: false, reason: 'dedupe' };
+            }
+            dedupeByKey.set(dedupeKey, now);
+
+            const existing = activeProcessingSessions.get(videoEl);
+            if (existing && existing.type === context && existing.lastVideoId === videoId && existing.state !== 'finalized') {
+                FailSafeManager.track('duplicateSession', 'sameIdentity');
+                return { accepted: false, reason: 'alreadyActive', session: existing };
+            }
+            const activeByContext = Array.from(activeProcessingSessions.values()).filter(s => s.type === context && !s.isFinalized).length;
+            const maxByContext = context === 'preview' ? 2 : 1;
+            if (activeByContext >= maxByContext) {
+                FailSafeManager.track('invariantViolation', `maxSessions:${context}`);
+            }
+
+            transitionTokenCounter += 1;
+            const transitionToken = `${context}-${transitionTokenCounter}`;
+            const sessionToken = `${identityKey}::${transitionToken}`;
+            const session = {
+                sessionId: buildSessionId(videoEl, context, videoId),
+                sessionToken,
+                transitionToken,
+                identityKey,
+                weakMediaFingerprint: {
+                    src: videoEl?.currentSrc || videoEl?.src || '',
+                    readyState: Number(videoEl?.readyState || 0),
+                    duration: Number(videoEl?.duration || 0)
+                },
+                state: 'starting',
+                startedAt: now,
+                type: context,
+                lastVideoId: videoId,
+                player,
+                videoEl,
+                isFinalized: false
+            };
+            activeProcessingSessions.set(videoEl, session);
+            SessionTelemetry.emit('routingDecision', {
+                decision: 'start',
+                reason: source,
+                context,
+                sessionId: session.sessionId,
+                transitionToken
+            });
+            return { accepted: true, session };
+        };
+
+        const finalizeSession = (videoEl, reason = 'stop') => {
+            const session = activeProcessingSessions.get(videoEl);
+            if (!session || session.isFinalized) return;
+            transitionState(session, 'stopping', reason);
+            session.isFinalized = true;
+            session.state = 'finalized';
+            if (session.intervalId) clearInterval(session.intervalId);
+            SessionFallbackManager.clear(videoEl);
+            activeProcessingSessions.delete(videoEl);
+            SessionTelemetry.emit('routingDecision', {
+                decision: 'stop',
+                reason,
+                context: session.type,
+                sessionId: session.sessionId,
+                transitionToken: session.transitionToken
+            });
+        };
+
+        const handoffSession = (videoEl, toVideoId, reason = 'srcChanged', handoffMode = 'intraNodeHandoff') => {
+            const prev = activeProcessingSessions.get(videoEl);
+            if (!prev || prev.isFinalized) return null;
+            transitionState(prev, 'transitioning', reason);
+            SessionTelemetry.emit('routingDecision', {
+                decision: 'handoff',
+                reason,
+                handoffMode,
+                context: prev.type,
+                sessionId: prev.sessionId,
+                transitionToken: prev.transitionToken
+            });
+            finalizeSession(videoEl, `${reason}:${handoffMode}`);
+            return startSession(videoEl, prev.type, toVideoId, prev.player, handoffMode).session || null;
+        };
+
+        return {
+            startSession,
+            finalizeSession,
+            handoffSession,
+            transitionState
+        };
+    })();
 
     /**
      * Evita re-seeks redundantes cuando una sesión se reinicia durante navegación SPA
@@ -11865,10 +12256,7 @@ regular-item.ypp-fill-none {
         let stoppedCount = 0;
         for (const [videoEl, session] of activeProcessingSessions.entries()) {
             if (preserveMiniplayer && session.type === 'miniplayer') continue;
-            if (session.intervalId) {
-                clearInterval(session.intervalId);
-            }
-            activeProcessingSessions.delete(videoEl);
+            SessionOrchestrator.finalizeSession(videoEl, 'stopAllSessions');
             stoppedCount++;
         }
         if (stoppedCount > 0) {
@@ -11892,20 +12280,33 @@ regular-item.ypp-fill-none {
      */
     const startProcessingSession = async (videoEl, type, videoId, player) => {
         const navIdAtStart = globalNavigationId;
+        FailSafeManager.maybeExit();
+
+        if (!RouteContextResolver.isContextLocked(videoEl, type)) {
+            SessionTelemetry.emit('routingDecision', {
+                decision: 'reject',
+                reason: 'contextMismatch',
+                context: type,
+                videoId
+            });
+            return;
+        }
 
         // Si ya hay una sesión para este mismo video, no hacer nada
         const currentSession = activeProcessingSessions.get(videoEl);
-        /*  if (currentSession?.lastVideoId === videoId) return; */
-        if (currentSession?.lastVideoId === videoId && currentSession?.type === type) return;
+        if (currentSession?.lastVideoId === videoId && currentSession?.type === type && currentSession?.state !== 'finalized') return;
 
         // Si hay una sesión vieja para un video diferente en el mismo elemento, limpiar
-        if (currentSession?.intervalId) {
-            clearInterval(currentSession.intervalId);
+        if (currentSession && currentSession.lastVideoId !== videoId) {
+            SessionOrchestrator.finalizeSession(videoEl, 'preStartCleanup');
         }
 
         // Limpiar proactivamente cualquier mensaje o estado visual previo (zombies de SPA)
         clearAllPlaybackMessages();
 
+        const startResult = SessionOrchestrator.startSession(videoEl, type, videoId, player, 'startProcessingSession');
+        if (!startResult.accepted) return;
+        const sessionRef = startResult.session;
         logInfo('process', `🚀 Iniciando sesión de seguimiento para [${type}] - ${videoId}`);
         videoEl.dataset.sessionStartTime = Date.now().toString();
 
@@ -11987,12 +12388,22 @@ regular-item.ypp-fill-none {
                     // no terminar la sesión - dejar que el observer maneje la transición
                     if (hasIdChanged && previewTransitions.has(videoEl)) {
                         previewTransitions.delete(videoEl); // Limpiar el flag de transición
-                        return; // No terminar la sesión, el observer ya la está manejando
+                        if (FailSafeManager.isSafeMode()) {
+                            SessionOrchestrator.finalizeSession(videoEl, 'safeModePreviewTransition');
+                            VideoObserverManager.enqueueWithResolver(videoEl, 'preview', 'safeModeRestart');
+                            return;
+                        }
+                        SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'previewTransition', 'intraNodeHandoff');
+                        return;
                     }
                     if (hasIdChanged && type === 'miniplayer' && VideoObserverManager.hasMiniplayerTransition(videoEl)) {
                         VideoObserverManager.clearMiniplayerTransition(videoEl);
-                        clearInterval(intervalId);
-                        activeProcessingSessions.delete(videoEl);
+                        if (FailSafeManager.isSafeMode()) {
+                            SessionOrchestrator.finalizeSession(videoEl, 'safeModeMiniplayerTransition');
+                            VideoObserverManager.requeueMiniplayer(videoEl);
+                            return;
+                        }
+                        SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'miniplayerTransition', 'intraNodeHandoff');
                         logInfo('process', `🔄 Handoff de sesión [miniplayer] por transición de ID: ${videoId} → ${currentVideoId}`);
                         VideoObserverManager.requeueMiniplayer(videoEl);
                         return;
@@ -12004,8 +12415,7 @@ regular-item.ypp-fill-none {
                                 `${type === 'miniplayer' ? 'Miniplayer cerrada' : 'Preview oculta'} (ghost)`;
                     logInfo('process', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${logReason}`);
 
-                    clearInterval(intervalId);
-                    activeProcessingSessions.delete(videoEl);
+                    SessionOrchestrator.finalizeSession(videoEl, logReason);
                     if (isAdNow) {
                         try {
                             VideoObserverManager.waitForAdClear(videoEl, type);
@@ -12038,7 +12448,7 @@ regular-item.ypp-fill-none {
             logLog('process', `Intervalo omitido para [${type}] - ${videoId} (Guardado automático desactivado)`);
         }
 
-        activeProcessingSessions.set(videoEl, {
+        Object.assign(sessionRef, {
             intervalId,
             lastVideoId: videoId,
             type,
@@ -12047,6 +12457,8 @@ regular-item.ypp-fill-none {
             idMismatchCount: 0,
             lastKnownSrc: videoEl.currentSrc || videoEl.src || null
         });
+        SessionOrchestrator.transitionState(sessionRef, 'active', 'sessionBootstrapped');
+        SessionFallbackManager.ensureForSession(sessionRef, 'sessionStart');
 
         // Fast-path para previews: no esperar al primer intervalo (1s por defecto),
         // porque en hover corto el usuario puede salir antes del primer guardado.
@@ -12068,6 +12480,7 @@ regular-item.ypp-fill-none {
     };
 
     async function processWatchVideo(videoEl) {
+        if (!RouteContextResolver.isContextLocked(videoEl, 'watch')) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
             logWarn('processWatchVideo', '🚫 Anuncio detectado en Watch, omitiendo procesamiento.');
@@ -12108,6 +12521,7 @@ regular-item.ypp-fill-none {
     }
 
     async function processShortsVideo(videoEl) {
+        if (!RouteContextResolver.isContextLocked(videoEl, 'shorts')) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
             logWarn('processShortsVideo', '🚫 Anuncio detectado en Shorts, omitiendo procesamiento.');
@@ -12142,6 +12556,7 @@ regular-item.ypp-fill-none {
     }
 
     async function processMiniplayerVideo(videoEl) {
+        if (!RouteContextResolver.isContextLocked(videoEl, 'miniplayer')) return;
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
             logWarn('processMiniplayerVideo', '🚫 Anuncio detectado en miniplayer, omitiendo procesamiento.');
@@ -12190,21 +12605,18 @@ regular-item.ypp-fill-none {
     }
 
     async function processPreviewVideo(videoEl) {
+        if (!RouteContextResolver.isContextLocked(videoEl, 'preview')) return;
         // Si miniplayer está activo, priorizamos su sesión para evitar competencia de IDs/seek.
         if (DOMHelpers.getMiniplayerPlayer()) {
             logLog('processPreviewVideo', '⏭️ Omitiendo preview: miniplayer activo.');
-            const session = activeProcessingSessions.get(videoEl);
-            if (session?.intervalId) clearInterval(session.intervalId);
-            activeProcessingSessions.delete(videoEl);
+            SessionOrchestrator.finalizeSession(videoEl, 'previewBlockedByMiniplayer');
             return;
         }
 
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
             logWarn('processPreviewVideo', '🚫 Anuncio detectado en Preview, omitiendo procesamiento.');
-            const session = activeProcessingSessions.get(videoEl);
-            if (session?.intervalId) clearInterval(session.intervalId);
-            activeProcessingSessions.delete(videoEl);
+            SessionOrchestrator.finalizeSession(videoEl, 'previewAdDetected');
             return;
         }
 
@@ -12424,6 +12836,17 @@ regular-item.ypp-fill-none {
         async saveStatus(player, videoEl, type, videoId, videoInfo = null, options = {}) {
             // Protección redundante: No procesar si no hay elementos o es un anuncio
             if (!videoEl || !videoId || AdDetector.isNodeWithinAdContainer(videoEl)) return;
+            if (!RouteContextResolver.isContextLocked(videoEl, type)) {
+                SessionTelemetry.emit('routingDecision', {
+                    decision: 'reject',
+                    reason: 'contextMismatchBeforeSave',
+                    context: type,
+                    videoId
+                });
+                return { success: false, reason: 'context_mismatch' };
+            }
+            const session = activeProcessingSessions.get(videoEl);
+            if (session?.isFinalized) return { success: false, reason: 'finalized_session' };
 
             // Si el video está pausado y no hemos cambiado de tiempo tras pausa (seek)
             // entonces no procesamos ninguna lógica de guardado ni metadata para ahorrar recursos.
@@ -12507,6 +12930,14 @@ regular-item.ypp-fill-none {
             if (!options.isManual && !isEnabledForAutoSave) return { success: false, reason: 'disabled_by_settings' };
 
             logLog('PlaybackController', `Datos obtenidos para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType}) ${options.isManual ? '[MANUAL]' : ''}`);
+            SessionTelemetry.emit('saveDecision', {
+                sessionId: session?.sessionId,
+                context: finalType,
+                transitionToken: session?.transitionToken,
+                triggerSource: options.isManual ? 'manual' : 'interval',
+                decision: 'save',
+                reason: 'eligible'
+            });
 
             if (finalType === 'preview') {
                 logInfo('PlaybackController', `saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);

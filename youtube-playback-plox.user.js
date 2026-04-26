@@ -9606,6 +9606,26 @@ regular-item.ypp-fill-none {
         logLog('UI', '🧹 Limpieza total de mensajes de reproducción realizada');
     }
 
+    /**
+     * Limpia mensajes de forma contextual para no borrar notificaciones de otros players activos.
+     * @param {'watch'|'shorts'|'miniplayer'|'preview'} type
+     */
+    function clearPlaybackMessagesForType(type) {
+        if (type === 'preview') {
+            clearInlinePreviewMessage();
+            return;
+        }
+        if (type === 'miniplayer') {
+            clearMiniplayerMessage();
+            return;
+        }
+        if (type === 'shorts') {
+            clearShortsMessage();
+            return;
+        }
+        clearAllPlaybackMessages();
+    }
+
 
     // ------------------------------------------
     // MARK: 🍞 Toasts
@@ -11094,6 +11114,15 @@ regular-item.ypp-fill-none {
      * Resuelve el contexto real de un video y aplica bloqueo estricto para evitar contaminación.
      */
     const RouteContextResolver = (() => {
+        const isMiniplayerBlockingPreview = () => {
+            const miniPlayer = DOMHelpers.getMiniplayerPlayer();
+            if (!miniPlayer) return false;
+            const miniVideo = DOMHelpers.getMiniplayerPlayerVideo();
+            // Miniplayer pausado no debe bloquear previews inline por hover.
+            if (miniVideo && miniVideo.paused) return false;
+            return true;
+        };
+
         const CONTEXTS = Object.freeze(['watch', 'shorts', 'miniplayer', 'preview']);
         const SCORE_STICKINESS_MS = 220;
         const SCORE_DELTA_THRESHOLD = 2;
@@ -11163,7 +11192,7 @@ regular-item.ypp-fill-none {
             if (AdDetector.isNodeWithinAdContainer(videoEl)) return false;
             if (context === 'preview') {
                 if (currentPageType === 'watch' || currentPageType === 'shorts') return false;
-                if (DOMHelpers.getMiniplayerPlayer()) return false;
+                if (isMiniplayerBlockingPreview()) return false;
             }
             if (context === 'watch' && currentPageType !== 'watch') return false;
             if (context === 'shorts' && currentPageType !== 'shorts') return false;
@@ -11518,6 +11547,8 @@ regular-item.ypp-fill-none {
             if (!RouteContextResolver.canProcessContext(videoElement, type)) return;
             // Protección: No encolar videos que son detectados como anuncios
             if (AdDetector.isNodeWithinAdContainer(videoElement)) {
+                // Log explícito y estandarizado para facilitar búsqueda en logs ("Anuncio detectado").
+                logWarn('process', `⚠️ Anuncio detectado [${type}] antes de iniciar sesión. Activando espera de recuperación.`);
                 logInfo('VideoObserverManager', `🚫 Omitiendo video [${type}] detectado como anuncio por AdDetector`);
                 scheduleAdRecovery(videoElement, type);
                 return;
@@ -11907,6 +11938,17 @@ regular-item.ypp-fill-none {
                             // Invalidar caché de playerVideoId para evitar stale data
                             const player = isPreview ? (videoEl.closest(S.IDS.INLINE_PREVIEW_PLAYER) || videoEl.closest(S.IDS.VIDEO_PREVIEW_CONTAINER)) : null;
                             if (player) playerVideoIdCache.delete(player);
+                            const currentPreviewId = player ? getPlayerVideoId(player) : null;
+                            const existingSession = activeProcessingSessions.get(videoEl);
+                            if (
+                                existingSession &&
+                                existingSession.type === 'preview' &&
+                                existingSession.lastVideoId &&
+                                currentPreviewId &&
+                                existingSession.lastVideoId === currentPreviewId
+                            ) {
+                                return;
+                            }
 
                             // Marcar como en transición para evitar que el intervalo termine la sesión por cambio de ID
                             previewTransitions.add(videoEl);
@@ -12246,6 +12288,28 @@ regular-item.ypp-fill-none {
     };
 
     /**
+     * Determina si el progreso de reanudación cae dentro de la zona de "video terminado".
+     * Se usa para evitar contabilizar una visualización completa fantasma cuando el seek
+     * inicial aterriza directamente en el final del video.
+     * @param {{watchProgress?: number, forceResumeTime?: number}|null} savedData
+     * @param {{lengthSeconds?: number}|null} cachedVideoInfo
+     * @returns {boolean}
+     */
+    const isResumeAtCompletionZone = (savedData, cachedVideoInfo) => {
+        if (!savedData) return false;
+        const target = Number(savedData.forceResumeTime > 0 ? savedData.forceResumeTime : savedData.watchProgress || 0);
+        const duration = Number(cachedVideoInfo?.lengthSeconds || 0);
+        if (!isFinite(target) || !isFinite(duration) || target <= 0 || duration <= 0) return false;
+
+        const finishPercent = (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent) / 100;
+        const thresholdByPercent = duration * finishPercent;
+        const thresholdByShortVideo = duration <= 60 ? (duration - 0.75) : Number.POSITIVE_INFINITY;
+        const completionThreshold = Math.min(thresholdByPercent, thresholdByShortVideo);
+
+        return target >= Math.max(0, completionThreshold);
+    };
+
+    /**
      * Detiene todos los intervalos de seguimiento activos y limpia el registro.
      * Se utiliza principalmente durante la navegación (cleanup).
      */
@@ -12302,7 +12366,7 @@ regular-item.ypp-fill-none {
         }
 
         // Limpiar proactivamente cualquier mensaje o estado visual previo (zombies de SPA)
-        clearAllPlaybackMessages();
+        clearPlaybackMessagesForType(type);
 
         const startResult = SessionOrchestrator.startSession(videoEl, type, videoId, player, 'startProcessingSession');
         if (!startResult.accepted) return;
@@ -12332,6 +12396,11 @@ regular-item.ypp-fill-none {
         getSavedVideoData(videoId, cachedVideoInfo?.lastViewedPlaylistId).then(savedData => {
             if (savedData) {
                 syncManualSaveUI(videoId, true, !!savedData.forceResumeTime);
+                if (isResumeAtCompletionZone(savedData, cachedVideoInfo)) {
+                    // Evita doble conteo de finalización cuando la sesión inicia con seek al final.
+                    sessionRef.hasLoggedCompletion = true;
+                    logLog('process', `🛡️ Blindaje anti doble-completado activado para [${type}] - ${videoId} (resume en zona final).`);
+                }
                 if (savedData.watchProgress > 1 || savedData.forceResumeTime > 0) {
                     if (shouldSkipResumeForActivePlayback(videoEl, type, videoId, savedData)) {
                         logLog('process', `⏭️ Resume omitido para [${type}] - ${videoId}: reproducción activa ya sincronizada`);
@@ -12605,9 +12674,10 @@ regular-item.ypp-fill-none {
     }
 
     async function processPreviewVideo(videoEl) {
-        if (!RouteContextResolver.isContextLocked(videoEl, 'preview')) return;
+        const previewContextLocked = RouteContextResolver.isContextLocked(videoEl, 'preview');
+        if (!previewContextLocked) return;
         // Si miniplayer está activo, priorizamos su sesión para evitar competencia de IDs/seek.
-        if (DOMHelpers.getMiniplayerPlayer()) {
+        if (DOMHelpers.getMiniplayerPlayer() && !DOMHelpers.getMiniplayerPlayerVideo()?.paused) {
             logLog('processPreviewVideo', '⏭️ Omitiendo preview: miniplayer activo.');
             SessionOrchestrator.finalizeSession(videoEl, 'previewBlockedByMiniplayer');
             return;
@@ -12631,10 +12701,41 @@ regular-item.ypp-fill-none {
         delete videoEl.dataset.yppDebouncing;
 
         // Validar que el video siga siendo procesable
-        if (!videoEl.isConnected || AdDetector.isNodeWithinAdContainer(videoEl)) return;
+        if (!videoEl.isConnected) {
+            logLog('processPreviewVideo', '⏭️ Preview desconectado tras debounce, omitiendo.');
+            return;
+        }
+        if (AdDetector.isNodeWithinAdContainer(videoEl)) {
+            logWarn('processPreviewVideo', '🚫 Anuncio detectado en Preview (post-debounce), omitiendo procesamiento.');
+            return;
+        }
 
-        const videoId = player ? getPlayerVideoId(player) : null;
-        if (!videoId) return;
+        const resolvedPlayerVideoId = player ? getPlayerVideoId(player) : null;
+        const activeMiniplayer = DOMHelpers.getMiniplayerPlayer();
+        const activeMiniplayerId = activeMiniplayer ? getPlayerVideoId(activeMiniplayer) : null;
+        const previewHref = videoEl.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-rich-grid-media')
+            ?.querySelector?.('a#thumbnail[href], a.yt-simple-endpoint[href]')
+            ?.getAttribute?.('href') || null;
+        const previewHrefVideoId = previewHref ? extractOrNormalizeVideoId(previewHref)?.id : null;
+        // Preferimos el ID del enlace del tile cuando existe, para evitar IDs stale
+        // del player compartido durante coexistencia con miniplayer pausado.
+        const videoId = previewHrefVideoId || resolvedPlayerVideoId;
+        const hasPreviewIdConflictWithMiniplayer =
+            !!activeMiniplayerId &&
+            !!resolvedPlayerVideoId &&
+            !previewHrefVideoId &&
+            resolvedPlayerVideoId === activeMiniplayerId;
+        if (hasPreviewIdConflictWithMiniplayer) {
+            logLog(
+                'processPreviewVideo',
+                `⏭️ Omitiendo preview por conflicto de ID con miniplayer activo (id=${resolvedPlayerVideoId}).`
+            );
+            return;
+        }
+        if (!videoId) {
+            logWarn('processPreviewVideo', '⚠️ Omitiendo preview: no se pudo resolver videoId (href/player).');
+            return;
+        }
 
         // Refuerzo: Doble validación antes de iniciar sesión para Previews
         // Algunos anuncios no tienen la clase del player inmediatamente, pero se detectan por ID
@@ -15630,6 +15731,8 @@ regular-item.ypp-fill-none {
                     .some(s => (s.type === 'watch' || s.type === 'shorts') && s.lastVideoId === currentVideoId);
                 const hasActiveMiniplayerSession = Array.from(activeProcessingSessions.values())
                     .some(s => s.type === 'miniplayer');
+                const hasActivePreviewSession = Array.from(activeProcessingSessions.values())
+                    .some(s => s.type === 'preview');
 
                 if (currentVideoId && hasActiveSession && newPageType === lastHandledPageType) {
                     logLog('handleNavigation', `Ignorando reinicio: Sesión activa detectada para ${currentVideoId} (${newPageType})`);
@@ -15640,6 +15743,13 @@ regular-item.ypp-fill-none {
                 // evitar reinicialización forzada para no re-aplicar seek innecesariamente.
                 if (!currentVideoId && newPageType !== 'watch' && newPageType === lastHandledPageType && hasActiveMiniplayerSession) {
                     logLog('handleNavigation', `Ignorando reinicio: Miniplayer activo preservado (${newPageType})`);
+                    return;
+                }
+
+                // Evitar teardown/reinit redundante en Home/Browse mientras una sesión preview está activa:
+                // yt-helper-api-ready puede refire sin cambio real de ruta y matar la sesión en curso.
+                if (!currentVideoId && newPageType === lastHandledPageType && hasActivePreviewSession) {
+                    logLog('handleNavigation', `Ignorando reinicio: Preview activo preservado (${newPageType})`);
                     return;
                 }
 

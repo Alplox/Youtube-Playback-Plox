@@ -1045,7 +1045,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         defaultSettings: {
             minSecondsBetweenSaves: 1,
             showFloatingButtons: false,
-            showHistoryButton: true,           // Mostrar botón para abrir historial/videos guardados
+            showHistoryButton: true,         // Mostrar botón para abrir historial/videos guardados
             saveRegularVideos: true,         // Por defecto, guardar videos regulares
             saveShorts: false,               // Por defecto, no guardar Shorts
             saveLiveStreams: false,          // Por defecto, no guardar directos de URL tipo "/live" o "/watch" con player en directo, si ya es VOD lo toma como regular
@@ -3817,6 +3817,10 @@ regular-item.ypp-fill-none {
 .ypp-storage-usage {
     display: flex;
     align-items: center;
+    gap: 4px;
+    background: var(--ypp-bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--ypp-spacing-sm);
 }
 
 /* Tabs para GitHub Backup */
@@ -5778,7 +5782,7 @@ regular-item.ypp-fill-none {
                     // inPlayerAdContainers (.ytp-ad-module, .video-ads, #player-ads) son nodos PERMANENTES
                     // en el DOM del player — están presentes aunque no haya ningún anuncio activo.
                     // Usarlos en closestComposed causa FALSE POSITIVES para cualquier <video> dentro del player.
-                    // Los checks del player se hacen en el Paso 2 (clases de clase + API adPlacements + findVisibleAdUi).
+                    // Los checks del player se hacen en el Paso 2 (clases + findVisibleAdUi).
                     if (AdSelectorText.inFeedAdContainers) {
                         if (DOMHelpers.closestComposed(node, AdSelectorText.inFeedAdContainers)) return true;
                     }
@@ -8375,35 +8379,46 @@ regular-item.ypp-fill-none {
     const getPlayerVideoId = (player) => {
         if (!player) return null;
 
+        const now = Date.now();
+
         // 1. Verificación de Cache (High-Performance Path)
-        // Usamos un TTL de 2s para evitar polling excesivo (intervalo es 1s) sin causar stale data en navegación SPA
+        // Usamos un TTL de 500ms para evitar stale data en navegación SPA rápida (menos que el intervalo de 1s)
         const cached = playerVideoIdCache.get(player);
-        if (cached && (Date.now() - cached.timestamp < 2000)) {
+        if (cached && (now - cached.timestamp < 500)) {
             return cached.id;
         }
 
         let id = null;
 
-        if (typeof player.getPlayerResponse === 'function') {
-            const resp = player.getPlayerResponse()
-            const videoDetailsVideoId = resp?.videoDetails?.videoId
-            const microformatVideoId = resp?.microformat?.playerMicroformatRenderer?.externalVideoId
-
-            id = videoDetailsVideoId || microformatVideoId
+        try {
+            if (typeof player.getPlayerResponse === 'function') {
+                const resp = player.getPlayerResponse();
+                id = resp?.videoDetails?.videoId
+                    || resp?.microformat?.playerMicroformatRenderer?.externalVideoId;
+            }
+        } catch (e) {
+            logWarn('getPlayerVideoId', 'playerResponse falló', e);
         }
 
         if (!id && typeof player.getVideoData === 'function') {
-            id = player.getVideoData()?.video_id
+            id = player.getVideoData()?.video_id;
         }
 
-        if (!id && (currentPageType === 'watch' || currentPageType === 'shorts')) {
-            const { id: urlId } = extractOrNormalizeVideoId(location.href)
-            id = urlId;
+        // Fallback a URL
+        if (!id) {
+            // para watch confirmar parámetro v=
+            if (currentPageType === 'watch' && location.href.includes('v=')) {
+                const { id: urlId } = extractOrNormalizeVideoId(location.href);
+                id = urlId;
+            } else if (currentPageType === 'shorts') {
+                const { id: urlId } = extractOrNormalizeVideoId(location.href);
+                id = urlId;
+            }
         }
 
         // Actualizar cache antes de retornar
         if (id) {
-            playerVideoIdCache.set(player, { id, timestamp: Date.now() });
+            playerVideoIdCache.set(player, { id, timestamp: now });
             logLog('getPlayerVideoId', `ID detectado (Cache Miss): ${id}`);
         } else {
             logWarn('getPlayerVideoId', '❌ no se pudo obtener videoId');
@@ -9651,7 +9666,7 @@ regular-item.ypp-fill-none {
             // Limpiar completamente el contenido del mensaje para asegurar que el SVG seek se elimine
             const messageEl = miniplayerTimeDisplay.querySelector('.ypp-time-display-message');
             if (messageEl) {
-                 setInnerHTML(messageEl, '');
+                setInnerHTML(messageEl, '');
             }
         }
 
@@ -11902,6 +11917,29 @@ regular-item.ypp-fill-none {
                             !videoEl.closest(S.ELEMENTS.MINIPLAYER_ELEMENT)
                         ) {
 
+                            // Invalidar caché de playerVideoId para evitar stale data en navegación SPA
+                            const player = videoEl.closest(S.IDS.MOVIE_PLAYER);
+                            if (player) playerVideoIdCache.delete(player);
+
+                            // Obtiene el videoId actual después del cambio de src
+                            const currentVideoId = player ? getPlayerVideoId(player) : null;
+
+                            // Obtiene la sesión de procesamiento activa asociada a este video
+                            const prevSession = activeProcessingSessions.get(videoEl);
+
+                            // Si hay una sesión activa y el videoId es el mismo, 
+                            // es un cambio de configuraciones (calidad o mejoras de audio)
+                            if (prevSession && currentVideoId && prevSession.lastVideoId === currentVideoId) {
+                                logLog(
+                                    'VideoObserverManager',
+                                    `🎬 Watch: cambio de configuración en player detectado (mismo videoId: ${currentVideoId}), marcando sesión`
+                                );
+                                // Marcar la sesión como cambio de configuraciones para omitir el seek
+                                prevSession.isPlayerSettingsChange = true;
+                                // No reiniciar la sesión, solo marcar el flag
+                                return;
+                            }
+
                             // Log en consola para depuración
                             // Indica que el src del video cambió y se reiniciará la sesión
                             logLog(
@@ -11909,16 +11947,9 @@ regular-item.ypp-fill-none {
                                 '📺 Watch: cambio de src detectado, reiniciando sesión y encolando'
                             );
 
-                            // Invalidar caché de playerVideoId para evitar stale data en navegación SPA
-                            const player = videoEl.closest(S.IDS.MOVIE_PLAYER);
-                            if (player) playerVideoIdCache.delete(player);
-
                             // Elimina de la caché el tipo de video asociado a este elemento
                             // Esto fuerza a recalcular si es watch, short, etc.
                             videoTypeCache.delete(videoEl);
-
-                            // Obtiene la sesión de procesamiento activa asociada a este video
-                            const prevSession = activeProcessingSessions.get(videoEl);
 
                             // Si existía un intervalo activo (setInterval),
                             // se detiene para evitar procesos duplicados
@@ -12202,6 +12233,8 @@ regular-item.ypp-fill-none {
                             // Invalidar caché de playerVideoId para evitar stale data
                             const player = isPreview ? (videoEl.closest(S.IDS.INLINE_PREVIEW_PLAYER) || videoEl.closest(S.IDS.VIDEO_PREVIEW_CONTAINER)) : null;
                             if (player) playerVideoIdCache.delete(player);
+                            // Invalidar caché de detección de Shorts para evitar sub-etiquetado incorrecto
+                            delete videoEl.dataset.yppShortsPreview;
                             const currentPreviewId = player ? getPlayerVideoId(player) : null;
                             const existingSession = activeProcessingSessions.get(videoEl);
                             if (
@@ -12450,6 +12483,7 @@ regular-item.ypp-fill-none {
             transitionTokenCounter += 1;
             const transitionToken = `${context}-${transitionTokenCounter}`;
             const sessionToken = `${identityKey}::${transitionToken}`;
+            const abortController = new AbortController();
             const session = {
                 sessionId: buildSessionId(videoEl, context, videoId),
                 sessionToken,
@@ -12466,7 +12500,9 @@ regular-item.ypp-fill-none {
                 lastVideoId: videoId,
                 player,
                 videoEl,
-                isFinalized: false
+                isFinalized: false,
+                isPlayerSettingsChange: false,
+                abortController
             };
             activeProcessingSessions.set(videoEl, session);
             SessionTelemetry.emit('routingDecision', {
@@ -12486,6 +12522,7 @@ regular-item.ypp-fill-none {
             session.isFinalized = true;
             session.state = 'finalized';
             if (session.intervalId) clearInterval(session.intervalId);
+            if (session.abortController) session.abortController.abort();
             SessionFallbackManager.clear(videoEl);
             activeProcessingSessions.delete(videoEl);
             SessionTelemetry.emit('routingDecision', {
@@ -12664,6 +12701,12 @@ regular-item.ypp-fill-none {
                     // Evita doble conteo de finalización cuando la sesión inicia con seek al final.
                     sessionRef.hasLoggedCompletion = true;
                     logLog('process', `🛡️ Blindaje anti doble-completado activado para [${type}] - ${videoId} (resume en zona final).`);
+                }
+                // Si es un cambio de configuraciones (calidad, mejoras de audio), omitir el seek para no perder progreso
+                if (sessionRef.isPlayerSettingsChange) {
+                    logLog('process', `⏭️ Resume omitido para [${type}] - ${videoId}: cambio de configuraciones detectado, manteniendo progreso actual`);
+                    sessionRef.isPlayerSettingsChange = false; // Limpiar el flag después de usarlo
+                    return;
                 }
                 if (savedData.watchProgress > 1 || savedData.forceResumeTime > 0) {
                     if (shouldSkipResumeForActivePlayback(videoEl, type, videoId, savedData)) {
@@ -15640,8 +15683,8 @@ regular-item.ypp-fill-none {
         }
 
         const selectionClass = isPlaylistCreationMode || isManagementMode ? 'selection-mode' : '';
-        const thumbClass = type === 'shorts' ? 'ypp-thumb-shorts' : 'ypp-thumb';
-        const thumbWidth = type === 'shorts' ? '55px' : '155px';
+        const thumbClass = type === 'shorts' || type === 'preview_shorts' ? 'ypp-thumb-shorts' : 'ypp-thumb';
+        const thumbWidth = type === 'shorts' || type === 'preview_shorts' ? '55px' : '155px';
 
         const html = `
             <div

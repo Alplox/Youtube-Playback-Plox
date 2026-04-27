@@ -55,6 +55,7 @@
 
 ## Changed
 
+- **Enhanced Storage Usage Indicator**: Added detailed storage usage indicator in the saved videos modal showing three values with tooltips: space used by saved videos, total IndexedDB usage, and available IndexedDB space. Includes a manual recalculate button with debounce protection and memory-safe cleanup. Uses optimized calculation via storageCache for instant results.
 - Refactor/Fix: `getWatchPlayer` now uses `querySelectorAll` with filtering to support multiple `#movie_player` instances and exclude the one belonging to the active miniplayer.
 - **README.md**: Updated the README.md files.
 

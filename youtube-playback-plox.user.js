@@ -426,6 +426,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "noValidVideos": "No valid videos found to import",
             "fileTooLarge": "File is too large ({size}MB, max {limit}MB)",
             "fileTooLargeGist": "File is too large for Gist ({size}MB, max {limit}MB)",
+            "storageUsageVideos": "Videos: {usage}",
+            "storageUsageTotal": "Total: {usage}",
+            "storageUsageAvailable": "Available: {usage}",
+            "storageUsageVideosTooltip": "Space used by your currently saved videos",
+            "storageUsageTotalTooltip": "All YouTube data in IndexedDB (includes overhead)",
+            "storageUsageAvailableTooltip": "Total IndexedDB storage space available in browser",
+            "recalculateStorage": "Recalculate",
+            "recalculateStorageTooltip": "Recalculate storage usage",
             "importingFromFreeTube": "Importing from FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importing from FreeTube as SQLite...",
             "videosImported": "videos imported",
@@ -642,6 +650,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "noValidVideos": "No se encontraron videos válidos para importar",
             "fileTooLarge": "El archivo es demasiado grande ({size}MB, máx {limit}MB)",
             "fileTooLargeGist": "El archivo es demasiado grande para Gist ({size}MB, máx {limit}MB)",
+            "storageUsageVideos": "Videos: {usage}",
+            "storageUsageTotal": "Total: {usage}",
+            "storageUsageAvailable": "Disponible: {usage}",
+            "storageUsageVideosTooltip": "Espacio usado por tus videos guardados actualmente",
+            "storageUsageTotalTooltip": "Todos los datos de YouTube en IndexedDB (incluye overhead)",
+            "storageUsageAvailableTooltip": "Espacio total disponible en IndexedDB del navegador",
+            "recalculateStorage": "Recalcular",
+            "recalculateStorageTooltip": "Recalcular uso de almacenamiento",
             "importingFromFreeTube": "Importando desde FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importando desde FreeTube como SQLite...",
             "videosImported": "videos importados",
@@ -3798,6 +3814,11 @@ regular-item.ypp-fill-none {
             animation: modalSlideIn 0.3s ease-out forwards;
 }
 
+.ypp-storage-usage {
+    display: flex;
+    align-items: center;
+}
+
 /* Tabs para GitHub Backup */
 .ypp-github-tabs {
     display: -webkit-box;
@@ -4595,6 +4616,12 @@ regular-item.ypp-fill-none {
         trendDownBold: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5"><path d="m3 7l6 6l4-4l8 8"/><path d="M17 17h4v-4"/></g></svg>',
         //https://icon-sets.iconify.design/iconamoon/number-1-circle/
         numberOneCircle: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12.5 17V7l-2 2"/><circle cx="12" cy="12" r="9"/></g></svg>',
+        // https://icon-sets.iconify.design/iconamoon/arrow-down-2-fill/
+        chevronDown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7 9a1 1 0 0 0-.707 1.707l5 5a1 1 0 0 0 1.414 0l5-5A1 1 0 0 0 17 9z" clip-rule="evenodd"/></svg>',
+        // https://icon-sets.iconify.design/iconamoon/restart/
+        restart: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3a9 9 0 1 1-5.657 2"/><path d="M3 4.5h4v4"/></g></svg>',
+
+
 
         /* octicon - MIT ------------------------------------ */
         // https://icon-sets.iconify.design/octicon/compose-16/
@@ -4629,11 +4656,8 @@ regular-item.ypp-fill-none {
         warning: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8.893 1.5c-.183-.31-.52-.5-.887-.5s-.703.19-.886.5L.138 13.499a.98.98 0 0 0 0 1.001c.193.31.53.501.886.501h13.964c.367 0 .704-.19.877-.5a1.03 1.03 0 0 0 .01-1.002L8.893 1.5zm.133 11.497H6.987v-2.003h2.039v2.003zm0-3.004H6.987V5.987h2.039v4.006z" fill="currentColor"/></svg>',
         // https://icon-sets.iconify.design/octicon/people-16/
         people: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M2 5.5a3.5 3.5 0 1 1 5.898 2.549a5.51 5.51 0 0 1 3.034 4.084a.75.75 0 1 1-1.482.235a4 4 0 0 0-7.9 0a.75.75 0 0 1-1.482-.236A5.5 5.5 0 0 1 3.102 8.05A3.5 3.5 0 0 1 2 5.5M11 4a3.001 3.001 0 0 1 2.22 5.018a5 5 0 0 1 2.56 3.012a.749.749 0 0 1-.885.954a.75.75 0 0 1-.549-.514a3.51 3.51 0 0 0-2.522-2.372a.75.75 0 0 1-.574-.73v-.352a.75.75 0 0 1 .416-.672A1.5 1.5 0 0 0 11 5.5A.75.75 0 0 1 11 4m-5.5-.5a2 2 0 1 0-.001 3.999A2 2 0 0 0 5.5 3.5"/></svg>',
-        // https://icon-sets.iconify.design/iconamoon/arrow-down-2-fill/
-        chevronDown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7 9a1 1 0 0 0-.707 1.707l5 5a1 1 0 0 0 1.414 0l5-5A1 1 0 0 0 17 9z" clip-rule="evenodd"/></svg>',
         // https://icon-sets.iconify.design/octicon/bug-16/
         bug: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M4.72.22a.75.75 0 0 1 1.06 0l1 .999a3.5 3.5 0 0 1 2.441 0l.999-1a.748.748 0 0 1 1.265.332a.75.75 0 0 1-.205.729l-.775.776c.616.63.995 1.493.995 2.444v.327q0 .15-.025.292c.408.14.764.392 1.029.722l1.968-.787a.75.75 0 0 1 .556 1.392L13 7.258V9h2.25a.75.75 0 0 1 0 1.5H13v.5q-.002.615-.141 1.186l2.17.868a.75.75 0 0 1-.557 1.392l-2.184-.873A5 5 0 0 1 8 16a5 5 0 0 1-4.288-2.427l-2.183.873a.75.75 0 0 1-.558-1.392l2.17-.868A5 5 0 0 1 3 11v-.5H.75a.75.75 0 0 1 0-1.5H3V7.258L.971 6.446a.75.75 0 0 1 .558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a2 2 0 0 1-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 0 1 0-1.06m.53 6.28a.75.75 0 0 0-.75.75V11a3.5 3.5 0 1 0 7 0V7.25a.75.75 0 0 0-.75-.75ZM6.173 5h3.654A.17.17 0 0 0 10 4.827V4.5a2 2 0 1 0-4 0v.327c0 .096.077.173.173.173"/></svg>',
-
 
 
 
@@ -14318,6 +14342,12 @@ regular-item.ypp-fill-none {
     let virtualScroller = null;
     /** @type {number|null} ID del intervalo de actualización del uso de almacenamiento */
     let storageUsageRefreshIntervalId = null;
+    /** @type {number|null} Caché del tamaño de almacenamiento del script en bytes */
+    let scriptStorageUsageCache = null;
+    /** @type {boolean} Flag para indicar si hay un cálculo de almacenamiento en progreso */
+    let isCalculatingStorageUsage = false;
+    /** @type {number|null} Timestamp del último clic en recalcular (para debounce) */
+    let lastRecalculateClick = null;
     /** @type {Map<string, string>} Cache global de títulos por ID para uso en createVideoEntry */
     let modalVideoTitleById = new Map();
     /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Referencias a listeners del modal para cleanup */
@@ -14632,7 +14662,7 @@ regular-item.ypp-fill-none {
             if (statsEl) {
                 setInnerHTML(statsEl, `
                     <span>0 ${t('videos')}</span>
-                    <span id="ypp-storage-usage"></span>
+                    <span id="ypp-storage-usage" class="ypp-storage-usage"></span>
                 `);
                 try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
             }
@@ -14650,7 +14680,7 @@ regular-item.ypp-fill-none {
             if (statsEl) {
                 setInnerHTML(statsEl, `
                     <span>${filteredItems.length} ${t('videos')}</span>
-                    <span id="ypp-storage-usage"></span>
+                    <span id="ypp-storage-usage" class="ypp-storage-usage"></span>
                 `);
             }
 
@@ -14676,7 +14706,7 @@ regular-item.ypp-fill-none {
         const statsBar = createElement('div', {
             className: 'ypp-virtual-stats',
             id: 'ypp-virtual-stats',
-            html: `<span>${filteredItems.length} ${t('videos')}</span><span id="ypp-storage-usage"></span>`
+            html: `<span>${filteredItems.length} ${t('videos')}</span><span id="ypp-storage-usage" class="ypp-storage-usage"></span>`
         });
 
         listContainer.appendChild(statsBar);
@@ -14798,6 +14828,12 @@ regular-item.ypp-fill-none {
             clearInterval(storageUsageRefreshIntervalId);
             storageUsageRefreshIntervalId = null;
         }
+
+        // Limpiar caché y flags de almacenamiento
+        scriptStorageUsageCache = null;
+        isCalculatingStorageUsage = false;
+        lastRecalculateClick = null;
+
         isPlaylistCreationMode = false;
         isManagementMode = false;
         selectedVideos.clear();
@@ -14826,39 +14862,161 @@ regular-item.ypp-fill-none {
     };
 
     /**
+     * Calcula el tamaño de almacenamiento usado específicamente por el script.
+     * Usa una estrategia híbrida para optimizar rendimiento:
+     * 1. Prioridad 1: storageCache (síncrono, ya poblado durante inicialización)
+     * 2. Prioridad 2: tamaño del JSON exportado (rápido, una serialización)
+     * 3. Prioridad 3: iteración con Storage.get() (lento, solo como fallback)
+     *
+     * @async
+     * @function calculateScriptStorageUsage
+     * @returns {Promise<number>} Tamaño en bytes de los datos del script.
+     */
+    const calculateScriptStorageUsage = async () => {
+        try {
+            // Prioridad 1: Usar storageCache (síncrono)
+            if (storageCache && storageCache.size > 0) {
+                let totalBytes = 0;
+                for (const [key, serialized] of storageCache.entries()) {
+                    if (!isNonVideoStorageKey(key)) {
+                        totalBytes += serialized.length * 2; // UTF-16: 2 bytes por caracter
+                    }
+                }
+                return totalBytes;
+            }
+
+            // Prioridad 2: Usar tamaño del JSON exportado
+            const exportData = await getSyncData('export', null);
+            if (exportData) {
+                const jsonString = JSON.stringify(exportData);
+                return jsonString.length * 2; // UTF-16
+            }
+
+            // Prioridad 3: Iterar con Storage.get() (fallback lento)
+            const keys = await Storage.keys();
+            const videoKeys = keys.filter(k => !isNonVideoStorageKey(k));
+            let totalBytes = 0;
+            for (const key of videoKeys) {
+                const data = await Storage.get(key);
+                if (data) {
+                    totalBytes += JSON.stringify(data).length * 2;
+                }
+            }
+            return totalBytes;
+        } catch (error) {
+            logError('calculateScriptStorageUsage', 'Error al calcular uso de almacenamiento:', error);
+            return 0;
+        }
+    };
+
+    /**
      * Actualiza el indicador de uso de almacenamiento en el DOM.
      *
-     * Busca el elemento con id `#ypp-storage-usage` y muestra el uso actual
-     * frente al límite disponible usando la API `navigator.storage.estimate()`.
+     * Muestra tres valores con tooltips explicativos:
+     * 1. Espacio usado por videos guardados del script
+     * 2. Espacio total de datos de YouTube en IndexedDB
+     * 3. Espacio total disponible en IndexedDB
      *
-     * Si la API no está disponible o los valores no son válidos, limpia el contenido.
+     * Incluye botón de recálculo manual con protecciones contra múltiples clics.
      *
      * @async
      * @function updateStorageUsageIndicator
      * @returns {Promise<void>} No retorna ningún valor.
-     *
-     * @example
-     * await updateStorageUsageIndicator();
-     * // Resultado esperado en el DOM:
-     * // "1.23 MB / 2 GB"
      */
     const updateStorageUsageIndicator = async () => {
         const el = DOMHelpers.get('ui:storageUsage', () => document.querySelector('#ypp-storage-usage'), 500);
         if (!el) return;
 
+        // Calcular uso del script (usar caché si está disponible)
+        let scriptUsage = scriptStorageUsageCache;
+        if (scriptUsage === null && !isCalculatingStorageUsage) {
+            isCalculatingStorageUsage = true;
+            try {
+                scriptUsage = await calculateScriptStorageUsage();
+                scriptStorageUsageCache = scriptUsage;
+            } catch (error) {
+                logError('updateStorageUsageIndicator', 'Error al calcular uso del script:', error);
+                scriptUsage = 0;
+            } finally {
+                isCalculatingStorageUsage = false;
+            }
+        }
+
+        // Obtener uso total de IndexedDB
         const estimateFn = navigator?.storage?.estimate;
-        if (typeof estimateFn !== 'function') {
-            el.textContent = '';
-            return;
+        let totalUsage = 0;
+        let quota = 0;
+
+        if (typeof estimateFn === 'function') {
+            try {
+                const estimate = await estimateFn.call(navigator.storage);
+                if (Number.isFinite(estimate.usage) && Number.isFinite(estimate.quota) && estimate.quota > 0) {
+                    totalUsage = estimate.usage;
+                    quota = estimate.quota;
+                }
+            } catch (error) {
+                logError('updateStorageUsageIndicator', 'Error al obtener estimate de storage:', error);
+            }
         }
 
-        const { usage, quota } = await estimateFn.call(navigator.storage);
-        if (!Number.isFinite(usage) || !Number.isFinite(quota) || quota <= 0) {
-            el.textContent = '';
-            return;
-        }
+        // Formatear valores
+        const scriptUsageFormatted = formatBytes(scriptUsage);
+        const totalUsageFormatted = formatBytes(totalUsage);
+        const quotaFormatted = formatBytes(quota);
 
-        el.textContent = `${formatBytes(usage)} / ${formatBytes(quota)}`;
+        // Crear HTML con tooltips y botón de recálculo
+        const refreshIcon = SVG_ICONS.restart || '↻';
+        const html = `
+            <span title="${t('storageUsageVideosTooltip')}">${t('storageUsageVideos', { usage: scriptUsageFormatted })}</span>
+            <span title="${t('storageUsageTotalTooltip')}">${t('storageUsageTotal', { usage: totalUsageFormatted })}</span>
+            <span title="${t('storageUsageAvailableTooltip')}">${t('storageUsageAvailable', { usage: quotaFormatted })}</span>
+            <button class="ypp-recalculate-storage-btn" title="${t('recalculateStorageTooltip')}" style="background:none;border:none;cursor:pointer;padding:0 4px;margin-left:4px;color:inherit;">
+                ${refreshIcon}
+            </button>
+        `;
+
+        setInnerHTML(el, html);
+
+        // Agregar listener al botón de recálculo
+        const recalcBtn = el.querySelector('.ypp-recalculate-storage-btn');
+        if (recalcBtn) {
+            recalcBtn.onclick = async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Debounce: prevenir múltiples clics rápidos (500ms)
+                const now = Date.now();
+                if (lastRecalculateClick && now - lastRecalculateClick < 500) {
+                    return;
+                }
+                lastRecalculateClick = now;
+
+                // Verificar si ya hay un cálculo en progreso
+                if (isCalculatingStorageUsage) {
+                    return;
+                }
+
+                // Invalidar caché y recalcular
+                scriptStorageUsageCache = null;
+                isCalculatingStorageUsage = true;
+
+                try {
+                    const newUsage = await calculateScriptStorageUsage();
+                    scriptStorageUsageCache = newUsage;
+                    // Actualizar UI sin recalcular (pasar flag para evitar recálculo)
+                    const el = DOMHelpers.get('ui:storageUsage', () => document.querySelector('#ypp-storage-usage'), 500);
+                    if (el) {
+                        const scriptUsageFormatted = formatBytes(newUsage);
+                        const spans = el.querySelectorAll('span');
+                        if (spans[0]) spans[0].textContent = t('storageUsageVideos', { usage: scriptUsageFormatted });
+                    }
+                } catch (error) {
+                    logError('recalculateStorage', 'Error al recalcular almacenamiento:', error);
+                } finally {
+                    isCalculatingStorageUsage = false;
+                }
+            };
+        }
     };
 
     // ------------------------------------------
@@ -15043,13 +15201,12 @@ regular-item.ypp-fill-none {
 
         videosContainer.appendChild(listContainer);
 
-        try {
-            if (!storageUsageRefreshIntervalId) {
-                storageUsageRefreshIntervalId = setInterval(() => {
-                    updateStorageUsageIndicator().catch(() => { });
-                }, 60_000);
-            }
-        } catch (_) { }
+        // Eliminar actualizaciones automáticas de almacenamiento (ahora es manual con botón recalcular)
+        // if (!storageUsageRefreshIntervalId) {
+        //     storageUsageRefreshIntervalId = setInterval(() => {
+        //         updateStorageUsageIndicator().catch(() => { });
+        //     }, 60_000);
+        // }
 
         const footer = createElement('div', { className: 'ypp-footer' });
 

@@ -42,6 +42,7 @@
 - **Improved Visibility Check**: Re-implemented `isVisiblyDisplayed` with a balance between speed and accuracy to handle YouTube's modern DOM structures.
 
 
+- **File Size Validation for Exports**: Added file size validation before exporting data to prevent GitHub API errors. Exports are now validated against GitHub's limits: 50MB for repository files (conservative limit to avoid Git warnings) and 10MB for Gists. Users receive a clear warning message if their data exceeds these limits.
 - **Manual Save Notification Fix**: Fixed an issue where manual save notifications would not display when the video was paused with a seek message. The play event listener now cleans up properly when a manual save occurs, the seek dataset is cleared, the message element's innerHTML is completely cleared to ensure the seek SVG is removed, and the immediate clear condition in `updateWatchPlaybackBarMessage` now excludes manual saves to prevent the notification from being cleared immediately after being shown.
 - **Seek Message Cleanup on Play**: Fixed an issue where the "Resumed at" message would persist indefinitely when a video was paused after a seek and then began playing. Added play event listeners with WeakMap tracking to automatically clear seek messages when playback resumes across all video types (Watch, Shorts, Miniplayer, Preview).
 - **Memory Leak Preventions - Event Listeners**: Fixed memory leaks where event listeners were added multiple times but never removed.

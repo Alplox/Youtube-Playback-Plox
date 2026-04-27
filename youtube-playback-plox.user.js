@@ -424,7 +424,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "invalidJson": "Invalid JSON",
             "invalidDatabase": "Invalid database",
             "noValidVideos": "No valid videos found to import",
-            "fileTooLarge": "File is too large (max {size})",
+            "fileTooLarge": "File is too large ({size}MB, max {limit}MB)",
+            "fileTooLargeGist": "File is too large for Gist ({size}MB, max {limit}MB)",
             "importingFromFreeTube": "Importing from FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importing from FreeTube as SQLite...",
             "videosImported": "videos imported",
@@ -639,7 +640,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "invalidJson": "JSON inválido",
             "invalidDatabase": "Base de datos inválida",
             "noValidVideos": "No se encontraron videos válidos para importar",
-            "fileTooLarge": "El archivo es demasiado grande (máx {size})",
+            "fileTooLarge": "El archivo es demasiado grande ({size}MB, máx {limit}MB)",
+            "fileTooLargeGist": "El archivo es demasiado grande para Gist ({size}MB, máx {limit}MB)",
             "importingFromFreeTube": "Importando desde FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importando desde FreeTube como SQLite...",
             "videosImported": "videos importados",
@@ -6876,7 +6878,19 @@ regular-item.ypp-fill-none {
                 return;
             }
 
-            const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+            const jsonString = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const fileSizeMB = blob.size / (1024 * 1024);
+
+            // Validar tamaño del archivo (GitHub límite: 100MB via API, 25MB via navegador)
+            // Usamos 50MB como límite conservador para evitar advertencias de Git
+            // https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github
+            if (fileSizeMB > 50) {
+                logWarn('exportDataToFile', `Archivo demasiado grande: ${fileSizeMB.toFixed(2)}MB (límite recomendado: 50MB)`);
+                showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLarge', { size: fileSizeMB.toFixed(2), limit: 50 })}`);
+                return;
+            }
+
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -6889,7 +6903,7 @@ regular-item.ypp-fill-none {
 
             const count = Object.keys(exportData).filter(k => k !== '__metadata__').length;
             showFloatingToast(`${SVG_ICONS.upload} ${t('itemsExported', { count })}`);
-            logLog('exportDataToFile', `Exportados ${count} videos en formato JSON nativo`);
+            logLog('exportDataToFile', `Exportados ${count} videos (${fileSizeMB.toFixed(2)}MB) en formato JSON nativo`);
         } catch (error) {
             logError('exportDataToFile', 'Error al exportar:', error);
             showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
@@ -6978,13 +6992,26 @@ regular-item.ypp-fill-none {
      */
     const backupToGitHub = (data, githubSettings, isManual) => {
         return new Promise((resolve) => {
+            const jsonString = JSON.stringify(data, null, 2);
+            const fileSizeMB = jsonString.length / (1024 * 1024);
+
+            // Validar tamaño del archivo (Gist límite: 10MB)
+            if (fileSizeMB > 10) {
+                logWarn('backupToGitHub', `Archivo demasiado grande para Gist: ${fileSizeMB.toFixed(2)}MB (límite: 10MB)`);
+                if (isManual) {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLargeGist', { size: fileSizeMB.toFixed(2), limit: 10 })}`);
+                }
+                resolve(false);
+                return;
+            }
+
             const fileName = 'youtube-playback-plox-backup.json';
             const gistData = {
                 description: `YouTube Playback Plox Backup v${SCRIPT_VERSION} - ${new Date().toLocaleString()}`,
                 public: false,
                 files: {
                     [fileName]: {
-                        content: JSON.stringify(data, null, 2)
+                        content: jsonString
                     }
                 }
             };
@@ -7053,6 +7080,20 @@ regular-item.ypp-fill-none {
             if (!repoOwner || !repoName) {
                 if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubBackupError')}`);
                 return resolve(false);
+            }
+
+            const jsonString = JSON.stringify(data, null, 2);
+            const fileSizeMB = jsonString.length / (1024 * 1024);
+
+            // Validar tamaño del archivo (GitHub límite: 100MB via API, 25MB via navegador)
+            // Usamos 50MB como límite conservador para evitar advertencias de Git
+            if (fileSizeMB > 50) {
+                logWarn('backupToRepository', `Archivo demasiado grande para repositorio: ${fileSizeMB.toFixed(2)}MB (límite recomendado: 50MB)`);
+                if (isManual) {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLarge', { size: fileSizeMB.toFixed(2), limit: 50 })}`);
+                }
+                resolve(false);
+                return;
             }
 
             const fileName = 'youtube-playback-plox-backup.json';

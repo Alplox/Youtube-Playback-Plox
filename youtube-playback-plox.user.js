@@ -8749,6 +8749,13 @@ regular-item.ypp-fill-none {
     const displayClearTimeouts = new Map();
 
     /**
+     * WeakMap para rastrear listeners de play que limpian mensajes de seek.
+     * Permite garbage collection automática cuando el elemento se desconecta.
+     * @type {WeakMap<HTMLVideoElement, Function>}
+     */
+    const seekPlayListeners = new WeakMap();
+
+    /**
      * Programa la limpieza automática del mensaje de un display.
      * Cancela cualquier timeout previo para el mismo contexto antes de crear uno nuevo.
      * @param {'watch'|'shorts'|'mini'|'preview'} context - Contexto del display.
@@ -9283,6 +9290,14 @@ regular-item.ypp-fill-none {
 
         //  No limpiar si está pausado y es un seek
         if (isSeek && isVideoPaused) {
+            // Agregar listener de play para limpiar cuando reproduzca
+            const handlePlay = () => {
+                clearPlaybackBarMessage();
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            };
+            videoEl.addEventListener('play', handlePlay);
+            seekPlayListeners.set(videoEl, handlePlay);
             return;
         }
 
@@ -9300,6 +9315,16 @@ regular-item.ypp-fill-none {
             restoreDisplayButtons(watchTimeDisplay);
             delete watchTimeDisplay.dataset.activeSeek;
             delete watchTimeDisplay.dataset.isFixedTime;
+        }
+
+        // Limpiar listener de play si existe
+        const videoEl = DOMHelpers.getWatchPlayerVideo();
+        if (videoEl) {
+            const handlePlay = seekPlayListeners.get(videoEl);
+            if (handlePlay) {
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            }
         }
 
         const prev = displayClearTimeouts.get('watch');
@@ -9403,6 +9428,14 @@ regular-item.ypp-fill-none {
         // Si está pausado y es un seek, no programar limpieza automática inmediata.
         // Se programa para cuando el video comience a reproducirse.
         if (isSeek && isVideoPaused) {
+            // Agregar listener de play para limpiar cuando reproduzca
+            const handlePlay = () => {
+                clearShortsMessage();
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            };
+            videoEl.addEventListener('play', handlePlay);
+            seekPlayListeners.set(videoEl, handlePlay);
             return;
         }
 
@@ -9417,6 +9450,16 @@ regular-item.ypp-fill-none {
             shortsTimeDisplay.classList.remove('ypp-floating');
             delete shortsTimeDisplay.dataset.activeSeek;
             delete shortsTimeDisplay.dataset.isFixedTime;
+        }
+
+        // Limpiar listener de play si existe
+        const videoEl = DOMHelpers.getShortsPlayerVideo();
+        if (videoEl) {
+            const handlePlay = seekPlayListeners.get(videoEl);
+            if (handlePlay) {
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            }
         }
 
         const prev = displayClearTimeouts.get('shorts');
@@ -9511,6 +9554,14 @@ regular-item.ypp-fill-none {
         // Si está pausado y es un seek, no programar limpieza automática inmediata.
         // Se programa para cuando el video comience a reproducirse.
         if (isSeek && isVideoPaused) {
+            // Agregar listener de play para limpiar cuando reproduzca
+            const handlePlay = () => {
+                clearMiniplayerMessage();
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            };
+            videoEl.addEventListener('play', handlePlay);
+            seekPlayListeners.set(videoEl, handlePlay);
             return;
         }
 
@@ -9522,6 +9573,16 @@ regular-item.ypp-fill-none {
             restoreDisplayButtons(miniplayerTimeDisplay);
             delete miniplayerTimeDisplay.dataset.activeSeek;
             delete miniplayerTimeDisplay.dataset.isFixedTime;
+        }
+
+        // Limpiar listener de play si existe
+        const videoEl = DOMHelpers.getMiniplayerPlayerVideo();
+        if (videoEl) {
+            const handlePlay = seekPlayListeners.get(videoEl);
+            if (handlePlay) {
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            }
         }
 
         const prev = displayClearTimeouts.get('mini');
@@ -9626,6 +9687,14 @@ regular-item.ypp-fill-none {
         // Si está pausado y es un seek, no programar limpieza automática inmediata.
         // Se programa para cuando el video comience a reproducirse.
         if (isSeek && isVideoPaused) {
+            // Agregar listener de play para limpiar cuando reproduzca
+            const handlePlay = () => {
+                clearInlinePreviewMessage();
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            };
+            videoEl.addEventListener('play', handlePlay);
+            seekPlayListeners.set(videoEl, handlePlay);
             return;
         }
 
@@ -9637,6 +9706,16 @@ regular-item.ypp-fill-none {
             restoreDisplayButtons(inlinePreviewTimeDisplay);
             delete inlinePreviewTimeDisplay.dataset.activeSeek;
             delete inlinePreviewTimeDisplay.dataset.isFixedTime;
+        }
+
+        // Limpiar listener de play si existe
+        const videoEl = DOMHelpers.getInlinePreviewPlayerVideo();
+        if (videoEl) {
+            const handlePlay = seekPlayListeners.get(videoEl);
+            if (handlePlay) {
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            }
         }
 
         const prev = displayClearTimeouts.get('preview');

@@ -42,6 +42,7 @@
 - **Improved Visibility Check**: Re-implemented `isVisiblyDisplayed` with a balance between speed and accuracy to handle YouTube's modern DOM structures.
 
 
+- **Seek Message Cleanup on Play**: Fixed an issue where the "Resumed at" message would persist indefinitely when a video was paused after a seek and then began playing. Added play event listeners with WeakMap tracking to automatically clear seek messages when playback resumes across all video types (Watch, Shorts, Miniplayer, Preview).
 - **Memory Leak Preventions - Event Listeners**: Fixed memory leaks where event listeners were added multiple times but never removed.
 - **False Completion Count Guard on End-Resume**: Added a session-level guard that marks completion as already accounted for when a resume seek starts directly in the completion zone (end threshold). This prevents phantom "completed view" increments on reload while still allowing a new completion count after a real replay cycle. #38
 - **Miniplayer Preservation During SPA Navigation**: Prevented forced observer/bootstrap reinitialization when a preserved miniplayer session is already active on non-watch navigation. This avoids unnecessary session restarts and redundant seek re-application during normal miniplayer playback continuity.

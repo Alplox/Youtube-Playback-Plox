@@ -8785,6 +8785,8 @@ regular-item.ypp-fill-none {
         if (!displayEl) return;
         const messageEl = displayEl.querySelector('.ypp-time-display-message');
 
+        // logLog('showDisplayMessage', `displayEl existe: ${!!displayEl}, messageEl existe: ${!!messageEl}, mensaje: "${message}"`)
+
         if (messageEl) {
             setInnerHTML(messageEl, message);
             messageEl.classList.remove('ypp-d-none');
@@ -9275,7 +9277,24 @@ regular-item.ypp-fill-none {
             return; // Preservar el mensaje importante (excepto en modo manual)
         }
 
+        // Si es guardado manual, limpiar el listener de play que pueda estar activo
+        if (isManual) {
+            const handlePlay = seekPlayListeners.get(videoEl);
+            if (handlePlay) {
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            }
+            // Limpiar también el dataset de seek activo para que el SVG no persista
+            delete watchTimeDisplay.dataset.activeSeek;
+            // Limpiar completamente el contenido del mensaje para asegurar que el SVG seek se elimine
+            const messageEl = watchTimeDisplay.querySelector('.ypp-time-display-message');
+            if (messageEl) {
+                setInnerHTML(messageEl, '');
+            }
+        }
+
         // Actualizar contenido y visibilidad usando helper compartido
+        // logLog('updateWatchPlaybackBarMessage', `Mensaje a mostrar: "${message}" - watchTimeDisplay.isConnected: ${watchTimeDisplay?.isConnected}`)
         showDisplayMessage(watchTimeDisplay, message);
 
         // Actualizar metadatos de estado
@@ -9301,8 +9320,8 @@ regular-item.ypp-fill-none {
             return;
         }
 
-        // Si no es seek/fixed y está pausado, limpiar inmediatamente
-        if (!isSeek && !isFixedTime && isVideoPaused) {
+        // Si no es seek/fixed y está pausado, limpiar inmediatamente (excepto guardados manuales)
+        if (!isSeek && !isFixedTime && isVideoPaused && !isManual) {
             clearPlaybackBarMessage();
             return;
         }
@@ -9359,6 +9378,22 @@ regular-item.ypp-fill-none {
 
         if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime) && !isManual) {
             return;
+        }
+
+        // Si es guardado manual, limpiar el listener de play que pueda estar activo
+        if (isManual) {
+            const handlePlay = seekPlayListeners.get(videoEl);
+            if (handlePlay) {
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            }
+            // Limpiar también el dataset de seek activo para que el SVG no persista
+            delete shortsTimeDisplay.dataset.activeSeek;
+            // Limpiar completamente el contenido del mensaje para asegurar que el SVG seek se elimine
+            const msgEl = shortsTimeDisplay.querySelector('.ypp-time-display-message');
+            if (msgEl) {
+                setInnerHTML(msgEl, '');
+            }
         }
 
         // Asegurar que el observador esté activo aunque el display existiera previamente
@@ -9539,6 +9574,22 @@ regular-item.ypp-fill-none {
             return;
         }
 
+        // Si es guardado manual, limpiar el listener de play que pueda estar activo
+        if (isManual) {
+            const handlePlay = seekPlayListeners.get(videoEl);
+            if (handlePlay) {
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            }
+            // Limpiar también el dataset de seek activo para que el SVG no persista
+            delete miniplayerTimeDisplay.dataset.activeSeek;
+            // Limpiar completamente el contenido del mensaje para asegurar que el SVG seek se elimine
+            const messageEl = miniplayerTimeDisplay.querySelector('.ypp-time-display-message');
+            if (messageEl) {
+                 setInnerHTML(messageEl, '');
+            }
+        }
+
         // Actualizar contenido y visibilidad usando helper compartido
         showDisplayMessage(miniplayerTimeDisplay, message);
 
@@ -9670,6 +9721,22 @@ regular-item.ypp-fill-none {
 
         if (!isSeek && !isFixedTime && isVideoPaused && (hasActiveSeek || hasFixedTime) && !isManual) {
             return;
+        }
+
+        // Si es guardado manual, limpiar el listener de play que pueda estar activo
+        if (isManual) {
+            const handlePlay = seekPlayListeners.get(videoEl);
+            if (handlePlay) {
+                videoEl.removeEventListener('play', handlePlay);
+                seekPlayListeners.delete(videoEl);
+            }
+            // Limpiar también el dataset de seek activo para que el SVG no persista
+            delete inlinePreviewTimeDisplay.dataset.activeSeek;
+            // Limpiar completamente el contenido del mensaje para asegurar que el SVG seek se elimine
+            const messageEl = inlinePreviewTimeDisplay.querySelector('.ypp-time-display-message');
+            if (messageEl) {
+                setInnerHTML(messageEl, '');
+            }
         }
 
         // Actualizar contenido y visibilidad usando helper compartido
@@ -10560,7 +10627,7 @@ regular-item.ypp-fill-none {
             else if (videoType === 'miniplayer') display = miniplayerTimeDisplay;
             else if (videoType === 'preview') display = inlinePreviewTimeDisplay;
 
-            logLog('notifySeekOrProgress', `video en pausa: ${videoEl?.paused} - pillo svg: ${display?.querySelector('#svg-player-end')} - !saveResult.isManual: ${!saveResult.isManual}`)
+            logLog('notifySeekOrProgress', `video en pausa: ${videoEl?.paused} - pillo svg: ${display?.querySelector('#svg-player-end')} - saveResult.isManual: ${saveResult.isManual} - saveResult.success: ${saveResult.success}`)
             if (videoEl?.paused && display?.querySelector('#svg-player-end') && !saveResult.isManual) return;
         }
 
@@ -10585,6 +10652,8 @@ regular-item.ypp-fill-none {
             else message += timeStr;
         }
         message = message.trim();
+
+        // logLog('notifySeekOrProgress', `Mensaje construido: "${message}" - showAlertIcon: ${showAlertIcon}, showAlertText: ${showAlertText}, showAlertTime: ${showAlertTime}, canShowTime: ${canShowTime}, timeStr: ${timeStr}`)
 
         if (!message) return;
 

@@ -42,6 +42,7 @@
 - **Improved Visibility Check**: Re-implemented `isVisiblyDisplayed` with a balance between speed and accuracy to handle YouTube's modern DOM structures.
 
 
+- **Manual Save Notification Fix**: Fixed an issue where manual save notifications would not display when the video was paused with a seek message. The play event listener now cleans up properly when a manual save occurs, the seek dataset is cleared, the message element's innerHTML is completely cleared to ensure the seek SVG is removed, and the immediate clear condition in `updateWatchPlaybackBarMessage` now excludes manual saves to prevent the notification from being cleared immediately after being shown.
 - **Seek Message Cleanup on Play**: Fixed an issue where the "Resumed at" message would persist indefinitely when a video was paused after a seek and then began playing. Added play event listeners with WeakMap tracking to automatically clear seek messages when playback resumes across all video types (Watch, Shorts, Miniplayer, Preview).
 - **Memory Leak Preventions - Event Listeners**: Fixed memory leaks where event listeners were added multiple times but never removed.
 - **False Completion Count Guard on End-Resume**: Added a session-level guard that marks completion as already accounted for when a resume seek starts directly in the completion zone (end threshold). This prevents phantom "completed view" increments on reload while still allowing a new completion count after a real replay cycle. #38

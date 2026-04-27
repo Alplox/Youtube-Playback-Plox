@@ -2871,14 +2871,18 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-titleLink {
+    display: block;
     font-weight: 600;
     font-size: 1.4rem;
     color: var(--ypp-primary-text);
     text-decoration: none;
-    display: block;
+
     max-height: 40px;
-    overflow: auto;
-    /* max-width: 90%; */
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    white-space: normal;
+    line-height: 1.2;
 
     &:hover {
         text-decoration: underline;
@@ -4466,13 +4470,22 @@ regular-item.ypp-fill-none {
         logLog('applyTheme', `Tema aplicado: ${isDark ? 'dark' : 'light'}`);
     }
 
+    /** @type {MutationObserver|null} Observer de cambios de tema para cleanup */
+    let themeObserver = null;
+    /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Referencias a listeners globales para cleanup */
+    let globalNavigationListeners = [];
+    /** @type {Function|null} Referencia al handler de YTHelper para cleanup */
+    let ythelperListener = null;
+    /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Referencias a listeners del botón flotante para cleanup */
+    let floatingButtonListeners = [];
+
     /**
      * Observa cambios en el atributo 'dark' de YouTube y actualiza data-theme.
      */
     function observeThemeChanges() {
         const htmlElement = document.documentElement;
 
-        const observer = new MutationObserver((mutations) => {
+        themeObserver = new MutationObserver((mutations) => {
             for (const mutation of mutations) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'dark') {
                     applyTheme();
@@ -4481,12 +4494,48 @@ regular-item.ypp-fill-none {
             }
         });
 
-        observer.observe(htmlElement, {
+        themeObserver.observe(htmlElement, {
             attributes: true,
             attributeFilter: ['dark']
         });
 
         logLog('observeThemeChanges', 'Observer de tema iniciado');
+    }
+
+    /**
+     * Desconecta el observer de tema para prevenir memory leaks.
+     */
+    function cleanupThemeObserver() {
+        if (themeObserver) {
+            themeObserver.disconnect();
+            themeObserver = null;
+            logLog('cleanupThemeObserver', 'Observer de tema desconectado');
+        }
+    }
+
+    /**
+     * Limpia listeners globales para prevenir memory leaks.
+     */
+    function cleanupGlobalListeners() {
+        // Limpiar listeners de navegación
+        globalNavigationListeners.forEach(({ target, event, handler }) => {
+            target.removeEventListener(event, handler);
+        });
+        globalNavigationListeners = [];
+
+        // Limpiar listener de YTHelper
+        if (YTHelper && ythelperListener) {
+            YTHelper.eventTarget.removeEventListener('yt-helper-api-ready', ythelperListener);
+            ythelperListener = null;
+        }
+
+        // Limpiar listeners del botón flotante
+        floatingButtonListeners.forEach(({ target, event, handler }) => {
+            target.removeEventListener(event, handler);
+        });
+        floatingButtonListeners = [];
+
+        logLog('cleanupGlobalListeners', 'Listeners globales desconectados');
     }
 
     // ------------------------------------------
@@ -10871,6 +10920,8 @@ regular-item.ypp-fill-none {
                 if (openBtn) openBtn.disabled = size === 0;
             };
 
+            playlistRefreshHandler = refreshPlaylistState;
+            playlistAreaElement = playlistArea;
             playlistArea.addEventListener('ypp-selection-changed', refreshPlaylistState);
 
             const copyBtn = createElement('button', {
@@ -14080,6 +14131,12 @@ regular-item.ypp-fill-none {
     let storageUsageRefreshIntervalId = null;
     /** @type {Map<string, string>} Cache global de títulos por ID para uso en createVideoEntry */
     let modalVideoTitleById = new Map();
+    /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Referencias a listeners del modal para cleanup */
+    let modalVisibilityListeners = [];
+    /** @type {HTMLElement|null} Referencia al área de playlist para cleanup */
+    let playlistAreaElement = null;
+    /** @type {Function|null} Referencia al handler de playlist para cleanup */
+    let playlistRefreshHandler = null;
 
     /** @constant {number} Altura estimada de cada item de video en px. Se usa para calcular posiciones en el virtual scroller. */
     const VIDEO_ITEM_HEIGHT = 120;
@@ -14522,6 +14579,19 @@ regular-item.ypp-fill-none {
             virtualScroller = null;
         }
 
+        // Limpiar listeners de visibilidad del modal para prevenir memory leaks
+        modalVisibilityListeners.forEach(({ target, event, handler }) => {
+            target.removeEventListener(event, handler);
+        });
+        modalVisibilityListeners = [];
+
+        // Limpiar listener de playlist para prevenir memory leaks
+        if (playlistAreaElement && playlistRefreshHandler) {
+            playlistAreaElement.removeEventListener('ypp-selection-changed', playlistRefreshHandler);
+            playlistAreaElement = null;
+            playlistRefreshHandler = null;
+        }
+
         if (videosOverlay) {
             videosOverlay.remove();
             videosOverlay = null;
@@ -14624,6 +14694,10 @@ regular-item.ypp-fill-none {
             const isFullscreen = !!document.fullscreenElement;
             wrapper.style.display = isFullscreen ? 'none' : 'flex';
         };
+        floatingButtonListeners.push(
+            { target: document, event: 'fullscreenchange', handler: updateVisibility },
+            { target: window, event: 'yt-navigate-finish', handler: updateVisibility }
+        );
         document.addEventListener('fullscreenchange', updateVisibility);
         window.addEventListener('yt-navigate-finish', updateVisibility);
         updateVisibility();
@@ -14830,9 +14904,11 @@ regular-item.ypp-fill-none {
         modalVideosFooterSecondRow = secondRow
         videosContainer.appendChild(footer);
 
-        videosOverlay.addEventListener('click', (e) => {
+        const handleOverlayClick = (e) => {
             if (e.target === videosOverlay) closeModalVideos();
-        });
+        };
+        modalVisibilityListeners.push({ target: videosOverlay, event: 'click', handler: handleOverlayClick });
+        videosOverlay.addEventListener('click', handleOverlayClick);
         document.body.appendChild(videosOverlay);
         document.body.appendChild(videosContainer);
 
@@ -15775,6 +15851,10 @@ regular-item.ypp-fill-none {
             const debouncedNavigation = debounce(handleNavigation, 100);
 
             // 1. Escuchar eventos estándar de YouTube
+            globalNavigationListeners.push(
+                { target: window, event: 'yt-navigate-finish', handler: debouncedNavigation },
+                { target: document, event: 'yt-page-data-updated', handler: debouncedNavigation }
+            );
             window.addEventListener('yt-navigate-finish', debouncedNavigation);
             document.addEventListener('yt-page-data-updated', debouncedNavigation);
 
@@ -15784,10 +15864,18 @@ regular-item.ypp-fill-none {
                 if (!h) return;
 
                 // Registrar listener persistente que ahora comparte el mismo flujo debounced
-                h.eventTarget.addEventListener('yt-helper-api-ready', () => {
+                ythelperListener = () => {
                     logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
                     debouncedNavigation();
-                });
+                };
+                h.eventTarget.addEventListener('yt-helper-api-ready', ythelperListener);
+            });
+
+            // 3. Limpiar recursos cuando la página se cierra para prevenir memory leaks
+            window.addEventListener('unload', () => {
+                cleanupGlobalListeners();
+                cleanupThemeObserver();
+                logLog('initializeGlobal', '🧹 Cleanup de recursos al cerrar página');
             });
 
             // --- Cargar traducciones ---

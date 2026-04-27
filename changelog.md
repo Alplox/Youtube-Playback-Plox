@@ -42,6 +42,7 @@
 - **Improved Visibility Check**: Re-implemented `isVisiblyDisplayed` with a balance between speed and accuracy to handle YouTube's modern DOM structures.
 
 
+- **Memory Leak Preventions - Event Listeners**: Fixed memory leaks where event listeners were added multiple times but never removed.
 - **False Completion Count Guard on End-Resume**: Added a session-level guard that marks completion as already accounted for when a resume seek starts directly in the completion zone (end threshold). This prevents phantom "completed view" increments on reload while still allowing a new completion count after a real replay cycle. #38
 - **Miniplayer Preservation During SPA Navigation**: Prevented forced observer/bootstrap reinitialization when a preserved miniplayer session is already active on non-watch navigation. This avoids unnecessary session restarts and redundant seek re-application during normal miniplayer playback continuity.
 - **Theater Mode Navigation Guard**: Prevented an unnecessary playback re-seek when toggling Theater Mode. The script now verifies both the video ID and the page type during navigation events; if both remain identical (as they do during layout-only shifts), the aggressive teardown and re-initialization of the session is bypassed. This ensures uninterrupted playback while still correctly handling transitions between different player contexts (e.g., Miniplayer to Watch). #36

@@ -5600,9 +5600,16 @@ regular-item.ypp-fill-none {
     // ------------------------------------------
 
     const AdSelectors = Object.freeze({
-        playerAdClasses: ['ad-showing', 'ad-interrupting'], // Clases confiables del player cuando hay anuncio reproduciéndose (Watch / Miniplayer)
-        previewAdClasses: ['ad-showing', 'ad-interrupting', 'ad-created'], // Clases para Previews / Grid
-        shortsAdClasses: ['ad-created', 'ad-showing', 'ad-interrupting'], // Señal de Shorts
+        // Estas clases se aplican al elemento <video> o a su contenedor directo cuando hay un anuncio reproduciéndose.
+        // --- Clases del Player (Watch / Miniplayer) ---
+        // 'ad-created' NO es confiable en estos player porque se mantiene en el DOM incluso cuando no hay anuncio.
+        playerAdClasses: ['ad-showing', 'ad-interrupting'],
+
+        // --- Clases de Previews / Grid ---
+        previewAdClasses: ['ad-showing', 'ad-interrupting', 'ad-created'],
+
+        // --- Clases de Shorts ---
+        shortsAdClasses: ['ad-created', 'ad-showing', 'ad-interrupting'],
 
         // --- Contenedores y Layouts ---
         inPlayerAdContainers: [
@@ -5635,76 +5642,6 @@ regular-item.ypp-fill-none {
         ],
 
         // --- Elementos Específicos del Anuncio ---
-        advertiserCard: [
-            '.ytp-ad-avatar-lockup-card', // Tarjeta del anunciante (avatar + texto)
-            '.ytp-ad-avatar', // Avatar del anunciante
-            '.ytp-ad-avatar--size-m', // Avatar tamaño medio
-            '.ytp-ad-avatar--circular', // Avatar circular
-            '.ytp-ad-avatar-lockup-card__avatar_and_text_container', // Contenedor flexible de avatar/texto
-            '.ytp-ad-avatar-lockup-card__text_container', // Contenedor de texto de tarjeta
-            '.ytp-ad-avatar-lockup-card__headline', // Titular del anuncio
-            '.ytp-ad-avatar-lockup-card__description', // Descripción del anuncio
-            '.ytp-ad-avatar-lockup-card__description--hidden--in--small--player', // Descripción oculta en player pequeño
-            // --- Elementos #masthead-ad ---
-            '.yt-badge-shape--ad',
-            '.yt-badge-shape--ads-include-dot',
-            '.ytp-paid-content-overlay',
-            '.ytp-paid-content-overlay-link',
-            '.ytp-suggested-action',                // Overlay con acción sugerida (puede ser promoción o patrocinio)
-            '.ytp-suggested-action-badge',          // Badge del overlay de acción sugerida
-            '.ytp-featured-product',                // Producto promocionado mostrado sobre el video
-            '.ytp-featured-product-container',      // Contenedor del bloque de producto promocionado
-            '.ytp-featured-product-title',          // Título del producto promocionado
-            '.ytp-featured-product-price-container' // Contenedor del precio del producto promocionado
-        ],
-        adButtons: [
-            '.ytp-ad-button-vm', // Botón principal (ej: "Más info" / "Comprar")
-            '.ytp-ad-button-vm__text', // Texto del botón principal
-            '.ytp-ad-button-vm--style-filled-white', // Estilo blanco relleno
-            '.ytp-ad-button-vm--size-default', // Tamaño por defecto
-            '.ytp-ad-hover-text-button', // Botón con texto al pasar el ratón (centro de anuncios)
-            '.ytp-ad-info-hover-text-button', // Botón de info (Centro de anuncios)
-            '.ytp-ad-hover-text-container', // Contenedor de texto hover
-            '.ytp-ad-info-hover-text-short', // Texto hover corto para info
-            '.ytp-ad-hover-text-callout', // Callout de texto hover
-            '.ytp-ad-button-link', // Botón de anuncio tipo link
-            '#ad-badge',
-            '#ad-button',
-            '#show-ad',
-        ],
-        adBadges: [
-            '.ytp-ad-badge--clean-player', // Badge "Patrocinado" en player limpio
-            '.ytp-ad-badge__text--clean-player', // Texto del badge "Patrocinado"
-            '.ytp-ad-badge--stark-clean-player', // Badge "Patrocinado" (variante stark)
-            '.ad-simple-attributed-string', // Texto atribuido simple (usado en headline, badge, pod index)
-        ],
-        adProgressIndicator: [
-            '.ytp-ad-pod-index', // Indicador de posición en tanda (ej: "1 de 2")
-            '.ytp-ad-pod-index--autohide', // Indicador de tanda (variante autohide)
-            '.ytp-ad-pod-index--stark', // Indicador de tanda (variante stark)
-            '.ytp-ad-persistent-progress-bar-container', // Contenedor de barra de progreso persistente
-            '.ytp-ad-persistent-progress-bar-container--clean-player', // Variante clean player
-            '.ytp-ad-persistent-progress-bar', // Barra de progreso
-            '.ytp-ad-progress-list', // Lista de progreso
-        ],
-        advertiserLinks: [
-            '.ytp-visit-advertiser-link', // Link para visitar web del anunciante
-            '.ytp-visit-advertiser-link__text', // Texto del link del anunciante
-        ],
-        skipButtons: [
-            '.ytp-skip-ad', // Clase legacy de skip ad
-            '.ytp-skip-ad-button', // Botón principal moderno para omitir anuncio
-            '.ytp-skip-ad-button__text', // Texto del botón omitir
-            '.ytp-skip-ad-button__icon', // Icono del botón omitir
-            '#skip-button\\:2', // ID específico escapado para botón omitir
-        ],
-
-        // --- IDs y Atributos (Menos estables pero útiles) ---
-        adSpecificIds: [
-            '#ad-avatar-lockup-card\\:3', // ID de tarjeta anunciante (necesita escape \\:)
-            '#ad-button\\:7', // ID de botón de anuncio
-            '#visit-advertiser-link\\:e', // ID de link anunciante
-        ],
         clickableAdBadgesWithinRichItem: [
             '.yt-badge-shape--ad', // Badge "Ad" moderno
             '[aria-label*="Ad"]', // Badge accesible (inglés)
@@ -5716,7 +5653,6 @@ regular-item.ypp-fill-none {
             'ad-badge-view-model', // Badge de anuncio moderno
             '[role="link"][class*="ad"]', // Links con clase ad
         ],
-
         // --- UI Activa (Detección rápida, solo elementos internos del player) ---
         activeAdUi: [
             '.ytp-ad-player-overlay:not([hidden]):not([style*="display: none"])', // Overlay visible de anuncio
@@ -5754,6 +5690,19 @@ regular-item.ypp-fill-none {
     // Caches globales para reducir impacto en el hilo principal
     /** @type {WeakMap<Element, { val: boolean, ts: number }>} Cache para deteccion de anuncios por nodo */
     const _adContainerCache = new WeakMap();
+
+    // Sincronización en pipeline de render (Frame Ticking Memoization)
+    let _adDetectorFrameId = 0;
+    const _adDetectorTick = () => {
+        _adDetectorFrameId++;
+        requestAnimationFrame(_adDetectorTick);
+    };
+    requestAnimationFrame(_adDetectorTick);
+
+    let _lastAdRoot = null;
+    let _lastAdResult = null;
+    let _lastAdRootFrame = -1;
+
     /** @type {Map<string, { info: any, ts: number }>} Cache global de metadatos (TTL 5 min) */
     const _videoMetadataCache = new Map();
     const _MAX_VIDEO_METADATA_CACHE_SIZE = 100;
@@ -5862,19 +5811,31 @@ regular-item.ypp-fill-none {
             try {
                 if (!root?.querySelector) return null;
 
-                // Iteramos por selectores individuales para aplicar validación de contenido en contenedores genéricos
-                // y evitar falsos positivos cuando YouTube deja las capas UI visibles pero vacías en videos normales.
-                for (const selector of AdSelectors.activeAdUi) {
-                    const el = root.querySelector(selector);
-                    if (el && isVisiblyDisplayed(el)) {
+                // Hit de Memoización: Evita que el mismo root se re-evalúe repetidas veces
+                if (root === _lastAdRoot && _adDetectorFrameId === _lastAdRootFrame) return _lastAdResult;
+
+                _lastAdRoot = root;
+                _lastAdRootFrame = _adDetectorFrameId;
+
+                // Consulta nativa múltiple agrupada + post-validación en layout
+                const els = root.querySelectorAll(AdSelectorText.activeAdUi);
+                for (const el of els) {
+                    if (isVisiblyDisplayed(el)) {
                         // Validación de contenido para contenedores genéricos de módulos de anuncios
-                        if (selector.includes('video-ads') || selector.includes('ytp-ad-module')) {
-                            if (el.children.length > 0) return el;
+                        if (el.matches('.video-ads, .ytp-ad-module')) {
+                            if (el.children.length > 0) {
+                                _lastAdResult = el;
+                                return el;
+                            }
                             continue;
                         }
+
+                        _lastAdResult = el;
                         return el;
                     }
                 }
+
+                _lastAdResult = null;
                 return null;
             } catch (_) {
                 return null;
@@ -5901,39 +5862,12 @@ regular-item.ypp-fill-none {
             }
 
             try {
-                // Buscamos cualquier link o elemento que asocie este ID
-                // 1. Links directos (Watch/Shorts)
-                const links = document.querySelectorAll(`a[href*="${videoId}"]`);
-                for (const link of links) {
-                    if (this.isNodeWithinAdContainer(link)) {
-                        // LRU eviction: si el cache excede el tamaño máximo, eliminar la entrada más antigua
-                        if (_adIdCache.size >= _MAX_AD_ID_CACHE_SIZE) {
-                            const oldestKey = _adIdCache.keys().next().value;
-                            _adIdCache.delete(oldestKey);
-                        }
-                        _adIdCache.set(videoId, { val: true, ts: now });
-                        return true;
-                    }
+                // R-Search (Reverse Search): limitamos el scope dramáticamente para no iterar el DOM entero con queries complejas (O(k))
+                const adContainers = document.querySelectorAll('.ytd-in-feed-ad-layout-renderer, .video-ads, ytd-display-ad-renderer, #masthead-ad');
 
-                    // Verificación extra en contenedores de grid
-                    const gridItem = link.closest('ytd-rich-item-renderer, video-display-full-layout-view-model, yt-lockup-view-model');
-                    if (gridItem && gridItem.querySelector(AdSelectorText.clickableAdBadgesWithinRichItem)) {
-                        // LRU eviction
-                        if (_adIdCache.size >= _MAX_AD_ID_CACHE_SIZE) {
-                            const oldestKey = _adIdCache.keys().next().value;
-                            _adIdCache.delete(oldestKey);
-                        }
-                        _adIdCache.set(videoId, { val: true, ts: now });
-                        return true;
-                    }
-                }
-
-                // 2. Thumbnails y disparadores de preview (modernos)
-                const associatedThubs = document.querySelectorAll(`ytd-thumbnail[video-id="${videoId}"], [id="thumbnail"][href*="${videoId}"]`);
-                for (const thumb of associatedThubs) {
-                    const gridItem = thumb.closest('ytd-rich-item-renderer, ytd-video-renderer, video-display-full-layout-view-model, yt-lockup-view-model');
-                    if (gridItem && (this.isNodeWithinAdContainer(gridItem) || gridItem.querySelector(AdSelectorText.clickableAdBadgesWithinRichItem))) {
-                        // LRU eviction
+                for (const adCont of adContainers) {
+                    if (adCont.querySelector(`a[href*="${videoId}"], ytd-thumbnail[video-id="${videoId}"], [id="thumbnail"][href*="${videoId}"]`)) {
+                        // LRU Eviction guard
                         if (_adIdCache.size >= _MAX_AD_ID_CACHE_SIZE) {
                             const oldestKey = _adIdCache.keys().next().value;
                             _adIdCache.delete(oldestKey);
@@ -9322,14 +9256,21 @@ regular-item.ypp-fill-none {
             shortsRetryTimers.push(timer);
         });
 
-        // 2. Observador de mutaciones para cambios dinámicos
-        shortsPanelObserver = new MutationObserver(debounce(() => {
-            const panel = getActiveShortsControlsContainer();
-            if (panel && (shortsTimeDisplay?.parentElement !== panel || shortsTimeDisplay?.classList.contains('ypp-floating'))) {
-                logInfo('startShortsPanelObserver', '✅ Metapanel detectado por MutationObserver, re-anclando...');
-                initShortsTimeDisplay();
+        // 2. Observador de mutaciones sincronizado a Render Pipeline (rAF ticking)
+        let isShortsPanelTicking = false;
+        shortsPanelObserver = new MutationObserver(() => {
+            if (!isShortsPanelTicking) {
+                isShortsPanelTicking = true;
+                requestAnimationFrame(() => {
+                    const panel = getActiveShortsControlsContainer();
+                    if (panel && (shortsTimeDisplay?.parentElement !== panel || shortsTimeDisplay?.classList.contains('ypp-floating'))) {
+                        logInfo('startShortsPanelObserver', '✅ Metapanel detectado por MutationObserver, re-anclando...');
+                        initShortsTimeDisplay();
+                    }
+                    isShortsPanelTicking = false;
+                });
             }
-        }, 150));
+        });
 
         try {
             shortsPanelObserver.observe(document.body, { childList: true, subtree: true });
@@ -13055,10 +12996,10 @@ regular-item.ypp-fill-none {
 
         // Refuerzo: Doble validación antes de iniciar sesión para Previews
         // Algunos anuncios no tienen la clase del player inmediatamente, pero se detectan por ID
-        /*  if (AdDetector.isVideoIdAnAd(videoId)) {
-             logWarn('processPreviewVideo', `🚫 ID [${videoId}] identificado como anuncio por asociación, abortando preview.`);
-             return;
-         } */
+        if (AdDetector.isVideoIdAnAd(videoId)) {
+            logWarn('processPreviewVideo', `🚫 ID [${videoId}] identificado como anuncio por asociación, abortando preview.`);
+            return;
+        }
 
         initInlinePreviewTimeDisplay(player);
         logInfo('processPreviewVideo', `👁️ Procesando video de Preview: ${videoId}`);

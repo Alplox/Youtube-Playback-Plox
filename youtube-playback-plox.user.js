@@ -6623,8 +6623,17 @@ regular-item.ypp-fill-none {
 
             this._calculateOffsets();
 
-            // Bind scroll con debounce para mejor rendimiento
-            this.scrollHandler = debounce(() => this._onScroll(), 16); // ~60fps
+            // Bind scroll con requestAnimationFrame para evitar lag (60+fps sin lock de render)
+            let ticking = false;
+            this.scrollHandler = () => {
+                if (!ticking) {
+                    ticking = true;
+                    window.requestAnimationFrame(() => {
+                        this._onScroll();
+                        ticking = false;
+                    });
+                }
+            };
             this.container.addEventListener('scroll', this.scrollHandler, { passive: true });
 
             // Render inicial

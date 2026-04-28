@@ -45,6 +45,7 @@
 
 ## Changed
 
+- **VirtualScroller Performance Optimization**: Replaced `debounce` with `requestAnimationFrame` for scroll event handling, maintaining DOM state synchronization without accumulating intermediate events. This prevents complete UI rendering lockups ("white voids") during continuous scrolling, ensuring the virtual list updates fluidly.
 - **getPlayerVideoId Robustness Improvements**: Added try-catch protection around `player.getPlayerResponse()` to prevent crashes from rare YouTube player exceptions. Added URL validation (`v=` parameter) for watch pages only before falling back to URL extraction to avoid false positives. Shorts URLs use `/shorts/ID` format and are handled separately. Optimized timestamp handling with a single `Date.now()` call for consistency.
 - **Enhanced Storage Usage Indicator**: Added detailed storage usage indicator in the saved videos modal showing three values with tooltips: space used by saved videos, total IndexedDB usage, and available IndexedDB space. Includes a manual recalculate button with debounce protection and memory-safe cleanup. Uses optimized calculation via storageCache for instant results.
 - Refactor/Fix: `getWatchPlayer` now uses `querySelectorAll` with filtering to support multiple `#movie_player` instances and exclude the one belonging to the active miniplayer.

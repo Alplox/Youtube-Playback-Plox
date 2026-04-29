@@ -56,6 +56,7 @@
 
 ## Added
 
+- **resumeCompletedFromStart**: Added a new setting: "Resume completed videos from the start". When enabled, videos that were previously completed will no longer resume at the final timestamp. Instead, they will start from 00:00. This prevents the player from seeking to the end on load, which would immediately trigger autoplay to the next video, and gives users a chance to watch the video again without it being skipped.
 - **AGENTS.md** - Documentation for LLM's Agents that help maintain and improve the script.
     - **Gotchas.md** - Documentation about the particular issues and gotchas when maintaining and improving the script.
 - **Functionality Scripts** - Scripts tools to make life easier. 

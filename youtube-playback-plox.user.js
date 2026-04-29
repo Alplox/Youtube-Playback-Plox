@@ -140,7 +140,7 @@
     'use strict';
 
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    const level = L.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const S = {
         debug: 'color:#6a9955;',
@@ -346,6 +346,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "staticFinishPercent": "Percentage to mark video as completed",
             "countOncePerSession": "Log additional completion times only once per session",
             "countOncePerSessionTooltip": "If enabled, once the completion threshold is reached, replays or auto-looping will not be counted multiple times within the same session.",
+            "resumeCompletedFromStart": "Resume completed videos from the start",
+            "resumeCompletedFromStartTooltip": "If enabled, videos marked as completed will always start from 00:00. If disabled, they will stay at the end to allow YouTube's auto-advance to continue.",
             "searchByTitleOrAuthor": "Search by title or author...",
             "advancedFilters": "Advanced Filters",
             "activeFilters": "{count} active filters",
@@ -1059,6 +1061,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             saveMiniplayerVideos: true,      // Guardar videos en miniplayer (default: activo)
             manualSaveMode: false,           // Modo de guardado manual (default: desactivado)
             countOncePerSession: false,      // Contar solo una vez por sesión (default: desactivado)
+            resumeCompletedFromStart: false, // Reanudar videos completados desde el inicio (default: desactivado)
         },
 
 
@@ -7937,13 +7940,29 @@ regular-item.ypp-fill-none {
             return { success: false, reason: 'fixed_time_no_overwrite' };
         }
 
+        let finalIsCompleted = isFinished;
+        let finalWatchProgress = currentTime;
+
+        // Protección contra el reset automático de YouTube al finalizar un video.
+        // Cuando YouTube termina un video, puede reiniciar el player a 0 antes de pasar al siguiente.
+        // Si el dato guardado ya dice isCompleted=true y el tiempo actual es muy bajo (<5s),
+        // es casi seguro un reset automático -> preservamos el estado completado.
+        // NOTA: Una vez que el video cruce la marca de los 5s, el escudo se desactivará automáticamente.
+        // El script entenderá que realmente estás re-viendo el video por voluntad propia y comenzará a guardar nuevo progreso (5s, 6s, 7s...), 
+        // retirando la marca de "completado" hasta que vuelvas a terminarlo.
+        if (!isFinished && sourceData?.isCompleted && currentTime < 5) {
+            logLog(logContext, `🛡️ Shield auto-reset detectado para video completado (${videoId}) en ${currentTime}s. Preservando estado.`);
+            finalIsCompleted = true;
+            finalWatchProgress = sourceData.watchProgress;
+        }
+
         const videoData = {
             ...sourceData,
             ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
-            watchProgress: currentTime,
+            watchProgress: finalWatchProgress,
             timeWatched: now,
             type: 'video',
-            isCompleted: isFinished,
+            isCompleted: finalIsCompleted,
             completionHistory: sourceData?.completionHistory
         };
 
@@ -8064,13 +8083,23 @@ regular-item.ypp-fill-none {
             return { success: false, reason: 'fixed_time_no_overwrite' };
         }
 
+        let finalIsCompleted = isFinished;
+        let finalWatchProgress = currentTime;
+
+        // Protección Shorts: si ya estaba completado y el tiempo actual es bajo, es un reset automático de YouTube.
+        if (!isFinished && sourceData?.isCompleted && currentTime < 2) {
+            logLog('saveShortsVideo', `🛡️ Shield auto-reset detectado para Short completado (${videoId}) en ${currentTime}s. Preservando estado.`);
+            finalIsCompleted = true;
+            finalWatchProgress = sourceData.watchProgress;
+        }
+
         const videoData = {
             ...sourceData,
             ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
-            watchProgress: currentTime,
+            watchProgress: finalWatchProgress,
             timeWatched: now,
             type: 'shorts',
-            isCompleted: isFinished,
+            isCompleted: finalIsCompleted,
             completionHistory: sourceData?.completionHistory
         };
 
@@ -10144,6 +10173,13 @@ regular-item.ypp-fill-none {
                     </div>
                     <i class="ypp-tooltip">${SVG_ICONS.info} ${t('countOncePerSessionTooltip')}</i>
                 </div>
+                <div class="ypp-settings-third-level-section" style="margin-top: 10px;">
+                    <div class="ypp-d-flex">
+                        <input type="checkbox" name="resumeCompletedFromStart" ${settings.resumeCompletedFromStart ? 'checked' : ''}>
+                        <span>${t('resumeCompletedFromStart')}</span>
+                    </div>
+                    <i class="ypp-tooltip">${SVG_ICONS.info} ${t('resumeCompletedFromStartTooltip')}</i>
+                </div>
             </div>
     `;
     }
@@ -10371,23 +10407,23 @@ regular-item.ypp-fill-none {
             </div>
         `;
 
-        const body = createElement('div', {
+        const bodyModalSettings = createElement('div', {
             className: 'ypp-modalBody',
             html: settingsHTML
         });
 
-        const langContainer = body.querySelector('#ypp-language-section-container');
+        const langContainer = bodyModalSettings.querySelector('#ypp-language-section-container');
         if (langContainer) {
             langContainer.replaceWith(renderLanguageSection(settings.language));
         }
 
         // Lógica de Previsualización de Alertas
-        const alertPreviewContent = body.querySelector('#ypp-alert-preview-content');
+        const alertPreviewContent = bodyModalSettings.querySelector('#ypp-alert-preview-content');
         const updateAlertPreview = () => {
             if (!alertPreviewContent) return;
-            const showIcon = body.querySelector('[name="showAlertIcon"]')?.checked;
-            const showText = body.querySelector('[name="showAlertText"]')?.checked;
-            const showTime = body.querySelector('[name="showAlertTime"]')?.checked;
+            const showIcon = bodyModalSettings.querySelector('[name="showAlertIcon"]')?.checked;
+            const showText = bodyModalSettings.querySelector('[name="showAlertText"]')?.checked;
+            const showTime = bodyModalSettings.querySelector('[name="showAlertTime"]')?.checked;
 
             if (!showIcon && !showText && !showTime) {
                 setInnerHTML(alertPreviewContent, `<span style="color: var(--ypp-text-secondary); font-style: italic;">${t('alertHidden')}</span>`);
@@ -10409,13 +10445,13 @@ regular-item.ypp-fill-none {
         };
 
         ['showAlertIcon', 'showAlertText', 'showAlertTime'].forEach(name => {
-            body.querySelector(`[name="${name}"]`)?.addEventListener('change', updateAlertPreview);
+            bodyModalSettings.querySelector(`[name="${name}"]`)?.addEventListener('change', updateAlertPreview);
         });
 
         // Aplicar clamping numérico a inputs específicos de settings
-        applyNumericClamping(body.querySelector('[name="minSecondsBetweenSaves"]'), { min: 1, max: 3600 });
-        applyNumericClamping(body.querySelector('[name="staticFinishPercent"]'), { min: 1, max: 99 });
-        body.querySelectorAll('.ypp-interval-input').forEach(input => {
+        applyNumericClamping(bodyModalSettings.querySelector('[name="minSecondsBetweenSaves"]'), { min: 1, max: 3600 });
+        applyNumericClamping(bodyModalSettings.querySelector('[name="staticFinishPercent"]'), { min: 1, max: 99 });
+        bodyModalSettings.querySelectorAll('.ypp-interval-input').forEach(input => {
             applyNumericClamping(input, { min: 1, max: 24 });
         });
 
@@ -10441,8 +10477,8 @@ regular-item.ypp-fill-none {
             className: 'ypp-btn ypp-btn-success ypp-shadow-md',
             html: `${SVG_ICONS.saveFill} ${t('save')}`,
             onClickEvent: async () => {
-                const getVal = (name) => modal.querySelector(`[name="${name}"]`)?.value ?? modal.querySelector(`[id="${name}-dropdown"]`)?.dataset.value;
-                const isChecked = (name) => modal.querySelector(`[name="${name}"]`)?.checked;
+                const getVal = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.value ?? bodyModalSettings.querySelector(`[id="${name}-dropdown"]`)?.dataset.value;
+                const isChecked = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.checked;
 
                 const newSettings = {
                     minSecondsBetweenSaves: Math.max(1, parseInt(getVal('minSecondsBetweenSaves'), 10) || 1),
@@ -10457,6 +10493,7 @@ regular-item.ypp-fill-none {
                     saveInlinePreviews: isChecked('saveInlinePreviews'),
                     manualSaveMode: isChecked('manualSaveMode'),
                     countOncePerSession: isChecked('countOncePerSession'),
+                    resumeCompletedFromStart: isChecked('resumeCompletedFromStart'),
                     language: getVal('language'),
                     showAlertIcon: isChecked('showAlertIcon'),
                     showAlertText: isChecked('showAlertText'),
@@ -10497,11 +10534,11 @@ regular-item.ypp-fill-none {
         });
 
         // Event listeners para Backup Manual (Delegación)
-        body.querySelectorAll('.ypp-github-backup-btn').forEach(btn => {
+        bodyModalSettings.querySelectorAll('.ypp-github-backup-btn').forEach(btn => {
             btn.addEventListener('click', async (e) => {
                 const type = e.currentTarget.getAttribute('data-type');
-                const getVal = (name) => modal.querySelector(`[name="${name}"]`)?.value;
-                const isChecked = (name) => modal.querySelector(`[name="${name}"]`)?.checked;
+                const getVal = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.value;
+                const isChecked = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.checked;
 
                 // Preparamos los ajustes actuales de esta pestaña para el respaldo manual
                 const currentModeSettings = {
@@ -10524,7 +10561,7 @@ regular-item.ypp-fill-none {
         });
 
         // Lógica Copy Logs
-        const copyLogsBtn = body.querySelector('#ypp-copy-logs-btn');
+        const copyLogsBtn = bodyModalSettings.querySelector('#ypp-copy-logs-btn');
         if (copyLogsBtn) {
             copyLogsBtn.addEventListener('click', async () => {
                 const storageInfo = typeof StorageAsync !== 'undefined' ? StorageAsync.getBackendInfo() : { error: 'StorageAsync no disponible' };
@@ -10549,7 +10586,7 @@ regular-item.ypp-fill-none {
         }
 
         // boton para abrir enlace para crear issue a repositorio
-        const createIssueBtn = body.querySelector('.ypp-create-issue-btn');
+        const createIssueBtn = bodyModalSettings.querySelector('.ypp-create-issue-btn');
         if (createIssueBtn) {
             createIssueBtn.addEventListener('click', () => {
                 window.open('https://github.com/Alplox/Youtube-Playback-Plox/issues/new', '_blank');
@@ -10557,33 +10594,33 @@ regular-item.ypp-fill-none {
         }
 
         // Lógica de Tabs
-        body.querySelectorAll('.ypp-github-tab').forEach(tab => {
+        bodyModalSettings.querySelectorAll('.ypp-github-tab').forEach(tab => {
             tab.addEventListener('click', () => {
                 const type = tab.getAttribute('data-type');
 
                 // Actualizar clases de tabs
-                body.querySelectorAll('.ypp-github-tab').forEach(t => t.classList.remove('active'));
+                bodyModalSettings.querySelectorAll('.ypp-github-tab').forEach(t => t.classList.remove('active'));
                 tab.classList.add('active');
 
                 // Actualizar visibilidad de contenidos
-                body.querySelectorAll('.ypp-github-tab-content').forEach(c => c.style.display = 'none');
-                const activeContent = body.querySelector(`#ypp-github-${type}-content`);
+                bodyModalSettings.querySelectorAll('.ypp-github-tab-content').forEach(c => c.style.display = 'none');
+                const activeContent = bodyModalSettings.querySelector(`#ypp-github-${type}-content`);
                 if (activeContent) activeContent.style.display = 'flex';
 
                 // Actualizar campo oculto de último tipo visualizado
-                const lastViewedInput = body.querySelector('input[name="githubLastViewedType"]');
+                const lastViewedInput = bodyModalSettings.querySelector('input[name="githubLastViewedType"]');
                 if (lastViewedInput) lastViewedInput.value = type;
 
                 // Actualizar visibilidad de ayuda y advertencias
-                const helpGist = body.querySelector('#ypp-github-help-gist');
-                const helpRepo = body.querySelector('#ypp-github-help-repo');
+                const helpGist = bodyModalSettings.querySelector('#ypp-github-help-gist');
+                const helpRepo = bodyModalSettings.querySelector('#ypp-github-help-repo');
                 if (helpGist) helpGist.style.display = type === 'gist' ? 'block' : 'none';
                 if (helpRepo) helpRepo.style.display = type === 'repo' ? 'block' : 'none';
             });
         });
 
         // Event listener para el toggle de ayuda de GitHub
-        body.querySelector('#ypp-github-help-toggle')?.addEventListener('click', (e) => {
+        bodyModalSettings.querySelector('#ypp-github-help-toggle')?.addEventListener('click', (e) => {
             e.currentTarget.classList.toggle('active');
         });
 
@@ -10602,12 +10639,12 @@ regular-item.ypp-fill-none {
         footer.appendChild(btnCloseSettings);
 
         modal.appendChild(header);
-        modal.appendChild(body);
+        modal.appendChild(bodyModalSettings);
         modal.appendChild(footer);
         overlay.appendChild(modal);
 
         // Toggle para mostrar/ocultar gist_id
-        body.querySelectorAll('.ypp-gist-id-toggle').forEach(btn => {
+        bodyModalSettings.querySelectorAll('.ypp-gist-id-toggle').forEach(btn => {
             btn.addEventListener('click', () => {
                 const input = btn.closest('div')?.querySelector('input[name="gist_id"]');
                 if (!input) return;
@@ -12549,6 +12586,11 @@ regular-item.ypp-fill-none {
      */
     const isResumeAtCompletionZone = (savedData, cachedVideoInfo) => {
         if (!savedData) return false;
+
+        // Si ya está marcado como completado en DB y NO vamos a reanudar desde el inicio,
+        // consideramos que ya estamos en zona de completado para evitar doble log al saltar al final.
+        if (savedData.isCompleted && !cachedSettings.resumeCompletedFromStart) return true;
+
         const target = Number(savedData.forceResumeTime > 0 ? savedData.forceResumeTime : savedData.watchProgress || 0);
         const duration = Number(cachedVideoInfo?.lengthSeconds || 0);
         if (!isFinite(target) || !isFinite(duration) || target <= 0 || duration <= 0) return false;
@@ -12661,7 +12703,7 @@ regular-item.ypp-fill-none {
                     return;
                 }
 
-                if (savedData.watchProgress > 1 || savedData.forceResumeTime > 0) {
+                if (savedData.watchProgress > 1 || savedData.forceResumeTime > 0 || savedData.isCompleted) {
                     if (shouldSkipResumeForActivePlayback(videoEl, type, videoId, savedData)) {
                         logLog('process', `⏭️ Resume omitido: reproducción ya sincronizada`);
                         return;
@@ -13148,8 +13190,23 @@ regular-item.ypp-fill-none {
             if (session && session.isFinalized) return;
 
             const isForced = savedData.forceResumeTime > 0;
-            const timeToSeek = isForced ? savedData.forceResumeTime : savedData.watchProgress;
-            if (timeToSeek <= 1 && !isForced) return;
+            let timeToSeek = isForced ? savedData.forceResumeTime : (savedData.watchProgress || 0);
+
+            // Si el video está completado y NO es un salto forzado por el usuario (desde el historial),
+            // determinamos el punto de reanudación según la preferencia del usuario.
+            const isCompletedResume = savedData.isCompleted && !isForced;
+            if (isCompletedResume) {
+                if (cachedSettings.resumeCompletedFromStart === true) {
+                    logInfo('PlaybackController', `🔄 Video completado detectado. Forzando reanudación desde el inicio (0s) según configuración.`);
+                    timeToSeek = 0;
+                } else if (timeToSeek <= 1) {
+                    logInfo('PlaybackController', `⏩ Video completado detectado. Usando sentinel 1.1s para forzar salto al final.`);
+                    timeToSeek = 1.1; // Valor centinela para saltar el return temprano
+                }
+            }
+
+            // Permitir reanudación si es un video completado incluso si el tiempo es 0 (siempre que pase por los checks de arriba)
+            if (timeToSeek <= 1 && !isForced && !isCompletedResume) return;
 
             logLog('PlaybackController', `🎬 Intentando reanudar ${videoId} en ${formatTime(timeToSeek)} (${type})`);
 
@@ -13213,9 +13270,19 @@ regular-item.ypp-fill-none {
                 const finalDuration = getExpectedDuration();
 
                 // Si la duración es 0 o inválida (común en Shorts inicial o Lives), confiar en timeToSeek
-                const safeTime = (finalDuration > 0 && timeToSeek >= finalDuration)
-                    ? Math.max(0, finalDuration - 1)
-                    : timeToSeek;
+                let safeTime = timeToSeek;
+
+                // Si el video está completado y el progreso guardado es bajo (reset accidental o carga inicial)
+                // y NO queremos volver a empezar (resumeCompletedFromStart es false),
+                // entonces saltamos al final para que YouTube siga con la lista.
+                const shouldSeekToEnd = savedData.isCompleted && timeToSeek <= 1.5 && !cachedSettings.resumeCompletedFromStart && !isForced;
+
+                if (shouldSeekToEnd && finalDuration > 0) {
+                    safeTime = Math.max(0, finalDuration - 0.5);
+                    logLog('PlaybackController', `⏩ Video completado detectado con progreso bajo. Saltando al final (${formatTime(safeTime)}) para mantener flujo.`);
+                } else if (finalDuration > 0 && safeTime >= finalDuration) {
+                    safeTime = Math.max(0, finalDuration - 1);
+                }
 
                 try {
                     // Aplicar seek mediante API si está disponible, sino directo al elemento

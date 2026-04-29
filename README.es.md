@@ -90,19 +90,19 @@ Luego de la instalación, tus videos comenzarán a rastrearse correctamente. Acc
 ## Capturas de Pantalla
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-alerta-guardado-automatico.png" alt="Ejemplo de alerta de tiempo guardado" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-alerta-guardado-automatico.png" alt="Ejemplo de alerta de tiempo guardado" width="750">
 </div>
 <br>
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-modal-videos.png" alt="Ejemplo de modal para ver videos guardados" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-modal-videos.png" alt="Ejemplo de modal para ver videos guardados" width="750">
 </div>
 <br>
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-modal-configuraciones.png" alt="Ejemplo de modal de configuración" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-modal-configuraciones.png" alt="Ejemplo de modal de configuración" width="750">
 </div>
 <br>
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-crear-playlist.png" alt="Ejemplo de creación de playlist" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-crear-playlist.png" alt="Ejemplo de creación de playlist" width="750">
 </div>
 
 ---

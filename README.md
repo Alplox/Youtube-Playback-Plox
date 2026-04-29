@@ -90,19 +90,19 @@ After installation, your videos will start tracking correctly. Access the saved 
 ## Screenshots
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-alerta-guardado-automatico.png" alt="Example of alert time saved" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-alerta-guardado-automatico.png" alt="Example of alert time saved" width="750">
 </div>
 <br>
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-modal-videos.png" alt="Example of modal to view saved videos" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-modal-videos.png" alt="Example of modal to view saved videos" width="750">
 </div>
 <br>
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-modal-configuraciones.png" alt="Example of configuration modal" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-modal-configuraciones.png" alt="Example of configuration modal" width="750">
 </div>
 <br>
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-crear-playlist.png" alt="Example of playlist creation" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-crear-playlist.png" alt="Example of playlist creation" width="750">
 </div>
 
 ---

@@ -2,6 +2,7 @@
 
 ### Fixed
 
+- **Zombie Interval Termination**: Resolved an issue where "Deteniendo sesión [miniplayer]" logs would repeat indefinitely after navigating away from a miniplayer. This was caused by a race condition where a session could start its interval even if it had been finalized during an asynchronous operation (like fetching metadata). Added three-point protection: (1) post-fetch validity check to abort stale sessions, (2) interval self-destruct check that clears the timer if the session is no longer active, and (3) immediate `intervalId` registration so `finalizeSession` can always clear it even during early setup.
 - **Quality Change Progress Loss**: Fixed a bug where changing video quality would cause the script to re-apply the seek to the last saved point, losing unsaved progress. The script now detects quality changes by comparing the videoId before and after src changes in the Watch observer. When the videoId remains the same (quality change), the session is marked with `isPlayerSettingsChange` flag and the initial seek is skipped, preserving the user's current playback position. Only real video changes (different videoId) trigger a full session restart with seek re-application.
 - **Memory Leak Prevention - AbortController**: Added AbortController to each session for automatic cleanup of event listeners. The AbortController is created in `startProcessingSession` and aborted in `finalizeSession`, ensuring that any listeners added during the session are properly cleaned up when the session ends, preventing memory leaks.
 - **File Size Validation for Exports**: Added file size validation before exporting data to prevent GitHub API errors. Exports are now validated against GitHub's limits: 50MB for repository files (conservative limit to avoid Git warnings) and 10MB for Gists. Users receive a clear warning message if their data exceeds these limits.
@@ -52,6 +53,15 @@
 - **Enhanced Storage Usage Indicator**: Added detailed storage usage indicator in the saved videos modal showing three values with tooltips: space used by saved videos, total IndexedDB usage, and available IndexedDB space. Includes a manual recalculate button with debounce protection and memory-safe cleanup. Uses optimized calculation via storageCache for instant results.
 - Refactor/Fix: `getWatchPlayer` now uses `querySelectorAll` with filtering to support multiple `#movie_player` instances and exclude the one belonging to the active miniplayer.
 - **README.md**: Updated the README.md files to a new and more "modern" style.
+
+## Added
+
+- **AGENTS.md** - Documentation for LLM's Agents that help maintain and improve the script.
+    - **Gotchas.md** - Documentation about the particular issues and gotchas when maintaining and improving the script.
+- **Functionality Scripts** - Scripts tools to make life easier. 
+    - `generate-structure.mjs` - Scans the main userscript file `youtube-playback-plox.user.js` for MARK comments, functions, classes, and modules to generate a technical map of the code.
+    - `sort-translations.mjs` - Sorts the translations in `translations.json` to a standardized order.
+    - `validate-translations.mjs` - Checks `translations.json` for consistency across all locales.
 
 # 0.0.9-10
 

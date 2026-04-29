@@ -140,7 +140,7 @@
     'use strict';
 
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    const level = L.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const S = {
         debug: 'color:#6a9955;',
@@ -7930,7 +7930,7 @@ regular-item.ypp-fill-none {
                     // Resetear bandera para permitir registrar la siguiente finalización
                     session.hasLoggedCompletion = false;
                     // Re-aplicar el resume (que se encarga de re-notificar el seek)
-                    PlaybackController.resume(player, videoId, videoEl, sourceData, session.type);
+                    PlaybackController.resume(player, videoId, videoEl, sourceData, session.type, session);
                     return { success: false, reason: 'replay_fixed_time_reapplied' };
                 }
             }
@@ -8057,7 +8057,7 @@ regular-item.ypp-fill-none {
                     // Resetear bandera para permitir registrar la siguiente finalización
                     session.hasLoggedCompletion = false;
                     // Re-aplicar el resume
-                    PlaybackController.resume(player, videoId, videoEl, sourceData, session.type);
+                    PlaybackController.resume(player, videoId, videoEl, sourceData, session.type, session);
                     return { success: false, reason: 'replay_fixed_time_reapplied' };
                 }
             }
@@ -8118,12 +8118,12 @@ regular-item.ypp-fill-none {
      */
     async function savePreview(player, currentTime, videoInfo, videoEl, previewType, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
-        logLog('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
 
         // Previews suelen ser auto-saves, pero respetamos el modo manual
         if (cachedSettings.manualSaveMode && !options.isManual) {
             return { success: false, reason: 'manual_save_mode_active' };
         }
+        logLog('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
@@ -12521,10 +12521,11 @@ regular-item.ypp-fill-none {
         if (!videoEl || !savedData || type !== 'miniplayer') return false;
         if ((savedData.forceResumeTime || 0) > 0) return false;
 
+        // Anti re-seek cooldown
         const now = Date.now();
         const lastResume = recentResumeAttempts.get(videoEl);
         if (lastResume && lastResume.videoId === videoId && (now - lastResume.ts) < 5000) {
-            return true;
+            return true; // Salta el re-seek
         }
 
         // Si ya está reproduciendo y muy cerca del progreso objetivo, no volver a hacer seek.
@@ -12625,57 +12626,89 @@ regular-item.ypp-fill-none {
         logInfo('process', `🚀 Iniciando sesión de seguimiento para [${type}] - ${videoId}`);
         videoEl.dataset.sessionStartTime = Date.now().toString();
 
-        // Obtener metadatos base una sola vez al inicio de la sesión
-        let cachedVideoInfo = null;
-        try {
-            cachedVideoInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+        // 1. Intentar reanudar lo más pronto posible (Fast-Path)
+        // No bloqueamos el inicio de la reanudación esperando el waterfall completo de metadatos.
+        // Extraemos un playlistId rápido (URL o API sincrónica) para la consulta inicial.
+        const fastPlaylistId = (typeof player?.getPlaylistId === 'function' ? player.getPlaylistId() : null) ||
+            (type === 'watch' ? extractOrNormalizeVideoId(window.location.href).list : null);
 
-            // Protección crítica: Si hubo navegación durante el await, abortar el inicio de la sesión
-            // Excepción: Miniplayer puede seguir activo mientras el usuario navega en el home
-            if (navIdAtStart !== globalNavigationId && type !== 'miniplayer') {
-                logWarn('process', `🛑 Abortando inicio de sesión [${type}] - ${videoId}: Navegación detectada durante fetch`);
-                return;
-            }
+        // Inicializar metadatos básicos inmediatamente en la sesión para que el primer guardado
+        // tenga contexto incluso si el waterfall de metadatos pesados aún no termina.
+        sessionRef.videoInfo = {
+            videoId: videoId,
+            lastViewedPlaylistId: fastPlaylistId || null,
+            title: null,
+            author: null,
+            isLive: false,
+            viewCount: 0,
+            lengthSeconds: player?.getDuration?.() || videoEl.duration || 0
+        };
 
-            logInfo('process', `💾 Metadatos cacheados inicialmente para sesión de [${type}] - ${videoId}`);
-        } catch (e) {
-            logWarn('process', `⚠️ Error obteniendo metadatos base, se delegará la obtención al guardado:`, e);
-        }
-
-        // 1. Intentar reanudar inmediatamente
-        // getSavedVideoData usa el playlistId del objeto de metadatos si está disponible
-        getSavedVideoData(videoId, cachedVideoInfo?.lastViewedPlaylistId).then(savedData => {
-            if (savedData) {
+        getSavedVideoData(videoId, fastPlaylistId).then(savedData => {
+            // Verificar que la sesión no haya sido finalizada durante la lectura asíncrona de storage
+            if (savedData && activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized) {
                 syncManualSaveUI(videoId, true, !!savedData.forceResumeTime);
-                if (isResumeAtCompletionZone(savedData, cachedVideoInfo)) {
-                    // Evita doble conteo de finalización cuando la sesión inicia con seek al final.
+
+                // Blindaje anti doble-completado usando la duración ya disponible en videoInfo
+                if (isResumeAtCompletionZone(savedData, sessionRef.videoInfo)) {
                     sessionRef.hasLoggedCompletion = true;
-                    logLog('process', `🛡️ Blindaje anti doble-completado activado para [${type}] - ${videoId} (resume en zona final).`);
+                    logLog('process', `🛡️ Blindaje anti doble-completado activado (fast-path) para ${videoId}`);
                 }
-                // Si es un cambio de configuraciones (calidad, mejoras de audio), omitir el seek para no perder progreso
+
                 if (sessionRef.isPlayerSettingsChange) {
-                    logLog('process', `⏭️ Resume omitido para [${type}] - ${videoId}: cambio de configuraciones detectado, manteniendo progreso actual`);
-                    sessionRef.isPlayerSettingsChange = false; // Limpiar el flag después de usarlo
+                    logLog('process', `⏭️ Resume omitido: cambio de configuraciones detectado`);
+                    sessionRef.isPlayerSettingsChange = false;
                     return;
                 }
+
                 if (savedData.watchProgress > 1 || savedData.forceResumeTime > 0) {
                     if (shouldSkipResumeForActivePlayback(videoEl, type, videoId, savedData)) {
-                        logLog('process', `⏭️ Resume omitido para [${type}] - ${videoId}: reproducción activa ya sincronizada`);
+                        logLog('process', `⏭️ Resume omitido: reproducción ya sincronizada`);
                         return;
                     }
                     recentResumeAttempts.set(videoEl, { videoId, ts: Date.now() });
-                    PlaybackController.resume(player, videoId, videoEl, savedData, type, cachedVideoInfo);
+                    // PlaybackController.resume maneja internamente la espera a que el video esté listo (isReady)
+                    // Pasamos la sesión para permitir que el resume se aborte si la sesión cambia o finaliza.
+                    PlaybackController.resume(player, videoId, videoEl, savedData, type, sessionRef);
                 }
-            } else {
+            } else if (!savedData) {
                 syncManualSaveUI(videoId, false);
             }
         });
 
-        // 2. Configurar intervalo de guardado
+        // 2. Obtener metadatos base completos (Waterfall asíncrono pesado)
+        // Esto puede tardar segundos si requiere retries de miniplayer o fetches de títulos de playlist.
+        // Lo ejecutamos en paralelo para no bloquear el resume, pero lo awaitamos antes de iniciar el intervalo.
+        try {
+            const freshInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+
+            // Protección crítica post-await: Si hubo navegación o finalización durante el waterfall, abortar.
+            const sessionStillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
+
+            if (!sessionStillValid || (navIdAtStart !== globalNavigationId && type !== 'miniplayer')) {
+                logWarn('process', `🛑 Sesión [${type}] invalidada durante fetch de metadatos, abortando inicio de intervalo.`);
+                if (sessionRef.intervalId) clearInterval(sessionRef.intervalId);
+                return;
+            }
+
+            // Fusionar metadatos frescos en la sesión, preservando el playlistId del fast-path si el nuevo es inválido.
+            if (freshInfo) {
+                if (!freshInfo.lastViewedPlaylistId && sessionRef.videoInfo.lastViewedPlaylistId) {
+                    freshInfo.lastViewedPlaylistId = sessionRef.videoInfo.lastViewedPlaylistId;
+                }
+                Object.assign(sessionRef.videoInfo, freshInfo);
+            }
+
+            logInfo('process', `💾 Metadatos cacheados para seguimiento de [${type}] - ${videoId}`);
+        } catch (e) {
+            logWarn('process', `⚠️ Error obteniendo metadatos completos, se delegará la resolución al primer tick:`, e);
+        }
+
+        // 3. Configurar intervalo de guardado
         let intervalId = null;
 
         // Optimización: Solo iniciar el intervalo si el guardado automático está habilitado para este tipo
-        const isLive = cachedVideoInfo?.isLive || false;
+        const isLive = sessionRef.videoInfo?.isLive || false;
         const isAutoSaveEnabled =
             type === 'shorts' ? cachedSettings?.saveShorts :
                 type === 'preview' ? cachedSettings?.saveInlinePreviews :
@@ -12684,6 +12717,16 @@ regular-item.ypp-fill-none {
 
         if (isAutoSaveEnabled !== false) {
             intervalId = setInterval(async () => {
+                // Self-destruct: verificar que esta instancia siga siendo la sesión activa y no esté finalizada.
+                // Si la sesión fue reemplazada por otra en el mismo elemento o finalizada externamente,
+                // este intervalo debe detenerse para evitar procesos "zombie" y fugas de memoria.
+                const currentSession = activeProcessingSessions.get(videoEl);
+                if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized) {
+                    clearInterval(intervalId);
+                    logLog('process', `🧹 Zombie interval eliminado [${type}] - ${videoId}`);
+                    return;
+                }
+
                 // Kill Switch: Condiciones para detener el seguimiento de esta sesión
                 const isDisconnected = !document.contains(videoEl);
                 const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
@@ -12765,11 +12808,15 @@ regular-item.ypp-fill-none {
                     session.idMismatchCount = 0;
                     session.lastKnownSrc = videoEl.currentSrc || videoEl.src || session.lastKnownSrc || null;
                 }
-                const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session?.videoInfo || cachedVideoInfo);
+                const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session?.videoInfo);
                 if (result?.videoInfo && session) {
                     session.videoInfo = result.videoInfo;
                 }
             }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
+
+            // Registrar el intervalId inmediatamente para permitir que finalizeSession() pueda limpiarlo
+            // si la sesión se termina antes de completar el Object.assign final.
+            sessionRef.intervalId = intervalId;
         } else {
             logLog('process', `Intervalo omitido para [${type}] - ${videoId} (Guardado automático desactivado)`);
         }
@@ -12778,7 +12825,6 @@ regular-item.ypp-fill-none {
             intervalId,
             lastVideoId: videoId,
             type,
-            videoInfo: cachedVideoInfo,
             hasLoggedCompletion: false,
             idMismatchCount: 0,
             lastKnownSrc: videoEl.currentSrc || videoEl.src || null
@@ -12796,7 +12842,7 @@ regular-item.ypp-fill-none {
                 if (videoEl.paused) return;
 
                 try {
-                    const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session.videoInfo || cachedVideoInfo);
+                    const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session.videoInfo);
                     if (result?.videoInfo) {
                         session.videoInfo = result.videoInfo;
                     }
@@ -13093,10 +13139,13 @@ regular-item.ypp-fill-none {
          * @param {HTMLVideoElement} videoEl - Elemento de video
          * @param {object} savedData - Datos recuperados del Storage
          * @param {string} type - Contexto (watch, shorts, miniplayer, preview)
-         * @param {object|null} cachedVideoInfo - Metadatos opcionales ya resueltos
+         * @param {object|null} session - Referencia a la sesión actual para abortar si cambia.
          */
-        async resume(player, videoId, videoEl, savedData, type, cachedVideoInfo = null) {
+        async resume(player, videoId, videoEl, savedData, type, session = null) {
             if (!savedData || !videoId || !videoEl) return;
+
+            // Si se proporciona una sesión, verificar que no esté finalizada de entrada
+            if (session && session.isFinalized) return;
 
             const isForced = savedData.forceResumeTime > 0;
             const timeToSeek = isForced ? savedData.forceResumeTime : savedData.watchProgress;
@@ -13105,7 +13154,7 @@ regular-item.ypp-fill-none {
             logLog('PlaybackController', `🎬 Intentando reanudar ${videoId} en ${formatTime(timeToSeek)} (${type})`);
 
             const getExpectedDuration = () => {
-                if (cachedVideoInfo?.lengthSeconds > 0) return cachedVideoInfo.lengthSeconds;
+                if (session?.videoInfo?.lengthSeconds > 0) return session.videoInfo.lengthSeconds;
                 let dur = 0;
                 try {
                     dur =
@@ -13137,7 +13186,15 @@ regular-item.ypp-fill-none {
                 let attempts = 0;
                 while (!isReady() && attempts < 20) {
                     await new Promise(r => setTimeout(r, 500));
-                    // Abortar si el video ha cambiado durante la espera
+
+                    // Abortar si la sesión fue invalidada o reemplazada durante la espera
+                    const currentSession = activeProcessingSessions.get(videoEl);
+                    if (session && (session.isFinalized || currentSession !== session)) {
+                        logWarn('PlaybackController', `🛑 Abortando resume para ${videoId}: sesión invalidada o reemplazada.`);
+                        return;
+                    }
+
+                    // Abortar si el video ha cambiado físicamente en el player
                     if (videoId !== (player ? getPlayerVideoId(player) : null)) {
                         logWarn('PlaybackController', `🛑 Abortando resume para ${videoId}: navegación detectada.`);
                         return;
@@ -13182,8 +13239,10 @@ regular-item.ypp-fill-none {
             }
         },
 
+
         /**
-         * Extrae metadatos y guarda el estado actual del video.
+         * Guarda el estado actual de la reproducción.
+         * Coordina la obtención de metadatos, determinación de contexto y persistencia.
          * @param {object} player - Instancia del player
          * @param {HTMLVideoElement} videoEl - Elemento de video
          * @param {string} type - Contexto
@@ -13203,114 +13262,126 @@ regular-item.ypp-fill-none {
                 });
                 return { success: false, reason: 'context_mismatch' };
             }
+
             const session = activeProcessingSessions.get(videoEl);
-            if (session?.isFinalized) return { success: false, reason: 'finalized_session' };
+            if (!session || session.isFinalized) return { success: false, reason: 'invalid_session' };
 
-            // Si el video está pausado y no hemos cambiado de tiempo tras pausa (seek)
-            // entonces no procesamos ninguna lógica de guardado ni metadata para ahorrar recursos.
-            const currentTime = videoEl.currentTime || (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
-            const duration = videoEl.duration || (typeof player?.getDuration === 'function' ? player.getDuration() : 0);
+            // Evitar ejecuciones concurrentes para la misma sesión (bloqueo mutuo)
+            if (session.isSaving && !options.isManual) return { success: false, reason: 'already_saving' };
+            session.isSaving = true;
 
-            // Permitir times muy bajos (0) para detectar "Replay" en videos con tiempo fijo
-            if (!isFinite(currentTime) || currentTime < 0 || isNaN(duration) || duration <= 0) return;
-
-            if (videoEl.paused) {
-                logInfo('saveStatus', `Video ${type} - ${videoId} pausado`)
-                const prevSavedTime = parseFloat(videoEl.dataset.lastSavedTime || '0');
-                const diff = currentTime - prevSavedTime;
-
-                // Si hay un salto hacia atrás significativo (ej. > 5s) justo después de iniciar o reanudar,
-                // es probable que sea el player de YouTube reseteándose durante la carga.
-                const sessionStartTime = parseInt(videoEl.dataset.sessionStartTime || '0', 10);
-                const lastResumeTimestamp = parseInt(videoEl.dataset.lastResumeTimestamp || '0', 10);
-                const timeSinceRelevantStart = Date.now() - Math.max(sessionStartTime, lastResumeTimestamp);
-
-                if (diff < -5 && timeSinceRelevantStart < 3000) {
-                    logInfo('saveStatus', `Saltando guardado: Posible reset del player tras carga/resume (diff: ${diff.toFixed(2)}s, age: ${timeSinceRelevantStart}ms)`);
-                    return { success: false, reason: 'player_reset_detected' };
-                }
-
-                if (Math.abs(diff) < CONFIG.minSeekDiff && !options.isManual) {
-                    // El video está pausado y su tiempo no se movió lo suficiente como para justificar un guardado (no fue un seek)
-                    return { success: false, reason: 'paused_no_seek' };
-                }
-            }
-
-            // Registrar el último tiempo guardado exitosamente para el próximo tick
-            videoEl.dataset.lastSavedTime = currentTime;
-
-            // Throttled Metadata Refresh: Evitar fetchs innecesarios cada tick (min cooldown 30s)
-            const lastMetaFetch = parseInt(videoEl.dataset.lastMetaFetch || '0', 10);
-            const needsRefresh = !videoInfo || !videoInfo.viewCount || videoInfo.viewCount === 0;
-            const cooldownElapsed = (Date.now() - lastMetaFetch > 30_000);
-
-            // Si es manual (isManual) y no tenemos info, forzamos el refresco ignorando el cooldown de 30s.
-            if (needsRefresh && (cooldownElapsed || options.isManual)) {
-                logInfo('saveStatus', `🔄 Refrescando metadatos para ${videoId} (cooldown bypass/missing data)`);
-                videoEl.dataset.lastMetaFetch = Date.now().toString();
-                const freshInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
-                if (videoInfo && freshInfo) {
-                    Object.assign(videoInfo, freshInfo);
-                } else {
-                    videoInfo = freshInfo;
-                }
-            }
-
-            // Seguridad: Si llegamos aquí y videoInfo sigue siendo null (ej. falló fetch y no hay cache),
-            // abortamos para evitar TypeError en el siguiente paso (finalType).
-            if (!videoInfo) {
-                logWarn('saveStatus', `⚠️ videoInfo es null tras intento de refresco para ${videoId}. Abortando guardado.`);
-                return { success: false, reason: 'missing_video_metadata', videoInfo };
-            }
-
-            // Determinar tipo real actual (Transición Watch -> Miniplayer)
-            let actualType = type;
-            if (type === 'watch' && DOMHelpers.getMiniplayerElementActive()) {
-                actualType = 'miniplayer';
-            }
-
-            // Determinar tipo final (LIVE gana a todo)
-            const finalType = videoInfo.isLive ? 'live' : actualType;
-
-            // Actualizar degradado de color en la barra de progreso
-            updateProgressBarGradient(currentTime, duration, finalType);
-
-            // Verificar si el guardado está habilitado para este tipo final para modo AUTOMÁTICO
-            let isEnabledForAutoSave = true;
-            if (finalType === 'live' && !cachedSettings?.saveLiveStreams) isEnabledForAutoSave = false;
-            else if (finalType === 'shorts' && !cachedSettings?.saveShorts) isEnabledForAutoSave = false;
-            else if (finalType === 'preview' && !cachedSettings?.saveInlinePreviews) isEnabledForAutoSave = false;
-            else if (finalType === 'miniplayer' && !cachedSettings?.saveMiniplayerVideos) isEnabledForAutoSave = false;
-            else if (finalType === 'watch' && !cachedSettings?.saveRegularVideos) isEnabledForAutoSave = false;
-
-            // Si es un guardado automático y el tipo está desactivado, salimos.
-            // Si es manual (options.isManual), permitimos el guardado independientemente del tipo.
-            if (!options.isManual && !isEnabledForAutoSave) return { success: false, reason: 'disabled_by_settings' };
-
-            logLog('PlaybackController', `Datos obtenidos para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType}) ${options.isManual ? '[MANUAL]' : ''}`);
-            SessionTelemetry.emit('saveDecision', {
-                sessionId: session?.sessionId,
-                context: finalType,
-                transitionToken: session?.transitionToken,
-                triggerSource: options.isManual ? 'manual' : 'interval',
-                decision: 'save',
-                reason: 'eligible'
-            });
-
-            if (finalType === 'preview') {
-                logInfo('PlaybackController', `saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);
-            }
-            const saveOptions = { isManual: !!options.isManual };
-
-            // Armonizar con formato FreeTube (Integer): Actualizamos solo si hay cambio real en segundos redondeados.
-            const roundedDuration = Math.round(duration);
-            if (videoInfo && roundedDuration > 0 && videoInfo.lengthSeconds !== roundedDuration) {
-                videoInfo.lengthSeconds = roundedDuration;
-            }
-
-            // Delegar a la función especializada directamente
-            let result;
             try {
+                const currentTime = videoEl.currentTime || (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
+                const duration = videoEl.duration || (typeof player?.getDuration === 'function' ? player.getDuration() : 0);
+
+                // Permitir times muy bajos (0) para detectar "Replay" en videos con tiempo fijo
+                if (!isFinite(currentTime) || currentTime < 0 || isNaN(duration) || duration <= 0) {
+                    return { success: false, reason: 'invalid_time_metrics' };
+                }
+
+                // Throttling de guardado por cambio de tiempo: No guardar si el tiempo no se movió significativamente
+                // (Evita spam de I/O si el video está cargando o pausado)
+                const lastSavedTime = parseFloat(videoEl.dataset.lastSavedTime || '-1');
+                const diff = currentTime - lastSavedTime;
+
+                if (Math.abs(diff) < 0.05 && !options.isManual) {
+                    return { success: false, reason: 'time_not_changed' };
+                }
+
+                if (videoEl.paused) {
+                    logInfo('saveStatus', `Video ${type} - ${videoId} pausado`)
+                    // Si el video está pausado y no fue un seek manual (diff pequeña)
+                    if (Math.abs(diff) < CONFIG.minSeekDiff && !options.isManual) {
+                        return { success: false, reason: 'paused_no_seek' };
+                    }
+
+                    // Protección contra saltos falsos tras carga
+                    const sessionStartTime = parseInt(videoEl.dataset.sessionStartTime || '0', 10);
+                    const lastResumeTimestamp = parseInt(videoEl.dataset.lastResumeTimestamp || '0', 10);
+                    const timeSinceRelevantStart = Date.now() - Math.max(sessionStartTime, lastResumeTimestamp);
+
+                    if (diff < -5 && timeSinceRelevantStart < 3000) {
+                        logInfo('saveStatus', `Saltando guardado: Posible reset del player tras carga/resume (diff: ${diff.toFixed(2)}s, age: ${timeSinceRelevantStart}ms)`);
+                        return { success: false, reason: 'player_reset_detected' };
+                    }
+                }
+
+                // Registrar el último tiempo guardado exitosamente ANTES de la operación async para bloquear ticks rápidos
+                videoEl.dataset.lastSavedTime = currentTime.toString();
+
+                // Throttled Metadata Refresh: Evitar fetchs innecesarios cada tick (min cooldown 30s)
+                const lastMetaFetch = parseInt(videoEl.dataset.lastMetaFetch || '0', 10);
+                const needsRefresh = !videoInfo || !videoInfo.viewCount || videoInfo.viewCount === 0;
+                const cooldownElapsed = (Date.now() - lastMetaFetch > 30_000);
+
+                // Si es manual (isManual) y no tenemos info, forzamos el refresco ignorando el cooldown de 30s.
+                if (needsRefresh && (cooldownElapsed || options.isManual)) {
+                    logInfo('saveStatus', `🔄 Refrescando metadatos para ${videoId} (cooldown bypass/missing data)`);
+                    videoEl.dataset.lastMetaFetch = Date.now().toString();
+                    const freshInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+                    if (videoInfo && freshInfo) {
+                        Object.assign(videoInfo, freshInfo);
+                    } else {
+                        videoInfo = freshInfo;
+                    }
+                }
+
+                // Seguridad: Si llegamos aquí y videoInfo sigue siendo null (ej. falló fetch y no hay cache),
+                // abortamos para evitar TypeError en el siguiente paso (finalType).
+                if (!videoInfo) {
+                    logWarn('saveStatus', `⚠️ videoInfo es null tras intento de refresco para ${videoId}. Abortando guardado.`);
+                    return { success: false, reason: 'missing_video_metadata', videoInfo };
+                }
+
+                // Determinar tipo real actual (Transición Watch -> Miniplayer)
+                let actualType = type;
+                if (type === 'watch' && DOMHelpers.getMiniplayerElementActive()) {
+                    actualType = 'miniplayer';
+                }
+
+                // Determinar tipo final (LIVE gana a todo)
+                const finalType = videoInfo.isLive ? 'live' : actualType;
+
+                // Actualizar degradado de color en la barra de progreso
+                updateProgressBarGradient(currentTime, duration, finalType);
+
+                // Verificar si el guardado está habilitado para este tipo final para modo AUTOMÁTICO
+                let isEnabledForAutoSave = true;
+                if (finalType === 'live' && !cachedSettings?.saveLiveStreams) isEnabledForAutoSave = false;
+                else if (finalType === 'shorts' && !cachedSettings?.saveShorts) isEnabledForAutoSave = false;
+                else if (finalType === 'preview' && !cachedSettings?.saveInlinePreviews) isEnabledForAutoSave = false;
+                else if (finalType === 'miniplayer' && !cachedSettings?.saveMiniplayerVideos) isEnabledForAutoSave = false;
+                else if (finalType === 'watch' && !cachedSettings?.saveRegularVideos) isEnabledForAutoSave = false;
+
+                // Si es un guardado automático y el tipo está desactivado, salimos.
+                // Si es manual (options.isManual), permitimos el guardado independientemente del tipo.
+                if (!options.isManual && !isEnabledForAutoSave) {
+                    return { success: false, reason: 'disabled_by_settings' };
+                }
+
+                logLog('PlaybackController', `Datos obtenidos para ${videoId}: ${formatTime(currentTime)}/${formatTime(duration)} (${finalType}) ${options.isManual ? '[MANUAL]' : ''}`);
+                SessionTelemetry.emit('saveDecision', {
+                    sessionId: session?.sessionId,
+                    context: finalType,
+                    transitionToken: session?.transitionToken,
+                    triggerSource: options.isManual ? 'manual' : 'interval',
+                    decision: 'save',
+                    reason: 'eligible'
+                });
+
+                if (finalType === 'preview') {
+                    logInfo('PlaybackController', `saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);
+                }
+                const saveOptions = { isManual: !!options.isManual };
+
+                // Armonizar con formato FreeTube (Integer): Actualizamos solo si hay cambio real en segundos redondeados.
+                const roundedDuration = Math.round(duration);
+                if (videoInfo && roundedDuration > 0 && videoInfo.lengthSeconds !== roundedDuration) {
+                    videoInfo.lengthSeconds = roundedDuration;
+                }
+
+                // Delegar a la función especializada directamente
+                let result;
                 switch (finalType) {
                     case 'live':
                         result = await saveLivestream(player, currentTime, videoInfo, videoEl, saveOptions);
@@ -13347,27 +13418,29 @@ regular-item.ypp-fill-none {
                         result = await saveRegularVideo(player, currentTime, videoInfo, videoEl, saveOptions);
                         break;
                 }
+
+                // Mostrar alerta si el almacenamiento está lleno
+                if (result?.reason === 'storage_full') {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('storageFull')}`, 6000, { persistent: true });
+                }
+
+                // Notificar progreso si el guardado fue exitoso o es manual
+                if (result && (result.success || options.isManual)) {
+                    // Propagar flag manual al resultado para la visualización
+                    if (options.isManual) result.isManual = true;
+                    syncManualSaveUI(videoId, true);
+                    notifySeekOrProgress(currentTime, 'progress', { saveResult: result, videoType: actualType, videoEl });
+                }
+
+                if (result) result.videoInfo = videoInfo;
+                return result;
             } catch (e) {
                 logError('PlaybackController', `❌ Error inesperado guardando ${videoId}:`, e);
-                result = { success: false, reason: e.message };
+                return { success: false, reason: 'exception', error: e.message };
+            } finally {
+                if (session) session.isSaving = false;
             }
-
-            // Mostrar alerta si el almacenamiento está lleno
-            if (result?.reason === 'storage_full') {
-                showFloatingToast(`${SVG_ICONS.warning} ${t('storageFull')}`, 6000, { persistent: true });
-            }
-
-            // Notificar progreso si el guardado fue exitoso o es manual
-            if (result && (result.success || options.isManual)) {
-                // Propagar flag manual al resultado para la visualización
-                if (options.isManual) result.isManual = true;
-                syncManualSaveUI(videoId, true);
-                notifySeekOrProgress(currentTime, 'progress', { saveResult: result, videoType: actualType, videoEl });
-            }
-
-            if (result) result.videoInfo = videoInfo;
-            return result;
-        }
+        },
     };
 
     // MARK: 📋 Get Cascaded Video Info

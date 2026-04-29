@@ -52,7 +52,9 @@ Busca antes de crear. Reutiliza lo existente:
 | Almacenar elementos DOM en `Map`/`Set` | `WeakMap` |
 | `MINIPLAYER_SELECTORS` o `SHORTS_SELECTORS` | No existen; usar `S.IDS`, `S.CLASSES`, etc. |
 | `domQueryCache` | No existe; usar `DOMHelpers.get()` |
-| Modificar `translations.json` | Limitarse a solo modificar `const FALLBACK_TRANSLATIONS`|
+
+Está estrictamente prohibido modificar `translations.json` bajo cualquier circunstancia.
+Si necesitas agregar traducciones, hazlo únicamente en `FALLBACK_TRANSLATIONS` dentro de `youtube-playback-plox.user.js`.
 
 ---
 

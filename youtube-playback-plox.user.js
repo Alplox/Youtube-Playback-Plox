@@ -15923,8 +15923,9 @@ regular-item.ypp-fill-none {
         const el = createElement('div', {
             className: `ypp-videoWrapper ${itemClass} ${isProtected ? 'ypp-protected-item' : ''} ${selectionClass} ypp-video-item`,
             atribute: {
-                /* 'data-video-id': videoId,
-                'data-video-type': type,
+               
+                'data-video-id': videoId,
+               /*  'data-video-type': type,
                 'data-video-status': isCompleted ? 'completed' : (isLiveEntry ? 'live' : 'watching'),
                 'data-video-duration': lengthSeconds,
                 'data-video-progress': watchProgress,

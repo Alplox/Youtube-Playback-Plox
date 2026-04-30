@@ -436,6 +436,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "storageUsageAvailableTooltip": "Total IndexedDB storage space available in browser",
             "recalculateStorage": "Recalculate",
             "recalculateStorageTooltip": "Recalculate storage usage",
+            "openInFreeTube": "Open in FreeTube",
             "importingFromFreeTube": "Importing from FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importing from FreeTube as SQLite...",
             "videosImported": "videos imported",
@@ -1781,15 +1782,15 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * Garantizan contraste AAA (≥7:1) sobre --ypp-bg: #0f0f0f.
      */
     --ypp-primary-text: #5b9bff;  /* 7.2:1 sobre #0f0f0f */
-    --ypp-secondary-text: #ffffff;  /* 15.6:1 sobre #0f0f0f */
-    --ypp-danger-text: #f87171;   /* 7.1:1 sobre #0f0f0f */
-    --ypp-warning-text: #fbbf24;  /* 7.8:1 sobre #0f0f0f */
-    --ypp-success-text: #4ade80;  /* 7.4:1 sobre #0f0f0f */
-    --ypp-info-text: #38bdf8;     /* 7.3:1 sobre #0f0f0f */
-    --ypp-alert-text: #F5D700;    /* 7.1:1 sobre #0f0f0f */
-    --ypp-violet-text: #c4a7ff;   /* 7.2:1 sobre #0f0f0f */
-    --ypp-danger-warning-text: #ff8c42;  /* 7.2:1 sobre #0f0f0f - entre danger y warning */
-    --ypp-warning-success-text: #fcd34d;  /* 7.1:1 sobre #0f0f0f - entre warning y success */
+    --ypp-secondary-text: #989898;  /* 15.6:1 sobre #0f0f0f */
+    --ypp-danger-text: #FD6060;   /* 7.1:1 sobre #0f0f0f */
+    --ypp-warning-text: #C38D00;  /* 7.1:1 sobre #0f0f0f */
+    --ypp-success-text: #00AD3F;  /* 7:1 sobre #0f0f0f */
+    --ypp-info-text: #00A0E7;     /* 7.1:1 sobre #0f0f0f */
+    --ypp-alert-text: #AC9700;    /* 7.1:1 sobre #0f0f0f */
+    --ypp-violet-text: #A87EFE;   /* 7:1 sobre #0f0f0f */
+    --ypp-danger-warning-text: #F56D16;  /* 7:1 sobre #0f0f0f - entre danger y warning */
+    --ypp-warning-success-text: #E3AE00;  /* 7:1 sobre #0f0f0f - entre warning y success */
 }
 
 .ypp-shadow-sm {
@@ -1845,8 +1846,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 }
 
 .ypp-link {
-    color: var(--ypp-primary-text);
-    text-decoration: none;
+    color: var(--ypp-primary-text) !important;
+    text-decoration: none !important;
     display: -webkit-box;
     display: -ms-flexbox;
     display: flex;
@@ -1856,7 +1857,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     gap: var(--ypp-spacing-sm);
 
     &:hover {
-        text-decoration: underline;
+        text-decoration: underline !important;
     }
 }
 
@@ -2936,27 +2937,10 @@ regular-item.ypp-fill-none {
             align-items: center;
 }
 
-.ypp-author-link {
-    color: var(--ypp-primary-text);
-    text-decoration: none;
-    -webkit-transition: color 0.2s;
-    -o-transition: color 0.2s;
-    transition: color 0.2s;
-
-    &:hover {
-        color: var(--ypp-primary-hover);
-        text-decoration: underline;
-    }
-
-    svg {
-        width: 1.1rem;
-        height: 1.1rem;
-    }
-}
-
 .ypp-timestamp,
 .ypp-progressInfo {
     font-size: 1.3rem;
+    font-weight: bold;
     margin-top: 4px;
     display: -webkit-box;
     display: -ms-flexbox;
@@ -3076,7 +3060,7 @@ regular-item.ypp-fill-none {
     );
 }
 
-.ypp-protected-item .ypp-thumb,
+.ypp-protected-item .ypp-thumb-regular,
 .ypp-protected-item .ypp-thumb-shorts {
     outline: 2px solid var(--ypp-success) !important;
 }
@@ -3201,26 +3185,40 @@ regular-item.ypp-fill-none {
             justify-content: center;
 }
 
-.ypp-thumb {
-    max-width: 155px;
-    max-height: 85px;
-    -o-object-fit: cover;
-       object-fit: cover;
-    border-radius: var(--ypp-spacing-md);
+.ypp-thumb-wrapper {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-shrink: 0;
     margin-right: var(--ypp-spacing-sm);
-    -ms-flex-negative: 0;
-        flex-shrink: 0;
+    width: 155px;
+    height: 85px;
+    border-radius: var(--ypp-spacing-md);
+    overflow: hidden;
+    background: var(--ypp-bg-secondary)
+}
+
+.ypp-thumb-regular {
+    max-width: 155px;
 }
 
 .ypp-thumb-shorts {
     max-width: 55px;
-    max-height: 85px;
-    -o-object-fit: cover;
-       object-fit: cover;
+}
+
+.ypp-thumb {
+    object-fit: cover;
     border-radius: var(--ypp-spacing-md);
     margin-right: var(--ypp-spacing-sm);
-    -ms-flex-negative: 0;
-        flex-shrink: 0;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.3s ease-in;
+    position: relative;
+    max-height: 85px;
+    width: 100%;
+    height: 100%;
+    max-width: none;
 }
 
 .ypp-infoDiv {
@@ -3427,6 +3425,13 @@ regular-item.ypp-fill-none {
     --btn-color: var(--ypp-white);
 }
 
+.ypp-btn-violet {
+    --btn-bg: var(--ypp-violet);
+    --btn-bg-hover: var(--ypp-violet-hover);
+    --btn-bg-active: var(--ypp-violet-active);
+    --btn-color: var(--ypp-white);
+}
+
 /* Outlines */
 .ypp-btn-outline-primary {
     --btn-bg: transparent;
@@ -3510,6 +3515,22 @@ regular-item.ypp-fill-none {
     --btn-bg-active: var(--ypp-info-active);
     --btn-color: var(--ypp-info-text);
     border: 1px solid var(--ypp-info);
+
+    &:hover {
+        --btn-color: var(--ypp-white);
+    }
+
+    &:active {
+        --btn-color: var(--ypp-white);
+    }
+}
+
+.ypp-btn-outline-violet {
+    --btn-bg: transparent;
+    --btn-bg-hover: var(--ypp-violet);
+    --btn-bg-active: var(--ypp-violet-active);
+    --btn-color: var(--ypp-violet-text);
+    border: 1px solid var(--ypp-violet);
 
     &:hover {
         --btn-color: var(--ypp-white);
@@ -8437,14 +8458,13 @@ regular-item.ypp-fill-none {
         if (!app) return null;
 
         try {
-            const page = app.__data?.page;
+            const data = app.data || app.__dataHost?.__data;
+            const page = data?.page;
+
             switch (page) {
-                case 'watch':
-                    return 'watch';
-                case 'browse':
-                    return 'channel';
-                case 'search':
-                    return 'search';
+                case 'watch': return 'watch';
+                case 'browse': return 'channel';
+                case 'search': return 'search';
             }
         } catch { }
 
@@ -14714,7 +14734,6 @@ regular-item.ypp-fill-none {
             }
             if (currentOrderBy === 'authorAZ' || currentOrderBy === 'author') return (item.info.author || '').toLowerCase();
             if (currentOrderBy === 'authorZA') return (item.info.author || '').toLowerCase();
-
             if (currentOrderBy === 'durationShort') return item.info.lengthSeconds || 0;
             if (currentOrderBy === 'durationLong') return -(item.info.lengthSeconds || 0);
             if (currentOrderBy === 'yourMostWatched') return -(item.info.completionHistory?.total || 0);
@@ -15706,20 +15725,24 @@ regular-item.ypp-fill-none {
             }
         }
 
-        const isPlaylistItem = !!playlistKey;
-        const finalPlaylistTitle = escapeHTML(playlistTitle || playlistKey || '');
-
+        const isShorts = type === 'shorts' || type === 'preview_shorts';
         const isLiveEntry = type === 'live' || isLive === true;
+
+        const isPlaylistItem = !!playlistKey;
+        const finalPlaylistTitle =
+            escapeHTML(playlistTitle)
+            || escapeHTML(playlistKey)
+            || t('unknown');
+
         const viewsText = `${escapeHTML(viewCount.toLocaleString())} ${t('views')}`;
 
-        const videoUrl = type === 'shorts' || type === 'preview_shorts'
-            ? `https://www.youtube.com/shorts/${escapeHTML(videoId)}`
-            : `https://www.youtube.com/watch?v=${escapeHTML(videoId)}${playlistKey ? '&list=' + escapeHTML(playlistKey) : ''}`;
+        const videoUrl = isShorts
+            ? `https://www.youtube.com/shorts/${videoId}`
+            : `https://www.youtube.com/watch?v=${videoId}${playlistKey ? '&list=' + playlistKey : ''}`;
 
-        const playlistUrl =
-            escapeHTML(playlistKey?.startsWith('RD')
-                ? `https://www.youtube.com/watch?v=${videoId}&list=${playlistKey}`
-                : `https://www.youtube.com/playlist?list=${playlistKey}`);
+        const playlistUrl = playlistKey?.startsWith('RD')
+            ? `https://www.youtube.com/watch?v=${videoId}&list=${playlistKey}`
+            : `https://www.youtube.com/playlist?list=${playlistKey}`;
 
         const hasFixedTime = forceResumeTime > 0;
         const isProtected = info.isProtected || false;
@@ -15737,24 +15760,11 @@ regular-item.ypp-fill-none {
                 ? (hasFixedTime ? `${fixedTimeStr} ${SVG_ICONS.check}` : `${SVG_ICONS.check} ${t('completed')}`)
                 : (hasFixedTime ? fixedTimeStr : `${t('progress')} ${escapeHTML(formatTime(watchProgress))} ${isLiveEntry ? '' : `/ ${formatTime(lengthSeconds)}`}`);
 
-
-        const liveHtml = `<div class="ypp-progressInfo" style="font-weight: bold;">${SVG_ICONS.live} ${t('live')}</div>`;
-
-
         let iconPercent;
         if (percent >= 95) iconPercent = SVG_ICONS.progressOneHundred;
         else if (percent >= 66) iconPercent = SVG_ICONS.progressSixtySix;
         else if (percent >= 33) iconPercent = SVG_ICONS.progressThirtyThree;
         else iconPercent = SVG_ICONS.progressZero;
-
-        const percentHtml = `<div class="ypp-progressInfo" style="color: ${getProgressColorForText(percent)}; font-weight: bold;">
-        ${iconPercent} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds(remaining))} ${t('remaining')})</div>`;
-
-        let progressHtml = '';
-        if (!isCompleted) {
-            if (isLiveEntry) progressHtml = liveHtml;
-            else if (percent !== null) progressHtml = percentHtml;
-        }
 
         // Estilos playlist
         let wrapperStyle = '';
@@ -15768,96 +15778,172 @@ regular-item.ypp-fill-none {
             itemClass = 'playlist-item';
         }
 
-        if (isProtected) {
-            itemClass += ' ypp-protected-item';
+        const selectionClass = isPlaylistCreationMode || isManagementMode ? 'selection-mode' : '';
+        const thumbClass = isShorts ? 'ypp-thumb-shorts' : 'ypp-thumb-regular';
+
+        const fragment = document.createDocumentFragment();
+
+        if (isPlaylistCreationMode || isManagementMode) {
+            fragment.appendChild(createElement('input', {
+                className: 'ypp-video-checkbox',
+                atribute: {
+                    type: 'checkbox',
+                    'data-action': 'toggle-selection',
+                    'data-video-id': videoId
+                },
+                props: { checked: selectedVideos.has(videoId) }
+            }));
         }
 
-        const selectionClass = isPlaylistCreationMode || isManagementMode ? 'selection-mode' : '';
-        const thumbClass = type === 'shorts' || type === 'preview_shorts' ? 'ypp-thumb-shorts' : 'ypp-thumb';
-        const thumbWidth = type === 'shorts' || type === 'preview_shorts' ? '55px' : '155px';
+        const skeletonEl = createElement('div', {
+            className: 'ypp-skeleton-thumb',
+            styles: { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', zIndex: '1', margin: '0', borderRadius: '0' }
+        });
 
-        const html = `
-            <div
-                class="ypp-videoWrapper ${itemClass} ${selectionClass} ypp-video-item"
-                data-video-id="${escapeHTML(videoId)}"
-                ${playlistKey ? `data-playlist-key="${escapeHTML(playlistKey)}"` : ''}
-                style="${wrapperStyle}"
-            >
-                ${isPlaylistCreationMode || isManagementMode ? `<input type="checkbox" data-action="toggle-selection" class="ypp-video-checkbox" data-video-id="${escapeHTML(videoId)}" ${selectedVideos.has(videoId) ? 'checked' : ''}>` : ''}
+        const imgEl = createElement('img', {
+            className: `ypp-thumb ${thumbClass}`,
+            atribute: { title, alt: title, loading: 'lazy', draggable: 'false' },
+        });
 
-                <div class="ypp-thumb-wrapper" style="position: relative; flex-shrink: 0; margin-right: var(--ypp-spacing-sm); width: ${thumbWidth}; height: 85px; border-radius: var(--ypp-spacing-md); overflow: hidden; display: flex; align-items: center; justify-content: center; background: var(--ypp-bg-secondary);">
-                    <div class="ypp-skeleton-thumb" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; margin: 0; border-radius: 0;"></div>
-                    <img class="${thumbClass}" title="${title}" alt="${title}" style="opacity: 0; transition: opacity 0.3s ease; position: relative; z-index: 2; width: 100%; height: 100%; object-fit: cover; margin: 0; border-radius: 0; max-width: none; max-height: none;" loading="lazy" draggable="false">
-                </div>
+        fragment.appendChild(createElement('div', {
+            className: `ypp-thumb-wrapper ${thumbClass}`,
+            children: [skeletonEl, imgEl]
+        }));
 
-                <div class="ypp-infoDiv">
-                    <a class="ypp-titleLink" title="${title}" href="${videoUrl}" target="_blank" rel="noopener noreferrer">
-                        ${title} ${SVG_ICONS.linkExternal}
-                    </a>
+        const infoChildren = [];
+        infoChildren.push(createElement('a', {
+            className: 'ypp-titleLink',
+            html: `${escapeHTML(title)} ${SVG_ICONS.linkExternal}`,
+            atribute: { title, href: videoUrl, target: '_blank', rel: 'noopener noreferrer' }
+        }));
 
-                    ${isPlaylistItem && finalPlaylistTitle ? `
-                        <div class="ypp-playlist-indicator ypp-shadow-md" title="${t('playlist')}: ${finalPlaylistTitle} (${escapeHTML(playlistKey)})" style="color: ${playlistBorderColor};">
-                            <a class="ypp-playlist-link" title="${t('openPlaylist')}: ${finalPlaylistTitle}" href="${playlistUrl}" target="_blank" rel="noopener noreferrer">
-                                ${SVG_ICONS.playlist} ${finalPlaylistTitle}  ${SVG_ICONS.linkExternal}
-                            </a>
-                        </div>
-                    ` : ''}
+        if (isPlaylistItem && finalPlaylistTitle) {
+            infoChildren.push(createElement('div', {
+                className: 'ypp-playlist-indicator ypp-shadow-md',
+                atribute: { title: `${t('playlist')}: ${finalPlaylistTitle} (${playlistKey})` },
+                styles: { color: playlistBorderColor },
+                children: [
+                    createElement('a', {
+                        className: 'ypp-playlist-link',
+                        html: `${SVG_ICONS.playlist} ${finalPlaylistTitle}  ${SVG_ICONS.linkExternal}`,
+                        atribute: { title: `${t('openPlaylist')}: ${finalPlaylistTitle}`, href: playlistUrl, target: '_blank', rel: 'noopener noreferrer' }
+                    })
+                ]
+            }));
+        }
 
-                    ${authorId ? `
-                        <a class="ypp-author ypp-author-link" title="${t('openChannel')}: ${author}" href="https://www.youtube.com/channel/${escapeHTML(authorId)}" target="_blank" rel="noopener noreferrer">${author} ${SVG_ICONS.linkExternal}</a>
-                    ` : `<div class="ypp-author">${author}</div>`}
+        if (authorId) {
+            infoChildren.push(createElement('a', {
+                className: 'ypp-author ypp-link',
+                html: `${escapeHTML(author)} ${SVG_ICONS.linkExternal}`,
+                atribute: { title: `${t('openChannel')}: ${author}`, href: `https://www.youtube.com/channel/${authorId}`, target: '_blank', rel: 'noopener noreferrer' }
+            }));
+        } else {
+            infoChildren.push(createElement('div', { className: 'ypp-author', text: author }));
+        }
 
-                    <div class="ypp-views">
-                        ${viewsText}
-                        ${(() => {
-                if (!info.completionHistory?.total) return '';
-                const history = info.completionHistory;
-                const limit = 10;
-                const recent = history.events.slice(-limit).reverse();
-                const hasMore = history.total > recent.length;
-                let tooltip = `${t('watchedHistory')}:\n` +
-                    recent.map(ts => new Date(ts).toLocaleString().replace(',', '')).join('\n');
-                if (hasMore) tooltip += `\n... (+${history.total - recent.length})`;
+        const viewsChildren = [document.createTextNode(viewsText)];
+        if (info.completionHistory?.total) {
+            const history = info.completionHistory;
+            const limit = 10;
+            const recent = history.events.slice(-limit).reverse();
+            const hasMore = history.total > recent.length;
+            let tooltip = `${t('watchedHistory')}:\n` + recent.map(ts => new Date(ts).toLocaleString().replace(',', '')).join('\n');
+            if (hasMore) tooltip += `\n... (+${history.total - recent.length})`;
 
-                return `<span class="ypp-watched-count" title="${escapeHTML(tooltip)}"> [${SVG_ICONS.check} ${t('watchedCount', { count: history.total }, 'Watched ' + history.total + ' times')}]</span>`;
-            })()}
-                    </div>
-                    <div class="ypp-timestamp ${timestampClass}">${timestampText}</div>
+            viewsChildren.push(createElement('span', {
+                className: 'ypp-watched-count',
+                html: ` [${SVG_ICONS.check} ${t('watchedCount', { count: history.total }, 'Watched ' + history.total + ' times')}]`,
+                atribute: { title: tooltip }
+            }));
+        }
+        infoChildren.push(createElement('div', { className: 'ypp-views', children: viewsChildren }));
 
-                    ${progressHtml}
-                </div>
+        infoChildren.push(createElement('div', { className: `ypp-timestamp ${timestampClass}`, html: timestampText }));
 
-                <div class="ypp-containerButtonsTime">
-                    ${!isLiveEntry ? `
-                        <button class="ypp-btn ypp-btn-circle ${hasFixedTime ? 'ypp-btn-info' : 'ypp-btn-outline-info'} ypp-shadow-md" data-action="force-time" title="${hasFixedTime ? t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(info.forceResumeTime)) }) : t('setStartTime')}">
-                            ${hasFixedTime ? SVG_ICONS.pin : SVG_ICONS.stopWatch}
-                        </button>
-                    ` : ''}
+        if (!isCompleted) {
+            if (isLiveEntry) {
+                infoChildren.push(createElement('div', {
+                    className: 'ypp-progressInfo',
+                    html: `${SVG_ICONS.live} ${t('live')}`
+                }));
+            } else if (percent !== null) {
+                infoChildren.push(createElement('div', {
+                    className: 'ypp-progressInfo',
+                    html: `${iconPercent} ${percent} ${t('percentWatched')} (${formatTime(normalizeSeconds(remaining))} ${t('remaining')})`,
+                    styles: { color: getProgressColorForText(percent) }
+                }));
+            }
+        }
 
-                    ${lastViewedPlaylistId ? `
-                        <button class="ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md" data-action="unlink-playlist" title="${t('removeFromPlaylist')}">
-                            ${SVG_ICONS.playlistRemove}
-                        </button>
-                    ` : ''}
+        fragment.appendChild(createElement('div', { className: 'ypp-infoDiv', children: infoChildren }));
 
-                    <button class="ypp-btn ypp-btn-circle ${isProtected ? 'ypp-btn-success' : 'ypp-btn-outline-success'} ypp-shadow-md" data-action="toggle-protection" title="${isProtected ? t('unprotect') : t('protect')}">
-                        ${isProtected ? SVG_ICONS.shieldYesFill : SVG_ICONS.shieldOff}
-                    </button>
+        const buttonsChildren = [];
+        if (!isLiveEntry) {
+            buttonsChildren.push(createElement('button', {
+                className: `ypp-btn ypp-btn-circle ${hasFixedTime ? 'ypp-btn-info' : 'ypp-btn-outline-info'} ypp-shadow-md`,
+                html: hasFixedTime ? SVG_ICONS.pin : SVG_ICONS.stopWatch,
+                atribute: { 'data-action': 'force-time', title: hasFixedTime ? t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(info.forceResumeTime)) }) : t('setStartTime') }
+            }));
+        }
 
-                    <button class="ypp-btn ypp-btn-circle ypp-btn-outline-danger ypp-shadow-md" data-action="delete-entry" title="${t('deleteEntry')}" data-title="${title}">
-                        ${SVG_ICONS.trash}
-                    </button>
-                </div>
-            </div>
-        `;
+        if (lastViewedPlaylistId) {
+            buttonsChildren.push(createElement('button', {
+                className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md',
+                html: SVG_ICONS.playlistRemove,
+                atribute: { 'data-action': 'unlink-playlist', title: t('removeFromPlaylist') }
+            }));
+        }
 
-        const wrapper = document.createElement('div');
-        setInnerHTML(wrapper, html.trim());
-        const el = wrapper.firstElementChild;
+        buttonsChildren.push(createElement('button', {
+            className: `ypp-btn ypp-btn-circle ${isProtected ? 'ypp-btn-success' : 'ypp-btn-outline-success'} ypp-shadow-md`,
+            html: isProtected ? SVG_ICONS.shieldYesFill : SVG_ICONS.shieldOff,
+            atribute: { 'data-action': 'toggle-protection', title: isProtected ? t('unprotect') : t('protect') }
+        }));
 
-        // Cargar asíncronamente la imagen y actualizar
-        const imgEl = el.querySelector('img');
-        const skeletonEl = el.querySelector('.ypp-skeleton-thumb');
+        buttonsChildren.push(createElement('button', {
+            className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md',
+            id: 'ypp-btn-open-in-freetube',
+            html: SVG_ICONS.freetubeIconFill,
+            atribute: { title: t('openInFreeTube') },
+            onClickEvent: (event) => {
+                event.preventDefault();
+                window.location.assign(`freetube://${videoUrl}`);
+            }
+        }));
+
+        buttonsChildren.push(createElement('button', {
+            className: 'ypp-btn ypp-btn-circle ypp-btn-outline-danger ypp-shadow-md',
+            html: SVG_ICONS.trash,
+            atribute: { 'data-action': 'delete-entry', title: t('deleteEntry'), 'data-title': title }
+        }));
+
+        fragment.appendChild(createElement('div', { className: 'ypp-containerButtonsTime', children: buttonsChildren }));
+
+        const el = createElement('div', {
+            className: `ypp-videoWrapper ${itemClass} ${isProtected ? 'ypp-protected-item' : ''} ${selectionClass} ypp-video-item`,
+            atribute: {
+                /* 'data-video-id': videoId,
+                'data-video-type': type,
+                'data-video-status': isCompleted ? 'completed' : (isLiveEntry ? 'live' : 'watching'),
+                'data-video-duration': lengthSeconds,
+                'data-video-progress': watchProgress,
+                'data-video-percent': percent,
+                'data-video-remaining': remaining,
+                'data-video-author': author,
+                'data-video-author-id': authorId,
+                'data-video-channel': channel,
+                'data-video-channel-id': channelId,
+                'data-video-views': views,
+                'data-video-timestamp': timestamp,
+                'data-video-has-fixed-time': hasFixedTime,
+                'data-video-force-resume-time': hasFixedTime ? forceResumeTime : null,
+                'data-video-last-viewed-playlist-id': lastViewedPlaylistId, */
+                ...(playlistKey ? { 'data-playlist-key': playlistKey } : {})
+            },
+            children: [fragment]
+        });
+        if (wrapperStyle) el.style.cssText = wrapperStyle;
 
         getValidatedThumbnail(videoId).then(url => {
             if (!imgEl) return;

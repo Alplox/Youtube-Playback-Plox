@@ -42,6 +42,7 @@
 
 ## Changed
 
+- **Text Colors**: Changed text colors to be less bright and more eye-friendly on dark background. https://github.com/Alplox/Youtube-Playback-Plox/discussions/29?sort=new#discussioncomment-16719359
 - **VirtualScroller Performance Optimization**: Replaced `debounce` with `requestAnimationFrame` for scroll event handling, maintaining DOM state synchronization without accumulating intermediate events. This prevents complete UI rendering lockups ("white voids") during continuous scrolling, ensuring the virtual list updates fluidly.
 - **AdDetector Subsystem Overhaul**: Re-architected entire Ad Detection module to drastically reduce layout thrashing on the main thread:
   - **Memory Cleanup**: Pruned massive dead-code arrays from `AdSelectors` to save load-time and memory parsing overhead.
@@ -56,6 +57,7 @@
 
 ## Added
 
+- **FreeTube Quick Access** - Added support for opening saved videos directly to FreeTube.
 - **resumeCompletedFromStart**: Added a new setting: "Resume completed videos from the start". When enabled, videos that were previously completed will no longer resume at the final timestamp. Instead, they will start from 00:00. This prevents the player from seeking to the end on load, which would immediately trigger autoplay to the next video, and gives users a chance to watch the video again without it being skipped.
 - **AGENTS.md** - Documentation for LLM's Agents that help maintain and improve the script.
     - **Gotchas.md** - Documentation about the particular issues and gotchas when maintaining and improving the script.

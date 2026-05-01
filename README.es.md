@@ -1,144 +1,157 @@
-[README in English](README.md)
+[README on English](README.md)
 
-# 🔴 YouTube Playback Plox
+<div align="center">
+  <div>
+    <img src="https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/android-chrome-512x512.png" alt="YouTube Playback Plox Logo" width="110px" height="110px" style="border-radius: 20px;">
+  </div>
 
-Guarda y retoma automáticamente el progreso de videos en YouTube sin necesidad de iniciar sesión.
+  <h1 style="margin-top: 10px;">YouTube Playback Plox</h1>
 
-## Descripción
+  <h2>Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.</h2>
 
-**YouTube Playback Plox** es un userscript que recuerda automáticamente el punto exacto donde dejaste un video en YouTube, para que puedas retomarlo después sin necesidad de tener una cuenta o iniciar sesión.
+  <div style="display:flex; justify-content: center; align-items: center; gap: 10px">
+    <a href="https://greasyfork.org/es/scripts/553387-youtube-playback-plox"><img alt="GreasyFork Version" src="https://img.shields.io/badge/dynamic/regex?url=https%3A%2F%2Fraw.githubusercontent.com%2FAlplox%2FYoutube-Playback-Plox%2Frefs%2Fheads%2Fmain%2Fyoutube-playback-plox.meta.js&search=%40version%5Cs%2B(%5B%5E%5Cs%5D%2B)&label=GreasyFork"/></a>
+    <a href="https://github.com/Alplox/Youtube-Playback-Plox/blob/main/LICENSE"><img alt="License" src="https://img.shields.io/badge/LICENSE-MIT-green"/></a>
+  </div>
 
-Ideal para quienes:
+  <br>
 
-- No quieren depender del historial de YouTube.
-- Usan navegadores con bloqueadores o sin cookies persistentes.
-- Quieren una experiencia más privada.
-- No poseen cuenta de Google.
+  <p>
+    <a href="#why-youtube-playback-plox">¿Por qué YPP?</a>
+    ◆ <a href="#quick-start">Inicio Rápido</a>
+    ◆ <a href="#features">Características</a>
+    ◆ <a href="#screenshots">Capturas de Pantalla</a>
+    ◆ <a href="#translations">Traducciones</a>
+    ◆ <a href="#license">Licencia</a>
+  </p>
+</div>
 
-## ✨ Características
+<div id="why-youtube-playback-plox"></div>
 
-- 🔐 **100% Privado y Local:** Funciona sin cuenta de Google; todo se guarda utilizando `IndexedDB` en tu navegador.
-- 🕒 **Guardado automático e inteligente:** Guarda el tiempo y reanuda automáticamente el progreso al volver gracias a detectores aislados por contexto. Desactívalos individualmente desde las opciones:
-    - `Videos Regulares`
-    - `Miniplayer` 
+## ¿Por qué YouTube Playback Plox?
+
+**YouTube Playback Plox** es un userscript que recuerda automáticamente el punto exacto donde dejaste un video en YouTube, para que puedas retomarlo más tarde sin necesidad de una cuenta o iniciar sesión.
+
+- **Privacidad Absoluta** - Para quienes no quieren depender del historial de YouTube. No se requiere cuenta de Google.
+- **Memoria Persistente** - Para quienes usen navegadores con bloqueadores o sin historial persistente.
+    - ⚠️ **Advertencia:** Borrar "Cookies y datos del sitio" en tu navegador eliminará permanentemente todo el progreso de los videos guardados localmente. ¡Siempre exporta tus datos primero cuando uses esta opción!
+- **Capacidades de Sincronización en la Nube** - Sincronización entre dispositivos a través de GitHub usando Repositorios Privados o Gists Secretos.
+
+---
+
+<div id="quick-start"></div>
+
+## Inicio Rápido
+
+> **Requisitos**: Necesitas una extensión de gestor de scripts instalada en tu navegador.
+
+1- **Instalar un Gestor de Scripts**
+
+   - [Violentmonkey](https://violentmonkey.github.io/) - [GitHub](https://github.com/violentmonkey/violentmonkey)
+   - [ScriptCat](https://scriptcat.org/en) - [GitHub](https://github.com/scriptscat/scriptcat)
+   - [Firemonkey](https://addons.mozilla.org/en-US/firefox/addon/firemonkey/) - [GitHub](https://github.com/erosman/firemonkey).
+
+2- **Instalar el Script**
+
+   📥 **[Haz clic aquí para instalar](https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js)** o descárgalo directamente desde [GreasyFork](https://greasyfork.org/es/scripts/553387-youtube-playback-plox).
+
+Luego de la instalación, tus videos comenzarán a rastrearse correctamente. Accede al modal de videos guardados directamente dentro de la barra de progreso de YouTube.
+
+---
+
+<div id="features"></div>
+
+## Características
+
+- 🔐 **100% Privado y Local:** Funciona sin cuenta de Google; todo se almacena localmente usando `IndexedDB` en tu navegador.
+- 🕒 **Auto-Guardado Inteligente:** Guarda el tiempo y reanuda automáticamente desde ese punto cuando regresas, gracias a detectores aislados por contexto. Activa el seguimiento individualmente en la configuración para:
+    - `Regular Videos`
+    - `Miniplayer`
     - `Shorts` (desactivado por defecto)
-    - `Directos` (desactivado por defecto)
-    - `Previsualizaciones en inicio` (desactivado por defecto)
-- 🔖 **Opción de guardado manual** Guarda el tiempo actual del video con solo presionar un botón en el momento que desees. (Se puede activar desde las opciones, por defecto está desactivado)
-- 🛑 **Anti-Ads:** Evita guardar falsos tiempos e identificadores durante los anuncios. (el script no bloquea anuncios)
-- ⚡ **Rápido Rendimiento:** Modal de videos guardados reforzado con "Virtual Scrolling" para manejar listas de miles de vídeos al instante y sin consumir memoria extra.
-- 🔔 **Notificaciones UI:** Mensajes nativos en la barra del reproductor informando su restauración y guardado sin estorbar tu visión. (Se puede desactivar desde las opciones, por defecto están activadas)
-- 🟢 **Botón flotante:** Acceso rápido a la configuración. (Se puede desactivar desde las opciones, por defecto está desactivado)
-- 🗂 **Gestor de Videos Avanzado:** Modal completo con lista de reproducciones, miniaturas pre-cargadas, autores, porcentajes vistos y tiempo restante.
-    - ⏱ Fija un "tiempo de inicio" por cada video para comenzar siempre desde un punto predecible (ideal para saltar intros).
-    - 🔗 Desvincula videos de listas de reproducción arbitrarias en solo 1 click.
-    - 📦 Importa/Exporta tu copia de seguridad a JSON o Bases de Datos SQLite (100% Compatible con FreeTube).
-    - 📊 Observa cuanta cuota de almacenamiento disponible queda en tu navegador.
+    - `Live streams` (desactivado por defecto)
+    - `Previews on home` (desactivado por defecto)
+- 🔖 **Opción de Guardado Manual:** Guardar el tiempo de reproducción actual presionando un botón cuando quieras.
+- 🛑 **Anti-Ads:** Previene el guardado de tiempos y reproducciones falsas durante los anuncios. (El script no bloquea anuncios. Usa [uBlock Origin](https://github.com/gorhill/uBlock) para bloquear anuncios).
+- ⚡ **Rendimiento Rápido:** Emplea "Virtual Scrolling" en el modal de videos guardados para manejar instantáneamente listas de miles de videos sin consumir memoria adicional.
+- 🔔 **Notificaciones UI:** Mensajes nativos y discretos en la barra del reproductor que muestran cuándo se está reanudando o guardando un video.
+- **Gestor de Videos Avanzado:** Modal completo con playlists, miniaturas precargadas, autores, porcentajes vistos y tiempo restante.
+    - ⏱ Establece un "tiempo de inicio fijo" por video para comenzar siempre desde un punto predecible (ideal para saltar intros).
+    - 📦 Exporta/Importa tu respaldo a bases de datos JSON o SQLite (100% compatible con FreeTube).
     - 🔍 **Filtros Avanzados:** Filtra videos por: `título`, `autor`, `tipo`, `duración`, `fecha`, `porcentaje visto`, `tiempo restante`, y más.
-    - 🔀 Crea `playlists` de YouTube públicas sobre la marcha con tus videos guardados.
-    - 🛡 Establece un estado de "protección" para evitar que los videos sean borrados accidentalmente en la lista.
-- 🌍 **Soporte Global:** Opciones e interfaz completamente traducidas a más de 50 idiomas nativos.
-- ☁️ **Opción de sincronización en la nube:** Sincroniza tus videos guardados con tu cuenta de GitHub, ya sea mediante Gist (Secreto) o Repositorio (Privado). (Se puede activar desde las opciones, por defecto está desactivado)
+    - 🔀 Crea `playlists` públicas de YouTube sobre la marcha a partir de tus videos vistos.
+    - 🔗 Desvincula videos de listas de reproducción arbitrarias en solo 1 click.
+    - 🛡 Establece un estado de "protegido" para evitar que los videos se eliminen accidentalmente.
+- ☁️ **Opción de Sincronización en la Nube:** Sincroniza tus videos guardados con tu cuenta de GitHub, ya sea a través de Gist (Secreto) o Repositorio (Privado). (Se puede habilitar en la configuración, deshabilitado por defecto)
 
-## 🛠️ Requisitos
+---
 
-Necesitas un gestor de scripts de usuario como:
+<div id="screenshots"></div>
 
-- [Violentmonkey](https://violentmonkey.github.io/) - [GitHub](https://github.com/violentmonkey/violentmonkey)
-- [ScriptCat](https://scriptcat.org/en) - [GitHub](https://github.com/scriptscat/scriptcat)
-- [Firemonkey](https://addons.mozilla.org/en-US/firefox/addon/firemonkey/) - [GitHub](https://github.com/erosman/firemonkey)
+## Capturas de Pantalla
 
-## 📦 Instalación
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-alerta-guardado-automatico.png" alt="Ejemplo de alerta de tiempo guardado" width="750">
+</div>
+<br>
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-modal-videos.png" alt="Ejemplo de modal para ver videos guardados" width="750">
+</div>
+<br>
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-modal-configuraciones.png" alt="Ejemplo de modal de configuración" width="750">
+</div>
+<br>
+<div align="center">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-crear-playlist.png" alt="Ejemplo de creación de playlist" width="750">
+</div>
 
-1. Instala un gestor de userscripts (ver arriba)
-2. 📥 [Haz clic aquí para instalar el script](https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js) o [Ir a Greasyfork](https://greasyfork.org/es/scripts/553387-youtube-playback-plox)
+---
 
-## ¿Cómo funciona?
+<div id="translations"></div>
 
-Este script escucha los eventos del reproductor de YouTube para guardar el tiempo de reproducción cada cierto intervalo o al salir de la página. Cuando visitas nuevamente el mismo video, detecta el ID y busca el último progreso guardado para hacer que el video se reanude automáticamente desde ese punto.
+## Traducciones Globales
 
-## Privacidad
-
-Toda la información se almacena por defecto localmente en tu navegador. **No se envía ningún dato a servidores externos.**
-
-Esta regla no se aplica a la función de sincronización en la nube.
-
-## 📸 Capturas de pantalla
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-alerta-guardado-automatico.png" alt="Ejemplo de alerta de tiempo guardado">
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-modal-videos.png" alt="Ejemplo de modal para ver videos guardados">
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-modal-configuraciones.png" alt="Ejemplo de modal de configuraciones">
-
-<img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/imagenes/v0.0.9-9_ejemplo-crear-playlist.png" alt="Ejemplo de creación de playlist">
-
-## 🌐 Lenguajes Disponibles
+La configuración y la interfaz de usuario están completamente traducidas a más de 50 idiomas nativos. 
 
 ¿Quieres ayudar, colaborar o corregir la traducción del script? Puedes hacerlo desde [aquí](https://github.com/Alplox/Youtube-Playback-Plox/blob/main/translations.json).
 
-| Bandera | Código | Lenguaje |
-|:----:|:-----|:----------|
-| 🇬🇧 | `en-GB` | English (UK) |
-| 🇺🇸 | `en-US` | English (US) |
-| 🇪🇸 | `es-ES` | Español |
-| 🇪🇸 | `es-419` | Español (Latinoamérica) |
-| 🇪🇸 | `ca` | Català |
-| 🇫🇷 | `fr` | Français |
-| 🇩🇪 | `de` | Deutsch |
-| 🇮🇹 | `it` | Italiano |
-| 🇵🇹 | `pt` | Português |
-| 🇳🇱 | `nl` | Nederlands |
-| 🇵🇱 | `pl` | Polski |
-| 🇸🇪 | `sv` | Svenska |
-| 🇩🇰 | `da` | Dansk |
-| 🇳🇴 | `no` | Norsk |
-| 🇫🇮 | `fi` | Suomi |
-| 🇨🇿 | `cs` | Čeština |
-| 🇸🇰 | `sk` | Slovenčina |
-| 🇭🇺 | `hu` | Magyar |
-| 🇷🇴 | `ro` | Română |
-| 🇧🇬 | `bg` | Български |
-| 🇬🇷 | `el` | Ελληνικά |
-| 🇷🇸 | `sr` | Српски |
-| 🇭🇷 | `hr` | Hrvatski |
-| 🇸🇮 | `sl` | Slovenščina |
-| 🇱🇹 | `lt` | Lietuvių |
-| 🇱🇻 | `lv` | Latviešu |
-| 🇺🇦 | `uk` | Українська |
-| 🇷🇺 | `ru` | Русский |
-| 🇹🇷 | `tr` | Türkçe |
-| 🇸🇦 | `ar` | العربية |
-| 🇮🇷 | `fa` | فارسی |
-| 🇮🇱 | `he` | עברית |
-| 🇮🇳 | `hi` | हिन्दी |
-| 🇧🇩 | `bn` | বাংলা |
-| 🇮🇳 | `te` | తెలుగు |
-| 🇱🇰 | `ta` | தமிழ் |
-| 🇮🇳 | `mr` | मराठी |
-| 🇨🇳 | `zh` | 简体中文 |
-| 🇹🇼 | `zh-TW` | 繁體中文 |
-| 🇭🇰 | `yue` | 粵語 (Cantonese) |
-| 🇭🇰 | `zh-HK` | 繁體中文 (香港) |
-| 🇯🇵 | `ja` | 日本語 |
-| 🇰🇷 | `ko` | 한국어 |
-| 🇹🇭 | `th` | ไทย |
-| 🇻🇳 | `vi` | Tiếng Việt |
-| 🇮🇩 | `id` | Bahasa Indonesia |
-| 🇲🇾 | `ms` | Bahasa Melayu |
-| 🇵🇭 | `tl` | Filipino |
-| 🇲🇲 | `my` | မြန်မာ |
-| 🇰🇪 | `sw` | Kiswahili |
-| 🇪🇹 | `am` | አማርኛ |
-| 🇳🇬 | `ha` | Hausa |
-| 🇵🇰 | `ur` | اردو |
-| 🇿🇦 | `zu` | isiZulu |
+| Language | Code | | Language | Code |
+|:----------|:-----|---|:----------|:-----|
+| 🇬🇧 English (UK) | `en-GB` | | 🇺🇸 English (US) | `en-US` |
+| 🇪🇸 Español | `es-ES` | | 🇪🇸 Español (Latam) | `es-419` |
+| 🇪🇸 Català | `ca` | | 🇫🇷 Français | `fr` |
+| 🇩🇪 Deutsch | `de` | | 🇮🇹 Italiano | `it` |
+| 🇵🇹 Português | `pt` | | 🇳🇱 Nederlands | `nl` |
+| 🇵🇱 Polski | `pl` | | 🇸🇪 Svenska | `sv` |
+| 🇩🇰 Dansk | `da` | | 🇳🇴 Norsk | `no` |
+| 🇫🇮 Suomi | `fi` | | 🇨🇿 Čeština | `cs` |
+| 🇸🇰 Slovenčina | `sk` | | 🇭🇺 Magyar | `hu` |
+| 🇷🇴 Română | `ro` | | 🇧🇬 Български| `bg` |
+| 🇬🇷 Ελληνικά | `el` | | 🇷🇸 Српски| `sr` |
+| 🇭🇷 Hrvatski | `hr` | | 🇸🇮 Slovenščina | `sl` |
+| 🇱🇹 Lietuvių | `lt` | | 🇱🇻 Latviešu | `lv` |
+| 🇺🇦 Українська | `uk` | | 🇷🇺 Русский | `ru` |
+| 🇹🇷 Türkçe | `tr` | | 🇸🇦 العربية | `ar` |
+| 🇮🇷 فارسی | `fa` | | 🇮🇱 עברית | `he` |
+| 🇮🇳 हिन्दी | `hi` | | 🇧🇩 বাংলা | `bn` |
+| 🇮🇳 తెలుగు | `te` | | 🇱🇰 தமிழ் | `ta` |
+| 🇮🇳 मराठी | `mr` | | 🇨🇳 简体中文 | `zh` |
+| 🇹🇼 繁體中文 | `zh-TW` | | 🇭🇰 粵語 | `yue` |
+| 🇭🇰 繁體中文 (HK) | `zh-HK` | | 🇯🇵 日本語 | `ja` |
+| 🇰🇷 한국어 | `ko` | | 🇹🇭 ไทย | `th` |
+| 🇻🇳 Tiếng Việt | `vi` | | 🇮🇩 Indonesia | `id` |
+| 🇲🇾 Melayu | `ms` | | 🇵🇭 Filipino | `tl` |
+| 🇲🇲 မြန်မာ | `my` | | 🇰🇪 Kiswahili | `sw` |
 
-## 📄 Licencia
+---
 
-Este proyecto está bajo la licencia MIT. Consulta el archivo [LICENSE](./LICENSE) para más detalles.
+<div id="license"></div>
 
-## Agradecimientos
+## Licencia
+
+Este proyecto está licenciado bajo la **Licencia MIT** - ver el archivo [LICENSE](./LICENSE) para más detalles.
+
+## Reconocimientos
 
 - [YouTube Helper API](https://greasyfork.org/es/scripts/549881-youtube-helper-api) - [MIT](https://spdx.org/licenses/MIT.html)
 - [flagpedia.net](https://flagpedia.net) - [CC0 License](https://creativecommons.org/publicdomain/zero/1.0/)
@@ -156,11 +169,10 @@ Este proyecto está bajo la licencia MIT. Consulta el archivo [LICENSE](./LICENS
 - [SVG Icons (285913/freetube)](https://svgicons.com/icon/285913/freetube) - [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - [Iconify (svg-spinners/blocks-wave)](https://icon-sets.iconify.design/svg-spinners/blocks-wave/) - [MIT](https://spdx.org/licenses/MIT.html)
 
-## Nota
+> **Notice**: Este proyecto no está afiliado con Google o YouTube.
 
-Este proyecto no está afiliado con Google o YouTube.
-
-## Traducciones README
-
-- [English](README.md)
-- [Spanish](README.es.md)
+<div align="center">
+  <p>
+    <strong>Hecho con ❤️ por Alplox</strong><br>
+  </p>
+</div>

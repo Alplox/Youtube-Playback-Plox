@@ -8406,10 +8406,6 @@ regular-item.ypp-fill-none {
             }
         }
 
-
-
-
-
         // Actualizar cache antes de retornar
         if (id) {
             playerVideoIdCache.set(player, { id, timestamp: now });
@@ -8451,8 +8447,18 @@ regular-item.ypp-fill-none {
 
             if (subtype) return subtype;
 
-            if (path.startsWith('/@') || path.startsWith('/channel') || path.startsWith('/c/')) {
+            if (path.startsWith('/@')) {
                 return 'channel';
+            }
+
+            if (path.startsWith('/channel/')) {
+                const channelId = path.split('/')[2];
+                return CHANNEL_SPECIAL[channelId] || 'channel';
+            }
+
+            if (path.startsWith('/c/')) {
+                const customName = path.split('/')[2];
+                return CHANNEL_SPECIAL[customName] || 'channel';
             }
 
             return 'browse';
@@ -8510,7 +8516,15 @@ regular-item.ypp-fill-none {
             case 64: // @
                 return 'channel';
             case 99: // c
-                if (path.startsWith('/channel') || path.startsWith('/c/')) return 'channel';
+                if (path.startsWith('/channel/')) {
+                    const channelId = path.split('/')[2];
+                    return CHANNEL_SPECIAL[channelId] || 'channel';
+                }
+
+                if (path.startsWith('/c/')) {
+                    const customName = path.split('/')[2];
+                    return CHANNEL_SPECIAL[customName] || 'channel';
+                }
                 break;
             case 117: // u
                 if (path.startsWith('/user')) return 'channel';
@@ -8520,6 +8534,12 @@ regular-item.ypp-fill-none {
                     const id = path.slice(1);
                     return CHANNEL_SPECIAL[id] || 'channel';
                 }
+                break;
+            case 114: // r
+                if (path === '/reporthistory') {
+                    return 'reporthistory';
+                }
+                break;
         }
 
         // Detección de videos en vivo o enlaces con "/live"
@@ -8542,16 +8562,22 @@ regular-item.ypp-fill-none {
         // Retornar caché si la URL no cambió
         if (path === _lastPath && _cachedPageType !== null) return _cachedPageType;
 
-        // intentar desde page-manager (más fiable)
+        // 1. Detección rápida por URL para tipos inequívocos y evitar DOM stale en SPA
+        const definitiveUrlType = detectFromURL(path);
+        if (definitiveUrlType === 'watch' || definitiveUrlType === 'shorts' || definitiveUrlType === 'home') {
+            return cachePageType(path, definitiveUrlType);
+        }
+
+        // 2. Intentar desde page-manager (más fiable iterando en otros casos)
         const managerType = getTypeFromPageManager(path);
         if (managerType) return cachePageType(path, managerType);
 
-        // intentar desde datos internos de ytd-app
+        // 3. Intentar desde datos internos de ytd-app
         const appType = getTypeFromYtApp();
         if (appType) return cachePageType(path, appType);
 
-        // fallback: detección por URL
-        return cachePageType(path, detectFromURL(path));
+        // 4. Fallback final completo por URL
+        return cachePageType(path, definitiveUrlType);
     }
 
     // ------------------------------------------
@@ -10273,7 +10299,7 @@ regular-item.ypp-fill-none {
             </label>
             <label class="ypp-label">
                 <input type="checkbox" name="showHistoryButton" ${settings.showHistoryButton !== false ? 'checked' : ''}>
-                <span>${SVG_ICONS.clockRotateLeft} ${t('showHistoryButton')}</span>
+                <span>${t('showHistoryButton')} ${SVG_ICONS.clockRotateLeft}</span>
             </label>
             <label class="ypp-label">
                 <input type="checkbox" name="enableProgressBarGradient" ${settings.enableProgressBarGradient ? 'checked' : ''}>
@@ -12859,7 +12885,14 @@ regular-item.ypp-fill-none {
         if (!startResult.accepted) return;
         const sessionRef = startResult.session;
         logInfo('process', `🚀 Iniciando sesión de seguimiento para [${type}] - ${videoId}`);
+
+        // Limpiamos efímeros del DOM para que no se filtren a videos subsiguientes si YT reusa el tag <video>
+        // Esto es especialmente útil en Shorts donde el DOM se reutiliza agresivamente.
         videoEl.dataset.sessionStartTime = Date.now().toString();
+        videoEl.dataset.lastSavedTime = '-1';
+        videoEl.dataset.lastResumedTime = '0';
+        delete videoEl.dataset.lastSavedTime; // Más seguro
+        delete videoEl.dataset.lastResumedTime;
 
         // 1. Intentar reanudar lo más pronto posible (Fast-Path)
         // No bloqueamos el inicio de la reanudación esperando el waterfall completo de metadatos.
@@ -12879,7 +12912,8 @@ regular-item.ypp-fill-none {
             lengthSeconds: player?.getDuration?.() || videoEl.duration || 0
         };
 
-        getSavedVideoData(videoId, fastPlaylistId).then(savedData => {
+        sessionRef.isResumePending = true;
+        getSavedVideoData(videoId, fastPlaylistId).then(async savedData => {
             // Verificar que la sesión no haya sido finalizada durante la lectura asíncrona de storage
             if (savedData && activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized) {
                 syncManualSaveUI(videoId, true, !!savedData.forceResumeTime);
@@ -12893,22 +12927,25 @@ regular-item.ypp-fill-none {
                 if (sessionRef.isPlayerSettingsChange) {
                     logLog('process', `⏭️ Resume omitido: cambio de configuraciones detectado`);
                     sessionRef.isPlayerSettingsChange = false;
+                    sessionRef.isResumePending = false;
                     return;
                 }
 
                 if (savedData.watchProgress > 1 || savedData.forceResumeTime > 0 || savedData.isCompleted) {
                     if (shouldSkipResumeForActivePlayback(videoEl, type, videoId, savedData)) {
                         logLog('process', `⏭️ Resume omitido: reproducción ya sincronizada`);
+                        sessionRef.isResumePending = false;
                         return;
                     }
                     recentResumeAttempts.set(videoEl, { videoId, ts: Date.now() });
                     // PlaybackController.resume maneja internamente la espera a que el video esté listo (isReady)
                     // Pasamos la sesión para permitir que el resume se aborte si la sesión cambia o finaliza.
-                    PlaybackController.resume(player, videoId, videoEl, savedData, type, sessionRef);
+                    await PlaybackController.resume(player, videoId, videoEl, savedData, type, sessionRef);
                 }
             } else if (!savedData) {
                 syncManualSaveUI(videoId, false);
             }
+            sessionRef.isResumePending = false;
         });
 
         // 2. Obtener metadatos base completos (Waterfall asíncrono pesado)
@@ -12959,6 +12996,11 @@ regular-item.ypp-fill-none {
                 if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized) {
                     clearInterval(intervalId);
                     logLog('process', `🧹 Zombie interval eliminado [${type}] - ${videoId}`);
+                    return;
+                }
+
+                if (sessionRef.isResumePending) {
+                    // Evitar guardar 0s (falso progreso) mientras el resume original aún está en bucle de espera
                     return;
                 }
 
@@ -13077,6 +13119,8 @@ regular-item.ypp-fill-none {
                 if (videoEl.paused) return;
 
                 try {
+                    if (session.isResumePending) return;
+
                     const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session.videoInfo);
                     if (result?.videoInfo) {
                         session.videoInfo = result.videoInfo;
@@ -13421,13 +13465,12 @@ regular-item.ypp-fill-none {
             const isReady = () => {
                 const dur = getExpectedDuration();
 
-                // Para livestreams o casos especiales donde la duración es 0/infinita,
-                // consideramos que está listo si el videoEl tiene un readyState suficiente
+                // Asegurar que el elemento de video tenga metadata (evita false positives por chache de sesión)
                 if (type === 'live' || type === 'shorts') {
                     return dur > 0 || videoEl.readyState >= 1;
                 }
 
-                return isFinite(dur) && dur > 0;
+                return isFinite(dur) && dur > 0 && videoEl.readyState >= 1;
             };
 
             if (!isReady()) {
@@ -13489,6 +13532,7 @@ regular-item.ypp-fill-none {
                     videoEl.dataset.lastSavedTime = safeTime.toString();
                     videoEl.dataset.lastResumedTime = safeTime.toString();
                     videoEl.dataset.lastResumeTimestamp = Date.now().toString();
+                    videoEl.dataset.resumeRetries = '0';
 
                     // Notificar al usuario (Toast/PlaybackBar)
                     notifySeekOrProgress(safeTime, 'seek', { videoType: type, isForced: savedData.forceResumeTime > 0, videoEl });
@@ -13547,21 +13591,38 @@ regular-item.ypp-fill-none {
                     return { success: false, reason: 'time_not_changed' };
                 }
 
+                // Protección contra saltos falsos tras carga (resets de YouTube hacia atrás al cargar autoplay)
+                const sessionStartTime = parseInt(videoEl.dataset.sessionStartTime || '0', 10);
+                const lastResumeTimestamp = parseInt(videoEl.dataset.lastResumeTimestamp || '0', 10);
+                const timeSinceRelevantStart = Date.now() - Math.max(sessionStartTime, lastResumeTimestamp);
+
+                if (!options.isManual && diff < -5 && timeSinceRelevantStart < 5000) {
+                    logInfo('saveStatus', `Saltando guardado: Posible reset del player tras carga/resume (diff: ${diff.toFixed(2)}s, age: ${timeSinceRelevantStart}ms)`);
+
+                    // Rebound Seek: Si el player nos lanzó al inicio, intentamos re-aplicar el seek (máximo 3 veces)
+                    let retryCount = parseInt(videoEl.dataset.resumeRetries || '0', 10);
+                    if (retryCount < 3 && videoEl.dataset.lastResumedTime) {
+                        const targetTime = parseFloat(videoEl.dataset.lastResumedTime);
+                        if (!isNaN(targetTime)) {
+                            logLog('saveStatus', `🔄 Re-aplicando seek a ${targetTime}s debido a reset forzado de YouTube... (Intento ${retryCount + 1}/3)`);
+                            try {
+                                if (typeof player?.seekTo === 'function') player.seekTo(targetTime, true);
+                                else videoEl.currentTime = targetTime;
+                                videoEl.dataset.resumeRetries = (retryCount + 1).toString();
+                                // Extender ligeramente la ventana de protección al reintentar
+                                videoEl.dataset.lastResumeTimestamp = Date.now().toString();
+                            } catch (e) { }
+                        }
+                    }
+
+                    return { success: false, reason: 'player_reset_detected' };
+                }
+
                 if (videoEl.paused) {
                     logInfo('saveStatus', `Video ${type} - ${videoId} pausado`)
                     // Si el video está pausado y no fue un seek manual (diff pequeña)
                     if (Math.abs(diff) < CONFIG.minSeekDiff && !options.isManual) {
                         return { success: false, reason: 'paused_no_seek' };
-                    }
-
-                    // Protección contra saltos falsos tras carga
-                    const sessionStartTime = parseInt(videoEl.dataset.sessionStartTime || '0', 10);
-                    const lastResumeTimestamp = parseInt(videoEl.dataset.lastResumeTimestamp || '0', 10);
-                    const timeSinceRelevantStart = Date.now() - Math.max(sessionStartTime, lastResumeTimestamp);
-
-                    if (diff < -5 && timeSinceRelevantStart < 3000) {
-                        logInfo('saveStatus', `Saltando guardado: Posible reset del player tras carga/resume (diff: ${diff.toFixed(2)}s, age: ${timeSinceRelevantStart}ms)`);
-                        return { success: false, reason: 'player_reset_detected' };
                     }
                 }
 
@@ -15334,8 +15395,28 @@ regular-item.ypp-fill-none {
                 scriptStorageUsageCache = null;
                 isCalculatingStorageUsage = true;
 
+                // Animar el ícono
+                const targetToAnimate = recalcBtn.querySelector('svg');
+                let animation = null;
+                if (targetToAnimate) {
+                    targetToAnimate.style.transformOrigin = 'center';
+                    animation = targetToAnimate.animate([
+                        { transform: 'rotate(0deg)' },
+                        { transform: 'rotate(360deg)' }
+                    ], {
+                        duration: 800, // Velocidad de la animación
+                        iterations: Infinity,
+                        easing: 'linear'
+                    });
+                }
+
                 try {
-                    const newUsage = await calculateScriptStorageUsage();
+                    // Esperar ambas promesas para asegurar al menos 500ms de animación visible
+                    const [newUsage] = await Promise.all([
+                        calculateScriptStorageUsage(),
+                        new Promise(resolve => setTimeout(resolve, 500))
+                    ]);
+
                     scriptStorageUsageCache = newUsage;
                     // Actualizar UI sin recalcular (pasar flag para evitar recálculo)
                     const el = DOMHelpers.get('ui:storageUsage', () => document.querySelector('#ypp-storage-usage'), 500);
@@ -15348,6 +15429,9 @@ regular-item.ypp-fill-none {
                     logError('recalculateStorage', 'Error al recalcular almacenamiento:', error);
                 } finally {
                     isCalculatingStorageUsage = false;
+                    if (animation) {
+                        animation.cancel();
+                    }
                 }
             };
         }
@@ -16580,7 +16664,11 @@ regular-item.ypp-fill-none {
                 lastHandledVideoId = currentVideoId;
                 lastHandledPageType = newPageType;
 
-                logInfo('handleNavigation', `🌐 Actualización de estado detectada: ${currentPageType}`);
+                logInfo('handleNavigation',
+                    `🌐 Actualización de estado detectada -
+                    currentPageType: ${currentPageType}
+                    URL Actual: ${window.location.href}
+                    `);
 
                 // Solo preservamos el miniplayer si NO vamos a la página 'watch'
                 const preserveMiniplayer = currentPageType !== 'watch';

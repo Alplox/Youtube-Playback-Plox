@@ -21,7 +21,7 @@
 - **Preview First-Save Fast Path**: Added an immediate preview save attempt (~220ms after session start) instead of waiting for the first periodic tick. This improves short-hover reliability where users leave before the default 1s interval.
 - **Structured Session Telemetry + Fail-Safe Mode**: Added structured telemetry (`decision`, `reason`, `context`, `sessionId`, `transitionToken`) across routing and save decisions. Introduced auto-activated safe mode (`FailSafeManager`) that degrades complex handoffs to simple restart paths under repeated invariant/transition failures.
 - **Responsive Ad Detection**: Added a 250ms `WeakMap` cache to `AdDetector.isNodeWithinAdContainer`, eliminating performance bottlenecks during high-frequency hover events.
-- **Modern Selector Support**: Updated `AdSelectors` to include modern YouTube view-model markers and expanded the `playerAdClasses` to consistently cover all player types (Watch, Shorts, Preview).
+- **Modern Selector Support**: Updated `AdSelectors` to include modern YouTube view-model markers and expanded the `playerAdClasses` to consistently cover all player types (Watch, Shorts, Preview). #37
 - **Critical False Positive Fix in `AdDetector`**: The first check in `isNodeWithinAdContainer` was using `inAnyAdContainers`, which includes `inPlayerAdContainers` selectors (`.ytp-ad-module`, `.video-ads`, `#player-ads`). These are **permanent nodes** that YouTube keeps in the `#movie_player` DOM at all times - even when no ad is playing. This caused any `<video>` element inside the player to always return `true`, blocking legitimate video sessions. Step 1 now only checks `inFeedAdContainers` (elements that are definitively ad-specific). Player-internal detection is handled exclusively in Step 2 via class checks, `adPlacements` API signal, and `findVisibleAdUi`.
 - **Dead Code Removal**: Deleted `hasShortDurationAdUi` and `classifyClickedLink` from `AdDetector` - both had zero call sites in the entire script. Also removed the orphaned `inAnyAdContainers` and `shortDurationAdUi` keys from `AdSelectorText` and the `ytd-in-feed-ad-layout-renderer` entry from `activeAdUi` (a page-level element that can never appear inside a player root).
 - **Session Resume After Ad**: Fixed a bug where sessions terminated by ad detection (mid-interval) would never restart after the ad ended. The session now calls `enqueueVideo` when stopping due to an ad, which registers the video in `activeAdWaiters`. Once the `<video>` element stops reporting as an ad, `activeAdWaiters` automatically triggers a new session. `videoTypeCache` is also cleared to unblock the deduplication guard.
@@ -61,7 +61,7 @@
 
 ## Added
 
-- **FreeTube Quick Access** - Added support for opening saved videos directly to FreeTube.
+- **FreeTube Quick Access** - Added support for opening saved videos directly to FreeTube. #39
 - **resumeCompletedFromStart**: Added a new setting: "Resume completed videos from the start". When enabled, videos that were previously completed will no longer resume at the final timestamp. Instead, they will start from 00:00. This prevents the player from seeking to the end on load, which would immediately trigger autoplay to the next video, and gives users a chance to watch the video again without it being skipped.
 - **AGENTS.md** - Documentation for LLM's Agents that help maintain and improve the script.
     - **Gotchas.md** - Documentation about the particular issues and gotchas when maintaining and improving the script.

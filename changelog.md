@@ -42,6 +42,7 @@
 
 ## Changed
 
+- **URL Video ID Extraction**: Refactored the `extractOrNormalizeVideoId` function to use a more robust method for extracting the video ID from the URL. Renamed to `parseYouTubeResource` to better reflect its purpose.
 - **Text Colors**: Changed text colors to be less bright and more eye-friendly on dark background. https://github.com/Alplox/Youtube-Playback-Plox/discussions/29?sort=new#discussioncomment-16719359
 - **VirtualScroller Performance Optimization**: Replaced `debounce` with `requestAnimationFrame` for scroll event handling, maintaining DOM state synchronization without accumulating intermediate events. This prevents complete UI rendering lockups ("white voids") during continuous scrolling, ensuring the virtual list updates fluidly.
 - **AdDetector Subsystem Overhaul**: Re-architected entire Ad Detection module to drastically reduce layout thrashing on the main thread:

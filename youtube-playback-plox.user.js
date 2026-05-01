@@ -129,7 +129,7 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1804326/YouTube%20Helper%20API.js
+// @require      https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/YT-HELPER-PLOX/YouTube-Helper-API.js
 // ==/UserScript==
 
 // ------------------------------------------
@@ -140,7 +140,7 @@
     'use strict';
 
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    const level = L.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const S = {
         debug: 'color:#6a9955;',
@@ -8399,15 +8399,16 @@ regular-item.ypp-fill-none {
 
         // Fallback a URL
         if (!id) {
-            // para watch confirmar parámetro v=
-            if (currentPageType === 'watch' && location.href.includes('v=')) {
-                const { id: urlId } = extractOrNormalizeVideoId(location.href);
-                id = urlId;
-            } else if (currentPageType === 'shorts') {
-                const { id: urlId } = extractOrNormalizeVideoId(location.href);
-                id = urlId;
+            const videoId = extractYouTubeVideoIdFromUrl(window.location.href);
+            if (videoId) {
+                logLog('getPlayerVideoId', `ID detectado (Fallback): ${videoId}`);
+                id = videoId;
             }
         }
+
+
+
+
 
         // Actualizar cache antes de retornar
         if (id) {
@@ -8433,21 +8434,28 @@ regular-item.ypp-fill-none {
         'UCtFRv9O2AHqOZjjynzrv-xg': 'learning'
     };
 
-    function getTypeFromPageManager() {
+    function getTypeFromPageManager(path) {
         const manager = document.querySelector('ytd-page-manager');
         if (!manager) return null;
 
-        const page = manager.getAttribute('page-subtype') || manager.getAttribute('page-type');
+        const subtype = manager.getAttribute('page-subtype');
+        const type = manager.getAttribute('page-type');
 
-        switch (page) {
-            case 'watch':
-                return 'watch';
-            case 'shorts':
-                return 'shorts';
-            case 'channel':
+        if (subtype === 'watch') return 'watch';
+        if (subtype === 'shorts') return 'shorts';
+
+        if (type === 'search') return 'search';
+
+        // "browse" cubre home, channel, etc.
+        if (type === 'browse') {
+
+            if (subtype) return subtype;
+
+            if (path.startsWith('/@') || path.startsWith('/channel') || path.startsWith('/c/')) {
                 return 'channel';
-            case 'search':
-                return 'search';
+            }
+
+            return 'browse';
         }
 
         return null;
@@ -8458,12 +8466,12 @@ regular-item.ypp-fill-none {
         if (!app) return null;
 
         try {
-            const data = app.data || app.__dataHost?.__data;
+            const data = app.data ?? app.__dataHost?.__data ?? app.__data;
             const page = data?.page;
 
             switch (page) {
                 case 'watch': return 'watch';
-                case 'browse': return 'channel';
+                case 'browse': return 'browse';
                 case 'search': return 'search';
             }
         } catch { }
@@ -8517,7 +8525,7 @@ regular-item.ypp-fill-none {
         // Detección de videos en vivo o enlaces con "/live"
         // Ejemplo: https://www.youtube.com/@NASA/live
         // Para raros casos, ya que Youtube usa "/watch" igual para directos.
-        if (path.includes('/live')) return 'live';
+        if (path.endsWith('/live') || path.includes('/live/')) return 'live';
 
         return 'unknown';
     }
@@ -8535,7 +8543,7 @@ regular-item.ypp-fill-none {
         if (path === _lastPath && _cachedPageType !== null) return _cachedPageType;
 
         // intentar desde page-manager (más fiable)
-        const managerType = getTypeFromPageManager();
+        const managerType = getTypeFromPageManager(path);
         if (managerType) return cachePageType(path, managerType);
 
         // intentar desde datos internos de ytd-app
@@ -8547,104 +8555,270 @@ regular-item.ypp-fill-none {
     }
 
     // ------------------------------------------
-    // MARK: 📺 Extraer o Normalizar Video ID
+    // MARK: 📺 YouTube Resource URL Parser
     // ------------------------------------------
-
     /**
-    * Extrae o normaliza un video ID de YouTube desde URL, embed o ID directo.
-    * Soporta:
-    *  - URLs normales: watch?v=ID
-    *  - Shorts: /shorts/ID
-    *  - Short URLs: youtu.be/ID
-    *  - Embeds: /embed/ID
-    *  - IDs directos
-    * @param {string} input - URL completa o ID de video.
-    * @returns {Object|null} - { type: "video" | "playlist" | "channel" | "live" | "unknown", id: string, list?: string }
-    * @example
-    * extractOrNormalizeVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ") // { type: "video", id: "dQw4w9WgXcQ" }
-    * extractOrNormalizeVideoId("https://www.youtube.com/shorts/dQw4w9WgXcQ") // { type: "shorts", id: "dQw4w9WgXcQ" }
-    * extractOrNormalizeVideoId("https://www.youtube.com/playlist?list=PLdQw4w9WgXcQ") // { type: "playlist", id: "PLdQw4w9WgXcQ" }
-    * extractOrNormalizeVideoId("https://www.youtube.com/channel/UCdQw4w9WgXcQ") // { type: "channel", id: "UCdQw4w9WgXcQ" }
-    * extractOrNormalizeVideoId("https://www.youtube.com/live/dQw4w9WgXcQ") // { type: "live", id: "dQw4w9WgXcQ" }
-    * extractOrNormalizeVideoId("https://www.youtube.com/embed/dQw4w9WgXcQ") // { type: "video", id: "dQw4w9WgXcQ" }
-    * extractOrNormalizeVideoId("dQw4w9WgXcQ") // { type: "video", id: "dQw4w9WgXcQ" }
-    */
-    function extractOrNormalizeVideoId(input) {
+     * Parsea una URL de YouTube o un ID directo y devuelve un recurso normalizado.
+     *
+     * Soporta:
+     * - URLs de video (`watch?v=`, `youtu.be`, `embed`, `shorts`, `live`)
+     * - Playlists (`playlist?list=`)
+     * - Canales (`/channel/`, `/@handle`)
+     * - IDs directos de video
+     *
+     * @param {string} input - URL de YouTube o ID de video.
+     *
+     * @returns {(
+     *   | {
+     *       type: "video" | "shorts" | "live";
+     *       id: string;
+     *       context?: {
+     *         playlistId?: string;
+     *         playlistType?: "playlist" | "mix" | "mix_multi" | "album" | "channel_uploads" | "liked" | "watch_later" | "unknown";
+     *         start?: number | string;
+     *       };
+     *     }
+     *   | {
+     *       type: "playlist";
+     *       id: string;
+     *       context?: {
+     *         playlistType?: "playlist" | "mix" | "mix_multi" | "album" | "channel_uploads" | "liked" | "watch_later" | "unknown";
+     *       };
+     *     }
+     *   | {
+     *       type: "channel";
+     *       id: string;
+     *       isHandle?: boolean;
+     *     }
+     * ) | null}
+     *
+     * @example
+     * parseYouTubeResource("dQw4w9WgXcQ")
+     * // { type: "video", id: "dQw4w9WgXcQ" }
+     *
+     * @example
+     * parseYouTubeResource("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ")
+     * // {
+     * //   type: "video",
+     * //   id: "dQw4w9WgXcQ",
+     * //   context: { playlistId: "RDdQw4w9WgXcQ", playlistType: "mix" }
+     * // }
+     *
+     * @example
+     * parseYouTubeResource("https://www.youtube.com/playlist?list=PLxxx")
+     * // { type: "playlist", id: "PLxxx", context: { playlistType: "playlist" } }
+     *
+     * @example
+     * parseYouTubeResource("https://www.youtube.com/@YouTube")
+     * // { type: "channel", id: "YouTube", isHandle: true }
+     */
+    function parseYouTubeResource(input) {
         if (!input || typeof input !== 'string') return null;
+
         const trimmed = input.trim();
 
-        // Si es solo un ID directo (no URL)
-        if (/^[A-Za-z0-9_-]{6,}$/.test(trimmed)) {
+        const videoIdRegex = /^[A-Za-z0-9_-]{11}$/;
+
+        // --- ID directo ---
+        if (videoIdRegex.test(trimmed)) {
             return { type: "video", id: trimmed };
         }
 
+        let url;
         try {
-            const url = new URL(trimmed);
-
-            // --- LISTAS ---
-            const listParam = url.searchParams.get("list");
-            if (url.pathname.includes("/playlist") && listParam) {
-                return { type: "playlist", id: listParam };
-            }
-
-            // --- VIDEOS ---
-            // watch?v=ID
-            const vParam = url.searchParams.get("v");
-            if (vParam) {
-                const result = { type: "video", id: vParam };
-                if (listParam) result.list = listParam; // video dentro de lista
-                return result;
-            }
-
-            // shorts/ID
-            const shortsMatch = url.pathname.match(/\/shorts\/([A-Za-z0-9_-]{6,})/);
-            if (shortsMatch) return { type: "video", id: shortsMatch[1] };
-
-            // embed/ID
-            const embedMatch = url.pathname.match(/\/embed\/([A-Za-z0-9_-]{6,})/);
-            if (embedMatch) return { type: "video", id: embedMatch[1] };
-
-            // short URL (youtu.be/ID)
-            if (url.hostname.includes("youtu.be")) {
-                const shortId = url.pathname.slice(1);
-                if (/^[A-Za-z0-9_-]{6,}$/.test(shortId)) {
-                    const result = { type: "video", id: shortId };
-                    if (listParam) result.list = listParam;
-                    return result;
-                }
-            }
+            url = new URL(trimmed);
         } catch {
-            // Si no es URL válida, continuar
+            return null;
         }
 
-        // Si todo falla, decidir severidad según contexto de URL
-        try {
-            const url = new URL(trimmed);
-            const host = url.hostname || '';
-            const path = url.pathname || '';
-            const isYouTube = /(^|\.)youtube\.com$/i.test(host) || /youtu\.be$/i.test(host);
-            const isNonVideoPath = (
-                path === '/' ||
-                path.startsWith('/@') ||
-                path.startsWith('/channel/') ||
-                path.startsWith('/user/') ||
-                path.startsWith('/c/') ||
-                path.startsWith('/feed') ||
-                path.startsWith('/results') ||
-                path.startsWith('/account') ||
-                path.startsWith('/playlist') && !url.searchParams.get('list')
-            );
-            if (isYouTube && isNonVideoPath) {
-                logLog('extractOrNormalizeVideoId', 'No es página de video, omitiendo:', input);
-                return null;
+        const host = url.hostname.toLowerCase();
+        const path = url.pathname;
+        const params = url.searchParams;
+
+        const isYouTubeHost =
+            /(^|\.)youtube\.com$/.test(host) ||
+            /(^|\.)youtube-nocookie\.com$/.test(host) ||
+            /^youtu\.be$/.test(host);
+
+        if (!isYouTubeHost) return null;
+
+        const listParam = params.get("list");
+        const vParam = params.get("v");
+
+        // --- helpers ---
+        const buildContext = () => {
+            const ctx = {};
+
+            if (listParam && listParam.length > 5) {
+                ctx.playlistId = listParam;
+                ctx.playlistType = classifyPlaylist(listParam);
             }
-        } catch { }
 
-        // Caso general: advertencia (solo si no es homepage/feed ya manejado)
-        if (trimmed && !trimmed.includes('youtube.com/')) {
-            logWarn('extractOrNormalizeVideoId: no se pudo determinar video_id para', input);
+            const t = params.get("t") || params.get("start");
+            if (t) ctx.start = t;
+
+            return Object.keys(ctx).length ? ctx : undefined;
+        };
+
+        // --- PLAYLIST ---
+        if (path.includes("/playlist") && listParam && listParam.length > 5) {
+            return {
+                type: "playlist",
+                id: listParam,
+                context: {
+                    playlistType: classifyPlaylist(listParam)
+                }
+            };
         }
+
+        // --- VIDEO (watch?v=) ---
+        if (vParam && videoIdRegex.test(vParam)) {
+            logLog("parseYouTubeResource", "watch?v=", vParam);
+            return {
+                type: "video",
+                id: vParam,
+                context: buildContext()
+            };
+        }
+
+        // --- watch/ID ---
+        const watchMatch = path.match(/\/watch\/([A-Za-z0-9_-]{11})/);
+        if (watchMatch) {
+            logLog("parseYouTubeResource", "watch/ID", watchMatch[1]);
+            return {
+                type: "video",
+                id: watchMatch[1],
+                context: buildContext()
+            };
+        }
+
+        // --- shorts ---
+        const shortsMatch = path.match(/\/shorts\/([A-Za-z0-9_-]{11})/);
+        if (shortsMatch) {
+            logLog("parseYouTubeResource", "shorts", shortsMatch[1]);
+            return {
+                type: "shorts",
+                id: shortsMatch[1],
+                context: buildContext()
+            };
+        }
+
+        // --- embed ---
+        const embedMatch = path.match(/\/embed\/([A-Za-z0-9_-]{11})/);
+        if (embedMatch) {
+            logLog("parseYouTubeResource", "embed", embedMatch[1]);
+            return {
+                type: "video",
+                id: embedMatch[1],
+                context: buildContext()
+            };
+        }
+
+        // --- legacy /v/ ---
+        const legacyMatch = path.match(/\/v\/([A-Za-z0-9_-]{11})/);
+        if (legacyMatch) {
+            logLog("parseYouTubeResource", "legacy /v/", legacyMatch[1]);
+            return {
+                type: "video",
+                id: legacyMatch[1],
+                context: buildContext()
+            };
+        }
+
+        // --- live ---
+        const liveMatch = path.match(/\/live\/([A-Za-z0-9_-]{11})/);
+        if (liveMatch) {
+            logLog("parseYouTubeResource", "live", liveMatch[1]);
+            return {
+                type: "live",
+                id: liveMatch[1],
+                context: buildContext()
+            };
+        }
+
+        // --- youtu.be ---
+        if (host === "youtu.be") {
+            const shortId = path.slice(1);
+            if (videoIdRegex.test(shortId)) {
+                logLog("parseYouTubeResource", "youtu.be", shortId);
+                return {
+                    type: "video",
+                    id: shortId,
+                    context: buildContext()
+                };
+            }
+        }
+
+        // --- channel ---
+        const channelMatch = path.match(/\/channel\/([A-Za-z0-9_-]+)/);
+        if (channelMatch) {
+            logLog("parseYouTubeResource", "channel", channelMatch[1]);
+            return { type: "channel", id: channelMatch[1] };
+        }
+
+        // --- handle (@user) ---
+        const handleMatch = path.match(/\/@([A-Za-z0-9._-]+)/);
+        if (handleMatch) {
+            logLog("parseYouTubeResource", "handle", handleMatch[1]);
+            return { type: "channel", id: handleMatch[1], isHandle: true };
+        }
+
         return null;
+    }
+
+    // MARK: 📺 Get YouTube Video ID from URL
+    function extractYouTubeVideoIdFromUrl(url) {
+        const result = parseYouTubeResource(url);
+
+        if (!result) return null;
+
+        if (result.type === "video" || result.type === "shorts" || result.type === "live") {
+            return result.id;
+        }
+
+        return null;
+    }
+
+    // MARK: 📺 Get YouTube Video Context from URL
+    function getYouTubeVideoContextFromUrl(url) {
+        const result = parseYouTubeResource(url);
+
+        if (!result) {
+            return { videoId: null, playlistId: null };
+        }
+
+        return {
+            videoId: (["video", "shorts", "live"].includes(result.type)) ? result.id : null,
+            playlistId: result.context?.playlistId || null,
+            playlistType: result.context?.playlistType || null
+        };
+    }
+
+    // MARK: 📺 Get YouTube Playlist ID from URL
+    function extractYouTubePlaylistIdFromUrl(url) {
+        const result = parseYouTubeResource(url);
+
+        if (!result) return null;
+
+        if (result.type === "playlist") {
+            return result.id;
+        }
+
+        return result.context?.playlistId || null;
+    }
+
+    // MARK: 📺 Get YouTube Playlist URL Type
+    function classifyPlaylist(listId) {
+        if (!listId) return "unknown";
+
+        if (listId.startsWith("RDMM")) return "mix_multi"; // Mix generado desde una playlist o múltiples señales (YouTube Music)
+        if (listId.startsWith("RD")) return "mix"; // Mix basado en un video específico (Radio/autoplay)
+        if (listId.startsWith("OLAK5uy_")) return "album"; // Album
+        if (listId.startsWith("UU")) return "channel_uploads"; // Uploads del canal
+        if (listId.startsWith("LL")) return "liked"; // Liked videos
+        if (listId.startsWith("WL")) return "watch_later"; // Watch later
+
+        return "playlist";
     }
 
 
@@ -8693,8 +8867,7 @@ regular-item.ypp-fill-none {
         }
 
         const requestPromise = (async () => {
-            const url = new URL(location.href);
-            const currentPlaylistId = url.searchParams.get('list');
+            const currentPlaylistId = extractYouTubePlaylistIdFromUrl(window.location.href);
             logLog('getPlaylistName', `currentPlaylistId: ${currentPlaylistId}`);
 
             if (currentPlaylistId === playlistId) {
@@ -12692,7 +12865,7 @@ regular-item.ypp-fill-none {
         // No bloqueamos el inicio de la reanudación esperando el waterfall completo de metadatos.
         // Extraemos un playlistId rápido (URL o API sincrónica) para la consulta inicial.
         const fastPlaylistId = (typeof player?.getPlaylistId === 'function' ? player.getPlaylistId() : null) ||
-            (type === 'watch' ? extractOrNormalizeVideoId(window.location.href).list : null);
+            (type === 'watch' ? extractYouTubePlaylistIdFromUrl(window.location.href) : null);
 
         // Inicializar metadatos básicos inmediatamente en la sesión para que el primer guardado
         // tenga contexto incluso si el waterfall de metadatos pesados aún no termina.
@@ -12935,8 +13108,7 @@ regular-item.ypp-fill-none {
         }
 
         const playerVideoId = player ? getPlayerVideoId(player) : null;
-        const urlData = extractOrNormalizeVideoId(location.href);
-        const urlId = urlData?.id;
+        const urlId = extractYouTubeVideoIdFromUrl(window.location.href);
 
         // Validacion Crítica: Evitar race conditions en navegación SPA.
         // Si el Player reporta un ID diferente al de la URL, es que la API interna aún no se ha actualizado.
@@ -12974,7 +13146,7 @@ regular-item.ypp-fill-none {
         }
 
         const playerVideoId = player ? getPlayerVideoId(player) : null;
-        const urlId = extractOrNormalizeVideoId(location.href)?.id;
+        const urlId = extractYouTubeVideoIdFromUrl(window.location.href);
 
         // Validacion Crítica: Evitar race conditions en navegación SPA (Shorts).
         if (!playerVideoId || playerVideoId !== urlId) {
@@ -13081,7 +13253,7 @@ regular-item.ypp-fill-none {
         const previewHref = videoEl.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-rich-grid-media')
             ?.querySelector?.('a#thumbnail[href], a.yt-simple-endpoint[href]')
             ?.getAttribute?.('href') || null;
-        const previewHrefVideoId = previewHref ? extractOrNormalizeVideoId(previewHref)?.id : null;
+        const previewHrefVideoId = previewHref ? extractYouTubeVideoIdFromUrl(previewHref) : null;
         // Preferimos el ID del enlace del tile cuando existe, para evitar IDs stale
         // del player compartido durante coexistencia con miniplayer pausado.
         const videoId = previewHrefVideoId || resolvedPlayerVideoId;
@@ -13858,25 +14030,32 @@ regular-item.ypp-fill-none {
                 }
 
                 if (type === 'watch' && currentPageType === 'watch') {
-                    const { list: urlPlaylistId, id: videoIdFromUrl } = extractOrNormalizeVideoId(window.location.href);
-                    if (urlPlaylistId && videoIdFromUrl === info.videoId) {
-                        info.lastViewedPlaylistId = urlPlaylistId;
-                        logLog('getCascadedVideoInfo', `Playlist id obtenido de URL fallback: [${urlPlaylistId}]`);
+                    const { videoId: videoIdFromUrl, playlistId: playlistIdFromUrl } = getYouTubeVideoContextFromUrl(window.location.href);
+
+                    if (playlistIdFromUrl && videoIdFromUrl === info.videoId) {
+                        // URL y estado están sincronizados es seguro usar playlist
+                        info.lastViewedPlaylistId = playlistIdFromUrl;
+                        logLog(
+                            'getCascadedVideoInfo',
+                            `Playlist id obtenido de URL fallback: [${playlistIdFromUrl}]`
+                        );
                     }
                 }
 
                 if (type === 'preview') {
-                    const videoPreviewLink = document.querySelector(`${S.IDS.VIDEO_PREVIEW_CONTAINER} a#media-container-link`);
-                    if (videoPreviewLink?.href && videoPreviewLink?.href.includes('list=')) {
-                        logLog('getCascadedVideoInfo', `Video preview link: [${videoPreviewLink?.href}]`);
-                        const { list: videoPreviewPlaylistId } = extractOrNormalizeVideoId(`https://www.youtube.com${videoPreviewLink?.href}`);
+                    const videoPreviewLink = document.querySelector(
+                        `${S.IDS.VIDEO_PREVIEW_CONTAINER} a#media-container-link`
+                    );
+
+                    if (videoPreviewLink?.href) {
+                        const videoPreviewPlaylistId = extractYouTubePlaylistIdFromUrl(videoPreviewLink.href);
 
                         if (videoPreviewPlaylistId) {
                             info.lastViewedPlaylistId = videoPreviewPlaylistId;
                             logLog('getCascadedVideoInfo', `Playlist id obtenido de video preview fallback: [${videoPreviewPlaylistId}]`);
+                        } else {
+                            logInfo('getCascadedVideoInfo', 'No se encontró playlist en el video preview');
                         }
-                    } else {
-                        logInfo('getCascadedVideoInfo', 'No se encontró referencia a playlist en el video preview');
                     }
                 }
 
@@ -13895,12 +14074,15 @@ regular-item.ypp-fill-none {
                                 if (anchor?.href) {
                                     // los selectores al ser de botones se avanzar/retroceder del dropdown de playlist miniplayer,
                                     // su videoId no hacen match con video actualmente reproduciendose
-                                    const { list: listParam, id: videoIdFromUrl } = extractOrNormalizeVideoId(anchor?.href);
-                                    logLog('getCascadedVideoInfo', `Anchor href: [${anchor?.href}] extrac id: ${videoIdFromUrl} list: ${listParam}`);
+                                    const playlistId = extractYouTubePlaylistIdFromUrl(anchor?.href);
 
-                                    if (listParam) {
-                                        logLog('getCascadedVideoInfo', `List param: [${listParam}]`);
-                                        currentPlaylistId = listParam;
+                                    logLog(
+                                        'getCascadedVideoInfo',
+                                        `Anchor href: [${anchor?.href}] playlist: ${playlistId}`
+                                    );
+
+                                    if (playlistId) {
+                                        currentPlaylistId = playlistId;
                                         break;
                                     }
                                 }
@@ -15923,23 +16105,23 @@ regular-item.ypp-fill-none {
         const el = createElement('div', {
             className: `ypp-videoWrapper ${itemClass} ${isProtected ? 'ypp-protected-item' : ''} ${selectionClass} ypp-video-item`,
             atribute: {
-               
+
                 'data-video-id': videoId,
-               /*  'data-video-type': type,
-                'data-video-status': isCompleted ? 'completed' : (isLiveEntry ? 'live' : 'watching'),
-                'data-video-duration': lengthSeconds,
-                'data-video-progress': watchProgress,
-                'data-video-percent': percent,
-                'data-video-remaining': remaining,
-                'data-video-author': author,
-                'data-video-author-id': authorId,
-                'data-video-channel': channel,
-                'data-video-channel-id': channelId,
-                'data-video-views': views,
-                'data-video-timestamp': timestamp,
-                'data-video-has-fixed-time': hasFixedTime,
-                'data-video-force-resume-time': hasFixedTime ? forceResumeTime : null,
-                'data-video-last-viewed-playlist-id': lastViewedPlaylistId, */
+                /*  'data-video-type': type,
+                 'data-video-status': isCompleted ? 'completed' : (isLiveEntry ? 'live' : 'watching'),
+                 'data-video-duration': lengthSeconds,
+                 'data-video-progress': watchProgress,
+                 'data-video-percent': percent,
+                 'data-video-remaining': remaining,
+                 'data-video-author': author,
+                 'data-video-author-id': authorId,
+                 'data-video-channel': channel,
+                 'data-video-channel-id': channelId,
+                 'data-video-views': views,
+                 'data-video-timestamp': timestamp,
+                 'data-video-has-fixed-time': hasFixedTime,
+                 'data-video-force-resume-time': hasFixedTime ? forceResumeTime : null,
+                 'data-video-last-viewed-playlist-id': lastViewedPlaylistId, */
                 ...(playlistKey ? { 'data-playlist-key': playlistKey } : {})
             },
             children: [fragment]
@@ -16358,9 +16540,8 @@ regular-item.ypp-fill-none {
              * que el tipo de página y el ID actual estén sincronizados.
              */
             const handleNavigation = () => {
-                const urlData = extractOrNormalizeVideoId(location.href);
-                const currentVideoId = urlData?.id || null;
                 const newPageType = getYouTubePageType();
+                const currentVideoId = extractYouTubeVideoIdFromUrl(window.location.href);
 
                 // Sincronizar tipo de página global
                 currentPageType = newPageType;

@@ -69,6 +69,7 @@
     - `generate-structure.mjs` - Scans the main userscript file `youtube-playback-plox.user.js` for MARK comments, functions, classes, and modules to generate a technical map of the code.
     - `sort-translations.mjs` - Sorts the translations in `translations.json` to a standardized order.
     - `validate-translations.mjs` - Checks `translations.json` for consistency across all locales.
+    - `apply_translations.mjs` - Helper script to add new translations to the translations file `translations.json`.
 
 # 0.0.9-10
 

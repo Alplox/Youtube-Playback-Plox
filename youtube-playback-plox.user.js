@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-13-BETA-v4
+// @version      0.0.9-13
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -129,7 +129,6 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1813218/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 // ------------------------------------------
@@ -1088,7 +1087,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 url: "",
                 autoBackup: false,
                 interval: 24, // horas
-                lastSync: 0
+                lastSync: 0,
+                lastSyncAttempt: 0
             },
             repo: {
                 token: "",
@@ -1096,7 +1096,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 name: "",
                 autoBackup: false,
                 interval: 24, // horas
-                lastSync: 0
+                lastSync: 0,
+                lastSyncAttempt: 0
             },
             autoDeleteToken: true,
             lastViewedType: 'gist'
@@ -1344,36 +1345,44 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
              * Obtiene el contenedor principal del reproductor normal.
              * @returns {Element|null} Contenedor #movie_player (o null si no existe).
              */
-            /* getWatchPlayer: () => get('watchPlayer', () => document.querySelector(S.IDS.MOVIE_PLAYER)), */
             getWatchPlayer: () =>
                 get('watchPlayer', () => {
-                    // Si estamos en la página watch, ignoramos el filtro del miniplayer para asegurar
-                    // que siempre encontremos el reproductor principal, incluso si el estado del miniplayer es stale.
                     const isWatchPage = getYouTubePageType() === 'watch';
                     const miniPlayer = isWatchPage ? null : DOMHelpers.getMiniplayerElementActive();
 
-                    // Intento 1: Selector estándar por ID
-                    let players = document.querySelectorAll(S.IDS.MOVIE_PLAYER);
+                    const watchContainer = document.querySelector('ytd-watch-flexy');
+                    let player = watchContainer?.querySelector(S.IDS.MOVIE_PLAYER);
 
-                    // Intento 2: Si falla, buscar por clase estándar de YouTube o componente web
-                    if (players.length === 0) {
-                        logInfo('DOMHelpers', `⚠️ getWatchPlayer: No se encontró ningún reproductor con el ID ${S.IDS.MOVIE_PLAYER}.`);
-                        players = document.querySelectorAll('.html5-video-player, ytd-player');
+                    if (!player) {
+                        player = document.querySelector(S.CLASSES.HTML5_VIDEO_PLAYER);
+                        logInfo('DOMHelpers', `⚠️ Fallback usado (${S.CLASSES.HTML5_VIDEO_PLAYER}).`);
                     }
 
-                    if (players.length === 0) {
+                    if (!player) {
                         const totalVideos = document.querySelectorAll('video').length;
-                        logWarn('DOMHelpers', `❌ getWatchPlayer: No se encontró ningún reproductor. (Total <video> en DOM: ${totalVideos})`);
+                        logWarn('DOMHelpers', `❌ No player found (videos in DOM: ${totalVideos})`);
                         return null;
                     }
 
-                    const found = [...players].find(player => !miniPlayer || !miniPlayer.contains(player)) ?? null;
-                    if (!found && miniPlayer) {
-                        logWarn('DOMHelpers', `⚠️ getWatchPlayer: Se encontraron ${players.length} player(s), pero todos estaban dentro del miniplayer activo.`);
+                    if (!(player instanceof HTMLElement)) {
+                        logWarn('DOMHelpers', '⚠️ Player no es un HTMLElement:', player);
+                        return null;
                     }
 
-                    logInfo('DOMHelpers', `✅ getWatchPlayer: Reproductor encontrado: ${found} - isWatchPage: ${isWatchPage}`);
-                    return found;
+                    if (miniPlayer && miniPlayer.contains(player)) {
+                        logWarn('DOMHelpers', '⚠️ Player está dentro del miniplayer.');
+                        return null;
+                    }
+
+                    logInfo('DOMHelpers', '✅ getWatchPlayer:', {
+                        element: player,
+                        tag: player.tagName,
+                        id: player.id,
+                        classes: player.className,
+                        isWatchPage
+                    });
+
+                    return player;
                 }),
             /**
              * Obtiene el elemento de video del reproductor principal.
@@ -4639,10 +4648,10 @@ regular-item.ypp-fill-none {
         globalNavigationListeners = [];
 
         // Limpiar listener de YTHelper
-        if (YTHelper && ythelperListener) {
-            YTHelper.eventTarget.removeEventListener('yt-helper-api-ready', ythelperListener);
-            ythelperListener = null;
-        }
+        /*  if (YTHelper && ythelperListener) {
+             YTHelper.eventTarget.removeEventListener('yt-helper-api-ready', ythelperListener);
+             ythelperListener = null;
+         } */
 
         // Limpiar listeners del botón flotante
         floatingButtonListeners.forEach(({ target, event, handler }) => {
@@ -5850,9 +5859,17 @@ regular-item.ypp-fill-none {
                 }
 
                 // Reproductor de Shorts (ID e identificación explícita)
-                const shortsPlayer = DOMHelpers.closestComposed(node, `#${IDs.SHORTS_PLAYER}`) || DOMHelpers.closestComposed(node, IDs.SHORTS_PLAYER);
+                const shortsPlayer = DOMHelpers.closestComposed(node, `#${IDs.SHORTS_PLAYER}`);
                 if (shortsPlayer?.classList) {
                     if (AdSelectors.shortsAdClasses.some(c => shortsPlayer.classList.contains(c))) return true;
+
+                    // Refuerzo para Shorts: Revisar el contenedor principal (ytd-reel-video-renderer)
+                    const reelRenderer = DOMHelpers.closestComposed(shortsPlayer, 'ytd-reel-video-renderer');
+                    if (reelRenderer) {
+                        if (reelRenderer.hasAttribute('is-ads-overlay')) return true;
+                        if (reelRenderer.querySelector('ytd-ad-slot-renderer')) return true;
+                    }
+
                     // Refuerzo: Barrido de UI interna
                     if (this.findVisibleAdUi(shortsPlayer)) return true;
                 }
@@ -7052,17 +7069,19 @@ regular-item.ypp-fill-none {
     /**
      * Realiza un respaldo de los datos en un Gist de GitHub.
      */
-    const backupToGitHub = (data, githubSettings, isManual) => {
+    const backupToGitHubGist = async (data, initialModeSettings, isManual) => {
+        // Fresh pull from storage to prevent stale gistId/token drift
+        const fullSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+        const modeSettings = { ...fullSettings.gist, ...(initialModeSettings || {}) };
+
         return new Promise((resolve) => {
             const jsonString = JSON.stringify(data, null, 2);
             const fileSizeMB = jsonString.length / (1024 * 1024);
 
             // Validar tamaño del archivo (Gist límite: 10MB)
             if (fileSizeMB > 10) {
-                logWarn('backupToGitHub', `Archivo demasiado grande para Gist: ${fileSizeMB.toFixed(2)}MB (límite: 10MB)`);
-                if (isManual) {
-                    showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLargeGist', { size: fileSizeMB.toFixed(2), limit: 10 })}`);
-                }
+                logWarn('backupToGitHubGist', `Archivo demasiado grande para Gist: ${fileSizeMB.toFixed(2)}MB (límite: 10MB)`);
+                showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLargeGist', { size: fileSizeMB.toFixed(2), limit: 10 })}`);
                 resolve(false);
                 return;
             }
@@ -7078,7 +7097,16 @@ regular-item.ypp-fill-none {
                 }
             };
 
-            const gistId = githubSettings.gistId;
+            const gistId = modeSettings.id;
+
+            const cleanToken = (modeSettings.token || '').trim().replace(/[^\x00-\xFF]/g, '');
+            const isValidToken = /^[a-zA-Z0-9_]+$/.test(cleanToken);
+            if (!isValidToken) {
+                logError('backupToGitHubGist', 'Token contiene caracteres inválidos');
+                showFloatingToast(`${SVG_ICONS.warning} ${t('githubInvalidToken')}`);
+                return resolve(false);
+            }
+
             const url = gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists';
             const method = gistId ? 'PATCH' : 'POST';
 
@@ -7086,20 +7114,17 @@ regular-item.ypp-fill-none {
                 method: method,
                 url: url,
                 headers: {
-                    'Authorization': `token ${githubSettings.token}`,
+                    'Authorization': `token ${cleanToken}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 },
                 data: JSON.stringify(gistData),
                 onload: async (response) => {
                     if (response.status >= 200 && response.status < 300) {
+
                         const result = JSON.parse(response.responseText);
 
                         // Actualizar el objeto actual para feedback en la UI si el modal está abierto
-                        githubSettings.gistId = result.id;
-                        githubSettings.gistUrl = result.html_url;
-                        githubSettings.lastSync = Date.now();
-
                         // Persistir metadatos de sincronización
                         let storedSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
@@ -7108,16 +7133,16 @@ regular-item.ypp-fill-none {
                         storedSettings.gist.lastSync = Date.now();
 
                         // Auto-eliminar token si aplica
-                        if (githubSettings.autoDeleteToken) {
+                        if (fullSettings.autoDeleteToken) {
                             storedSettings.gist.token = '';
                         }
 
                         await GM_setValue(CONFIG.STORAGE_KEYS.github, storedSettings);
 
-                        logInfo('backupToGitHub', 'Respaldo en GitHub exitoso:', result.id.slice(0, 10) + '...');
+                        logInfo('backupToGitHubGist', 'Respaldo en GitHub exitoso:', result.id.slice(0, 10) + '...');
                         resolve(true);
                     } else {
-                        logError('backupToGitHub', 'Error en respaldo GitHub:', response.status, response.responseText);
+                        logError('backupToGitHubGist', 'Error en respaldo GitHub:', response.status, response.responseText);
                         if (isManual) {
                             const errorMsg = response.status === 401 ? t('githubInvalidToken') : t('githubBackupError');
                             showFloatingToast(`${SVG_ICONS.error} ${errorMsg} (${response.status})`);
@@ -7126,7 +7151,7 @@ regular-item.ypp-fill-none {
                     }
                 },
                 onerror: (err) => {
-                    logError('backupToGitHub', 'Error de red en respaldo GitHub:', err);
+                    logError('backupToGitHubGist', 'Error de red en respaldo GitHub:', err);
                     resolve(false);
                 }
             });
@@ -7136,9 +7161,13 @@ regular-item.ypp-fill-none {
     /**
      * Realiza un respaldo de los datos en un repositorio privado de GitHub.
      */
-    const backupToRepository = (data, githubSettings, isManual) => {
+    const backupToGithubRepository = async (data, initialModeSettings, isManual) => {
+        // Fresh pull from storage to prevent token drift
+        const fullSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+        const modeSettings = { ...fullSettings.repo, ...(initialModeSettings || {}) };
+
         return new Promise((resolve) => {
-            const { repoOwner, repoName, token } = githubSettings;
+            const { owner: repoOwner, name: repoName, token } = modeSettings;
             if (!repoOwner || !repoName) {
                 if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubBackupError')}`);
                 return resolve(false);
@@ -7150,7 +7179,7 @@ regular-item.ypp-fill-none {
             // Validar tamaño del archivo (GitHub límite: 100MB via API, 25MB via navegador)
             // Usamos 50MB como límite conservador para evitar advertencias de Git
             if (fileSizeMB > 50) {
-                logWarn('backupToRepository', `Archivo demasiado grande para repositorio: ${fileSizeMB.toFixed(2)}MB (límite recomendado: 50MB)`);
+                logWarn('backupToGithubRepository', `Archivo demasiado grande para repositorio: ${fileSizeMB.toFixed(2)}MB (límite recomendado: 50MB)`);
                 if (isManual) {
                     showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLarge', { size: fileSizeMB.toFixed(2), limit: 50 })}`);
                 }
@@ -7175,14 +7204,14 @@ regular-item.ypp-fill-none {
                 headers: headers,
                 onload: (repoResponse) => {
                     if (repoResponse.status !== 200) {
-                        logError('backupToRepository', 'No se pudo acceder al repositorio:', repoResponse.status);
+                        logError('backupToGithubRepository', 'No se pudo acceder al repositorio:', repoResponse.status);
                         if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (${repoResponse.status})`);
                         return resolve(false);
                     }
 
                     const repoInfo = JSON.parse(repoResponse.responseText);
                     if (!repoInfo.private) {
-                        logError('backupToRepository', 'El repositorio NO es privado.');
+                        logError('backupToGithubRepository', 'El repositorio NO es privado.');
                         if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubRepoPrivacyError')}`);
                         return resolve(false);
                     }
@@ -7226,34 +7255,34 @@ regular-item.ypp-fill-none {
                                         storedSettings.repo.lastSync = Date.now();
 
                                         // Auto-eliminar token si aplica
-                                        if (githubSettings.autoDeleteToken) {
+                                        if (fullSettings.autoDeleteToken) {
                                             storedSettings.repo.token = '';
                                         }
 
                                         await GM_setValue(CONFIG.STORAGE_KEYS.github, storedSettings);
 
-                                        logInfo('backupToRepository', 'Respaldo en repositorio exitoso');
+                                        logInfo('backupToGithubRepository', 'Respaldo en repositorio exitoso');
                                         resolve(true);
                                     } else {
-                                        logError('backupToRepository', 'Error al subir archivo:', putResponse.status);
+                                        logError('backupToGithubRepository', 'Error al subir archivo:', putResponse.status);
                                         if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (${putResponse.status})`);
                                         resolve(false);
                                     }
                                 },
                                 onerror: (err) => {
-                                    logError('backupToRepository', 'Error de red:', err);
+                                    logError('backupToGithubRepository', 'Error de red:', err);
                                     resolve(false);
                                 }
                             });
                         },
                         onerror: (err) => {
-                            logError('backupToRepository', 'Error obteniendo SHA:', err);
+                            logError('backupToGithubRepository', 'Error obteniendo SHA:', err);
                             resolve(false);
                         }
                     });
                 },
                 onerror: (err) => {
-                    logError('backupToRepository', 'Error de red verificando repo:', err);
+                    logError('backupToGithubRepository', 'Error de red verificando repo:', err);
                     resolve(false);
                 }
             });
@@ -7267,31 +7296,39 @@ regular-item.ypp-fill-none {
         let githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
         const modeSettings = settingsOverride
-            ? { autoDeleteToken: githubSettings.autoDeleteToken, ...settingsOverride }
+            ? { ...(githubSettings[type] || {}), ...settingsOverride }
             : (githubSettings[type] || CONFIG.defaultGithubSettings[type] || {});
 
         if (!modeSettings.token) {
-            if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubTokenRequired')}`);
+            showFloatingToast(`${SVG_ICONS.warning} ${t('githubTokenRequired')}`);
+            return false;
+        }
+
+        const cleanToken = (modeSettings.token || '').trim().replace(/[^\x00-\xFF]/g, '');
+        const isValidToken = /^[a-zA-Z0-9_]+$/.test(cleanToken);
+        if (!isValidToken) {
+            logError('performRemoteBackup', 'Token contiene caracteres inválidos');
+            showFloatingToast(`${SVG_ICONS.warning} ${t('githubInvalidToken')}`);
             return false;
         }
 
         const data = await getSyncData(isManual ? 'manual' : 'auto');
         if (!data) {
-            if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
+            showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
             return false;
         }
 
-        if (isManual) showFloatingToast(`${SVG_ICONS.spinner} ${t('githubBackupNow')} (${type})...`);
+        showFloatingToast(`${SVG_ICONS.spinner} ${t('githubBackupNow')} (${type})...`);
 
         let success = false;
         if (type === 'repo') {
-            success = await backupToRepository(data, modeSettings, isManual);
+            success = await backupToGithubRepository(data, modeSettings, isManual);
         } else {
-            success = await backupToGitHub(data, modeSettings, isManual);
+            success = await backupToGitHubGist(data, modeSettings, isManual);
         }
 
         if (success) {
-            if (isManual) showFloatingToast(`${SVG_ICONS.check} ${t('githubBackupSuccess')}`);
+            showFloatingToast(`${SVG_ICONS.check} ${t('githubBackupSuccess')}`);
 
             // Re-leer settings desde GM para obtener valores actualizados (lastSync, gistId, etc.)
             const updatedSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
@@ -7333,6 +7370,7 @@ regular-item.ypp-fill-none {
      * Verifica si es necesario realizar un respaldo automático.
      */
     const checkGitHubBackup = async () => {
+        logLog('checkGitHubBackup', 'Verificando respaldo automático...');
         let githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
         const now = Date.now();
@@ -7340,14 +7378,49 @@ regular-item.ypp-fill-none {
 
         for (const type of types) {
             const s = githubSettings[type] || CONFIG.defaultGithubSettings[type] || {};
-            if (!s.autoBackup || !s.token) continue;
+
+            if (!s.autoBackup) {
+                logWarn('checkGitHubBackup', `${type} omitido: autoBackup desactivado`);
+                continue;
+            }
+
+            if (!s.token) {
+                logWarn('checkGitHubBackup', `${type} omitido: falta token`);
+                continue;
+            }
+
+            // Concurrency Lock: Evitar que múltiples pestañas disparen el respaldo simultáneamente
+            const lastAttempt = s.lastSyncAttempt || 0;
+            const CONCURRENCY_LOCK_MS = 4 * 60 * 1000; // Bloqueo de 4 minutos (menor que el intervalo de 5m de chequeo)
+            if (now - lastAttempt < CONCURRENCY_LOCK_MS) {
+                logLog('checkGitHubBackup', `Omitiendo: Otro tab inició sincronización (${type}) recientemente`);
+                continue;
+            }
+
+            logLog('checkGitHubBackup', `Auto backup (${type}): ${s.autoBackup}`);
 
             const intervalMs = (s.interval || 24) * 60 * 60 * 1000;
+            logLog('checkGitHubBackup', `Intervalo de respaldo (${type}): ${intervalMs}ms`);
             const timeSinceLastSync = now - s.lastSync;
+            logLog('checkGitHubBackup', `Tiempo desde último respaldo (${type}): ${timeSinceLastSync}ms`);
 
             if (timeSinceLastSync >= intervalMs) {
-                logInfo('checkGitHubBackup', `Iniciando respaldo automático (${type})...`);
-                await performRemoteBackup(type, false);
+                try {
+                    logInfo('checkGitHubBackup', `Iniciando respaldo automático (${type})...`);
+
+                    // Adquirir bloqueo inmediatamente en el storage
+                    const fresh = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+
+                    fresh[type] = fresh[type] || {};
+                    fresh[type].lastSyncAttempt = now;
+
+                    await GM_setValue(CONFIG.STORAGE_KEYS.github, fresh);
+
+                    await performRemoteBackup(type, false);
+                    logInfo('checkGitHubBackup', `Respaldo (${type}) completado correctamente`);
+                } catch (err) {
+                    logError('checkGitHubBackup', `Error en respaldo (${type})`, err);
+                }
             } else {
                 const minutesRemaining = Math.ceil((intervalMs - timeSinceLastSync) / (60 * 1000));
                 logLog('checkGitHubBackup', `Respaldo automático (${type}) omitido. Faltan ${minutesRemaining} min.`);
@@ -8036,7 +8109,7 @@ regular-item.ypp-fill-none {
         // Si el dato guardado ya dice isCompleted=true y el tiempo actual es muy bajo (<5s),
         // es casi seguro un reset automático -> preservamos el estado completado.
         // NOTA: Una vez que el video cruce la marca de los 5s, el escudo se desactivará automáticamente.
-        // El script entenderá que realmente estás re-viendo el video por voluntad propia y comenzará a guardar nuevo progreso (5s, 6s, 7s...), 
+        // El script entenderá que realmente estás re-viendo el video por voluntad propia y comenzará a guardar nuevo progreso (5s, 6s, 7s...),
         // retirando la marca de "completado" hasta que vuelvas a terminarlo.
         if (!isFinished && sourceData?.isCompleted && currentTime < 5) {
             logLog(logContext, `🛡️ Shield auto-reset detectado para video completado (${videoId}) en ${currentTime}s. Preservando estado.`);
@@ -8370,12 +8443,6 @@ regular-item.ypp-fill-none {
     // ------------------------------------------
     // MARK: 📺 Helpers
     // ------------------------------------------
-
-
-
-
-
-
 
     // MARK: 📺 Obtiene datos guardados de un video
     /**
@@ -10798,9 +10865,34 @@ regular-item.ypp-fill-none {
                     showAlertTime: isChecked('showAlertTime'),
                 };
 
+                const rawGistToken = getVal('gist_token') || '';
+                const safeGistToken = rawGistToken
+                    .trim()
+                    .replace(/[^\x00-\x7F]/g, '');
+
+                // Validación
+                const isValid = /^gh[pus]_[A-Za-z0-9_]+$/.test(safeGistToken);
+
+                if (!isValid) {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('githubInvalidToken')}`);
+                    safeGistToken = '';
+                }
+
+                const rawRepoToken = getVal('repo_token') || '';
+                const safeRepoToken = rawRepoToken
+                    .trim()
+                    .replace(/[^\x00-\x7F]/g, '');
+
+                // Validación
+                const isValidRepoToken = /^gh[pus]_[A-Za-z0-9_]+$/.test(safeRepoToken);
+                if (!isValidRepoToken) {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('githubInvalidToken')}`);
+                    safeRepoToken = '';
+                }
+
                 const newGithubSettings = {
                     gist: {
-                        token: getVal('gist_token'),
+                        token: safeGistToken,
                         id: getVal('gist_id'),
                         url: githubSettings.gist?.url || '',
                         autoBackup: isChecked('gist_autoBackup'),
@@ -10808,7 +10900,7 @@ regular-item.ypp-fill-none {
                         lastSync: githubSettings.gist?.lastSync || 0
                     },
                     repo: {
-                        token: getVal('repo_token'),
+                        token: safeRepoToken,
                         owner: getVal('repo_owner'),
                         name: getVal('repo_name'),
                         autoBackup: isChecked('repo_autoBackup'),
@@ -10996,8 +11088,6 @@ regular-item.ypp-fill-none {
             if (videoEl?.paused && display?.querySelector('#svg-player-end') && !saveResult.isManual) return;
         }
 
-
-
         const timeStr = formatTime(normalizeSeconds(time));
         const canShowTime = isSeek || saveResult.success;
 
@@ -11026,25 +11116,9 @@ regular-item.ypp-fill-none {
         handlers[videoType]?.(message, videoEl, isSeek, isFixedTime, saveResult.isManual);
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     // ------------------------------------------
     // MARK: 🎵 Selección de Videos
     // ------------------------------------------
-
     let selectedVideos = new Set(); // IDs de videos seleccionados
     let isPlaylistCreationMode = false; // Modo de selección activo
 
@@ -12223,7 +12297,7 @@ regular-item.ypp-fill-none {
                             // Obtiene la sesión de procesamiento activa asociada a este video
                             const prevSession = activeProcessingSessions.get(videoEl);
 
-                            // Si hay una sesión activa y el videoId es el mismo, 
+                            // Si hay una sesión activa y el videoId es el mismo,
                             // es un cambio de configuraciones (calidad o mejoras de audio)
                             if (prevSession && currentVideoId && prevSession.lastVideoId === currentVideoId) {
                                 logLog(
@@ -12654,18 +12728,26 @@ regular-item.ypp-fill-none {
             }
 
             pendingVideos.clear();
-            globalNavigationId++; // Invalidar sesiones en vuelo
+
+            // No invalidar sesiones en vuelo si estamos preservando el miniplayer,
+            // ya que una sesión miniplayer puede estar arrancando justo ahora.
+            if (!preserveMiniplayer) {
+                globalNavigationId++;
+            }
+
             stopAllSessions(preserveMiniplayer);
+
             if (previewWatchdogId) {
                 clearInterval(previewWatchdogId);
                 previewWatchdogId = null;
             }
-            logLog('VideoObserverManager', '🧹 Observadores y sesiones desconectadas');
+
+            logLog('VideoObserverManager', `🧹 Observadores desconectados (PreserveMiniplayer: ${preserveMiniplayer})`);
             // Full Teardown SPA: Limpiar timers y romper closures
             displayClearTimeouts.forEach((v, k) => clearTimeout(v));
             displayClearTimeouts.clear();
 
-            logLog('VideoObserverManager', '🧹 Observadores y timers liberados (Teardown parcial SPA)');
+            logLog('VideoObserverManager', '🧹 Timers liberados (Teardown parcial SPA)');
         };
 
         const clearCache = () => {
@@ -12926,7 +13008,18 @@ regular-item.ypp-fill-none {
 
         let stoppedCount = 0;
         for (const [videoEl, session] of activeProcessingSessions.entries()) {
-            if (preserveMiniplayer && session.type === 'miniplayer') continue;
+            // Protección crítica para Miniplayer:
+            // Si preserveMiniplayer es true, no solo evitamos cerrar sesiones tipo 'miniplayer',
+            // sino también cualquier sesión cuyo video esté FÍSICAMENTE dentro del contenedor del miniplayer.
+            // Esto cubre el gap de transición donde el video de 'watch' se mueve al miniplayer pero
+            // el script aún no ha procesado el cambio de tipo a 'miniplayer'.
+            const isPhysicallyInMiniplayer = !!videoEl.closest(S.ELEMENTS.MINIPLAYER_ELEMENT);
+
+            if (preserveMiniplayer && (session.type === 'miniplayer' || isPhysicallyInMiniplayer)) {
+                logLog('process', `⏭️ Preservando sesión en transición [${session.type}] para ${session.lastVideoId}`);
+                continue;
+            }
+
             SessionOrchestrator.finalizeSession(videoEl, 'stopAllSessions');
             stoppedCount++;
         }
@@ -13732,7 +13825,7 @@ regular-item.ypp-fill-none {
                 const diff = currentTime - lastSavedTime;
 
                 // --- PROTECTION: Anti-Native Resume Overwrite ---
-                // Si acabamos de reanudar hace menos de 10 segundos y el tiempo actual es mucho menor 
+                // Si acabamos de reanudar hace menos de 10 segundos y el tiempo actual es mucho menor
                 // que el tiempo que pedimos reanudar, es probable que YouTube haya forzado su propio progreso.
                 // No guardamos este tiempo para evitar corromper el historial local con el de la cuenta.
                 if (timeSinceResume < 10000 && lastResumedTime > 10 && currentTime < (lastResumedTime - 5) && !options.isManual) {
@@ -16763,7 +16856,7 @@ regular-item.ypp-fill-none {
     // NOTA: Solo se suprimen errores que coincidan con firmas específicas de la librería.
 
     /* (function installExternalLibraryErrorSilencer() {
-        /** @type {ReadonlyArray<string>} Firmas de errores conocidos de la Helper API 
+        /** @type {ReadonlyArray<string>} Firmas de errores conocidos de la Helper API
         const KNOWN_HELPER_ERROR_SIGNATURES = [
             'playerObject.querySelector is not a function',
             'appState.player.playerObject',
@@ -16845,7 +16938,7 @@ regular-item.ypp-fill-none {
                 if (currentVideoId && (hasActiveSession || (isSameVideo && isSamePageContext)) && isSamePageContext) {
                     logLog('handleNavigation', `Ignorando reinicio redundante para ${currentVideoId} (${newPageType}). Sesión activa: ${hasActiveSession}`);
 
-                    // Si no hay sesión activa pero es el mismo video, intentamos un bootstrap ligero 
+                    // Si no hay sesión activa pero es el mismo video, intentamos un bootstrap ligero
                     // (skipCleanup=true) por si el player acaba de aparecer en el DOM.
                     if (!hasActiveSession && isSameVideo && isSamePageContext) {
                         if (typeof VideoObserverManager?.init === 'function') {
@@ -16858,6 +16951,20 @@ regular-item.ypp-fill-none {
                             }, 300);
                         }
                     }
+                    return;
+                }
+
+                // En navegación no-watch, si ya hay miniplayer activo preservable y no cambió el tipo de página,
+                // evitar reinicialización forzada para no re-aplicar seek innecesariamente.
+                if (!currentVideoId && newPageType !== 'watch' && newPageType === lastHandledPageType && hasActiveMiniplayerSession) {
+                    logLog('handleNavigation', `Ignorando reinicio: Miniplayer activo preservado (${newPageType})`);
+                    return;
+                }
+
+                // Evitar teardown/reinit redundante en Home/Browse mientras una sesión preview está activa:
+                // yt-helper-api-ready puede refire sin cambio real de ruta y matar la sesión en curso.
+                if (!currentVideoId && newPageType === lastHandledPageType && hasActivePreviewSession) {
+                    logLog('handleNavigation', `Ignorando reinicio: Preview activo preservado (${newPageType})`);
                     return;
                 }
 
@@ -16880,8 +16987,10 @@ regular-item.ypp-fill-none {
                 // Reinicializar observers; forzar bootstrap solo cuando no estamos preservando miniplayer.
                 // Si preserveMiniplayer=true, los observers existentes del miniplayer y su sesión deben mantener continuidad.
                 const shouldForceBootstrap = !preserveMiniplayer;
+                const skipCleanup = preserveMiniplayer; // Evitar cleanup destructivo si preservamos miniplayer
+
                 if (typeof VideoObserverManager?.clearCache === 'function') VideoObserverManager.clearCache();
-                if (typeof VideoObserverManager?.init === 'function') VideoObserverManager.init(shouldForceBootstrap, preserveMiniplayer);
+                if (typeof VideoObserverManager?.init === 'function') VideoObserverManager.init(shouldForceBootstrap, preserveMiniplayer, skipCleanup);
             };
 
             const debouncedNavigation = debounce(handleNavigation, 100);
@@ -16895,17 +17004,17 @@ regular-item.ypp-fill-none {
             document.addEventListener('yt-page-data-updated', debouncedNavigation);
 
             // 2. Inicializar YouTube Helper API y escuchar sus actualizaciones "silenciosas"
-            waitForHelper().then(h => {
-                YTHelper = h;
-                if (!h) return;
-
-                // Registrar listener persistente que ahora comparte el mismo flujo debounced
-                ythelperListener = () => {
-                    logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
-                    debouncedNavigation();
-                };
-                h.eventTarget.addEventListener('yt-helper-api-ready', ythelperListener);
-            });
+            /*  waitForHelper().then(h => {
+                 YTHelper = h;
+                 if (!h) return;
+ 
+                 // Registrar listener persistente que ahora comparte el mismo flujo debounced
+                 ythelperListener = () => {
+                     logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
+                     debouncedNavigation();
+                 };
+                 h.eventTarget.addEventListener('yt-helper-api-ready', ythelperListener);
+             }); */
 
             // 3. Limpiar recursos cuando la página se cierra para prevenir memory leaks
             window.addEventListener('unload', () => {
@@ -17031,10 +17140,21 @@ regular-item.ypp-fill-none {
 
                 // --- Backup en GitHub (si está habilitado) ---
                 try {
-                    /** Iniciar verificación de respaldo automático y programar chequeo periódico cada 15 min */
+                    /**
+                     * Iniciar verificación de respaldo automático y programar chequeo periódico cada 5 min.
+                     * Se agrega un retraso aleatorio (jitter) para evitar que múltiples pestañas
+                     * disparen el chequeo exactamente al mismo tiempo al cargar YouTube.
+                     */
                     if (backupIntervalId) clearInterval(backupIntervalId);
-                    checkGitHubBackup();
-                    backupIntervalId = setInterval(checkGitHubBackup, 15 * 60 * 1000);
+
+                    const jitterMs = Math.floor(Math.random() * 60 * 1000); // 0-60s de jitter
+                    logLog('initializeGlobal', `Programando primer chequeo de backup en ${Math.round(jitterMs / 1000)}s`);
+
+                    setTimeout(() => {
+                        checkGitHubBackup();
+                        backupIntervalId = setInterval(checkGitHubBackup, 5 * 60 * 1000);
+                    }, jitterMs);
+
                     logInfo('initializeGlobal', '✅ VideoObserverManager y observadores inicializados');
                 } catch (error) {
                     logError('initializeGlobal', '❌ Error al verificar backup de GitHub:', error);

@@ -2,10 +2,10 @@
 
 ### Fixed
 
-- **Watch Observer Hardening**: Refactored the Watch observer initialization to use `DOMHelpers.getWatchPlayer()`. This ensures the observer only targets the legitimate main player and explicitly excludes `#movie_player` instances located within a miniplayer, preventing redundant triggers and aligning with the project's centralized DOM access patterns.
-- **UI Robustness**: Added fallback selectors (`.ytp-left-controls`) for the progress bar, ensuring the interface is injected in logged-in accounts or with experimental redesigns.
-- **Resume Robustness**: Implemented post-seek persistence verification (800ms) and anti-overwrite protection to prevent YouTube's native resume from overwriting local history.
-- **DOM Access Modernization**: Migrated `document.querySelector` to centralized `DOMHelpers` system.
+- **GitHub Token Validation**: Added token validation for GitHub backups before saving. Invalid tokens are now rejected.
+- **Watch Observer Hardening**: Refactored the Watch observer initialization to use `DOMHelpers.getWatchPlayer()`. This ensures the observer only targets the legitimate main player and explicitly excludes `#movie_player` instances located within a miniplayer, preventing redundant triggers.
+- **UI Robustness**: Added fallback selectors (`.ytp-left-controls`) for the progress bar.
+- **Resume Robustness**: Implemented post-seek persistence verification (800ms) and anti-overwrite protection to prevent YouTube's native resume from overwriting YPP history.
 
 # 0.0.9-12
 

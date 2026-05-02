@@ -1351,9 +1351,17 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     const isWatchPage = getYouTubePageType() === 'watch';
                     const miniPlayer = isWatchPage ? null : DOMHelpers.getMiniplayerElementActive();
 
-                    const players = document.querySelectorAll(S.IDS.MOVIE_PLAYER);
+                    // Intento 1: Selector estándar por ID
+                    let players = document.querySelectorAll(S.IDS.MOVIE_PLAYER);
+                    
+                    // Intento 2: Si falla, buscar por clase estándar de YouTube o componente web
                     if (players.length === 0) {
-                        logWarn('DOMHelpers', `❌ getWatchPlayer: No se encontró ningún elemento ${S.IDS.MOVIE_PLAYER}`);
+                        players = document.querySelectorAll('.html5-video-player, ytd-player');
+                    }
+
+                    if (players.length === 0) {
+                        const totalVideos = document.querySelectorAll('video').length;
+                        logWarn('DOMHelpers', `❌ getWatchPlayer: No se encontró ningún reproductor. (Total <video> en DOM: ${totalVideos})`);
                         return null;
                     }
 
@@ -11739,18 +11747,23 @@ regular-item.ypp-fill-none {
             return winner.context;
         };
 
-        const canProcessContext = (videoEl, context) => {
-            if (!videoEl || !context || !videoEl.isConnected) return false;
-            if (AdDetector.isNodeWithinAdContainer(videoEl)) return false;
+        const getIneligibilityReason = (videoEl, context) => {
+            if (!videoEl) return 'no_video_element';
+            if (!context) return 'no_context_provided';
+            if (!videoEl.isConnected) return 'video_not_connected_to_dom';
+            if (AdDetector.isNodeWithinAdContainer(videoEl)) return 'within_ad_container';
             if (context === 'preview') {
-                if (currentPageType === 'watch' || currentPageType === 'shorts') return false;
-                if (isMiniplayerBlockingPreview()) return false;
+                if (currentPageType === 'watch' || currentPageType === 'shorts') return `page_type_mismatch:${currentPageType}_blocks_preview`;
+                if (isMiniplayerBlockingPreview()) return 'miniplayer_blocking_preview';
             }
-            if (context === 'watch' && currentPageType !== 'watch') return false;
-            if (context === 'shorts' && currentPageType !== 'shorts') return false;
-            if (context === 'miniplayer' && !DOMHelpers.getMiniplayerPlayer()) return false;
-            return !!getContextRoot(videoEl, context);
+            if (context === 'watch' && currentPageType !== 'watch') return `page_type_mismatch:not_on_watch_page(current:${currentPageType})`;
+            if (context === 'shorts' && currentPageType !== 'shorts') return `page_type_mismatch:not_on_shorts_page(current:${currentPageType})`;
+            if (context === 'miniplayer' && !DOMHelpers.getMiniplayerPlayer()) return 'miniplayer_not_found';
+            if (!getContextRoot(videoEl, context)) return `root_not_found_for_context:${context}`;
+            return null;
         };
+
+        const canProcessContext = (videoEl, context) => !getIneligibilityReason(videoEl, context);
 
         const isContextLocked = (videoEl, expectedContext) => {
             if (!expectedContext) return false;
@@ -11761,6 +11774,7 @@ regular-item.ypp-fill-none {
         return {
             resolveContext,
             canProcessContext,
+            getIneligibilityReason,
             isContextLocked
         };
     })();
@@ -12098,7 +12112,8 @@ regular-item.ypp-fill-none {
             if (EventPreFilter.shouldDrop(videoElement)) return;
             const canProcess = RouteContextResolver.canProcessContext(videoElement, type);
             if (!canProcess) {
-                logWarn('VideoObserverManager', `🚫 enqueueVideo: rejected by canProcessContext [${type}]`);
+                const reason = RouteContextResolver.getIneligibilityReason(videoElement, type);
+                logWarn('VideoObserverManager', `🚫 enqueueVideo: rejected [${type}]. Reason: ${reason}`);
                 return;
             }
             // Protección: No encolar videos que son detectados como anuncios
@@ -12576,6 +12591,8 @@ regular-item.ypp-fill-none {
                 if (playerContainer) {
                     observers.watch.observe(playerContainer, config);
                     logInfo('VideoObserverManager', '✅ Observador de Watch inicializado');
+                } else {
+                    logWarn('VideoObserverManager', '⚠️ No se encontró el contenedor de Watch (movie_player). No se pudo inicializar su observador.');
                 }
 
                 // Observar el contenedor principal de Shorts
@@ -12583,6 +12600,8 @@ regular-item.ypp-fill-none {
                 if (shorts) {
                     observers.shorts.observe(shorts, config);
                     logInfo('VideoObserverManager', '✅ Observador de Shorts inicializado');
+                } else {
+                    logDebug('VideoObserverManager', 'ℹ️ Contenedor de Shorts no encontrado (normal si no se está en /shorts)');
                 }
 
                 // Observar el contenedor principal de previews
@@ -16826,8 +16845,13 @@ regular-item.ypp-fill-none {
                     // (skipCleanup=true) por si el player acaba de aparecer en el DOM.
                     if (!hasActiveSession && isSameVideo && isSamePageContext) {
                         if (typeof VideoObserverManager?.init === 'function') {
-                            logLog('handleNavigation', '🔄 Reintento ligero de bootstrap (skipCleanup)');
-                            VideoObserverManager.init(true, false, true);
+                            logLog('handleNavigation', '🔄 Programando reintento ligero de bootstrap (300ms)');
+                            setTimeout(() => {
+                                // Verificar nuevamente antes de ejecutar por si hubo otra navegación
+                                if (extractYouTubeVideoIdFromUrl(window.location.href) === currentVideoId) {
+                                    VideoObserverManager.init(true, false, true);
+                                }
+                            }, 300);
                         }
                     }
                     return;

@@ -129,7 +129,6 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1804326/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 // ------------------------------------------
@@ -9343,10 +9342,17 @@ regular-item.ypp-fill-none {
         const timeWrapper = DOMHelpers.get('player:timeWrapper', () =>
             playerContainer.querySelector('.ytp-time-wrapper')
             ?? playerContainer.querySelector('.ytp-left-controls')
+            ?? playerContainer.querySelector('.ytp-chrome-controls')
             ?? document.querySelector('.ytp-time-wrapper')
-            ?? document.querySelector('.ytp-left-controls'), 100);
+            ?? document.querySelector('.ytp-left-controls')
+            ?? document.querySelector('.ytp-chrome-bottom'), 100);
 
-        logLog('initTimeDisplay', 'timeWrapper seleccionado:', timeWrapper);
+        if (!timeWrapper) {
+            logWarn('initTimeDisplay', '⚠️ No se encontró un contenedor válido para la inyección de UI en la barra de reproducción.');
+            return;
+        }
+
+        logLog('initTimeDisplay', '✅ Contenedor de UI seleccionado:', timeWrapper);
 
         watchTimeDisplay = createElement('div', {
             id: 'ypp-time-display-indicator',
@@ -12966,6 +12972,9 @@ regular-item.ypp-fill-none {
                     logLog('process', `🛡️ Blindaje anti doble-completado activado (fast-path) para ${videoId}`);
                 }
 
+                // Guardar referencia a savedData en la sesión para acceso posterior desde el intervalo
+                // sessionRef.savedData = savedData;
+
                 if (sessionRef.isPlayerSettingsChange) {
                     logLog('process', `⏭️ Resume omitido: cambio de configuraciones detectado`);
                     sessionRef.isPlayerSettingsChange = false;
@@ -13030,6 +13039,7 @@ regular-item.ypp-fill-none {
                         (isLive ? cachedSettings?.saveLiveStreams : cachedSettings?.saveRegularVideos);
 
         if (isAutoSaveEnabled !== false) {
+            // let tickCount = 0;
             intervalId = setInterval(async () => {
                 // Self-destruct: verificar que esta instancia siga siendo la sesión activa y no esté finalizada.
                 // Si la sesión fue reemplazada por otra en el mismo elemento o finalizada externamente,
@@ -13040,6 +13050,29 @@ regular-item.ypp-fill-none {
                     logLog('process', `🧹 Zombie interval eliminado [${type}] - ${videoId}`);
                     return;
                 }
+
+                // tickCount++;
+
+                // --- UI WATCHDOG ---
+                // Si el usuario usa scripts como "Engine Tamer", el DOM puede ser reemplazado post-carga.
+                // Verificamos periódicamente si nuestra UI sigue presente y la re-inyectamos si es necesario.
+                // if (tickCount % 4 === 0 && type === 'watch') {
+                //    const display = document.getElementById('ypp-time-display-indicator');
+                //    if (!display || !display.isConnected) {
+                //        logDebug('startProcessingSession', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
+                //        initTimeDisplay(player);
+                //    }
+                //}
+
+                // --- PERSISTENCE RESCUE ---
+                // Usa sessionRef.savedData (resuelto asíncronamente desde storage en fast-path).
+                // Si el video sigue en 0s pero deberíamos haber reanudado, forzamos un re-seek de último recurso.
+                // const sessionSavedData = sessionRef.savedData;
+                // const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
+                // if (tickCount === 6 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > 10 && !isCurrentlyAd) {
+                //    logWarn('startProcessingSession', '🆘 Persistence Rescue: El video sigue en 0s tras 6s. Forzando re-seek...');
+                //    PlaybackController.resume(player, videoId, videoEl, { ...sessionSavedData, forceResumeTime: sessionSavedData.watchProgress }, type, sessionRef);
+                //}
 
                 if (sessionRef.isResumePending) {
                     // Evitar guardar 0s (falso progreso) mientras el resume original aún está en bucle de espera
@@ -16672,6 +16705,48 @@ regular-item.ypp-fill-none {
     let initializationPromise = null;
     let backupIntervalId = null;
 
+    // ------------------------------------------
+    // MARK: 🔇 External Library Error Silencer
+    // ------------------------------------------
+    // La librería YouTube Helper API puede lanzar errores internos en cuentas logueadas
+    // (ej: "appState.player.playerObject.querySelector is not a function").
+    // Estos errores son "Uncaught (in promise)" que no podemos envolver en try-catch
+    // porque ocurren en callbacks internos de la librería, fuera de nuestro alcance.
+    // Interceptamos y absorbemos estos errores conocidos para evitar que el navegador
+    // los marque como críticos y potencialmente interrumpa cadenas de promesas.
+    // NOTA: Solo se suprimen errores que coincidan con firmas específicas de la librería.
+
+    /* (function installExternalLibraryErrorSilencer() {
+        /** @type {ReadonlyArray<string>} Firmas de errores conocidos de la Helper API 
+        const KNOWN_HELPER_ERROR_SIGNATURES = [
+            'playerObject.querySelector is not a function',
+            'appState.player.playerObject',
+            '_handlePlayerUpdate',
+        ];
+
+        const isKnownHelperError = (message) => {
+            if (!message || typeof message !== 'string') return false;
+            return KNOWN_HELPER_ERROR_SIGNATURES.some(sig => message.includes(sig));
+        };
+
+        window.addEventListener('error', (event) => {
+            if (isKnownHelperError(event?.message)) {
+                logDebug('ExternalLibrarySilencer', `🔇 Error de librería externa suprimido: ${event.message}`);
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        }, true /* capture phase para interceptar antes que otros handlers );
+
+        window.addEventListener('unhandledrejection', (event) => {
+            const msg = event?.reason?.message || String(event?.reason || '');
+            if (isKnownHelperError(msg)) {
+                logDebug('ExternalLibrarySilencer', `🔇 Promise rejection de librería externa suprimida: ${msg}`);
+                event.preventDefault();
+            }
+        });
+    })(); */
+
+
     // Inicialización global (solo una vez)
     const initializeGlobal = async () => {
         if (initializationPromise) {
@@ -16770,7 +16845,7 @@ regular-item.ypp-fill-none {
             document.addEventListener('yt-page-data-updated', debouncedNavigation);
 
             // 2. Inicializar YouTube Helper API y escuchar sus actualizaciones "silenciosas"
-            waitForHelper().then(h => {
+            /* waitForHelper().then(h => {
                 YTHelper = h;
                 if (!h) return;
 
@@ -16780,7 +16855,7 @@ regular-item.ypp-fill-none {
                     debouncedNavigation();
                 };
                 h.eventTarget.addEventListener('yt-helper-api-ready', ythelperListener);
-            });
+            }); */
 
             // 3. Limpiar recursos cuando la página se cierra para prevenir memory leaks
             window.addEventListener('unload', () => {

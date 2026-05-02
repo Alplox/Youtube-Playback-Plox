@@ -217,7 +217,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-12';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-13';
 
     // ------------------------------------------
     // MARK: 🛡️ Initialization Guard (SPA Safety)
@@ -12973,7 +12973,7 @@ regular-item.ypp-fill-none {
                 }
 
                 // Guardar referencia a savedData en la sesión para acceso posterior desde el intervalo
-                // sessionRef.savedData = savedData;
+                sessionRef.savedData = savedData;
 
                 if (sessionRef.isPlayerSettingsChange) {
                     logLog('process', `⏭️ Resume omitido: cambio de configuraciones detectado`);
@@ -13039,7 +13039,7 @@ regular-item.ypp-fill-none {
                         (isLive ? cachedSettings?.saveLiveStreams : cachedSettings?.saveRegularVideos);
 
         if (isAutoSaveEnabled !== false) {
-            // let tickCount = 0;
+            let tickCount = 0;
             intervalId = setInterval(async () => {
                 // Self-destruct: verificar que esta instancia siga siendo la sesión activa y no esté finalizada.
                 // Si la sesión fue reemplazada por otra en el mismo elemento o finalizada externamente,
@@ -13051,28 +13051,28 @@ regular-item.ypp-fill-none {
                     return;
                 }
 
-                // tickCount++;
+                tickCount++;
 
                 // --- UI WATCHDOG ---
                 // Si el usuario usa scripts como "Engine Tamer", el DOM puede ser reemplazado post-carga.
                 // Verificamos periódicamente si nuestra UI sigue presente y la re-inyectamos si es necesario.
-                // if (tickCount % 4 === 0 && type === 'watch') {
-                //    const display = document.getElementById('ypp-time-display-indicator');
-                //    if (!display || !display.isConnected) {
-                //        logDebug('startProcessingSession', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
-                //        initTimeDisplay(player);
-                //    }
-                //}
+                if (tickCount % 4 === 0 && type === 'watch') {
+                    const display = document.getElementById('ypp-time-display-indicator');
+                    if (!display || !display.isConnected) {
+                        logDebug('startProcessingSession', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
+                        initTimeDisplay(player);
+                    }
+                }
 
                 // --- PERSISTENCE RESCUE ---
                 // Usa sessionRef.savedData (resuelto asíncronamente desde storage en fast-path).
                 // Si el video sigue en 0s pero deberíamos haber reanudado, forzamos un re-seek de último recurso.
-                // const sessionSavedData = sessionRef.savedData;
-                // const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
-                // if (tickCount === 6 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > 10 && !isCurrentlyAd) {
-                //    logWarn('startProcessingSession', '🆘 Persistence Rescue: El video sigue en 0s tras 6s. Forzando re-seek...');
-                //    PlaybackController.resume(player, videoId, videoEl, { ...sessionSavedData, forceResumeTime: sessionSavedData.watchProgress }, type, sessionRef);
-                //}
+                const sessionSavedData = sessionRef.savedData;
+                const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
+                if (tickCount === 6 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > 10 && !isCurrentlyAd) {
+                    logWarn('startProcessingSession', '🆘 Persistence Rescue: El video sigue en 0s tras 6s. Forzando re-seek...');
+                    PlaybackController.resume(player, videoId, videoEl, { ...sessionSavedData, forceResumeTime: sessionSavedData.watchProgress }, type, sessionRef);
+                }
 
                 if (sessionRef.isResumePending) {
                     // Evitar guardar 0s (falso progreso) mientras el resume original aún está en bucle de espera

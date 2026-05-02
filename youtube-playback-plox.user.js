@@ -1353,7 +1353,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
                     // Intento 1: Selector estándar por ID
                     let players = document.querySelectorAll(S.IDS.MOVIE_PLAYER);
-                    
+
                     // Intento 2: Si falla, buscar por clase estándar de YouTube o componente web
                     if (players.length === 0) {
                         players = document.querySelectorAll('.html5-video-player, ytd-player');
@@ -12601,7 +12601,7 @@ regular-item.ypp-fill-none {
                     observers.shorts.observe(shorts, config);
                     logInfo('VideoObserverManager', '✅ Observador de Shorts inicializado');
                 } else {
-                    logDebug('VideoObserverManager', 'ℹ️ Contenedor de Shorts no encontrado (normal si no se está en /shorts)');
+                    logWarn('VideoObserverManager', 'ℹ️ Contenedor de Shorts no encontrado (normal si no se está en /shorts)');
                 }
 
                 // Observar el contenedor principal de previews

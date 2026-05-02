@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-13-BETA-v3
+// @version      0.0.9-13-BETA-v4
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -127,8 +127,9 @@
 // @run-at       document-end
 // @namespace    youtube-playback-plox
 // @license      MIT
-// @downloadURL  https://github.com/Alplox/Youtube-Playback-Plox/raw/refs/heads/playerObject-0.0.9-13-beta/youtube-playback-plox.user.js
-// @updateURL    https://github.com/Alplox/Youtube-Playback-Plox/raw/refs/heads/playerObject-0.0.9-13-beta/youtube-playback-plox.meta.js
+// @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
+// @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
+// @require      https://update.greasyfork.org/scripts/549881/1813218/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 // ------------------------------------------
@@ -1356,6 +1357,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
                     // Intento 2: Si falla, buscar por clase estándar de YouTube o componente web
                     if (players.length === 0) {
+                        logInfo('DOMHelpers', `⚠️ getWatchPlayer: No se encontró ningún reproductor con el ID ${S.IDS.MOVIE_PLAYER}.`);
                         players = document.querySelectorAll('.html5-video-player, ytd-player');
                     }
 
@@ -1369,6 +1371,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     if (!found && miniPlayer) {
                         logWarn('DOMHelpers', `⚠️ getWatchPlayer: Se encontraron ${players.length} player(s), pero todos estaban dentro del miniplayer activo.`);
                     }
+
+                    logInfo('DOMHelpers', `✅ getWatchPlayer: Reproductor encontrado: ${found} - isWatchPage: ${isWatchPage}`);
                     return found;
                 }),
             /**
@@ -16891,7 +16895,7 @@ regular-item.ypp-fill-none {
             document.addEventListener('yt-page-data-updated', debouncedNavigation);
 
             // 2. Inicializar YouTube Helper API y escuchar sus actualizaciones "silenciosas"
-            /* waitForHelper().then(h => {
+            waitForHelper().then(h => {
                 YTHelper = h;
                 if (!h) return;
 
@@ -16901,7 +16905,7 @@ regular-item.ypp-fill-none {
                     debouncedNavigation();
                 };
                 h.eventTarget.addEventListener('yt-helper-api-ready', ythelperListener);
-            }); */
+            });
 
             // 3. Limpiar recursos cuando la página se cierra para prevenir memory leaks
             window.addEventListener('unload', () => {

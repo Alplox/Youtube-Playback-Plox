@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-12
+// @version      0.0.9-13-BETA
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -140,7 +140,7 @@
     'use strict';
 
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    const level = L.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const S = {
         debug: 'color:#6a9955;',
@@ -1368,7 +1368,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
              */
             getShortsPlayer: () =>
                 get('shortsPlayer', () =>
-                    document.querySelector(S.IDS.SHORTS_PLAYER)),
+                    document.querySelector(S.IDS.SHORTS_PLAYER) ?? null),
             /**
              * Obtiene el elemento de video del reproductor de Shorts.
              * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor de Shorts.
@@ -1381,6 +1381,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
 
             /**
+             * Obtiene el elemento contenedor del Miniplayer.
+             * @returns {Element|null} Elemento <ytd-miniplayer> (o null si no existe).
+             */
+            getMiniplayerElement: () =>
+                get('miniplayerElement', () =>
+                    document.querySelector(S.ELEMENTS.MINIPLAYER_ELEMENT) ?? null
+                ),
+            /**
              * Comprueba o devuelve la instancia de Miniplayer especificando si esta posee sus componentes visuales activos
              * que validan que el Miniplayer está funcionalmente abierto.
              * @returns {Element|null} Elemento validado con atributos en activo, o null de no encontrarse.
@@ -1392,7 +1400,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     // Usamos .matches() porque S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE y S.ATTR.MINIPLAYER_ACTIVE_ATTR
                     // contienen selectores CSS (. y []) que no son compatibles con classList.contains() o hasAttribute().
                     const isVisible = miniContainer.matches(S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE) ||
-                        document.querySelector('ytd-app')?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR) ||
+                        DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100)?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR) ||
                         isVisiblyDisplayed(miniContainer);
                     return isVisible ? miniContainer : null;
                 }),
@@ -1415,13 +1423,27 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 ),
 
 
+
+
+
+
+
+
+            /**
+             * Obtiene el contenedor principal para videos inline preview <ytd-video-preview>.
+             * @returns {Element|null} Contenedor para videos inline preview.
+             */
+            getInlinePreviewMainContainer: () =>
+                get('inlinePreviewMainContainer', () =>
+                    document.querySelector(S.IDS.VIDEO_PREVIEW_MAIN_CONTAINER) ?? null),
+
             /**
              * Obtiene el elemento reproductor interno alojado en el Inline Preview.
              * @returns {Element|null} Player en el inline preview.
              */
             getInlinePreviewPlayer: () =>
                 get('inlinePreviewPlayer', () =>
-                    document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER)),
+                    document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER) ?? null),
             /**
              * Obtiene el elemento de video del reproductor interno alojado en el Inline Preview.
              * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor interno del Inline Preview.
@@ -4515,7 +4537,7 @@ regular-item.ypp-fill-none {
             computedStyle.getPropertyValue('--yt-spec-base-background') === '#0f0f0f' ||
             computedStyle.getPropertyValue('--yt-spec-text-primary') === '#f1f1f1' ||
             document.body.classList.contains('dark-theme') ||
-            document.querySelector('ytd-masthead')?.getAttribute('dark') === 'true'
+            DOMHelpers.get('theme:masthead', () => document.querySelector('ytd-masthead'), 100)?.getAttribute('dark') === 'true'
         );
     }
 
@@ -4760,7 +4782,7 @@ regular-item.ypp-fill-none {
     * Aplica degradado de colores a la barra de progreso del reproductor de YouTube usando CSS
     * @param {number} currentTime - Tiempo actual del video en segundos
     * @param {number} duration - Duración total del video en segundos
-    * @param {string} type - Tipo de video ('shorts', 'video' o 'watch')
+    * @param {string} type - Tipo de video ('shorts', 'watch')
     */
     function updateProgressBarGradient(currentTime, duration, type = 'watch') {
         try {
@@ -5902,7 +5924,7 @@ regular-item.ypp-fill-none {
 
             try {
                 // R-Search (Reverse Search): limitamos el scope dramáticamente para no iterar el DOM entero con queries complejas (O(k))
-                const adContainers = document.querySelectorAll('.ytd-in-feed-ad-layout-renderer, .video-ads, ytd-display-ad-renderer, #masthead-ad');
+                const adContainers = DOMHelpers.get('ad:containers', () => document.querySelectorAll('.ytd-in-feed-ad-layout-renderer, .video-ads, ytd-display-ad-renderer, #masthead-ad'), 500);
 
                 for (const adCont of adContainers) {
                     if (adCont.querySelector(`a[href*="${videoId}"], ytd-thumbnail[video-id="${videoId}"], [id="thumbnail"][href*="${videoId}"]`)) {
@@ -8446,7 +8468,7 @@ regular-item.ypp-fill-none {
     };
 
     function getTypeFromPageManager(path) {
-        const manager = document.querySelector('ytd-page-manager');
+        const manager = DOMHelpers.get('page:manager', () => document.querySelector('ytd-page-manager'), 100);
         if (!manager) return null;
 
         const subtype = manager.getAttribute('page-subtype');
@@ -8483,7 +8505,7 @@ regular-item.ypp-fill-none {
     }
 
     function getTypeFromYtApp() {
-        const app = document.querySelector('ytd-app');
+        const app = DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100);
         if (!app) return null;
 
         try {
@@ -9317,9 +9339,12 @@ regular-item.ypp-fill-none {
         logLog('initTimeDisplay', 'playerContainer', playerContainer);
 
         // Soporte para el rediseño "Delhi": el contenedor es un pill wrapper (.ytp-time-wrapper)
+        // Fallback: .ytp-left-controls si el wrapper de tiempo no existe (común en algunas cuentas logueadas)
         const timeWrapper = DOMHelpers.get('player:timeWrapper', () =>
             playerContainer.querySelector('.ytp-time-wrapper')
-            ?? document.querySelector('.ytp-time-wrapper'), 100);
+            ?? playerContainer.querySelector('.ytp-left-controls')
+            ?? document.querySelector('.ytp-time-wrapper')
+            ?? document.querySelector('.ytp-left-controls'), 100);
 
         logLog('initTimeDisplay', 'timeWrapper seleccionado:', timeWrapper);
 
@@ -9816,7 +9841,9 @@ regular-item.ypp-fill-none {
         // El miniplayer puede tener estructuras variables según el experimento o si es un Mix.
         const controls =
             playerContainer.querySelector('.ytp-time-wrapper') ||
-            document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper');
+            playerContainer.querySelector('.ytp-left-controls') ||
+            document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper') ||
+            document.querySelector('ytd-miniplayer-player-container .ytp-left-controls');
 
         logLog('initMiniplayerTimeDisplay', '🔍 Contenedor encontrado:', controls);
 
@@ -12332,7 +12359,7 @@ regular-item.ypp-fill-none {
                     // Detección de visibilidad ultra-robusta combinando clase, atributo y estado de ytd-app
                     const newState = !!(
                         document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT}${S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE}`) ||
-                        document.querySelector('ytd-app')?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR)
+                        DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100)?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR)
                     );
 
                     if (newState !== isMiniplayerActive) {
@@ -12515,36 +12542,36 @@ regular-item.ypp-fill-none {
             // Iniciar observación
             try {
                 // Observar el contenedor principal del video (watch)
-                // REVISAR AQUI, AGREGAR VALIDACION QUE MOVIE PLAYER NO ESTE EN MINIPLAYER
-                const playerContainer = document.querySelector(S.IDS.MOVIE_PLAYER);
+                // Usamos DOMHelpers.getWatchPlayer() que ya excluye el movie_player si está dentro del miniplayer
+                const playerContainer = DOMHelpers.getWatchPlayer();
                 if (playerContainer) {
                     observers.watch.observe(playerContainer, config);
                     logInfo('VideoObserverManager', '✅ Observador de Watch inicializado');
                 }
 
                 // Observar el contenedor principal de Shorts
-                const shorts = document.querySelector(S.IDS.SHORTS_PLAYER);
+                const shorts = DOMHelpers.getShortsPlayer();
                 if (shorts) {
                     observers.shorts.observe(shorts, config);
                     logInfo('VideoObserverManager', '✅ Observador de Shorts inicializado');
                 }
 
                 // Observar el contenedor principal de previews
-                const previewEl = document.querySelector(S.IDS.VIDEO_PREVIEW_MAIN_CONTAINER);
+                const previewEl = DOMHelpers.getInlinePreviewMainContainer();
                 if (previewEl) {
                     observers.preview.observe(previewEl, config);
                     logInfo('VideoObserverManager', '✅ Observador de Previews inicializado');
                 }
 
                 // Observar el contenedor principal del miniplayer
-                const miniContainer = document.querySelector(S.ELEMENTS.MINIPLAYER_ELEMENT);
+                const miniContainer = DOMHelpers.getMiniplayerElement();
                 if (miniContainer) {
                     observers.miniplayer.observe(miniContainer, config);
                     // También observar ytd-app para el atributo `miniplayer-is-active`
                     // que YouTube usa para señalizar la activación del miniplayer.
                     // Nota: ytd-app NO es descendiente de ytd-miniplayer, por lo que
                     // necesita su propia llamada a observe() con su propio attributeFilter.
-                    const ytdApp = document.querySelector('ytd-app');
+                    const ytdApp = DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100);
                     if (ytdApp) {
                         observers.miniplayer.observe(ytdApp, {
                             attributes: true,
@@ -13551,6 +13578,25 @@ regular-item.ypp-fill-none {
 
                     // Notificar al usuario (Toast/PlaybackBar)
                     notifySeekOrProgress(safeTime, 'seek', { videoType: type, isForced: savedData.forceResumeTime > 0, videoEl });
+
+                    // --- PERSISTENCE CHECK ---
+                    // En cuentas logueadas, YouTube puede intentar forzar su propio progreso (native resume).
+                    // Verificamos 800ms después si el tiempo se mantuvo o si saltó hacia atrás.
+                    setTimeout(() => {
+                        const currentSession = activeProcessingSessions.get(videoEl);
+                        if (session && (session.isFinalized || currentSession !== session)) return;
+
+                        const currentTime = videoEl.currentTime;
+                        // Si el tiempo saltó hacia atrás más de 5 segundos respecto a lo que pedimos reanudar
+                        if (safeTime > 10 && currentTime < (safeTime - 5)) {
+                            logWarn('PlaybackController', `🔄 Detectado salto hacia atrás tras resume (${formatTime(safeTime)} -> ${formatTime(currentTime)}). Reintentando persistencia...`);
+                            if (typeof player?.seekTo === 'function') {
+                                player.seekTo(safeTime, true);
+                            } else {
+                                videoEl.currentTime = safeTime;
+                            }
+                        }
+                    }, 800);
                 } catch (e) {
                     logError('PlaybackController', '❌ Error al aplicar seek:', e);
                 }
@@ -13600,7 +13646,20 @@ regular-item.ypp-fill-none {
                 // Throttling de guardado por cambio de tiempo: No guardar si el tiempo no se movió significativamente
                 // (Evita spam de I/O si el video está cargando o pausado)
                 const lastSavedTime = parseFloat(videoEl.dataset.lastSavedTime || '-1');
+                const lastResumedTime = parseFloat(videoEl.dataset.lastResumedTime || '-1');
+                const lastResumeTs = parseInt(videoEl.dataset.lastResumeTimestamp || '0', 10);
+                const timeSinceResume = Date.now() - lastResumeTs;
+
                 const diff = currentTime - lastSavedTime;
+
+                // --- PROTECTION: Anti-Native Resume Overwrite ---
+                // Si acabamos de reanudar hace menos de 10 segundos y el tiempo actual es mucho menor 
+                // que el tiempo que pedimos reanudar, es probable que YouTube haya forzado su propio progreso.
+                // No guardamos este tiempo para evitar corromper el historial local con el de la cuenta.
+                if (timeSinceResume < 10000 && lastResumedTime > 10 && currentTime < (lastResumedTime - 5) && !options.isManual) {
+                    logWarn('PlaybackController', `🛡️ Guardado bloqueado: Posible conflicto con reanudación nativa (${formatTime(currentTime)} < ${formatTime(lastResumedTime)})`);
+                    return { success: false, reason: 'native_resume_conflict' };
+                }
 
                 if (Math.abs(diff) < 0.05 && !options.isManual) {
                     return { success: false, reason: 'time_not_changed' };
@@ -14119,9 +14178,7 @@ regular-item.ypp-fill-none {
                 }
 
                 if (type === 'preview') {
-                    const videoPreviewLink = document.querySelector(
-                        `${S.IDS.VIDEO_PREVIEW_CONTAINER} a#media-container-link`
-                    );
+                    const videoPreviewLink = DOMHelpers.get('preview:link', () => document.querySelector(`${S.IDS.VIDEO_PREVIEW_CONTAINER} a#media-container-link`), 100);
 
                     if (videoPreviewLink?.href) {
                         const videoPreviewPlaylistId = extractYouTubePlaylistIdFromUrl(videoPreviewLink.href);

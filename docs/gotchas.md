@@ -193,6 +193,46 @@ console.log(`Migrated: ${info.migrated}`);
 - **Benefit**: This prevents the script from performing a full teardown and re-applying a `seek` (re-positioning the video), ensuring playback remains fluid during layout changes.
 - **Edge Case**: If you navigate from a Miniplayer back to the Watch page for the *same* video, the `pageType` changes (from `home`/`search` to `watch`), which *will* trigger a session refresh to ensure the UI buttons are correctly injected into the new container.
 
+## `handleNavigation` Guard Mechanics (v0.0.9-12)
+
+### How the Guard Works
+
+`handleNavigation` is called by two debounced listeners (`yt-navigate-finish` and `yt-page-data-updated`) and by the YTHelper `yt-helper-api-ready` callback. All three fire multiple times during a single SPA navigation. To prevent redundant teardowns, `handleNavigation` has **three early-return guards**:
+
+| Guard | Condition | Reason |
+|---|---|---|
+| **Session Guard** | `currentVideoId && hasActiveSession && isSamePageContext` | Skip if an active Watch/Shorts session exists for the current URL's videoId and we haven't changed page type |
+| **Miniplayer Guard** | `!currentVideoId && newPageType !== 'watch' && isSamePageContext && hasActiveMiniplayerSession` | Skip if browsing Home/Search while Miniplayer is playing — prevents killing mini session on re-fires |
+| **Preview Guard** | `!currentVideoId && isSamePageContext && hasActivePreviewSession` | Skip if a Preview (inline hover) session is active — `yt-helper-api-ready` can refire without a real route change |
+
+`isSamePageContext` is defined as:
+```js
+const isSamePageContext = lastHandledPageType === null || newPageType === lastHandledPageType;
+```
+
+### Initial Load Race Condition (Fixed in v0.0.9-12)
+
+**Symptom in logs**: Two session cycles on every hard page load — session`:1` is aborted ~600ms after being created, and session`:2` is the real one that runs normally.
+
+**Root cause — step by step**:
+
+1. `initializeGlobal` runs → `VideoObserverManager.init()` → `bootstrap()` finds `<video>` → enqueues for Watch
+2. ~800ms later: `processBatch()` → `startProcessingSession()` → `SessionOrchestrator.startSession()` registers session`:1` in `activeProcessingSessions`
+3. ~600ms after that: `yt-navigate-finish` fires → `handleNavigation()` evaluates the Session Guard:
+   - `currentVideoId` ✅ (extracted from URL)
+   - `hasActiveSession` ✅ (session`:1` is in `activeProcessingSessions`)
+   - `isSamePageContext` ❌ because `lastHandledPageType === null` (never been set) and `null !== 'watch'`
+4. Guard fails → full teardown → `stopAllSessions()` kills session`:1` → new bootstrap → session`:2` starts
+5. Now `lastHandledPageType = 'watch'` → subsequent nav events for the same page are correctly ignored
+
+**The fix**: `isSamePageContext` now evaluates `lastHandledPageType === null` as `true`, treating the first navigation event as same-context. This allows the Session Guard to fire on initial load and skip the redundant teardown.
+
+**Why this is safe**: The guard already requires `currentVideoId && hasActiveSession`, so it only skips teardown when there is a confirmed active session for the exact same videoId that's in the current URL. Genuine cross-video navigations always change `currentVideoId`, so the guard never fires for those.
+
+**When the guard correctly allows teardown despite same videoId**:
+- Navigating from Watch → Home and back: `currentVideoId` becomes `null` on Home, so the Session Guard doesn't apply; the Miniplayer/Preview guards take over
+- Navigating from one video to a different video: `currentVideoId` changes → `hasActiveSession` will be false for the new ID
+
 ## Ad Detection & "Ping-Pong" Resilience (v0.0.9-11)
 
 ### The "Ping-Pong" Effect

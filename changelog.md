@@ -1,3 +1,9 @@
+# 0.0.9-12
+
+### Fixed
+
+- **Initial Load Race Condition in `handleNavigation`**: Fixed a redundant session teardown cycle that occurred on every hard page load. The `handleNavigation` guard was checking `newPageType === lastHandledPageType` to skip unnecessary reinitializations, but `lastHandledPageType` starts as `null` on first load, so the check always fails and the bootstrap session was torn down and re-created. The fix introduces `isSamePageContext` which also evaluates to `true` when `lastHandledPageType === null` (first load), allowing an already-active session for the same video to be preserved without a redundant observer teardown cycle.
+
 # 0.0.9-11
 
 ### Fixed

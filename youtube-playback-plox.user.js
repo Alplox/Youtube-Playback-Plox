@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-11
+// @version      0.0.9-12
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -218,7 +218,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-11';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-12';
 
     // ------------------------------------------
     // MARK: 🛡️ Initialization Guard (SPA Safety)
@@ -16656,7 +16656,11 @@ regular-item.ypp-fill-none {
                 const hasActivePreviewSession = Array.from(activeProcessingSessions.values())
                     .some(s => s.type === 'preview');
 
-                if (currentVideoId && hasActiveSession && newPageType === lastHandledPageType) {
+                // lastHandledPageType === null -> primera carga de página (bootstrap aún no fue derribado)
+                // En ese caso, si ya hay sesión activa para el mismo video, no hace falta reiniciar.
+                const isSamePageContext = lastHandledPageType === null || newPageType === lastHandledPageType;
+
+                if (currentVideoId && hasActiveSession && isSamePageContext) {
                     logLog('handleNavigation', `Ignorando reinicio: Sesión activa detectada para ${currentVideoId} (${newPageType})`);
                     return;
                 }

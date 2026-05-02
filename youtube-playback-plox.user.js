@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-13-BETA
+// @version      0.0.9-13-BETA-v2
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -1346,10 +1346,22 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             /* getWatchPlayer: () => get('watchPlayer', () => document.querySelector(S.IDS.MOVIE_PLAYER)), */
             getWatchPlayer: () =>
                 get('watchPlayer', () => {
-                    const miniPlayer = DOMHelpers.getMiniplayerElementActive();
+                    // Si estamos en la página watch, ignoramos el filtro del miniplayer para asegurar
+                    // que siempre encontremos el reproductor principal, incluso si el estado del miniplayer es stale.
+                    const isWatchPage = getYouTubePageType() === 'watch';
+                    const miniPlayer = isWatchPage ? null : DOMHelpers.getMiniplayerElementActive();
 
-                    return [...document.querySelectorAll(S.IDS.MOVIE_PLAYER)]
-                        .find(player => !miniPlayer || !miniPlayer.contains(player)) ?? null;
+                    const players = document.querySelectorAll(S.IDS.MOVIE_PLAYER);
+                    if (players.length === 0) {
+                        logDebug('DOMHelpers', `❌ getWatchPlayer: No se encontró ningún elemento ${S.IDS.MOVIE_PLAYER}`);
+                        return null;
+                    }
+
+                    const found = [...players].find(player => !miniPlayer || !miniPlayer.contains(player)) ?? null;
+                    if (!found && miniPlayer) {
+                        logDebug('DOMHelpers', `⚠️ getWatchPlayer: Se encontraron ${players.length} player(s), pero todos estaban dentro del miniplayer activo.`);
+                    }
+                    return found;
                 }),
             /**
              * Obtiene el elemento de video del reproductor principal.
@@ -1401,6 +1413,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     const isVisible = miniContainer.matches(S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE) ||
                         DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100)?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR) ||
                         isVisiblyDisplayed(miniContainer);
+
+                    if (isVisible) {
+                        logDebug('DOMHelpers', '📱 Miniplayer detectado como ACTIVO');
+                    }
                     return isVisible ? miniContainer : null;
                 }),
             /**
@@ -5804,7 +5820,10 @@ regular-item.ypp-fill-none {
                     _adContainerCache.set(node, { val: result, ts: now });
                 }
 
-                if (result) return true;
+                if (result) {
+                    logDebug('AdDetector', `🚫 Nodo bloqueado: detectado en contenedor de anuncios.`);
+                    return true;
+                }
 
                 // --- 2. Jerarquía de Reproductores (Videos Regulares / Shorts / Mini) ---
                 // Prioridad máxima: detectar si el reproductor contenedor tiene clases de anuncio activas.
@@ -12077,7 +12096,11 @@ regular-item.ypp-fill-none {
         const enqueueVideo = (videoElement, type, triggerSource = 'observer') => {
             if (!videoElement) return;
             if (EventPreFilter.shouldDrop(videoElement)) return;
-            if (!RouteContextResolver.canProcessContext(videoElement, type)) return;
+            const canProcess = RouteContextResolver.canProcessContext(videoElement, type);
+            if (!canProcess) {
+                logDebug('VideoObserverManager', `🚫 enqueueVideo: rejected by canProcessContext [${type}]`);
+                return;
+            }
             // Protección: No encolar videos que son detectados como anuncios
             if (AdDetector.isNodeWithinAdContainer(videoElement)) {
                 // Log explícito y estandarizado para facilitar búsqueda en logs ("Anuncio detectado").
@@ -16788,26 +16811,25 @@ regular-item.ypp-fill-none {
                 const hasActivePreviewSession = Array.from(activeProcessingSessions.values())
                     .some(s => s.type === 'preview');
 
-                // lastHandledPageType === null -> primera carga de página (bootstrap aún no fue derribado)
-                // En ese caso, si ya hay sesión activa para el mismo video, no hace falta reiniciar.
-                const isSamePageContext = lastHandledPageType === null || newPageType === lastHandledPageType;
+                // firstLoadGuard: lastHandledPageType === null -> primera carga de página
+                const isFirstLoad = lastHandledPageType === null;
+                const isSamePageContext = isFirstLoad || newPageType === lastHandledPageType;
+                const isSameVideo = currentVideoId === lastHandledVideoId;
 
-                if (currentVideoId && hasActiveSession && isSamePageContext) {
-                    logLog('handleNavigation', `Ignorando reinicio: Sesión activa detectada para ${currentVideoId} (${newPageType})`);
-                    return;
-                }
+                // Loop Guard & SPA Recovery:
+                // Si el ID coincide Y (tenemos sesión activa O es el mismo video/página que ya intentamos),
+                // evitamos el teardown (init(true)) que destruye el progreso.
+                if (currentVideoId && (hasActiveSession || (isSameVideo && isSamePageContext)) && isSamePageContext) {
+                    logLog('handleNavigation', `Ignorando reinicio redundante para ${currentVideoId} (${newPageType}). Sesión activa: ${hasActiveSession}`);
 
-                // En navegación no-watch, si ya hay miniplayer activo preservable y no cambió el tipo de página,
-                // evitar reinicialización forzada para no re-aplicar seek innecesariamente.
-                if (!currentVideoId && newPageType !== 'watch' && newPageType === lastHandledPageType && hasActiveMiniplayerSession) {
-                    logLog('handleNavigation', `Ignorando reinicio: Miniplayer activo preservado (${newPageType})`);
-                    return;
-                }
-
-                // Evitar teardown/reinit redundante en Home/Browse mientras una sesión preview está activa:
-                // yt-helper-api-ready puede refire sin cambio real de ruta y matar la sesión en curso.
-                if (!currentVideoId && newPageType === lastHandledPageType && hasActivePreviewSession) {
-                    logLog('handleNavigation', `Ignorando reinicio: Preview activo preservado (${newPageType})`);
+                    // Si no hay sesión activa pero es el mismo video, intentamos un bootstrap ligero 
+                    // (skipCleanup=true) por si el player acaba de aparecer en el DOM.
+                    if (!hasActiveSession && isSameVideo && isSamePageContext) {
+                        if (typeof VideoObserverManager?.init === 'function') {
+                            logLog('handleNavigation', '🔄 Reintento ligero de bootstrap (skipCleanup)');
+                            VideoObserverManager.init(true, false, true);
+                        }
+                    }
                     return;
                 }
 

@@ -127,8 +127,8 @@
 // @run-at       document-end
 // @namespace    youtube-playback-plox
 // @license      MIT
-// @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
-// @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
+// @downloadURL  https://github.com/Alplox/Youtube-Playback-Plox/raw/refs/heads/playerObject-0.0.9-13-beta/youtube-playback-plox.user.js
+// @updateURL    https://github.com/Alplox/Youtube-Playback-Plox/raw/refs/heads/playerObject-0.0.9-13-beta/youtube-playback-plox.meta.js
 // ==/UserScript==
 
 // ------------------------------------------

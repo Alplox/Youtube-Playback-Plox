@@ -1353,13 +1353,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
                     const players = document.querySelectorAll(S.IDS.MOVIE_PLAYER);
                     if (players.length === 0) {
-                        logDebug('DOMHelpers', `❌ getWatchPlayer: No se encontró ningún elemento ${S.IDS.MOVIE_PLAYER}`);
+                        logWarn('DOMHelpers', `❌ getWatchPlayer: No se encontró ningún elemento ${S.IDS.MOVIE_PLAYER}`);
                         return null;
                     }
 
                     const found = [...players].find(player => !miniPlayer || !miniPlayer.contains(player)) ?? null;
                     if (!found && miniPlayer) {
-                        logDebug('DOMHelpers', `⚠️ getWatchPlayer: Se encontraron ${players.length} player(s), pero todos estaban dentro del miniplayer activo.`);
+                        logWarn('DOMHelpers', `⚠️ getWatchPlayer: Se encontraron ${players.length} player(s), pero todos estaban dentro del miniplayer activo.`);
                     }
                     return found;
                 }),
@@ -1415,7 +1415,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                         isVisiblyDisplayed(miniContainer);
 
                     if (isVisible) {
-                        logDebug('DOMHelpers', '📱 Miniplayer detectado como ACTIVO');
+                        logInfo('DOMHelpers', '📱 Miniplayer detectado como ACTIVO');
                     }
                     return isVisible ? miniContainer : null;
                 }),
@@ -5821,7 +5821,7 @@ regular-item.ypp-fill-none {
                 }
 
                 if (result) {
-                    logDebug('AdDetector', `🚫 Nodo bloqueado: detectado en contenedor de anuncios.`);
+                    logWarn('AdDetector', `🚫 Nodo bloqueado: detectado en contenedor de anuncios.`);
                     return true;
                 }
 
@@ -12098,7 +12098,7 @@ regular-item.ypp-fill-none {
             if (EventPreFilter.shouldDrop(videoElement)) return;
             const canProcess = RouteContextResolver.canProcessContext(videoElement, type);
             if (!canProcess) {
-                logDebug('VideoObserverManager', `🚫 enqueueVideo: rejected by canProcessContext [${type}]`);
+                logWarn('VideoObserverManager', `🚫 enqueueVideo: rejected by canProcessContext [${type}]`);
                 return;
             }
             // Protección: No encolar videos que son detectados como anuncios
@@ -13082,7 +13082,7 @@ regular-item.ypp-fill-none {
                 if (tickCount % 4 === 0 && type === 'watch') {
                     const display = document.getElementById('ypp-time-display-indicator');
                     if (!display || !display.isConnected) {
-                        logDebug('startProcessingSession', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
+                        logWarn('startProcessingSession', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
                         initTimeDisplay(player);
                     }
                 }
@@ -13928,7 +13928,7 @@ regular-item.ypp-fill-none {
         const now = Date.now();
         const cached = _videoMetadataCache.get(videoId);
         if (cached && (now - cached.ts < 300_000)) {
-            // logDebug('getCascadedVideoInfo', `Hit cache global para ${videoId}`);
+            // logWarn('getCascadedVideoInfo', `Hit cache global para ${videoId}`);
             return { ...cached.info };
         }
 
@@ -16754,7 +16754,7 @@ regular-item.ypp-fill-none {
 
         window.addEventListener('error', (event) => {
             if (isKnownHelperError(event?.message)) {
-                logDebug('ExternalLibrarySilencer', `🔇 Error de librería externa suprimido: ${event.message}`);
+                logWarn('ExternalLibrarySilencer', `🔇 Error de librería externa suprimido: ${event.message}`);
                 event.preventDefault();
                 event.stopImmediatePropagation();
             }
@@ -16763,7 +16763,7 @@ regular-item.ypp-fill-none {
         window.addEventListener('unhandledrejection', (event) => {
             const msg = event?.reason?.message || String(event?.reason || '');
             if (isKnownHelperError(msg)) {
-                logDebug('ExternalLibrarySilencer', `🔇 Promise rejection de librería externa suprimida: ${msg}`);
+                logWarn('ExternalLibrarySilencer', `🔇 Promise rejection de librería externa suprimida: ${msg}`);
                 event.preventDefault();
             }
         });

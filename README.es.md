@@ -166,6 +166,7 @@ Este proyecto está licenciado bajo la **Licencia MIT** - ver el archivo [LICENS
 - [SVG REPO (510147/progress-100)](https://www.svgrepo.com/svg/510147/progress-100) - [MIT](https://spdx.org/licenses/MIT.html)
 - [SVG REPO (489146/smartphone-01)](https://www.svgrepo.com/svg/489146/smartphone-01) - [PD License](https://creativecommons.org/publicdomain/zero/1.0/)
 - [SVG REPO (345233/translate)](https://www.svgrepo.com/svg/345233/translate) - [MIT](https://spdx.org/licenses/MIT.html)
+- [SVG REPO (512899/spotify-162)](https://www.svgrepo.com/svg/512899/spotify-162) - [PD License](https://creativecommons.org/publicdomain/zero/1.0/)
 - [SVG Icons (285913/freetube)](https://svgicons.com/icon/285913/freetube) - [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - [Iconify (svg-spinners/blocks-wave)](https://icon-sets.iconify.design/svg-spinners/blocks-wave/) - [MIT](https://spdx.org/licenses/MIT.html)
 

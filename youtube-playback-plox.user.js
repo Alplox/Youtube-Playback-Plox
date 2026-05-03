@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-13
+// @version      0.0.9-14
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -129,6 +129,7 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
+// @require      https://update.greasyfork.org/scripts/549881/1814457/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 // ------------------------------------------
@@ -225,7 +226,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-13';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-14';
 
     // ------------------------------------------
     // MARK: 🛡️ Initialization Guard (SPA Safety)
@@ -444,6 +445,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "recalculateStorage": "Recalculate",
             "recalculateStorageTooltip": "Recalculate storage usage",
             "openInFreeTube": "Open in FreeTube",
+            "searchInSpotify": "Search in Spotify",
             "importingFromFreeTube": "Importing from FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importing from FreeTube as SQLite...",
             "videosImported": "videos imported",
@@ -671,6 +673,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "recalculateStorage": "Recalcular",
             "recalculateStorageTooltip": "Recalcular el uso de almacenamiento",
             "openInFreeTube": "Abrir en FreeTube",
+            "searchInSpotify": "Buscar en Spotify",
             "importingFromFreeTube": "Importando desde FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importando desde FreeTube como SQLite...",
             "videosImported": "videos importados",
@@ -898,6 +901,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "recalculateStorage": "Recalculer",
             "recalculateStorageTooltip": "Recalculer l'utilisation du stockage",
             "openInFreeTube": "Ouvrir dans FreeTube",
+            "searchInSpotify": "Rechercher dans Spotify",
             "importingFromFreeTube": "Importation depuis FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importation depuis FreeTube en tant que SQLite...",
             "videosImported": "vidéos importées",
@@ -969,7 +973,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 
     // Función para cargar las traducciones desde el archivo JSON externo
     async function loadTranslations() {
-        logGroup('loadTranslations')
+
         const CACHE_KEY = CONFIG.STORAGE_KEYS.translations;
         const TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
@@ -1047,7 +1051,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         const cachePayload = JSON.stringify({ ts: Date.now(), version: data?.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null, data });
         try { if (typeof GM_setValue === 'function') await GM_setValue(CACHE_KEY, cachePayload); } catch (_) { }
 
-        logGroupEnd();
         return data;
     }
 
@@ -1361,11 +1364,51 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                     const miniPlayer = isWatchPage ? null : DOMHelpers.getMiniplayerElementActive();
 
                     const watchContainer = document.querySelector('ytd-watch-flexy');
-                    let player = watchContainer?.querySelector(S.IDS.MOVIE_PLAYER);
+                    let player = null;
+
+                    if (watchContainer instanceof HTMLElement) {
+                        const moviePlayerInsideFlexy = watchContainer?.querySelector(S.IDS.MOVIE_PLAYER);
+                        if (typeof moviePlayerInsideFlexy?.getPlayerState === 'function') {
+                            if (isVisiblyDisplayed(moviePlayerInsideFlexy)) {
+                                logInfo('DOMHelpers', `✅ Player encontrado en 1er nivel es visible.`);
+                                player = moviePlayerInsideFlexy
+                            } else {
+                                logInfo('DOMHelpers', `❌ Player encontrado en 1er nivel pero no es visible.`);
+                            }
+                        }
+                    }
 
                     if (!player) {
-                        player = document.querySelector(S.CLASSES.HTML5_VIDEO_PLAYER);
-                        logInfo('DOMHelpers', `⚠️ Fallback usado (${S.CLASSES.HTML5_VIDEO_PLAYER}).`);
+                        const moviePlayers = document.querySelectorAll(S.IDS.MOVIE_PLAYER);
+                        for (const el of moviePlayers) {
+                            if (
+                                typeof el?.getPlayerState === 'function' &&
+                                (!miniPlayer || !miniPlayer.contains(el))
+                            ) {
+                                if (isVisiblyDisplayed(el)) {
+                                    logInfo('DOMHelpers', `✅ Player encontrado en 2do nivel es visible.`);
+                                    player = el;
+                                    break;
+                                } else {
+                                    logInfo('DOMHelpers', `❌ Player encontrado en 2do nivel pero no es visible.`);
+                                }
+                            }
+                        }
+                    }
+
+                    if (!player) {
+                        const html5VideoPlayer = document.querySelector(S.CLASSES.HTML5_VIDEO_PLAYER);
+                        if (
+                            typeof html5VideoPlayer?.getPlayerState === 'function' &&
+                            (!miniPlayer || !miniPlayer.contains(html5VideoPlayer))
+                        ) {
+                            if (isVisiblyDisplayed(html5VideoPlayer)) {
+                                logInfo('DOMHelpers', `✅ Player encontrado en 3er nivel es visible.`);
+                                player = html5VideoPlayer
+                            } else {
+                                logInfo('DOMHelpers', `❌ Player encontrado en 3er nivel pero no es visible.`);
+                            }
+                        }
                     }
 
                     if (!player) {
@@ -1374,6 +1417,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                         return null;
                     }
 
+                    // Doble check a player detectado
                     if (!(player instanceof HTMLElement)) {
                         logWarn('DOMHelpers', '⚠️ Player no es un HTMLElement:', player);
                         return null;
@@ -1384,12 +1428,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                         return null;
                     }
 
-                    logInfo('DOMHelpers', '✅ getWatchPlayer:', {
-                        element: player,
-                        tag: player.tagName,
-                        id: player.id,
-                        classes: player.className,
-                        isWatchPage
+                    logInfo('DOMHelpers', {
+                        isWatchPage: isWatchPage,
+                        watchContainer: !!watchContainer,
+                        playerInContainer: !!watchContainer?.querySelector(S.IDS.MOVIE_PLAYER),
+                        moviePlayer: !!document.querySelector(S.IDS.MOVIE_PLAYER),
+                        fallbackPlayer: !!document.querySelector(S.CLASSES.HTML5_VIDEO_PLAYER),
+                        videos: document.querySelectorAll('video').length
                     });
 
                     return player;
@@ -4662,10 +4707,10 @@ regular-item.ypp-fill-none {
         globalNavigationListeners = [];
 
         // Limpiar listener de YTHelper
-        /*  if (YTHelper && ythelperListener) {
-             YTHelper.eventTarget.removeEventListener('yt-helper-api-ready', ythelperListener);
-             ythelperListener = null;
-         } */
+        if (YTHelper && ythelperListener) {
+            YTHelper.eventTarget.removeEventListener('yt-helper-api-ready', ythelperListener);
+            ythelperListener = null;
+        }
 
         // Limpiar listeners del botón flotante
         floatingButtonListeners.forEach(({ target, event, handler }) => {
@@ -4795,7 +4840,8 @@ regular-item.ypp-fill-none {
         smartphone: '<svg class="ypp-svg-reset" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.012M6 5v14a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5a2 2 0 0 0-2-2H8a2 2 0 0 0-2 2"/></svg>',
         // https://www.svgrepo.com/svg/345233/translate - MIT
         translate: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M4.545 6.714 4.11 8H3l1.862-5h1.284L8 8H6.833l-.435-1.286zm1.634-.736L5.5 3.956h-.049l-.679 2.022z"/><path d="M0 2a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-3H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zm7.138 9.995q.289.451.63.846c-.748.575-1.673 1.001-2.768 1.292.178.217.451.635.555.867 1.125-.359 2.08-.844 2.886-1.494.777.665 1.739 1.165 2.93 1.472.133-.254.414-.673.629-.89-1.125-.253-2.057-.694-2.82-1.284.681-.747 1.222-1.651 1.621-2.757H14V8h-3v1.047h.765c-.318.844-.74 1.546-1.272 2.13a6 6 0 0 1-.415-.492 2 2 0 0 1-.94.31"/></svg>',
-
+        // https://www.svgrepo.com/svg/512899/spotify-162 - PD License
+        spotifyIconFill: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="currentColor" fill-rule="evenodd" d="M15.915 8.865c-3.223-1.914-8.54-2.09-11.618-1.156a.935.935 0 0 1-.543-1.79c3.533-1.073 9.405-.866 13.116 1.337a.935.935 0 0 1-.955 1.609M15.81 11.7a.78.78 0 0 1-1.073.257c-2.687-1.652-6.785-2.13-9.964-1.165A.78.78 0 0 1 4.32 9.3c3.631-1.102 8.146-.568 11.233 1.329a.78.78 0 0 1 .257 1.071m-1.224 2.723a.623.623 0 0 1-.857.207c-2.348-1.435-5.304-1.759-8.785-.964a.622.622 0 1 1-.277-1.215c3.809-.871 7.076-.496 9.712 1.115.294.18.387.563.207.857M10 0C4.477 0 0 4.477 0 10s4.477 10 10 10 10-4.477 10-10S15.523.001 10 .001z"/></svg>',
 
 
         /* OTROS */
@@ -5700,7 +5746,7 @@ regular-item.ypp-fill-none {
     // ------------------------------------------
 
     // Variables para controlar el estado de inicialización
-    let YTHelper = null;          // YouTube Helper API, obtenida de waitForHelper
+    let YTHelper = null;          // YouTube Helper API, obtenida durante inicializacion
     let currentPageType = null;   // Tipo de página actual (home, watch, shorts, playlist, etc.)
     let lastHandledVideoId = null; // Último video ID procesado en navegación
     let lastHandledPageType = null; // Último tipo de página procesado en navegación
@@ -6473,110 +6519,6 @@ regular-item.ypp-fill-none {
 
         wrapper.append(trigger, list);
         return wrapper;
-    }
-
-    // MARK: 🔧 YouTube Helper API
-    /**
-    * Espera a que YouTube Helper API esté listo.
-    *
-    * @param {number} retries - Número de reintentos (opcional, por defecto 0).
-    * @returns {Promise} - Promesa que se resuelve cuando YouTube Helper API está listo.
-    */
-
-    // https://github.com/Alplox/Youtube-Playback-Plox/issues/42
-    function waitForHelper(retries = 1) {
-        return new Promise((resolve, reject) => {
-            const MAX_RETRIES = 10;
-            const RETRY_INTERVAL = 1000;
-            const FALLBACK_URL = 'https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/YouTube-Helper-API.js';
-
-            let helper = null;
-            if (typeof youtubeHelperApi !== 'undefined') {
-                helper = youtubeHelperApi;
-                try { logInfo('waitForHelper', '✅ Referencia a YouTube Helper API obtenida youtubeHelperApi'); } catch (_) { }
-            } else if (typeof window.youtubeHelperApi !== 'undefined') {
-                helper = window.youtubeHelperApi;
-                try { logInfo('waitForHelper', '✅ Referencia a YouTube Helper API obtenida window.youtubeHelperApi'); } catch (_) { }
-            } else if (typeof unsafeWindow !== 'undefined' && unsafeWindow.youtubeHelperApi) {
-                helper = unsafeWindow.youtubeHelperApi;
-                try { logInfo('waitForHelper', '✅ Referencia a YouTube Helper API obtenida unsafeWindow.youtubeHelperApi'); } catch (_) { }
-            }
-
-            if (helper) {
-                // Si ya está inicializado completamente
-                if (helper?.player?.api) return resolve(helper);
-
-                // Si existe pero aún no se inicializó
-                helper.eventTarget.addEventListener('yt-helper-api-ready', () => {
-                    resolve(helper);
-                }, { once: true });
-                return;
-            }
-
-            // Si no existe todavía, reintenta
-            if (retries < MAX_RETRIES) {
-                logWarn('waitForHelper', `[YTHelper] No disponible, reintentando... (${retries + 1}/${MAX_RETRIES})`);
-
-                // Intentar cargar desde el fallback en el reintento 3 para darle oportunidad a GreasyFork primero
-                if (retries === 3 && typeof GM_xmlhttpRequest !== 'undefined') {
-                    logWarn('waitForHelper', '[YTHelper] Intentando cargar Helper API desde Fallback (GitHub)...');
-                    GM_xmlhttpRequest({
-                        method: 'GET',
-                        url: FALLBACK_URL,
-                        onload: (response) => {
-                            if (response.status === 200) {
-                                try {
-                                    // Reemplazar const por definición en window para acceso global
-                                    const code = response.responseText.replace(/const\s+youtubeHelperApi\s*=/, 'window.youtubeHelperApi = ');
-
-                                    // Opción A: GM_addElement (Tampermonkey/Violentmonkey) - Método más seguro para saltar CSP
-                                    if (typeof GM_addElement !== 'undefined') {
-                                        GM_addElement(document.head, 'script', { textContent: code });
-                                        logInfo('waitForHelper', '[YTHelper] Helper API cargado mediante GM_addElement.');
-                                        return;
-                                    }
-
-                                    // Opción B: Trusted Types aware injection
-                                    let trustedCode = code;
-                                    if (window.trustedTypes?.createPolicy) {
-                                        try {
-                                            const policy = window.trustedTypes.createPolicy('ypp-helper-fallback', {
-                                                createScript: (s) => s
-                                            });
-                                            trustedCode = policy.createScript(code);
-                                        } catch (_) { /* Política ya existe o creación bloqueada */ }
-                                    }
-
-                                    try {
-                                        // Intento 1: Sandbox (new Function)
-                                        new Function(code)();
-                                        logInfo('waitForHelper', '[YTHelper] Helper API cargado desde Fallback (Sandbox).');
-                                    } catch (err) {
-                                        // Intento 2: Inyección DOM con soporte TT
-                                        const script = document.createElement('script');
-                                        const nonce = document.querySelector('script[nonce]')?.nonce;
-                                        if (nonce) script.setAttribute('nonce', nonce);
-                                        script.textContent = trustedCode;
-                                        document.head.appendChild(script);
-                                        logInfo('waitForHelper', '[YTHelper] Helper API inyectado en el DOM con soporte TrustedTypes.');
-                                    }
-                                } catch (err) {
-                                    logError('waitForHelper', '[YTHelper] Falló la carga desde Fallback:', err);
-                                }
-                            } else {
-                                logWarn('waitForHelper', `[YTHelper] Fallback retornó código de estado: ${response.status}`);
-                            }
-                        },
-                        onerror: (err) => logError('waitForHelper', '[YTHelper] Error de red al intentar cargar Fallback:', err)
-                    });
-                }
-
-                setTimeout(() => resolve(waitForHelper(retries + 1)), RETRY_INTERVAL);
-            } else {
-                logWarn('waitForHelper', '⚠️ YouTube Helper API no disponible tras varios intentos. El script funcionará en modo limitado (Fallback).');
-                resolve(null);
-            }
-        });
     }
 
     // MARK: 🔧 Debounce
@@ -9330,8 +9272,14 @@ regular-item.ypp-fill-none {
             }
         };
 
-        syncDisplay(watchTimeDisplay, DOMHelpers.getWatchPlayer());
-        syncDisplay(shortsTimeDisplay, DOMHelpers.getShortsPlayer());
+        if (currentPageType === 'watch' && watchTimeDisplay) {
+            syncDisplay(watchTimeDisplay, DOMHelpers.getWatchPlayer());
+        }
+
+        if (currentPageType === 'shorts' && shortsTimeDisplay) {
+            syncDisplay(shortsTimeDisplay, DOMHelpers.getShortsPlayer());
+        }
+
         syncDisplay(miniplayerTimeDisplay, DOMHelpers.getMiniplayerPlayer());
         syncDisplay(inlinePreviewTimeDisplay, DOMHelpers.getInlinePreviewPlayer());
     }
@@ -9439,8 +9387,6 @@ regular-item.ypp-fill-none {
             try { watchTimeDisplay.remove(); } catch (_) { }
             watchTimeDisplay = null;
         }
-
-        logLog('initTimeDisplay', 'playerContainer', playerContainer);
 
         // Soporte para el rediseño "Delhi": el contenedor es un pill wrapper (.ytp-time-wrapper)
         // Fallback: .ytp-left-controls si el wrapper de tiempo no existe (común en algunas cuentas logueadas)
@@ -9604,8 +9550,8 @@ regular-item.ypp-fill-none {
 
         // 3. Re-anclaje (Re-anchoring)
         const target = (shortsPlayerControls instanceof Element && shortsPlayerControls) ||
-                       (overlayRoot instanceof Element && overlayRoot) ||
-                       document.body;
+            (overlayRoot instanceof Element && overlayRoot) ||
+            document.body;
         if (shortsTimeDisplay.parentElement !== target) {
             try { target.appendChild(shortsTimeDisplay); } catch (_) { }
         }
@@ -11200,10 +11146,10 @@ regular-item.ypp-fill-none {
                 className: 'ypp-management-footer-section',
                 atribute: { 'data-section': 'danger' }
             });
-           /*  const sessionSection = createElement('div', {
-                className: 'ypp-management-footer-section',
-                atribute: { 'data-section': 'session' }
-            }); */
+            /*  const sessionSection = createElement('div', {
+                 className: 'ypp-management-footer-section',
+                 atribute: { 'data-section': 'session' }
+             }); */
 
             /**
              * Referencia al cierre del menú desplegable actualmente abierto.
@@ -12083,6 +12029,97 @@ regular-item.ypp-fill-none {
             }, 700);
         };
 
+        // Estado para observador de espera de player
+        let watchPlayerWaitState = { observer: null, timeoutId: null, resolved: false };
+
+        /**
+         * Espera reactiva a que aparezca el #movie_player en página watch.
+         * Usa MutationObserver para detectar inmediatamente + safety timeout.
+         * @param {boolean} force - Si es true, fuerza re-procesamiento ignorando cache
+         */
+        const waitForWatchPlayerReactive = (force = false) => {
+            // Limpiar estado previo si existe
+            if (watchPlayerWaitState.observer) {
+                watchPlayerWaitState.observer.disconnect();
+                watchPlayerWaitState.observer = null;
+            }
+            if (watchPlayerWaitState.timeoutId) {
+                clearTimeout(watchPlayerWaitState.timeoutId);
+                watchPlayerWaitState.timeoutId = null;
+            }
+            watchPlayerWaitState.resolved = false;
+
+            // Verificar si existe
+            const existingVideo = DOMHelpers.getWatchPlayerVideo();
+            if (existingVideo) {
+                if (existingVideo.closest(S.ELEMENTS.MINIPLAYER_ELEMENT)) {
+                    logLog('VideoObserverManager', '⏭️ Video encontrado está en miniplayer, omitiendo bootstrap de watch');
+                } else {
+                    if (force) videoTypeCache.delete(existingVideo);
+                    enqueueVideo(existingVideo, 'watch');
+                }
+                return;
+            }
+
+            const tryProcess = () => {
+                if (watchPlayerWaitState.resolved) return false;
+                if (currentPageType !== 'watch') {
+                    watchPlayerWaitState.resolved = true;
+                    return false;
+                }
+
+                const video = DOMHelpers.getWatchPlayerVideo();
+                if (video) {
+                    watchPlayerWaitState.resolved = true;
+                    if (watchPlayerWaitState.observer) {
+                        watchPlayerWaitState.observer.disconnect();
+                        watchPlayerWaitState.observer = null;
+                    }
+                    if (watchPlayerWaitState.timeoutId) {
+                        clearTimeout(watchPlayerWaitState.timeoutId);
+                        watchPlayerWaitState.timeoutId = null;
+                    }
+
+                    logInfo('VideoObserverManager', '✅ Video en watch player detectado en MutationObserver');
+                    if (video.closest(S.ELEMENTS.MINIPLAYER_ELEMENT)) {
+                        logLog('VideoObserverManager', '⏭️ Video encontrado está en miniplayer, omitiendo bootstrap de watch');
+                    } else {
+                        if (force) videoTypeCache.delete(video);
+                        enqueueVideo(video, 'watch');
+                    }
+                    return true;
+                }
+
+                return false;
+            };
+
+            // Intentar una vez más antes de iniciar observer
+            if (tryProcess()) return;
+
+            // Crear MutationObserver para detectar cuando aparece el player
+            watchPlayerWaitState.observer = new MutationObserver(() => {
+                tryProcess();
+            });
+
+            // Observar todo el documento buscando aparición de #movie_player
+            watchPlayerWaitState.observer.observe(document.body, {
+                childList: true,
+                subtree: true
+            });
+
+            // Safety timeout: desconectar observer después de 4 segundos
+            watchPlayerWaitState.timeoutId = setTimeout(() => {
+                if (!watchPlayerWaitState.resolved) {
+                    watchPlayerWaitState.resolved = true;
+                    if (watchPlayerWaitState.observer) {
+                        watchPlayerWaitState.observer.disconnect();
+                        watchPlayerWaitState.observer = null;
+                    }
+                    logWarn('VideoObserverManager', '⏱️ Timeout esperando #movie_player (4s). Posible interferencia persistente.');
+                }
+            }, 4000);
+        };
+
         /**
          * Escanea el DOM en busca de videos existentes para procesarlos inmediatamente.
          * @param {boolean} force - Si es true, ignora el cache para forzar el re-procesamiento (útil en navegación).
@@ -12095,17 +12132,7 @@ regular-item.ypp-fill-none {
 
             // 1. Buscar video en Watch
             if (currentPageType === 'watch') {
-                const watchVideo = DOMHelpers.getWatchPlayerVideo();
-                if (watchVideo) {
-                    // Verificar que el video no esté dentro del miniplayer (evitar conflicto durante transiciones)
-                    // safety check por mi bien mental
-                    if (watchVideo.closest(S.ELEMENTS.MINIPLAYER_ELEMENT)) {
-                        logLog('VideoObserverManager', '⏭️ Video encontrado está en miniplayer, omitiendo bootstrap de watch');
-                    } else {
-                        if (force) videoTypeCache.delete(watchVideo);
-                        enqueueVideo(watchVideo, 'watch');
-                    }
-                }
+                waitForWatchPlayerReactive(force);
             }
 
             // 2. Buscar video en Shorts
@@ -12757,6 +12784,17 @@ regular-item.ypp-fill-none {
             // Full Teardown SPA: Limpiar timers y romper closures
             displayClearTimeouts.forEach((v, k) => clearTimeout(v));
             displayClearTimeouts.clear();
+
+            // Limpiar observador de espera de Watch player
+            if (watchPlayerWaitState.observer) {
+                watchPlayerWaitState.observer.disconnect();
+                watchPlayerWaitState.observer = null;
+            }
+            if (watchPlayerWaitState.timeoutId) {
+                clearTimeout(watchPlayerWaitState.timeoutId);
+                watchPlayerWaitState.timeoutId = null;
+            }
+            watchPlayerWaitState.resolved = true;
 
             logLog('VideoObserverManager', '🧹 Timers liberados (Teardown parcial SPA)');
         };
@@ -16434,6 +16472,60 @@ regular-item.ypp-fill-none {
         }));
 
         buttonsChildren.push(createElement('button', {
+            className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md',
+            id: 'ypp-btn-open-in-spotify',
+            html: SVG_ICONS.spotifyIconFill,
+            atribute: { title: t('searchInSpotify') },
+            onClickEvent: (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+
+                const cleanTitleForSpotify = (t) => {
+                    if (!t) return '';
+                    let c = t.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '')
+                        // Removes common YouTube metadata (e.g., "Official Video", "Lyrics", "HD", "4K", etc.)
+                        .replace(/\b(official\s*video|music\s*video|lyrics?|hd|4k|audio|remastered)\b/gi, '')
+
+                        // Removes trailing context like "Live at ..." or "From ..." (often not part of track title)
+                        .replace(/live\s+at.+$/i, '')
+                        .replace(/from\s+.+$/i, '')
+
+                        // Removes platform-specific suffixes like "- YouTube"
+                        .replace(/\s*-\s*YouTube.*$/i, '')
+
+                        // Normalizes different quote styles to standard double quotes
+                        .replace(/["‘’“”]/g, '"')
+
+                        // Removes "- Topic" suffix (auto-generated YouTube channels)
+                        .replace(/\s*-\s*Topic.*$/i, '')
+
+                        // Collapses extra whitespace and trims the result
+                        .replace(/\s+/g, ' ')
+                        .trim();
+                    const q = c.match(/"([^"]+)"/);
+                    if (q && q[1]) {
+                        const a = c.split('"')[0].trim().replace(/[-–]+$/, '').trim();
+                        return a ? `${a} - ${q[1]}` : q[1];
+                    }
+                    const p = c.split(/[-–—]+/).map(x => x.trim()).filter(Boolean);
+                    return p.length >= 2 ? `${p[0]} - ${p[1]}` : c;
+                };
+
+                const cleanedTitle = cleanTitleForSpotify(title);
+                const query = encodeURIComponent(cleanedTitle);
+                const spotifyApp = `spotify:search:${query}`;
+                const spotifyWeb = `https://open.spotify.com/search/${query}`;
+
+                const opened = window.open(spotifyApp, '_blank', 'noopener,noreferrer');
+                setTimeout(() => {
+                    if (!opened || opened.closed || opened.location.href === 'about:blank') {
+                        window.open(spotifyWeb, '_blank', 'noopener,noreferrer');
+                    }
+                }, 500);
+            }
+        }));
+
+        buttonsChildren.push(createElement('button', {
             className: 'ypp-btn ypp-btn-circle ypp-btn-outline-danger ypp-shadow-md',
             html: SVG_ICONS.trash,
             atribute: { 'data-action': 'delete-entry', title: t('deleteEntry'), 'data-title': title }
@@ -16855,48 +16947,6 @@ regular-item.ypp-fill-none {
     let initializationPromise = null;
     let backupIntervalId = null;
 
-    // ------------------------------------------
-    // MARK: 🔇 External Library Error Silencer
-    // ------------------------------------------
-    // La librería YouTube Helper API puede lanzar errores internos en cuentas logueadas
-    // (ej: "appState.player.playerObject.querySelector is not a function").
-    // Estos errores son "Uncaught (in promise)" que no podemos envolver en try-catch
-    // porque ocurren en callbacks internos de la librería, fuera de nuestro alcance.
-    // Interceptamos y absorbemos estos errores conocidos para evitar que el navegador
-    // los marque como críticos y potencialmente interrumpa cadenas de promesas.
-    // NOTA: Solo se suprimen errores que coincidan con firmas específicas de la librería.
-
-    /* (function installExternalLibraryErrorSilencer() {
-        /** @type {ReadonlyArray<string>} Firmas de errores conocidos de la Helper API
-        const KNOWN_HELPER_ERROR_SIGNATURES = [
-            'playerObject.querySelector is not a function',
-            'appState.player.playerObject',
-            '_handlePlayerUpdate',
-        ];
-
-        const isKnownHelperError = (message) => {
-            if (!message || typeof message !== 'string') return false;
-            return KNOWN_HELPER_ERROR_SIGNATURES.some(sig => message.includes(sig));
-        };
-
-        window.addEventListener('error', (event) => {
-            if (isKnownHelperError(event?.message)) {
-                logWarn('ExternalLibrarySilencer', `🔇 Error de librería externa suprimido: ${event.message}`);
-                event.preventDefault();
-                event.stopImmediatePropagation();
-            }
-        }, true /* capture phase para interceptar antes que otros handlers );
-
-        window.addEventListener('unhandledrejection', (event) => {
-            const msg = event?.reason?.message || String(event?.reason || '');
-            if (isKnownHelperError(msg)) {
-                logWarn('ExternalLibrarySilencer', `🔇 Promise rejection de librería externa suprimida: ${msg}`);
-                event.preventDefault();
-            }
-        });
-    })(); */
-
-
     // Inicialización global (solo una vez)
     const initializeGlobal = async () => {
         if (initializationPromise) {
@@ -17015,17 +17065,35 @@ regular-item.ypp-fill-none {
             document.addEventListener('yt-page-data-updated', debouncedNavigation);
 
             // 2. Inicializar YouTube Helper API y escuchar sus actualizaciones "silenciosas"
-            /*  waitForHelper().then(h => {
-                 YTHelper = h;
-                 if (!h) return;
- 
-                 // Registrar listener persistente que ahora comparte el mismo flujo debounced
-                 ythelperListener = () => {
-                     logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
-                     debouncedNavigation();
-                 };
-                 h.eventTarget.addEventListener('yt-helper-api-ready', ythelperListener);
-             }); */
+            try {
+                const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : (globalThis ?? window);
+
+                if (typeof youtubeHelperApi !== 'undefined') {
+                    YTHelper = youtubeHelperApi;
+                    logInfo('YTHelper', '✅ Referencia a YouTube Helper API obtenida youtubeHelperApi');
+                } else if (typeof targetWindow.youtubeHelperApi !== 'undefined') {
+                    YTHelper = targetWindow.youtubeHelperApi;
+                    logInfo('YTHelper', '✅ Referencia a YouTube Helper API obtenida targetWindow.youtubeHelperApi');
+                } else if (targetWindow.youtubeHelperRegistry?.instances?.size > 0) {
+                    YTHelper = Array.from(targetWindow.youtubeHelperRegistry.instances.values())[0];
+                    logInfo('YTHelper', '✅ Referencia a YouTube Helper API obtenida targetWindow.youtubeHelperRegistry');
+                }
+
+                if (YTHelper) {
+                    // Registrar listener persistente que ahora comparte el mismo flujo debounced
+                    ythelperListener = () => {
+                        logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
+                        debouncedNavigation();
+                    };
+
+                    YTHelper.eventTarget.addEventListener('yt-helper-api-ready', ythelperListener);
+                    logInfo('YTHelper', 'Registra evento yt-helper-api-ready');
+                } else {
+                    logError('YTHelper', 'Referencia a YouTube Helper API no obtenida');
+                }
+            } catch (error) {
+                logError('YTHelper', 'Error durante inicializacion YouTube Helper API: ' + error);
+            }
 
             // 3. Limpiar recursos cuando la página se cierra para prevenir memory leaks
             window.addEventListener('unload', () => {

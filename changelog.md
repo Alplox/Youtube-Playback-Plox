@@ -1,3 +1,17 @@
+# 0.0.9-14
+
+### Fixed
+
+- **Watch Player Detection - Reactive Observer**: Replaced polling-based detection with a hybrid MutationObserver approach for Watch player bootstrap. When `#movie_player` is not found on a watch page, the script now uses a reactive MutationObserver to detect the player immediately when it appears, plus a 4-second safety timeout. #46
+
+### Changed
+
+- **YouTube Helper API**: Re-added support for YouTube Helper API, using a more unified method to detect the presence of the API. (The API may spit out some minor errors, but they are not a problem as they don't/shouldn't break the script)
+
+### Added
+
+- **Spotify Quick Access**: Added a new button to open/search for a saved video in Spotify. (This was a personal userscript that I decided to share here so I can deprecate it.)
+
 # 0.0.9-13
 
 ### Fixed
@@ -15,7 +29,6 @@
 - **Logging System**: `logLog` now uses `console.log` instead of `console.debug` for better visibility in environments where `debug` output is filtered. Added grouping methods (`logGroup`, `logGroupEnd`) to improve log organization in the console.
 - **GitHub Backup Optimization**: Added pre-check before scheduling backup intervals to avoid unnecessary 5-minute polling when autoBackup is disabled or no valid token is configured. The script now verifies `autoBackup + token` presence for both Gist and Repository before creating any intervals.
 - **Youtube Helper API**: Removed library `Youtube-Helper-API` upon facing errors `Error in _handlePlayerUpdate: TypeError: appState.player.playerObject.querySelector is not a function` that were causing the script to break. Reported findings to developer. #42
-
 
 # 0.0.9-12
 

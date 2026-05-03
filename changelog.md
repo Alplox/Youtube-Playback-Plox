@@ -1,3 +1,11 @@
+# 0.11.0-Plox
+
+### Added
+- Expose EVENTS constants object on public API for type-safe event handling
+
+### Fixed
+- Add Element type guards to prevent DOM method errors on non-Element objects
+
 # 0.10.1-Plox
 
 ### Fixed

@@ -2,6 +2,7 @@
 
 ### Fixed
 
+- **Shorts Ad Detection Fix**: Fixed a bug where ads in Shorts were not being detected and were saved as regular shorts. The root cause was a 250ms cache in `AdDetector.isNodeWithinAdContainer` that stored the result of the initial check (which only verified in-feed ad containers). When the `ad-created` class appeared dynamically on the Shorts player AFTER the first check but WITHIN the 250ms cache window, subsequent calls would return the cached `false` result, allowing ads to bypass detection. Fixed by moving all player class checks (`ad-created`, `ad-showing`, `ad-interrupting`) to execute BEFORE the cache lookup, ensuring these dynamic classes are always checked fresh without cache interference.
 - **GitHub Token Validation**: Added token validation for GitHub backups before saving. Invalid tokens are now rejected.
 - **Watch Observer Hardening**: Refactored the Watch observer initialization to use `DOMHelpers.getWatchPlayer()`. This ensures the observer only targets the legitimate main player and explicitly excludes `#movie_player` instances located within a miniplayer, preventing redundant triggers.
 - **UI Robustness**: Added fallback selectors (`.ytp-left-controls`) for the progress bar.

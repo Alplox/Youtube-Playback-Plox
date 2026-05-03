@@ -5817,18 +5817,52 @@ regular-item.ypp-fill-none {
             try {
                 if (!node || typeof node.closest !== 'function') return false;
 
-                // Cache de deteccion por nodo (TTL 250ms p/hover responsive)
+                // --- 0. Verificación PRIORITARIA de clases de player (sin cache) ---
+                // Las clases de anuncio en players (ad-created, ad-showing) pueden aparecer
+                // DINÁMICAMENTE después de que el video inicia. No usar cache para estas.
+
+                // Reproductor Principal (Watch / Miniplayer)
+                const moviePlayer = DOMHelpers.closestComposed(node, `#${IDs.MOVIE_PLAYER}`);
+                if (moviePlayer?.classList) {
+                    if (AdSelectors.playerAdClasses.some(c => moviePlayer.classList.contains(c))) return true;
+                    if (this.findVisibleAdUi(moviePlayer)) return true;
+                }
+
+                // Reproductor de Shorts
+                const shortsPlayer = DOMHelpers.closestComposed(node, `#${IDs.SHORTS_PLAYER}`);
+                if (shortsPlayer?.classList) {
+                    if (AdSelectors.shortsAdClasses.some(c => shortsPlayer.classList.contains(c))) return true;
+                    // Refuerzo para Shorts: Revisar el contenedor principal
+                    const reelRenderer = DOMHelpers.closestComposed(shortsPlayer, 'ytd-reel-video-renderer');
+                    if (reelRenderer) {
+                        if (reelRenderer.hasAttribute('is-ads-overlay')) return true;
+                        if (reelRenderer.querySelector('ytd-ad-slot-renderer')) return true;
+                    }
+                    if (this.findVisibleAdUi(shortsPlayer)) return true;
+                }
+
+                // Reproductor de Previews / Grid (Detección de anuncios en thumbnails que se autoreproducen)
+                const inlinePlayer = DOMHelpers.closestComposed(node, `#${IDs.INLINE_PREVIEW_PLAYER}`);
+                if (inlinePlayer?.classList) {
+                    if (AdSelectors.previewAdClasses.some(c => inlinePlayer.classList.contains(c))) return true;
+                    if (this.findVisibleAdUi(inlinePlayer)) return true;
+                    try {
+                        const videoId = getPlayerVideoId(inlinePlayer);
+                        if (videoId && this.isVideoIdAnAd(videoId)) return true;
+                    } catch (_) { }
+                }
+
+                // --- 1. Cache para contenedores In-Feed (estáticos, no cambian dinámicamente) ---
                 const now = Date.now();
                 const cached = _adContainerCache.get(node);
                 if (cached && (now - cached.ts < 250)) return cached.val;
 
                 const check = () => {
-                    // --- 1. Contenedores de Anuncios In-Feed / Layouts / Homes ---
+                    // Contenedores de Anuncios In-Feed / Layouts / Homes
                     // Solo usamos inFeedAdContainers (no inAnyAdContainers).
                     // inPlayerAdContainers (.ytp-ad-module, .video-ads, #player-ads) son nodos PERMANENTES
                     // en el DOM del player — están presentes aunque no haya ningún anuncio activo.
                     // Usarlos en closestComposed causa FALSE POSITIVES para cualquier <video> dentro del player.
-                    // Los checks del player se hacen en el Paso 2 (clases + findVisibleAdUi).
                     if (AdSelectorText.inFeedAdContainers) {
                         if (DOMHelpers.closestComposed(node, AdSelectorText.inFeedAdContainers)) return true;
                     }
@@ -5836,7 +5870,7 @@ regular-item.ypp-fill-none {
                 };
 
                 const result = check();
-                // Si el reproductor esta en el DOM, cacheamos el resultado brevemente
+                // Cache solo para in-feed containers (no para players que cambian dinámicamente)
                 if (node.isConnected) {
                     _adContainerCache.set(node, { val: result, ts: now });
                 }
@@ -5846,50 +5880,7 @@ regular-item.ypp-fill-none {
                     return true;
                 }
 
-                // --- 2. Jerarquía de Reproductores (Videos Regulares / Shorts / Mini) ---
-                // Prioridad máxima: detectar si el reproductor contenedor tiene clases de anuncio activas.
-
-                // Reproductor Principal (Watch / Miniplayer)
-                const moviePlayer = DOMHelpers.closestComposed(node, `#${IDs.MOVIE_PLAYER}`);
-                if (moviePlayer?.classList) {
-                    if (AdSelectors.playerAdClasses.some(c => moviePlayer.classList.contains(c))) return true;
-
-                    // Refuerzo UI: Barrido de UI interna (ej: .ytp-ad-module visible)
-                    if (this.findVisibleAdUi(moviePlayer)) return true;
-                }
-
-                // Reproductor de Shorts (ID e identificación explícita)
-                const shortsPlayer = DOMHelpers.closestComposed(node, `#${IDs.SHORTS_PLAYER}`);
-                if (shortsPlayer?.classList) {
-                    if (AdSelectors.shortsAdClasses.some(c => shortsPlayer.classList.contains(c))) return true;
-
-                    // Refuerzo para Shorts: Revisar el contenedor principal (ytd-reel-video-renderer)
-                    const reelRenderer = DOMHelpers.closestComposed(shortsPlayer, 'ytd-reel-video-renderer');
-                    if (reelRenderer) {
-                        if (reelRenderer.hasAttribute('is-ads-overlay')) return true;
-                        if (reelRenderer.querySelector('ytd-ad-slot-renderer')) return true;
-                    }
-
-                    // Refuerzo: Barrido de UI interna
-                    if (this.findVisibleAdUi(shortsPlayer)) return true;
-                }
-
-                // Reproductor de Previews / Grid (Detección de anuncios en thumbnails que se autoreproducen)
-                const inlinePlayer = DOMHelpers.closestComposed(node, `#${IDs.INLINE_PREVIEW_PLAYER}`);
-                if (inlinePlayer?.classList) {
-                    if (AdSelectors.previewAdClasses.some(c => inlinePlayer.classList.contains(c))) return true;
-
-                    // Refuerzo UI: Barrido de UI interna (Fundamental para Previews modernos)
-                    if (this.findVisibleAdUi(inlinePlayer)) return true;
-
-                    // Refuerzo Contextual: Asociación por Link/Thumbnail
-                    try {
-                        const videoId = getPlayerVideoId(inlinePlayer);
-                        if (videoId && this.isVideoIdAnAd(videoId)) return true;
-                    } catch (_) { }
-                }
-
-                // --- 3. Protección de Previews e Inline (Contenido Legítimo) ---
+                // --- 2. Protección de Previews e Inline (Contenido Legítimo) ---
                 // Si está en un inline preview verificado Y NO fue capturado arriba por clases de anuncio
                 if (DOMHelpers.closestComposed(node, S.IDS.INLINE_PREVIEW_PLAYER)) return false;
 

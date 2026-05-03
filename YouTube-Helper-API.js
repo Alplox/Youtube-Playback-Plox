@@ -2,7 +2,7 @@
 // @name            YouTube Helper API
 // @author          ElectroKnight22
 // @namespace       electroknight22_helper_api_namespace
-// @version         0.11.1-Plox
+// @version         0.11.1
 // @license         MIT
 // @description     A helper api for YouTube scripts that provides easy and consistent access for commonly needed functions, objects, and values.
 // ==/UserScript==
@@ -13,10 +13,19 @@
 const youtubeHelperApi = (function () {
     'use strict';
 
-    // GUARDIA DE INICIALIZACIÓN SINGLETON
-    window.__YT_HELPER_API__ = window.__YT_HELPER_API__ || {};
-    if (window.__YT_HELPER_API__.status === 'initialized') {
-        return window.__YT_HELPER_API__.instance;
+    // GUARDIA DE INICIALIZACIÓN SINGLETON: Cada versión exacta tiene su propia instancia independiente
+    // Esto garantiza que scripts con diferentes versiones de la librería no interfieran entre sí
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' && GM_info.script?.version
+        ? GM_info.script.version
+        : '0.11.1';
+
+    // Namespace único por versión exacta (0.10.1, 0.10.2, 0.11.0, etc.)
+    const NAMESPACE = `__YT_HELPER_API_${SCRIPT_VERSION.replace(/\./g, '_')}__`;
+
+    // Si ya existe instancia para esta versión exacta, devolverla
+    window[NAMESPACE] = window[NAMESPACE] || {};
+    if (window[NAMESPACE].status === 'initialized') {
+        return window[NAMESPACE].instance;
     }
 
     const instance = {
@@ -25,6 +34,7 @@ const youtubeHelperApi = (function () {
             return this.id ? this.id.split('-')[0] : 'anonymous';
         },
         root: typeof unsafeWindow !== 'undefined' ? unsafeWindow : (globalThis ?? window),
+        version: SCRIPT_VERSION,
     };
 
     // --- DEBUG SYSTEM ---
@@ -1058,8 +1068,8 @@ const youtubeHelperApi = (function () {
 
             // Hardening: Freeze the public API and finalize global instance
             Object.freeze(publicApi);
-            window.__YT_HELPER_API__.instance = publicApi;
-            window.__YT_HELPER_API__.status = 'initialized';
+            window[NAMESPACE].instance = publicApi;
+            window[NAMESPACE].status = 'initialized';
 
             return publicApi;
         } catch (error) {

@@ -1,44 +1,43 @@
 // ==UserScript==
-// @name            YouTube Helper API Plox
+// @name            YouTube Helper API
 // @author          ElectroKnight22
-// @namespace       yt-helper-api-plox
-// @version         0.11.1
+// @namespace       electroknight22_helper_api_namespace
+// @version         0.11.0
 // @license         MIT
 // @description     A helper api for YouTube scripts that provides easy and consistent access for commonly needed functions, objects, and values.
 // ==/UserScript==
-
+ 
 /*jshint esversion: 11 */
-
+ 
 // eslint-disable-next-line no-unused-vars
 const youtubeHelperApi = (function () {
     'use strict';
-
-    // GUARDIA DE INICIALIZACIÓN SINGLETON: Cada versión exacta tiene su propia instancia independiente
-    // Esto garantiza que scripts con diferentes versiones de la librería no interfieran entre sí
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' && GM_info.script?.version
-        ? GM_info.script.version
-        : '0.11.1';
-
-    // Namespace único por versión exacta (0.10.1, 0.10.2, 0.11.0, etc.)
-    const NAMESPACE = `__YT_HELPER_API_${SCRIPT_VERSION.replace(/\./g, '_')}__`;
-
-    // Si ya existe instancia para esta versión exacta, devolverla
-    window[NAMESPACE] = window[NAMESPACE] || {};
-    if (window[NAMESPACE].status === 'initialized') {
-        return window[NAMESPACE].instance;
-    }
-
+ 
+    const EVENTS = Object.freeze({
+        API_READY: 'yt-helper-api-ready',
+        API_UPDATE_STARTED: 'yt-helper-api-update-started',
+        AD_DETECTED: 'yt-helper-api-ad-detected',
+        IFRAME_DETECTED: 'yt-helper-api-detected-iframe',
+        VIDEO_LANGUAGE_UPDATED: 'yt-helper-api-playback-language-updated',
+        CHAT_STATE_UPDATED: 'yt-helper-api-chat-state-updated',
+        VIDEO_PLAY: 'yt-helper-api-current-video-play',
+        VIDEO_PAUSE: 'yt-helper-api-current-video-pause',
+        VIDEO_SEEKING: 'yt-helper-api-current-video-seeking',
+        VIDEO_SEEKED: 'yt-helper-api-current-video-seeked',
+        VIDEO_ENDED: 'yt-helper-api-current-video-ended',
+        VIDEO_VOLUMECHANGE: 'yt-helper-api-current-video-volumechange',
+    });
+ 
     const instance = {
         id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null,
         get shortId() {
             return this.id ? this.id.split('-')[0] : 'anonymous';
         },
         root: typeof unsafeWindow !== 'undefined' ? unsafeWindow : (globalThis ?? window),
-        version: SCRIPT_VERSION,
     };
-
+ 
     // --- DEBUG SYSTEM ---
-
+ 
     /**
      * @typedef {Object} Debugger
      * @property {boolean} enabled - Master switch
@@ -50,7 +49,7 @@ const youtubeHelperApi = (function () {
      * @property {Function} logOverkill - Level 4 (Magenta)
      * @property {Function[]} log - Numeric access [0-4]
      */
-
+ 
     /** @type {Debugger} */
     const debug = {
         state: {
@@ -69,9 +68,9 @@ const youtubeHelperApi = (function () {
                 logStorageEvents: true,
             },
         },
-
+ 
         log: [],
-
+ 
         get enabled() {
             return this.state.enabled;
         },
@@ -79,7 +78,7 @@ const youtubeHelperApi = (function () {
             this.state.enabled = !!v;
             this.rebuild();
         },
-
+ 
         get level() {
             return this.state.level;
         },
@@ -92,7 +91,7 @@ const youtubeHelperApi = (function () {
             }
             this.rebuild();
         },
-
+ 
         get flags() {
             return this.state.flags;
         },
@@ -100,7 +99,7 @@ const youtubeHelperApi = (function () {
             this.state.flags = v;
             this.rebuild();
         },
-
+ 
         rebuild() {
             const levelLoggers = {};
             Object.entries(this.state.levels).forEach(([name, config]) => {
@@ -112,8 +111,8 @@ const youtubeHelperApi = (function () {
                             `%c[${this.state.badge}][${name}]`,
                             `color: ${config.color}; font-weight: bold;`,
                         )
-                        : () => { };
-
+                    :   () => {};
+ 
                 this[`log${name}`] = func;
                 levelLoggers[config.val] = func;
             });
@@ -123,13 +122,13 @@ const youtubeHelperApi = (function () {
             });
         },
     };
-
+ 
     debug.rebuild(); // Immediately initialize debug.
     // --- END DEBUG SYSTEM ---
-
+ 
     // --- GM API SHIM ---
     const gmCapabilities = { isModern: false, isLegacy: false, features: {} };
-
+ 
     (function performGmShim() {
         const API_MAP = {
             setValue: ['setValue', 'GM_setValue'],
@@ -157,51 +156,47 @@ const youtubeHelperApi = (function () {
             info: ['info', 'GM_info'],
             print: ['print', 'GM_print'],
         };
-
+ 
         const realGM = typeof GM !== 'undefined' ? GM : {};
         gmCapabilities.isModern = typeof GM !== 'undefined';
-
+ 
         Object.entries(API_MAP).forEach(([stdName, [modernProp, legacyGlobal]]) => {
             const hasModern =
                 gmCapabilities.isModern && (Reflect.has(realGM, modernProp) || Reflect.has(realGM, stdName));
             const hasLegacy = typeof window[legacyGlobal] !== 'undefined';
-
+ 
             gmCapabilities.features[stdName] = hasModern || hasLegacy;
-
+ 
             if (hasLegacy) gmCapabilities.isLegacy = true;
             if (!hasLegacy) {
                 window[legacyGlobal] =
                     stdName === 'info' ? { script: { version: '0.0.0' }, scriptHandler: 'Shim' } : () => undefined;
             }
         });
-
-        // Define storage feature explicitly for easier cross-script detection
-        gmCapabilities.features.storage = !!(gmCapabilities.features.getValue && gmCapabilities.features.setValue);
-
-        const staticDummyPromise = Promise.resolve({ responseText: '', status: 200, statusText: 'OK' });
-        staticDummyPromise.abort = () => {
-            console.warn('[YouTube Helper API] Abort called on missing GM shim');
-        };
-
-        const dummyFn = () => staticDummyPromise;
-
+ 
         try {
             const proxyHandler = {
                 get(target, property) {
                     if (property === 'info') return target.info ?? { script: { version: '0.0.0' } };
-
+ 
                     let realProperty = property;
                     if (API_MAP[property]) realProperty = API_MAP[property][0];
-
+ 
                     if (Reflect.has(target, realProperty)) {
                         const value = target[realProperty];
                         return typeof value === 'function' ? value.bind(target) : value;
                     }
-
-                    return dummyFn;
+ 
+                    return () => {
+                        const dummyPromise = Promise.resolve({ responseText: '', status: 200, statusText: 'OK' });
+                        dummyPromise.abort = () => {
+                            console.warn('[YouTube Helper API] Abort called on missing GM shim');
+                        };
+                        return dummyPromise;
+                    };
                 },
             };
-
+ 
             try {
                 Object.defineProperty(window, 'GM', {
                     value: new Proxy(realGM, proxyHandler),
@@ -222,9 +217,9 @@ const youtubeHelperApi = (function () {
         }
     })();
     // --- GM API SHIM END ---
-
+ 
     const privateEventTarget = new EventTarget();
-
+ 
     const SELECTORS = {
         pageManager: 'ytd-page-manager',
         shortsPlayer: '#shorts-player',
@@ -235,27 +230,7 @@ const youtubeHelperApi = (function () {
         chatFrame: 'ytd-live-chat-frame#chat',
         chatContainer: '#chat-container',
     };
-
-    /**
-     * Constantes de eventos para uso público.
-     * Usar youtubeHelperApi.EVENTS.XYZ en lugar de strings hardcoded para prevenir typos
-     * y habilitar autocomplete en IDEs.
-     */
-    const EVENTS = Object.freeze({
-        API_READY: 'yt-helper-api-ready',
-        API_UPDATE_STARTED: 'yt-helper-api-update-started',
-        AD_DETECTED: 'yt-helper-api-ad-detected',
-        IFRAME_DETECTED: 'yt-helper-api-detected-iframe',
-        VIDEO_LANGUAGE_UPDATED: 'yt-helper-api-playback-language-updated',
-        CHAT_STATE_UPDATED: 'yt-helper-api-chat-state-updated',
-        VIDEO_PLAY: 'yt-helper-api-current-video-play',
-        VIDEO_PAUSE: 'yt-helper-api-current-video-pause',
-        VIDEO_SEEKING: 'yt-helper-api-current-video-seeking',
-        VIDEO_SEEKED: 'yt-helper-api-current-video-seeked',
-        VIDEO_ENDED: 'yt-helper-api-current-video-ended',
-        VIDEO_VOLUMECHANGE: 'yt-helper-api-current-video-volumechange',
-    });
-
+ 
     const POSSIBLE_RESOLUTIONS = Object.freeze({
         highres: { p: 4320, label: '8K' },
         hd2160: { p: 2160, label: '4K' },
@@ -267,43 +242,32 @@ const youtubeHelperApi = (function () {
         small: { p: 240, label: '240p' },
         tiny: { p: 144, label: '144p' },
     });
-
-    const noop = () => { };
-    const functionCache = new Map();
+ 
     const apiProxy = new Proxy(
         {},
         {
             get(target, property) {
                 if (!appState.player.api) {
-                    // console.warn(`YouTube Helper API not ready.`);  // Si hay polling -> spam constante.
-                    return noop;
+                    console.warn(`YouTube Helper API not ready.`);
+                    return undefined;
                 }
-
                 const value = appState.player.api[property];
-
-                if (typeof value === 'function' || (!value && typeof property === 'string')) {
-                    if (!functionCache.has(property)) {
-                        functionCache.set(property, (...args) => {
-                            try {
-                                const currentFn = appState.player.api ? appState.player.api[property] : null;
-                                if (typeof currentFn === 'function') {
-                                    return currentFn.apply(appState.player.api, args);
-                                }
-                                console.warn(`[YouTube Helper API] Player method "${String(property)}" is not available on this player instance.`);
-                                return undefined;
-                            } catch (e) {
-                                console.error(`API Call Error [${String(property)}]:`, e);
-                            }
-                        });
-                    }
-                    return functionCache.get(property) || noop;
+ 
+                if (typeof value === 'function') {
+                    return (...args) => {
+                        try {
+                            return value.apply(appState.player.api, args);
+                        } catch (e) {
+                            console.error(`API Call Error [${String(property)}]:`, e);
+                        }
+                    };
                 }
-
+ 
                 return value;
             },
         },
     );
-
+ 
     const _readOnlyHandler = {
         get(target, property) {
             return target[property];
@@ -313,7 +277,7 @@ const youtubeHelperApi = (function () {
             return true;
         },
     };
-
+ 
     const appState = {
         player: {
             playerObject: null,
@@ -352,8 +316,7 @@ const youtubeHelperApi = (function () {
         chat: { container: null, iFrame: null, isCollapsed: false },
         page: null, // Will be populated by the IIFE below
     };
-    Object.seal(appState);
-
+ 
     appState.page = (() => {
         const _fallbackGetPageType = () => {
             const pathname = window.location.pathname;
@@ -364,7 +327,7 @@ const youtubeHelperApi = (function () {
             if (pathname === '/') return 'home';
             return 'unknown';
         };
-
+ 
         let _type = 'unknown';
         return {
             get manager() {
@@ -384,13 +347,13 @@ const youtubeHelperApi = (function () {
             },
         };
     })();
-
+ 
     const readOnlyInstance = new Proxy(instance, _readOnlyHandler);
     const readOnlyPlayer = new Proxy(appState.player, _readOnlyHandler);
     const readOnlyVideo = new Proxy(appState.video, _readOnlyHandler);
     const readOnlyChat = new Proxy(appState.chat, _readOnlyHandler);
     const readOnlyPage = new Proxy(appState.page, _readOnlyHandler);
-
+ 
     const localStorageApi = {
         get: (key, defaultValue) => {
             const value = localStorage.getItem(key);
@@ -406,7 +369,7 @@ const youtubeHelperApi = (function () {
             localStorage.setItem(key, JSON.stringify(value));
         },
     };
-
+ 
     const storageApi = (() => {
         const STORAGE_IMPLEMENTATIONS = {
             modern: {
@@ -442,7 +405,7 @@ const youtubeHelperApi = (function () {
         })();
         return { ...STORAGE_IMPLEMENTATIONS[gmStorageType], gmType: gmStorageType };
     })();
-
+ 
     const publicApi = {
         get instance() {
             return readOnlyInstance;
@@ -477,7 +440,7 @@ const youtubeHelperApi = (function () {
         EVENTS,
         eventTarget: privateEventTarget,
     };
-
+ 
     async function _getSyncedStorageData(storageKey) {
         if (storageApi.gmType === 'none') return await storageApi.getValue(storageKey, null);
         const [gmData, localData] = await Promise.all([
@@ -486,7 +449,7 @@ const youtubeHelperApi = (function () {
         ]);
         const gmTimestamp = gmData?.metadata?.timestamp ?? -1;
         const localTimestamp = localData?.metadata?.timestamp ?? -1;
-
+ 
         if (gmTimestamp > localTimestamp) {
             localStorageApi.set(storageKey, gmData);
             return gmData;
@@ -494,10 +457,10 @@ const youtubeHelperApi = (function () {
             await storageApi.setValue(storageKey, localData);
             return localData;
         }
-
+ 
         return gmData || localData;
     }
-
+ 
     async function saveToStorage(storageKey, data) {
         if (debug.flags.logStorageEvents) debug.logDetailed(`Saving to storage: ${storageKey}`);
         const dataToStore = { data: data, metadata: { timestamp: Date.now() } };
@@ -508,7 +471,7 @@ const youtubeHelperApi = (function () {
             console.error(`Error saving data for key "${storageKey}":`, error);
         }
     }
-
+ 
     async function loadFromStorage(storageKey, defaultData) {
         if (debug.flags.logStorageEvents) debug.logDetailed(`Loading from storage: ${storageKey}`);
         try {
@@ -520,7 +483,7 @@ const youtubeHelperApi = (function () {
             return defaultData;
         }
     }
-
+ 
     async function loadAndCleanFromStorage(storageKey, defaultData) {
         debug.logDetailed(`Loading and cleaning storage: ${storageKey}`);
         try {
@@ -535,7 +498,7 @@ const youtubeHelperApi = (function () {
             return defaultData;
         }
     }
-
+ 
     async function deleteFromStorage(storageKey) {
         debug.logDetailed(`Deleting from storage: ${storageKey}`);
         try {
@@ -545,7 +508,7 @@ const youtubeHelperApi = (function () {
             console.error(`Error deleting data for key "${storageKey}":`, error);
         }
     }
-
+ 
     async function listFromStorage() {
         try {
             const [greasemonkeyKeys, localStorageKeys] = await Promise.all([
@@ -559,44 +522,45 @@ const youtubeHelperApi = (function () {
             return [];
         }
     }
-
+ 
     async function fallbackGetPlayerApi(eventTarget = null) {
         debug.logDetailed('Fallback Player API Check');
         if (eventTarget.getPlayer) return await eventTarget?.getPlayer();
-
+ 
         debug.logDetailed('Invalid event for player api fallback. Trying with selectors...');
         if (appState.page.isIframe || appState.page.isMobile) return document.querySelector(SELECTORS.watchPlayer);
         if (window.location.pathname.startsWith('/shorts')) return document.querySelector(SELECTORS.shortsPlayer);
         if (window.location.pathname.startsWith('/watch')) return document.querySelector(SELECTORS.watchPlayer);
         return document.querySelector(SELECTORS.inlinePlayer);
     }
-
+ 
     function getPlayerResponseWhenReady() {
-        return new Promise((resolve) => {
-            const videoEl = appState.player.videoElement;
-            if (!videoEl || !appState?.player?.api) return resolve(null);
-
+        return new Promise((resolve, reject) => {
             function check() {
+                if (!appState?.player?.api) return resolve(null);
                 const playerResponse = apiProxy.getPlayerResponse();
                 if (playerResponse) return resolve(playerResponse);
-
+ 
                 const timeout = setTimeout(() => {
-                    videoEl.removeEventListener('loadedmetadata', onMetadata);
+                    appState.player.videoElement?.removeEventListener('loadedmetadata', check);
                     debug.logDetailed('Player API ready, but missing playerResponse. Cancelling request...');
                     resolve(null);
                 }, 10000);
-
-                function onMetadata() {
-                    clearTimeout(timeout);
-                    check();
-                }
-
-                videoEl.addEventListener('loadedmetadata', onMetadata, { once: true });
+ 
+                debug.logTypical('Player API ready, but missing playerResponse. Waiting for metadata...');
+                appState.player.videoElement.addEventListener(
+                    'loadedmetadata',
+                    () => {
+                        clearTimeout(timeout);
+                        check();
+                    },
+                    { once: true },
+                );
             }
             check();
         });
     }
-
+ 
     function getOptimalResolution(targetResolutionString, usePremium = true) {
         try {
             if (!targetResolutionString || !POSSIBLE_RESOLUTIONS[targetResolutionString])
@@ -622,7 +586,7 @@ const youtubeHelperApi = (function () {
             return null;
         }
     }
-
+ 
     function setPlaybackResolution(targetResolution, ignoreAvailable = false, usePremium = true) {
         debug.logTypical(
             `Attempting to set resolution: ${targetResolution} (Premium: ${usePremium}, Force: ${ignoreAvailable})`,
@@ -648,30 +612,29 @@ const youtubeHelperApi = (function () {
             console.error('Error when setting resolution:', error);
         }
     }
-
+ 
     function _dispatchHelperApiReadyEvent() {
         if (!appState.player.api) return;
-
+        const eventDetail = { ...publicApi };
         const stateSnapshot = {
-            player: { ...appState.player, videoElement: null, playerObject: null }, // SANITIZAR: Evitar fuga de DOM
+            player: { ...appState.player },
             video: { ...appState.video },
             chat: { ...appState.chat },
             page: { ...appState.page },
         };
-
-        const eventDetail = { ...publicApi };
+ 
         Object.assign(eventDetail, stateSnapshot);
-
+ 
         if (!eventDetail.video.id) return console.warn('Video ID not found in state snapshot.');
-
+ 
         debug.logMinimal(`Video Ready. Title: "${stateSnapshot.video.title}". Id: "${stateSnapshot.video.id}"`);
         debug.logDetailed('Dispatching Ready Event with state:', stateSnapshot);
-
+ 
         const event = new CustomEvent(EVENTS.API_READY, { detail: Object.freeze(eventDetail) });
-
+ 
         privateEventTarget.dispatchEvent(event);
     }
-
+ 
     function _notifyAdDetected() {
         debug.logTypical('Ad detected!');
         privateEventTarget.dispatchEvent(
@@ -680,34 +643,31 @@ const youtubeHelperApi = (function () {
             }),
         );
     }
-
+ 
     function checkIsIframe() {
         if (appState.page.isIframe) privateEventTarget.dispatchEvent(new Event(EVENTS.IFRAME_DETECTED));
     }
-
+ 
     async function updatePlayerState(event) {
         let actualTargetPlayer = event.target;
         if (event?.target !== document && event?.target?.getInlinePreviewPlayer) {
             debug.logDetailed('Found valid event for player api fallback:');
             actualTargetPlayer = await event.target.getInlinePreviewPlayer();
         }
-
+ 
         appState.player.api = actualTargetPlayer?.player_ ?? (await fallbackGetPlayerApi(actualTargetPlayer));
-        // Asegurar que playerObject sea un Element DOM, no el API object
-        const containerChild = actualTargetPlayer?.playerContainer_?.children[0];
-        appState.player.playerObject = containerChild instanceof Element ? containerChild : null;
-        // Solo buscar videoElement si playerObject es un Element válido
-        appState.player.videoElement = appState.player.playerObject?.querySelector?.(SELECTORS.videoElement) ?? null;
+        appState.player.playerObject = actualTargetPlayer?.playerContainer_?.children[0] ?? appState.player.api;
+        appState.player.videoElement = appState.player.playerObject?.querySelector(SELECTORS.videoElement);
         appState.player.response = await getPlayerResponseWhenReady();
         debug.logDetailed('Player state updated', appState.player);
     }
-
+ 
     function updateVideoLanguage() {
         if (!appState.player.api) return;
-
+ 
         const availableTracks = apiProxy.getAvailableAudioTracks() ?? [];
         const playingAudioTrack = apiProxy.getAudioTrack();
-
+ 
         const getTrackDetails = (track) => Object.values(track ?? {});
         const originalAudioTrack = availableTracks?.find((track) => {
             if (!track || typeof track !== 'object') return false;
@@ -716,20 +676,20 @@ const youtubeHelperApi = (function () {
             const hasTrueFlag = values.some((val) => val === true);
             return hasMetadata && hasTrueFlag;
         });
-
+ 
         const isAutoDubbed = getTrackDetails(playingAudioTrack).some((val) => val?.isAutoDubbed === true);
-
+ 
         if (appState.video.playingLanguage === playingAudioTrack) return;
         const isInit =
             (appState.video.playingLanguage === null && `${playingAudioTrack}` !== 'Default') ||
             `${appState.video.playingLanguage}` === 'Default';
-
+ 
         debug.logTypical(`Language updated: ${playingAudioTrack} (Auto-Dubbed: ${isAutoDubbed})`);
-
+ 
         appState.video.playingLanguage = playingAudioTrack;
         appState.video.originalLanguage = originalAudioTrack;
         appState.video.isAutoDubbed = isAutoDubbed;
-
+ 
         privateEventTarget.dispatchEvent(
             new CustomEvent(EVENTS.VIDEO_LANGUAGE_UPDATED, {
                 detail: Object.freeze({
@@ -741,7 +701,7 @@ const youtubeHelperApi = (function () {
             }),
         );
     }
-
+ 
     function updateVideoState() {
         if (!appState.player.api) return debug.logDetailed('No API found when attempting to update video state.');
         const playerResponseObject = appState.player.response;
@@ -772,21 +732,20 @@ const youtubeHelperApi = (function () {
         appState.video.realCurrentProgress = apiProxy.getCurrentTime();
         appState.video.isTimeSpecified = searchParams.has('t');
         appState.video.playlistId = apiProxy.getPlaylistId();
-        appState.video.isInPlaylist = !!appState.video.playlistId;
-
+ 
         debug.logDetailed('Video state updated', appState.video);
     }
-
+ 
     function updateFullscreenState() {
         appState.player.isFullscreen = !!document.fullscreenElement;
         debug.logDetailed(`Fullscreen: ${appState.player.isFullscreen}`);
     }
-
+ 
     function updateTheaterState(event) {
         appState.player.isTheater = !!event?.detail?.enabled;
         debug.logDetailed(`Theater Mode: ${appState.player.isTheater}`);
     }
-
+ 
     function updateChatStateUpdated(event) {
         appState.chat.iFrame = event?.target ?? document.querySelector(SELECTORS.chatFrame);
         appState.chat.container =
@@ -794,18 +753,12 @@ const youtubeHelperApi = (function () {
         appState.chat.isCollapsed = event?.detail ?? true;
         debug.logDetailed('Chat state updated', appState.chat);
         privateEventTarget.dispatchEvent(
-            new CustomEvent(EVENTS.CHAT_STATE_UPDATED, {
-                detail: Object.freeze({
-                    ...appState.chat,
-                    iFrame: null, // SANITIZAR: Evitar fuga de DOM
-                    container: null, // SANITIZAR: Evitar fuga de DOM
-                }),
-            }),
+            new CustomEvent(EVENTS.CHAT_STATE_UPDATED, { detail: Object.freeze({ ...appState.chat }) }),
         );
     }
-
+ 
     function updateAdState() {
-        if (!(appState.player.playerObject instanceof Element)) return;
+        if (!appState.player.playerObject) return;
         try {
             const shouldAvoid = appState.player.playerObject.classList.contains('unstarted-mode');
             const isAdPresent =
@@ -819,7 +772,7 @@ const youtubeHelperApi = (function () {
             return false;
         }
     }
-
+ 
     function fallbackUpdateAdState() {
         if (!appState.player.api) return;
         try {
@@ -836,25 +789,22 @@ const youtubeHelperApi = (function () {
             return false;
         }
     }
-
+ 
     function reloadVideo(targetTime) {
         if (!appState.player.api) return;
         debug.logTypical(`Reloading video to ${targetTime}s`);
         apiProxy.loadVideoById(appState.video.id, targetTime);
-        appState.player.videoElement = appState.player.playerObject instanceof Element
-            ? appState.player.playerObject.querySelector(SELECTORS.videoElement)
-            : null;
+        appState.player.videoElement = appState.player.playerObject?.querySelector(SELECTORS.videoElement);
         trackPlaybackProgress();
     }
-
+ 
     function reloadToCurrentProgress() {
         debug.logDetailed(`Reloading video to current progress`);
         reloadVideo(appState.video.realCurrentProgress);
     }
-
+ 
     function setupMediaEventRefire(signal) {
         const video = appState.player.videoElement;
-        if (!(video instanceof Element)) return;
         const nativePlayerEventsToRefire = {
             play: EVENTS.VIDEO_PLAY,
             pause: EVENTS.VIDEO_PAUSE,
@@ -863,104 +813,99 @@ const youtubeHelperApi = (function () {
             ended: EVENTS.VIDEO_ENDED,
             volumechange: EVENTS.VIDEO_VOLUMECHANGE,
         };
-
-        Object.entries(nativePlayerEventsToRefire).forEach(([nativeEvent, customEventName]) => {
-            video.addEventListener(nativeEvent, (e) => {
-                const customEvent = new CustomEvent(customEventName, {
-                    detail: {
-                        originalEventType: e.type, // SANITIZAR: Evitar fuga de nodo <video>
-                        currentTime: video.currentTime,
-                        timestamp: Date.now(),
-                    },
-                    bubbles: true,
-                    cancelable: true,
-                });
-
-                debug.logAll('refiring event', customEvent);
-                privateEventTarget.dispatchEvent(customEvent);
-            }, { signal });
+ 
+        Object.entries(nativePlayerEventsToRefire).forEach(([event, eventName]) => {
+            video.addEventListener(
+                event,
+                (e) => {
+                    const customEvent = new CustomEvent(eventName, {
+                        detail: {
+                            originalEvent: e,
+                            currentTime: video.currentTime,
+                            timestamp: Date.now(),
+                        },
+                        bubbles: true,
+                        cancelable: true,
+                    });
+ 
+                    debug.logAll('refiring event', customEvent);
+                    privateEventTarget.dispatchEvent(customEvent);
+                },
+                { signal },
+            );
         });
     }
-
+ 
     let videoEventController = null;
+    const timeUpdateTrackedElements = new WeakMap();
     function trackPlaybackProgress() {
-        const video = appState.player.videoElement;
-        if (!(video instanceof Element))
-            return debug.logDetailed('No valid video element found when attempting to track progress.');
-
+        if (!appState.player.videoElement)
+            return debug.logDetailed('No video element found when attempting to track progress.');
+        if (timeUpdateTrackedElements.has(appState.player.videoElement)) return;
         if (videoEventController) videoEventController.abort();
-
+ 
         videoEventController = new AbortController();
         const signal = videoEventController.signal;
-
+ 
         const updateProgress = () => {
-            debug.logOverkill(`TimeUpdate: ${video.currentTime}`);
-            if (!appState.player.isPlayingAds && video.currentTime > 0) {
-                appState.video.realCurrentProgress = video.currentTime;
+            debug.logOverkill(`TimeUpdate: ${appState.player.videoElement.currentTime}`);
+            if (!appState.player.isPlayingAds && appState.player.videoElement.currentTime > 0) {
+                appState.video.realCurrentProgress = appState.player.videoElement.currentTime;
             }
             updateVideoLanguage();
         };
-
+ 
         setupMediaEventRefire(signal);
-        video.addEventListener('timeupdate', updateProgress, { signal });
+        appState.player.videoElement.addEventListener('timeupdate', updateProgress, { signal });
+        timeUpdateTrackedElements.set(appState.player.videoElement, true);
     }
-
+ 
+    const currentlyObservedContainers = new WeakMap();
     let activeAdObserver = null;
     function trackAdState() {
-        if (!(appState.player.playerObject instanceof Element)) return;
+        if (!appState.player.playerObject) return;
+        if (currentlyObservedContainers.has(appState.player.playerObject)) return;
         if (activeAdObserver) activeAdObserver.disconnect();
-
+ 
         activeAdObserver = new MutationObserver(updateAdState);
         activeAdObserver.observe(appState.player.playerObject, { attributes: true, attributeFilter: ['class'] });
+        currentlyObservedContainers.set(appState.player.playerObject, activeAdObserver);
     }
-
+ 
     let updateLocked = false;
-    let updateDebounceTimer = null;
     async function _handlePlayerUpdate(event = null) {
         if (updateLocked) return;
-
-        // DEBOUNCE: Evita tormentas de eventos SPA
-        clearTimeout(updateDebounceTimer);
-        updateDebounceTimer = setTimeout(async () => {
-            if (updateLocked) return;
-            debug.logAll('Player update triggered. Processing...');
-            updateLocked = true;
-            debug.logDetailed('Player update processing event:', event?.type || 'manual/debounced');
-
-            // LIMPIEZA PREVENTIVA: Evita retener DOM viejo si falla la asignación
-            appState.player.videoElement = null;
-            appState.player.playerObject = null;
-            functionCache.clear(); // Limpiar cache de Proxy para el nuevo video
-
-            try {
-                const customEvent = new CustomEvent(EVENTS.API_UPDATE_STARTED);
-                privateEventTarget.dispatchEvent(customEvent);
-                await updatePlayerState(event);
-                updateAdState();
-                trackAdState();
-                updateVideoState();
-                updateVideoLanguage();
-                trackPlaybackProgress();
-                queueMicrotask(_dispatchHelperApiReadyEvent);
-            } catch (error) {
-                console.error('Error in _handlePlayerUpdate:', error);
-            } finally {
-                debug.logAll('Player update complete. Locking...');
-                updateLocked = false;
-            }
-        }, 50);
+        debug.logAll('Player update triggered. Unlocking...');
+        updateLocked = true;
+        debug.logDetailed('Player update triggered by:', event?.type || 'manual call');
+        try {
+            const customEvent = new CustomEvent(EVENTS.API_UPDATE_STARTED);
+            privateEventTarget.dispatchEvent(customEvent);
+            await updatePlayerState(event);
+            updateAdState();
+            trackAdState();
+            updateVideoState();
+            updateVideoLanguage();
+            trackPlaybackProgress();
+            queueMicrotask(_dispatchHelperApiReadyEvent);
+        } catch (error) {
+            console.error('Error in _handlePlayerUpdate:', error);
+        } finally {
+            debug.logAll('Player update complete. Locking...');
+            updateLocked = false;
+        }
     }
-
+ 
     function _handlePageDataUpdate(event) {
         appState.page.type = event.detail?.pageType;
         debug.logDetailed('Page data updated', appState.page);
     }
-
+ 
     function _handlePageTypeChange(event) {
         appState.page.type = event.detail?.newPageSubtype;
         debug.logDetailed('Page type changed', appState.page);
     }
-
+ 
     function _handlePageshowEvent(event = null) {
         debug.logDetailed('Pageshow event triggered');
         const shouldTryEarly =
@@ -972,18 +917,18 @@ const youtubeHelperApi = (function () {
             _handlePlayerUpdate(event);
         }
     }
-
+ 
     function addPageStateListeners() {
         document.addEventListener('yt-page-data-updated', _handlePageDataUpdate);
         document.addEventListener('yt-page-type-changed', _handlePageTypeChange);
     }
-
+ 
     function addPlayerStateListeners() {
         const PLAYER_UPDATE_EVENT = appState.page.isMobile ? 'video-data-change' : 'yt-player-updated';
         document.addEventListener(PLAYER_UPDATE_EVENT, _handlePlayerUpdate);
         document.addEventListener('fullscreenchange', updateFullscreenState);
         document.addEventListener('yt-set-theater-mode-enabled', updateTheaterState);
-
+ 
         privateEventTarget.addEventListener(EVENTS.VIDEO_PLAY, () => {
             if (apiProxy.getVideoData()?.video_id !== appState.video.id) {
                 debug.logDetailed('Video data updated without player event. Updating video state manually...');
@@ -993,11 +938,11 @@ const youtubeHelperApi = (function () {
             }
         });
     }
-
+ 
     function addChatStateListeners() {
         document.addEventListener('yt-chat-collapsed-changed', updateChatStateUpdated);
     }
-
+ 
     function registerInstance(apiObject) {
         debug.log('Registering YouTube Helper API instance...', instance);
         instance.root.youtubeHelperRegistry = instance.root.youtubeHelperRegistry ?? {
@@ -1031,16 +976,11 @@ const youtubeHelperApi = (function () {
             },
         };
         instance.root.youtubeHelperRegistry.instances.set(instance.id, apiObject);
-
-        // Solo añadir un listener de unload si es el primero en esta sesión
-        if (!instance.root.youtubeHelperRegistry._unloaderInitialized) {
-            window.addEventListener('unload', () => {
-                instance.root.youtubeHelperRegistry.instances.clear();
-            }, { once: true });
-            instance.root.youtubeHelperRegistry._unloaderInitialized = true;
-        }
+        window.addEventListener('unload', () => {
+            instance.root.youtubeHelperRegistry.instances.delete(instance.id);
+        });
     }
-
+ 
     function initializeApiState() {
         debug.log[0]('[YouTube Helper API] Library Initialized. Waiting for player...');
         window.addEventListener('pageshow', _handlePageshowEvent);
@@ -1052,31 +992,26 @@ const youtubeHelperApi = (function () {
             addChatStateListeners();
         }
     }
-
+ 
     function initializePublicApi() {
         try {
             const initFlags = { supportsCryptography: true };
-
+ 
             if (!crypto?.randomUUID) {
                 initFlags.supportsCryptography = false;
                 console.warn('[YouTube Helper API] Browser missing cryptography features.');
             }
-
+ 
             initializeApiState();
-
+ 
             if (initFlags.supportsCryptography) registerInstance(publicApi);
-
-            // Hardening: Freeze the public API and finalize global instance
-            Object.freeze(publicApi);
-            window[NAMESPACE].instance = publicApi;
-            window[NAMESPACE].status = 'initialized';
-
+ 
             return publicApi;
         } catch (error) {
             console.error('[YouTube Helper API] Error initializing:', error);
             return null;
         }
     }
-
+ 
     return initializePublicApi();
 })();

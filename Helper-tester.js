@@ -11,12 +11,25 @@
 
     let lastVideoId = null;
 
+    // Buscar instancia de la API en cualquier namespace versionado
+    const findApiInstance = () => {
+        const keys = Object.keys(window).filter(k => k.startsWith('__YT_HELPER_API_') && k.endsWith('__'));
+        for (const key of keys) {
+            if (window[key]?.status === 'initialized') {
+                return { api: window[key].instance, namespace: key, version: window[key].instance?.version };
+            }
+        }
+        return null;
+    };
+
     const checkApi = setInterval(() => {
-        if (window.__YT_HELPER_API__?.status === 'initialized') {
+        const found = findApiInstance();
+        if (found) {
             clearInterval(checkApi);
-            const api = window.__YT_HELPER_API__.instance;
+            const { api, namespace, version } = found;
 
             console.log('%c✅ [Tester] YouTube Helper API lista!', 'color: #28a745; font-weight: bold; font-size: 14px;');
+            console.log('%c📦 [Tester] Namespace:', 'color: #6c757d;', namespace, '| Versión:', version);
 
             // 1. Escuchar el evento de video listo (SPA Navigation)
             api.eventTarget.addEventListener('yt-helper-api-ready', (e) => {

@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-12
+// @version      0.0.9-13
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -129,7 +129,6 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1804326/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 // ------------------------------------------
@@ -158,16 +157,24 @@
 
     window.MyScriptLogger = {
         _errorLogs: [],
-        log: build('debug', L.debug),
+        log: (c, ...a) => {
+            if (level >= L.debug) console.log(`%c[${c}]`, S.debug, ...a);
+        },
         debug: build('debug', L.debug),
         info: build('info', L.info),
         warn: (c, ...a) => {
             console.warn(`%c[${c}]`, S.warn, ...a);
-            window.MyScriptLogger._internalPushLog(c, a);
+            // window.MyScriptLogger._internalPushLog(c, a);
         },
         error: (c, ...a) => {
             console.error(`%c[${c}]`, S.error, ...a);
             window.MyScriptLogger._internalPushLog(c, a);
+        },
+        group: (label) => {
+            if (level >= L.debug) console.group(`%c[${label}]`, S.debug);
+        },
+        groupEnd: () => {
+            if (level >= L.debug) console.groupEnd();
         },
         _internalPushLog: (c, a) => {
             const timestamp = new Date().toISOString();
@@ -202,7 +209,7 @@
     window.addEventListener('unhandledrejection', (e) => {
         if (e.reason && (e.reason instanceof Error) && e.reason.stack && e.reason.stack.includes('youtube-playback-plox')) {
             window.MyScriptLogger.error('Unhandled Promise', e.reason);
-        } else if (e.reason && e.reason.message && e.reason.message.includes('getCascadedVideoInf')) {
+        } else if (e.reason && e.reason.message && e.reason.message.includes('getCascadedVideoInfo')) {
             window.MyScriptLogger.error('Unhandled Promise', e.reason);
         } else if (e.reason && e.reason.stack === undefined) {
             window.MyScriptLogger.error('Unhandled Promise', e.reason);
@@ -211,14 +218,14 @@
 })();
 
 // Atajo para no tener que escribir window.MyScriptLogger cada vez
-const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.MyScriptLogger;
+const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGroup, groupEnd: logGroupEnd } = window.MyScriptLogger;
 
 // --- INICIO CARGA LÓGICA PRINCIPAL DEL USERSCRIPT ---
 
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-12';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-13';
 
     // ------------------------------------------
     // MARK: 🛡️ Initialization Guard (SPA Safety)
@@ -962,6 +969,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
     // Función para cargar las traducciones desde el archivo JSON externo
     async function loadTranslations() {
+        logGroup('loadTranslations')
         const CACHE_KEY = CONFIG.STORAGE_KEYS.translations;
         const TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
@@ -1039,6 +1047,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         const cachePayload = JSON.stringify({ ts: Date.now(), version: data?.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null, data });
         try { if (typeof GM_setValue === 'function') await GM_setValue(CACHE_KEY, cachePayload); } catch (_) { }
 
+        logGroupEnd();
         return data;
     }
 
@@ -1088,7 +1097,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 url: "",
                 autoBackup: false,
                 interval: 24, // horas
-                lastSync: 0
+                lastSync: 0,
+                lastSyncAttempt: 0
             },
             repo: {
                 token: "",
@@ -1096,7 +1106,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 name: "",
                 autoBackup: false,
                 interval: 24, // horas
-                lastSync: 0
+                lastSync: 0,
+                lastSyncAttempt: 0
             },
             autoDeleteToken: true,
             lastViewedType: 'gist'
@@ -1344,13 +1355,44 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
              * Obtiene el contenedor principal del reproductor normal.
              * @returns {Element|null} Contenedor #movie_player (o null si no existe).
              */
-            /* getWatchPlayer: () => get('watchPlayer', () => document.querySelector(S.IDS.MOVIE_PLAYER)), */
             getWatchPlayer: () =>
                 get('watchPlayer', () => {
-                    const miniPlayer = DOMHelpers.getMiniplayerElementActive();
+                    const isWatchPage = getYouTubePageType() === 'watch';
+                    const miniPlayer = isWatchPage ? null : DOMHelpers.getMiniplayerElementActive();
 
-                    return [...document.querySelectorAll(S.IDS.MOVIE_PLAYER)]
-                        .find(player => !miniPlayer || !miniPlayer.contains(player)) ?? null;
+                    const watchContainer = document.querySelector('ytd-watch-flexy');
+                    let player = watchContainer?.querySelector(S.IDS.MOVIE_PLAYER);
+
+                    if (!player) {
+                        player = document.querySelector(S.CLASSES.HTML5_VIDEO_PLAYER);
+                        logInfo('DOMHelpers', `⚠️ Fallback usado (${S.CLASSES.HTML5_VIDEO_PLAYER}).`);
+                    }
+
+                    if (!player) {
+                        const totalVideos = document.querySelectorAll('video').length;
+                        logWarn('DOMHelpers', `❌ No player found (videos in DOM: ${totalVideos})`);
+                        return null;
+                    }
+
+                    if (!(player instanceof HTMLElement)) {
+                        logWarn('DOMHelpers', '⚠️ Player no es un HTMLElement:', player);
+                        return null;
+                    }
+
+                    if (miniPlayer && miniPlayer.contains(player)) {
+                        logWarn('DOMHelpers', '⚠️ Player está dentro del miniplayer.');
+                        return null;
+                    }
+
+                    logInfo('DOMHelpers', '✅ getWatchPlayer:', {
+                        element: player,
+                        tag: player.tagName,
+                        id: player.id,
+                        classes: player.className,
+                        isWatchPage
+                    });
+
+                    return player;
                 }),
             /**
              * Obtiene el elemento de video del reproductor principal.
@@ -1368,7 +1410,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
              */
             getShortsPlayer: () =>
                 get('shortsPlayer', () =>
-                    document.querySelector(S.IDS.SHORTS_PLAYER)),
+                    document.querySelector(S.IDS.SHORTS_PLAYER) ?? null),
             /**
              * Obtiene el elemento de video del reproductor de Shorts.
              * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor de Shorts.
@@ -1381,6 +1423,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
 
             /**
+             * Obtiene el elemento contenedor del Miniplayer.
+             * @returns {Element|null} Elemento <ytd-miniplayer> (o null si no existe).
+             */
+            getMiniplayerElement: () =>
+                get('miniplayerElement', () =>
+                    document.querySelector(S.ELEMENTS.MINIPLAYER_ELEMENT) ?? null
+                ),
+            /**
              * Comprueba o devuelve la instancia de Miniplayer especificando si esta posee sus componentes visuales activos
              * que validan que el Miniplayer está funcionalmente abierto.
              * @returns {Element|null} Elemento validado con atributos en activo, o null de no encontrarse.
@@ -1392,8 +1442,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     // Usamos .matches() porque S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE y S.ATTR.MINIPLAYER_ACTIVE_ATTR
                     // contienen selectores CSS (. y []) que no son compatibles con classList.contains() o hasAttribute().
                     const isVisible = miniContainer.matches(S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE) ||
-                        document.querySelector('ytd-app')?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR) ||
+                        DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100)?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR) ||
                         isVisiblyDisplayed(miniContainer);
+
+                    if (isVisible) {
+                        logInfo('DOMHelpers', '📱 Miniplayer detectado como ACTIVO');
+                    }
                     return isVisible ? miniContainer : null;
                 }),
             /**
@@ -1415,13 +1469,27 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 ),
 
 
+
+
+
+
+
+
+            /**
+             * Obtiene el contenedor principal para videos inline preview <ytd-video-preview>.
+             * @returns {Element|null} Contenedor para videos inline preview.
+             */
+            getInlinePreviewMainContainer: () =>
+                get('inlinePreviewMainContainer', () =>
+                    document.querySelector(S.IDS.VIDEO_PREVIEW_MAIN_CONTAINER) ?? null),
+
             /**
              * Obtiene el elemento reproductor interno alojado en el Inline Preview.
              * @returns {Element|null} Player en el inline preview.
              */
             getInlinePreviewPlayer: () =>
                 get('inlinePreviewPlayer', () =>
-                    document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER)),
+                    document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER) ?? null),
             /**
              * Obtiene el elemento de video del reproductor interno alojado en el Inline Preview.
              * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor interno del Inline Preview.
@@ -4320,6 +4388,10 @@ regular-item.ypp-fill-none {
     border-top: 1px solid var(--ypp-border);
 }
 
+.ypp-management-footer-section[data-section="danger"] .ypp-management-footer-item:last-child {
+    margin-left: auto;
+}
+
 .ypp-management-footer-section[data-section="session"] {
     justify-content: flex-end;
 }
@@ -4515,7 +4587,7 @@ regular-item.ypp-fill-none {
             computedStyle.getPropertyValue('--yt-spec-base-background') === '#0f0f0f' ||
             computedStyle.getPropertyValue('--yt-spec-text-primary') === '#f1f1f1' ||
             document.body.classList.contains('dark-theme') ||
-            document.querySelector('ytd-masthead')?.getAttribute('dark') === 'true'
+            DOMHelpers.get('theme:masthead', () => document.querySelector('ytd-masthead'), 100)?.getAttribute('dark') === 'true'
         );
     }
 
@@ -4590,10 +4662,10 @@ regular-item.ypp-fill-none {
         globalNavigationListeners = [];
 
         // Limpiar listener de YTHelper
-        if (YTHelper && ythelperListener) {
-            YTHelper.eventTarget.removeEventListener('yt-helper-api-ready', ythelperListener);
-            ythelperListener = null;
-        }
+        /*  if (YTHelper && ythelperListener) {
+             YTHelper.eventTarget.removeEventListener('yt-helper-api-ready', ythelperListener);
+             ythelperListener = null;
+         } */
 
         // Limpiar listeners del botón flotante
         floatingButtonListeners.forEach(({ target, event, handler }) => {
@@ -4760,7 +4832,7 @@ regular-item.ypp-fill-none {
     * Aplica degradado de colores a la barra de progreso del reproductor de YouTube usando CSS
     * @param {number} currentTime - Tiempo actual del video en segundos
     * @param {number} duration - Duración total del video en segundos
-    * @param {string} type - Tipo de video ('shorts', 'video' o 'watch')
+    * @param {string} type - Tipo de video ('shorts', 'watch')
     */
     function updateProgressBarGradient(currentTime, duration, type = 'watch') {
         try {
@@ -5759,49 +5831,27 @@ regular-item.ypp-fill-none {
             try {
                 if (!node || typeof node.closest !== 'function') return false;
 
-                // Cache de deteccion por nodo (TTL 250ms p/hover responsive)
-                const now = Date.now();
-                const cached = _adContainerCache.get(node);
-                if (cached && (now - cached.ts < 250)) return cached.val;
-
-                const check = () => {
-                    // --- 1. Contenedores de Anuncios In-Feed / Layouts / Homes ---
-                    // Solo usamos inFeedAdContainers (no inAnyAdContainers).
-                    // inPlayerAdContainers (.ytp-ad-module, .video-ads, #player-ads) son nodos PERMANENTES
-                    // en el DOM del player — están presentes aunque no haya ningún anuncio activo.
-                    // Usarlos en closestComposed causa FALSE POSITIVES para cualquier <video> dentro del player.
-                    // Los checks del player se hacen en el Paso 2 (clases + findVisibleAdUi).
-                    if (AdSelectorText.inFeedAdContainers) {
-                        if (DOMHelpers.closestComposed(node, AdSelectorText.inFeedAdContainers)) return true;
-                    }
-                    return false;
-                };
-
-                const result = check();
-                // Si el reproductor esta en el DOM, cacheamos el resultado brevemente
-                if (node.isConnected) {
-                    _adContainerCache.set(node, { val: result, ts: now });
-                }
-
-                if (result) return true;
-
-                // --- 2. Jerarquía de Reproductores (Videos Regulares / Shorts / Mini) ---
-                // Prioridad máxima: detectar si el reproductor contenedor tiene clases de anuncio activas.
+                // --- 0. Verificación PRIORITARIA de clases de player (sin cache) ---
+                // Las clases de anuncio en players (ad-created, ad-showing) pueden aparecer
+                // DINÁMICAMENTE después de que el video inicia. No usar cache para estas.
 
                 // Reproductor Principal (Watch / Miniplayer)
                 const moviePlayer = DOMHelpers.closestComposed(node, `#${IDs.MOVIE_PLAYER}`);
                 if (moviePlayer?.classList) {
                     if (AdSelectors.playerAdClasses.some(c => moviePlayer.classList.contains(c))) return true;
-
-                    // Refuerzo UI: Barrido de UI interna (ej: .ytp-ad-module visible)
                     if (this.findVisibleAdUi(moviePlayer)) return true;
                 }
 
-                // Reproductor de Shorts (ID e identificación explícita)
-                const shortsPlayer = DOMHelpers.closestComposed(node, `#${IDs.SHORTS_PLAYER}`) || DOMHelpers.closestComposed(node, IDs.SHORTS_PLAYER);
+                // Reproductor de Shorts
+                const shortsPlayer = DOMHelpers.closestComposed(node, `#${IDs.SHORTS_PLAYER}`);
                 if (shortsPlayer?.classList) {
                     if (AdSelectors.shortsAdClasses.some(c => shortsPlayer.classList.contains(c))) return true;
-                    // Refuerzo: Barrido de UI interna
+                    // Refuerzo para Shorts: Revisar el contenedor principal
+                    const reelRenderer = DOMHelpers.closestComposed(shortsPlayer, 'ytd-reel-video-renderer');
+                    if (reelRenderer) {
+                        if (reelRenderer.hasAttribute('is-ads-overlay')) return true;
+                        if (reelRenderer.querySelector('ytd-ad-slot-renderer')) return true;
+                    }
                     if (this.findVisibleAdUi(shortsPlayer)) return true;
                 }
 
@@ -5809,18 +5859,42 @@ regular-item.ypp-fill-none {
                 const inlinePlayer = DOMHelpers.closestComposed(node, `#${IDs.INLINE_PREVIEW_PLAYER}`);
                 if (inlinePlayer?.classList) {
                     if (AdSelectors.previewAdClasses.some(c => inlinePlayer.classList.contains(c))) return true;
-
-                    // Refuerzo UI: Barrido de UI interna (Fundamental para Previews modernos)
                     if (this.findVisibleAdUi(inlinePlayer)) return true;
-
-                    // Refuerzo Contextual: Asociación por Link/Thumbnail
                     try {
                         const videoId = getPlayerVideoId(inlinePlayer);
                         if (videoId && this.isVideoIdAnAd(videoId)) return true;
                     } catch (_) { }
                 }
 
-                // --- 3. Protección de Previews e Inline (Contenido Legítimo) ---
+                // --- 1. Cache para contenedores In-Feed (estáticos, no cambian dinámicamente) ---
+                const now = Date.now();
+                const cached = _adContainerCache.get(node);
+                if (cached && (now - cached.ts < 250)) return cached.val;
+
+                const check = () => {
+                    // Contenedores de Anuncios In-Feed / Layouts / Homes
+                    // Solo usamos inFeedAdContainers (no inAnyAdContainers).
+                    // inPlayerAdContainers (.ytp-ad-module, .video-ads, #player-ads) son nodos PERMANENTES
+                    // en el DOM del player — están presentes aunque no haya ningún anuncio activo.
+                    // Usarlos en closestComposed causa FALSE POSITIVES para cualquier <video> dentro del player.
+                    if (AdSelectorText.inFeedAdContainers) {
+                        if (DOMHelpers.closestComposed(node, AdSelectorText.inFeedAdContainers)) return true;
+                    }
+                    return false;
+                };
+
+                const result = check();
+                // Cache solo para in-feed containers (no para players que cambian dinámicamente)
+                if (node.isConnected) {
+                    _adContainerCache.set(node, { val: result, ts: now });
+                }
+
+                if (result) {
+                    logWarn('AdDetector', `🚫 Nodo bloqueado: detectado en contenedor de anuncios.`);
+                    return true;
+                }
+
+                // --- 2. Protección de Previews e Inline (Contenido Legítimo) ---
                 // Si está en un inline preview verificado Y NO fue capturado arriba por clases de anuncio
                 if (DOMHelpers.closestComposed(node, S.IDS.INLINE_PREVIEW_PLAYER)) return false;
 
@@ -5902,7 +5976,7 @@ regular-item.ypp-fill-none {
 
             try {
                 // R-Search (Reverse Search): limitamos el scope dramáticamente para no iterar el DOM entero con queries complejas (O(k))
-                const adContainers = document.querySelectorAll('.ytd-in-feed-ad-layout-renderer, .video-ads, ytd-display-ad-renderer, #masthead-ad');
+                const adContainers = DOMHelpers.get('ad:containers', () => document.querySelectorAll('.ytd-in-feed-ad-layout-renderer, .video-ads, ytd-display-ad-renderer, #masthead-ad'), 500);
 
                 for (const adCont of adContainers) {
                     if (adCont.querySelector(`a[href*="${videoId}"], ytd-thumbnail[video-id="${videoId}"], [id="thumbnail"][href*="${videoId}"]`)) {
@@ -6125,7 +6199,7 @@ regular-item.ypp-fill-none {
     }
 
     function setInnerHTML(element, html) {
-        if (!element) return;
+        if (!(element instanceof Element)) return;
 
         // 1. Caso base: Si es solo texto, usar textContent (el sink más seguro y rápido)
         if (typeof html === 'string' && !html.includes('<')) {
@@ -6282,7 +6356,7 @@ regular-item.ypp-fill-none {
      * @param {() => void} [options.onInput] - Callback opcional tras cada cambio válido.
      */
     function applyNumericClamping(el, { min = 0, max, onInput } = {}) {
-        if (!el) return;
+        if (!(el instanceof Element)) return;
 
         const clamp = () => {
             // Sanitizar: Solo dígitos
@@ -6408,6 +6482,8 @@ regular-item.ypp-fill-none {
     * @param {number} retries - Número de reintentos (opcional, por defecto 0).
     * @returns {Promise} - Promesa que se resuelve cuando YouTube Helper API está listo.
     */
+
+    // https://github.com/Alplox/Youtube-Playback-Plox/issues/42
     function waitForHelper(retries = 1) {
         return new Promise((resolve, reject) => {
             const MAX_RETRIES = 10;
@@ -7000,17 +7076,19 @@ regular-item.ypp-fill-none {
     /**
      * Realiza un respaldo de los datos en un Gist de GitHub.
      */
-    const backupToGitHub = (data, githubSettings, isManual) => {
+    const backupToGitHubGist = async (data, initialModeSettings, isManual) => {
+        // Fresh pull from storage to prevent stale gistId/token drift
+        const fullSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+        const modeSettings = { ...fullSettings.gist, ...(initialModeSettings || {}) };
+
         return new Promise((resolve) => {
             const jsonString = JSON.stringify(data, null, 2);
             const fileSizeMB = jsonString.length / (1024 * 1024);
 
             // Validar tamaño del archivo (Gist límite: 10MB)
             if (fileSizeMB > 10) {
-                logWarn('backupToGitHub', `Archivo demasiado grande para Gist: ${fileSizeMB.toFixed(2)}MB (límite: 10MB)`);
-                if (isManual) {
-                    showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLargeGist', { size: fileSizeMB.toFixed(2), limit: 10 })}`);
-                }
+                logWarn('backupToGitHubGist', `Archivo demasiado grande para Gist: ${fileSizeMB.toFixed(2)}MB (límite: 10MB)`);
+                showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLargeGist', { size: fileSizeMB.toFixed(2), limit: 10 })}`);
                 resolve(false);
                 return;
             }
@@ -7026,7 +7104,16 @@ regular-item.ypp-fill-none {
                 }
             };
 
-            const gistId = githubSettings.gistId;
+            const gistId = modeSettings.id;
+
+            const cleanToken = (modeSettings.token || '').trim().replace(/[^\x00-\xFF]/g, '');
+            const isValidToken = /^[a-zA-Z0-9_]+$/.test(cleanToken);
+            if (!isValidToken) {
+                logError('backupToGitHubGist', 'Token contiene caracteres inválidos');
+                showFloatingToast(`${SVG_ICONS.warning} ${t('githubInvalidToken')}`);
+                return resolve(false);
+            }
+
             const url = gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists';
             const method = gistId ? 'PATCH' : 'POST';
 
@@ -7034,20 +7121,17 @@ regular-item.ypp-fill-none {
                 method: method,
                 url: url,
                 headers: {
-                    'Authorization': `token ${githubSettings.token}`,
+                    'Authorization': `token ${cleanToken}`,
                     'Accept': 'application/vnd.github.v3+json',
                     'Content-Type': 'application/json'
                 },
                 data: JSON.stringify(gistData),
                 onload: async (response) => {
                     if (response.status >= 200 && response.status < 300) {
+
                         const result = JSON.parse(response.responseText);
 
                         // Actualizar el objeto actual para feedback en la UI si el modal está abierto
-                        githubSettings.gistId = result.id;
-                        githubSettings.gistUrl = result.html_url;
-                        githubSettings.lastSync = Date.now();
-
                         // Persistir metadatos de sincronización
                         let storedSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
@@ -7056,16 +7140,16 @@ regular-item.ypp-fill-none {
                         storedSettings.gist.lastSync = Date.now();
 
                         // Auto-eliminar token si aplica
-                        if (githubSettings.autoDeleteToken) {
+                        if (fullSettings.autoDeleteToken) {
                             storedSettings.gist.token = '';
                         }
 
                         await GM_setValue(CONFIG.STORAGE_KEYS.github, storedSettings);
 
-                        logInfo('backupToGitHub', 'Respaldo en GitHub exitoso:', result.id.slice(0, 10) + '...');
+                        logInfo('backupToGitHubGist', 'Respaldo en GitHub exitoso:', result.id.slice(0, 10) + '...');
                         resolve(true);
                     } else {
-                        logError('backupToGitHub', 'Error en respaldo GitHub:', response.status, response.responseText);
+                        logError('backupToGitHubGist', 'Error en respaldo GitHub:', response.status, response.responseText);
                         if (isManual) {
                             const errorMsg = response.status === 401 ? t('githubInvalidToken') : t('githubBackupError');
                             showFloatingToast(`${SVG_ICONS.error} ${errorMsg} (${response.status})`);
@@ -7074,7 +7158,7 @@ regular-item.ypp-fill-none {
                     }
                 },
                 onerror: (err) => {
-                    logError('backupToGitHub', 'Error de red en respaldo GitHub:', err);
+                    logError('backupToGitHubGist', 'Error de red en respaldo GitHub:', err);
                     resolve(false);
                 }
             });
@@ -7084,9 +7168,13 @@ regular-item.ypp-fill-none {
     /**
      * Realiza un respaldo de los datos en un repositorio privado de GitHub.
      */
-    const backupToRepository = (data, githubSettings, isManual) => {
+    const backupToGithubRepository = async (data, initialModeSettings, isManual) => {
+        // Fresh pull from storage to prevent token drift
+        const fullSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+        const modeSettings = { ...fullSettings.repo, ...(initialModeSettings || {}) };
+
         return new Promise((resolve) => {
-            const { repoOwner, repoName, token } = githubSettings;
+            const { owner: repoOwner, name: repoName, token } = modeSettings;
             if (!repoOwner || !repoName) {
                 if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubBackupError')}`);
                 return resolve(false);
@@ -7098,7 +7186,7 @@ regular-item.ypp-fill-none {
             // Validar tamaño del archivo (GitHub límite: 100MB via API, 25MB via navegador)
             // Usamos 50MB como límite conservador para evitar advertencias de Git
             if (fileSizeMB > 50) {
-                logWarn('backupToRepository', `Archivo demasiado grande para repositorio: ${fileSizeMB.toFixed(2)}MB (límite recomendado: 50MB)`);
+                logWarn('backupToGithubRepository', `Archivo demasiado grande para repositorio: ${fileSizeMB.toFixed(2)}MB (límite recomendado: 50MB)`);
                 if (isManual) {
                     showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLarge', { size: fileSizeMB.toFixed(2), limit: 50 })}`);
                 }
@@ -7123,14 +7211,14 @@ regular-item.ypp-fill-none {
                 headers: headers,
                 onload: (repoResponse) => {
                     if (repoResponse.status !== 200) {
-                        logError('backupToRepository', 'No se pudo acceder al repositorio:', repoResponse.status);
+                        logError('backupToGithubRepository', 'No se pudo acceder al repositorio:', repoResponse.status);
                         if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (${repoResponse.status})`);
                         return resolve(false);
                     }
 
                     const repoInfo = JSON.parse(repoResponse.responseText);
                     if (!repoInfo.private) {
-                        logError('backupToRepository', 'El repositorio NO es privado.');
+                        logError('backupToGithubRepository', 'El repositorio NO es privado.');
                         if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubRepoPrivacyError')}`);
                         return resolve(false);
                     }
@@ -7174,34 +7262,34 @@ regular-item.ypp-fill-none {
                                         storedSettings.repo.lastSync = Date.now();
 
                                         // Auto-eliminar token si aplica
-                                        if (githubSettings.autoDeleteToken) {
+                                        if (fullSettings.autoDeleteToken) {
                                             storedSettings.repo.token = '';
                                         }
 
                                         await GM_setValue(CONFIG.STORAGE_KEYS.github, storedSettings);
 
-                                        logInfo('backupToRepository', 'Respaldo en repositorio exitoso');
+                                        logInfo('backupToGithubRepository', 'Respaldo en repositorio exitoso');
                                         resolve(true);
                                     } else {
-                                        logError('backupToRepository', 'Error al subir archivo:', putResponse.status);
+                                        logError('backupToGithubRepository', 'Error al subir archivo:', putResponse.status);
                                         if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (${putResponse.status})`);
                                         resolve(false);
                                     }
                                 },
                                 onerror: (err) => {
-                                    logError('backupToRepository', 'Error de red:', err);
+                                    logError('backupToGithubRepository', 'Error de red:', err);
                                     resolve(false);
                                 }
                             });
                         },
                         onerror: (err) => {
-                            logError('backupToRepository', 'Error obteniendo SHA:', err);
+                            logError('backupToGithubRepository', 'Error obteniendo SHA:', err);
                             resolve(false);
                         }
                     });
                 },
                 onerror: (err) => {
-                    logError('backupToRepository', 'Error de red verificando repo:', err);
+                    logError('backupToGithubRepository', 'Error de red verificando repo:', err);
                     resolve(false);
                 }
             });
@@ -7215,31 +7303,39 @@ regular-item.ypp-fill-none {
         let githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
         const modeSettings = settingsOverride
-            ? { autoDeleteToken: githubSettings.autoDeleteToken, ...settingsOverride }
+            ? { ...(githubSettings[type] || {}), ...settingsOverride }
             : (githubSettings[type] || CONFIG.defaultGithubSettings[type] || {});
 
         if (!modeSettings.token) {
-            if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubTokenRequired')}`);
+            showFloatingToast(`${SVG_ICONS.warning} ${t('githubTokenRequired')}`);
+            return false;
+        }
+
+        const cleanToken = (modeSettings.token || '').trim().replace(/[^\x00-\xFF]/g, '');
+        const isValidToken = /^[a-zA-Z0-9_]+$/.test(cleanToken);
+        if (!isValidToken) {
+            logError('performRemoteBackup', 'Token contiene caracteres inválidos');
+            showFloatingToast(`${SVG_ICONS.warning} ${t('githubInvalidToken')}`);
             return false;
         }
 
         const data = await getSyncData(isManual ? 'manual' : 'auto');
         if (!data) {
-            if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
+            showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
             return false;
         }
 
-        if (isManual) showFloatingToast(`${SVG_ICONS.spinner} ${t('githubBackupNow')} (${type})...`);
+        showFloatingToast(`${SVG_ICONS.spinner} ${t('githubBackupNow')} (${type})...`);
 
         let success = false;
         if (type === 'repo') {
-            success = await backupToRepository(data, modeSettings, isManual);
+            success = await backupToGithubRepository(data, modeSettings, isManual);
         } else {
-            success = await backupToGitHub(data, modeSettings, isManual);
+            success = await backupToGitHubGist(data, modeSettings, isManual);
         }
 
         if (success) {
-            if (isManual) showFloatingToast(`${SVG_ICONS.check} ${t('githubBackupSuccess')}`);
+            showFloatingToast(`${SVG_ICONS.check} ${t('githubBackupSuccess')}`);
 
             // Re-leer settings desde GM para obtener valores actualizados (lastSync, gistId, etc.)
             const updatedSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
@@ -7281,6 +7377,7 @@ regular-item.ypp-fill-none {
      * Verifica si es necesario realizar un respaldo automático.
      */
     const checkGitHubBackup = async () => {
+        logLog('checkGitHubBackup', 'Verificando respaldo automático...');
         let githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
 
         const now = Date.now();
@@ -7288,14 +7385,49 @@ regular-item.ypp-fill-none {
 
         for (const type of types) {
             const s = githubSettings[type] || CONFIG.defaultGithubSettings[type] || {};
-            if (!s.autoBackup || !s.token) continue;
+
+            if (!s.autoBackup) {
+                logWarn('checkGitHubBackup', `${type} omitido: autoBackup desactivado`);
+                continue;
+            }
+
+            if (!s.token) {
+                logWarn('checkGitHubBackup', `${type} omitido: falta token`);
+                continue;
+            }
+
+            // Concurrency Lock: Evitar que múltiples pestañas disparen el respaldo simultáneamente
+            const lastAttempt = s.lastSyncAttempt || 0;
+            const CONCURRENCY_LOCK_MS = 4 * 60 * 1000; // Bloqueo de 4 minutos (menor que el intervalo de 5m de chequeo)
+            if (now - lastAttempt < CONCURRENCY_LOCK_MS) {
+                logLog('checkGitHubBackup', `Omitiendo: Otro tab inició sincronización (${type}) recientemente`);
+                continue;
+            }
+
+            logLog('checkGitHubBackup', `Auto backup (${type}): ${s.autoBackup}`);
 
             const intervalMs = (s.interval || 24) * 60 * 60 * 1000;
+            logLog('checkGitHubBackup', `Intervalo de respaldo (${type}): ${intervalMs}ms`);
             const timeSinceLastSync = now - s.lastSync;
+            logLog('checkGitHubBackup', `Tiempo desde último respaldo (${type}): ${timeSinceLastSync}ms`);
 
             if (timeSinceLastSync >= intervalMs) {
-                logInfo('checkGitHubBackup', `Iniciando respaldo automático (${type})...`);
-                await performRemoteBackup(type, false);
+                try {
+                    logInfo('checkGitHubBackup', `Iniciando respaldo automático (${type})...`);
+
+                    // Adquirir bloqueo inmediatamente en el storage
+                    const fresh = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+
+                    fresh[type] = fresh[type] || {};
+                    fresh[type].lastSyncAttempt = now;
+
+                    await GM_setValue(CONFIG.STORAGE_KEYS.github, fresh);
+
+                    await performRemoteBackup(type, false);
+                    logInfo('checkGitHubBackup', `Respaldo (${type}) completado correctamente`);
+                } catch (err) {
+                    logError('checkGitHubBackup', `Error en respaldo (${type})`, err);
+                }
             } else {
                 const minutesRemaining = Math.ceil((intervalMs - timeSinceLastSync) / (60 * 1000));
                 logLog('checkGitHubBackup', `Respaldo automático (${type}) omitido. Faltan ${minutesRemaining} min.`);
@@ -7984,7 +8116,7 @@ regular-item.ypp-fill-none {
         // Si el dato guardado ya dice isCompleted=true y el tiempo actual es muy bajo (<5s),
         // es casi seguro un reset automático -> preservamos el estado completado.
         // NOTA: Una vez que el video cruce la marca de los 5s, el escudo se desactivará automáticamente.
-        // El script entenderá que realmente estás re-viendo el video por voluntad propia y comenzará a guardar nuevo progreso (5s, 6s, 7s...), 
+        // El script entenderá que realmente estás re-viendo el video por voluntad propia y comenzará a guardar nuevo progreso (5s, 6s, 7s...),
         // retirando la marca de "completado" hasta que vuelvas a terminarlo.
         if (!isFinished && sourceData?.isCompleted && currentTime < 5) {
             logLog(logContext, `🛡️ Shield auto-reset detectado para video completado (${videoId}) en ${currentTime}s. Preservando estado.`);
@@ -8319,12 +8451,6 @@ regular-item.ypp-fill-none {
     // MARK: 📺 Helpers
     // ------------------------------------------
 
-
-
-
-
-
-
     // MARK: 📺 Obtiene datos guardados de un video
     /**
     * Obtiene datos guardados de un video, intentando todas las combinaciones posibles.
@@ -8446,7 +8572,7 @@ regular-item.ypp-fill-none {
     };
 
     function getTypeFromPageManager(path) {
-        const manager = document.querySelector('ytd-page-manager');
+        const manager = DOMHelpers.get('page:manager', () => document.querySelector('ytd-page-manager'), 100);
         if (!manager) return null;
 
         const subtype = manager.getAttribute('page-subtype');
@@ -8483,7 +8609,7 @@ regular-item.ypp-fill-none {
     }
 
     function getTypeFromYtApp() {
-        const app = document.querySelector('ytd-app');
+        const app = DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100);
         if (!app) return null;
 
         try {
@@ -9068,7 +9194,7 @@ regular-item.ypp-fill-none {
      * @param {string} message - HTML/texto a mostrar en el span de mensaje.
      */
     function showDisplayMessage(displayEl, message) {
-        if (!displayEl) return;
+        if (!(displayEl instanceof Element)) return;
         const messageEl = displayEl.querySelector('.ypp-time-display-message');
 
         // logLog('showDisplayMessage', `displayEl existe: ${!!displayEl}, messageEl existe: ${!!messageEl}, mensaje: "${message}"`)
@@ -9086,7 +9212,7 @@ regular-item.ypp-fill-none {
      * @param {HTMLElement} displayEl - Elemento raíz del display (.ypp-time-display).
      */
     function restoreDisplayButtons(displayEl) {
-        if (!displayEl) return;
+        if (!(displayEl instanceof Element)) return;
         const btnManualSave = displayEl.querySelector('.ypp-btn-save');
         const messageEl = displayEl.querySelector('.ypp-time-display-message');
 
@@ -9246,7 +9372,7 @@ regular-item.ypp-fill-none {
      * @param {string} contextType - Contexto ('watch', 'shorts', 'miniplayer', 'preview').
      */
     function setupManualSaveButton(displayEl, player, contextType) {
-        if (!cachedSettings?.manualSaveMode || !displayEl) return;
+        if (!cachedSettings?.manualSaveMode || !(displayEl instanceof Element)) return;
 
         // Evitar duplicados si ya fue inyectado
         if (displayEl.querySelector('.ypp-btn-save')) return;
@@ -9305,8 +9431,8 @@ regular-item.ypp-fill-none {
         // Si ya está conectado y TIENE la estructura de split button (v2), no hacer nada
         if (watchTimeDisplay?.isConnected && watchTimeDisplay.querySelector('.ypp-time-display-message')) return;
 
-        // Si el player no existe, no hacer nada
-        if (!playerContainer) return;
+        // Si el player no existe o no es un elemento válido, no hacer nada
+        if (!(playerContainer instanceof Element)) return;
 
         // Si ya existe pero no tiene la estructura v2, limpiarlo para re-crear
         if (watchTimeDisplay) {
@@ -9317,11 +9443,21 @@ regular-item.ypp-fill-none {
         logLog('initTimeDisplay', 'playerContainer', playerContainer);
 
         // Soporte para el rediseño "Delhi": el contenedor es un pill wrapper (.ytp-time-wrapper)
+        // Fallback: .ytp-left-controls si el wrapper de tiempo no existe (común en algunas cuentas logueadas)
         const timeWrapper = DOMHelpers.get('player:timeWrapper', () =>
             playerContainer.querySelector('.ytp-time-wrapper')
-            ?? document.querySelector('.ytp-time-wrapper'), 100);
+            ?? playerContainer.querySelector('.ytp-left-controls')
+            ?? playerContainer.querySelector('.ytp-chrome-controls')
+            ?? document.querySelector('.ytp-time-wrapper')
+            ?? document.querySelector('.ytp-left-controls')
+            ?? document.querySelector('.ytp-chrome-bottom'), 100);
 
-        logLog('initTimeDisplay', 'timeWrapper seleccionado:', timeWrapper);
+        if (!timeWrapper) {
+            logWarn('initTimeDisplay', '⚠️ No se encontró un contenedor válido para la inyección de UI en la barra de reproducción.');
+            return;
+        }
+
+        logLog('initTimeDisplay', '✅ Contenedor de UI seleccionado:', timeWrapper);
 
         watchTimeDisplay = createElement('div', {
             id: 'ypp-time-display-indicator',
@@ -9459,7 +9595,7 @@ regular-item.ypp-fill-none {
         }
 
         // 2. Limpieza agresiva de duplicados en el panel activo
-        if (shortsPlayerControls) {
+        if (shortsPlayerControls instanceof Element) {
             const redundant = shortsPlayerControls.querySelectorAll('.ypp-shorts-time-display');
             redundant.forEach(el => {
                 if (el !== shortsTimeDisplay) el.remove();
@@ -9467,15 +9603,17 @@ regular-item.ypp-fill-none {
         }
 
         // 3. Re-anclaje (Re-anchoring)
-        const target = shortsPlayerControls || overlayRoot || document.body;
+        const target = (shortsPlayerControls instanceof Element && shortsPlayerControls) ||
+                       (overlayRoot instanceof Element && overlayRoot) ||
+                       document.body;
         if (shortsTimeDisplay.parentElement !== target) {
             try { target.appendChild(shortsTimeDisplay); } catch (_) { }
         }
 
         // 4. Actualizar estado visual (floating vs anchored)
-        shortsTimeDisplay.classList.toggle('ypp-floating', !shortsPlayerControls);
+        shortsTimeDisplay.classList.toggle('ypp-floating', !(shortsPlayerControls instanceof Element));
 
-        if (shortsPlayerControls) {
+        if (shortsPlayerControls instanceof Element) {
             logLog('initShortsTimeDisplay', '✅ Visualización de tiempo para Shorts vinculada al Metapanel');
 
             // Si lo encontramos y se incrustó correctamente, detener operaciones de reintento pendientes
@@ -9804,7 +9942,7 @@ regular-item.ypp-fill-none {
         // Si ya está conectado y tiene estructura completa, no hacer nada
         if (miniplayerTimeDisplay?.isConnected && miniplayerTimeDisplay.querySelector('.ypp-time-display-message')) return;
 
-        if (!playerContainer) return;
+        if (!(playerContainer instanceof Element)) return;
 
         // Si ya existe pero estructura vieja, limpiar
         if (miniplayerTimeDisplay) {
@@ -9816,7 +9954,9 @@ regular-item.ypp-fill-none {
         // El miniplayer puede tener estructuras variables según el experimento o si es un Mix.
         const controls =
             playerContainer.querySelector('.ytp-time-wrapper') ||
-            document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper');
+            playerContainer.querySelector('.ytp-left-controls') ||
+            document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper') ||
+            document.querySelector('ytd-miniplayer-player-container .ytp-left-controls');
 
         logLog('initMiniplayerTimeDisplay', '🔍 Contenedor encontrado:', controls);
 
@@ -9958,7 +10098,7 @@ regular-item.ypp-fill-none {
         // Si ya está conectado y tiene estructura v2, no hacer nada
         if (inlinePreviewTimeDisplay?.isConnected && inlinePreviewTimeDisplay.querySelector('.ypp-time-display-message')) return;
 
-        if (!previewPlayerEl) return;
+        if (!(previewPlayerEl instanceof Element)) return;
 
         // Si ya existe pero estructura vieja, limpiar
         if (inlinePreviewTimeDisplay) {
@@ -10734,9 +10874,36 @@ regular-item.ypp-fill-none {
                     showAlertTime: isChecked('showAlertTime'),
                 };
 
+                const rawGistToken = getVal('gist_token') || '';
+                let safeGistToken = rawGistToken
+                    .trim()
+                    .replace(/[^\x00-\x7F]/g, '');
+
+                // Validación
+                const isValid = /^gh[pus]_[A-Za-z0-9_]+$/.test(safeGistToken);
+
+                if (!isValid && safeGistToken !== '') {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('githubInvalidToken')}`);
+                    safeGistToken = '';
+                    return
+                }
+
+                const rawRepoToken = getVal('repo_token') || '';
+                let safeRepoToken = rawRepoToken
+                    .trim()
+                    .replace(/[^\x00-\x7F]/g, '');
+
+                // Validación
+                const isValidRepoToken = /^gh[pus]_[A-Za-z0-9_]+$/.test(safeRepoToken);
+                if (!isValidRepoToken && safeRepoToken !== '') {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('githubInvalidToken')}`);
+                    safeRepoToken = '';
+                    return
+                }
+
                 const newGithubSettings = {
                     gist: {
-                        token: getVal('gist_token'),
+                        token: safeGistToken,
                         id: getVal('gist_id'),
                         url: githubSettings.gist?.url || '',
                         autoBackup: isChecked('gist_autoBackup'),
@@ -10744,7 +10911,7 @@ regular-item.ypp-fill-none {
                         lastSync: githubSettings.gist?.lastSync || 0
                     },
                     repo: {
-                        token: getVal('repo_token'),
+                        token: safeRepoToken,
                         owner: getVal('repo_owner'),
                         name: getVal('repo_name'),
                         autoBackup: isChecked('repo_autoBackup'),
@@ -10932,8 +11099,6 @@ regular-item.ypp-fill-none {
             if (videoEl?.paused && display?.querySelector('#svg-player-end') && !saveResult.isManual) return;
         }
 
-
-
         const timeStr = formatTime(normalizeSeconds(time));
         const canShowTime = isSeek || saveResult.success;
 
@@ -10962,25 +11127,9 @@ regular-item.ypp-fill-none {
         handlers[videoType]?.(message, videoEl, isSeek, isFixedTime, saveResult.isManual);
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     // ------------------------------------------
     // MARK: 🎵 Selección de Videos
     // ------------------------------------------
-
     let selectedVideos = new Set(); // IDs de videos seleccionados
     let isPlaylistCreationMode = false; // Modo de selección activo
 
@@ -11051,10 +11200,10 @@ regular-item.ypp-fill-none {
                 className: 'ypp-management-footer-section',
                 atribute: { 'data-section': 'danger' }
             });
-            const sessionSection = createElement('div', {
+           /*  const sessionSection = createElement('div', {
                 className: 'ypp-management-footer-section',
                 atribute: { 'data-section': 'session' }
-            });
+            }); */
 
             /**
              * Referencia al cierre del menú desplegable actualmente abierto.
@@ -11252,8 +11401,8 @@ regular-item.ypp-fill-none {
             selectionSection.append(btnSelectAll, btnClearSelection);
             dataSection.append(importMenu, exportAllMenu, exportSelectedMenu);
             dangerSection.append(btnDeleteSelected, btnClearAll);
-            sessionSection.append(cancelBtn);
-            btnGroup.append(selectionSection, dataSection, dangerSection, sessionSection);
+            dangerSection.append(cancelBtn);
+            btnGroup.append(selectionSection, dataSection, dangerSection/* , sessionSection */);
             managementModeContainer.append(btnGroup);
 
             managementModeFragment.append(managementModeContainer);
@@ -11687,18 +11836,23 @@ regular-item.ypp-fill-none {
             return winner.context;
         };
 
-        const canProcessContext = (videoEl, context) => {
-            if (!videoEl || !context || !videoEl.isConnected) return false;
-            if (AdDetector.isNodeWithinAdContainer(videoEl)) return false;
+        const getIneligibilityReason = (videoEl, context) => {
+            if (!videoEl) return 'no_video_element';
+            if (!context) return 'no_context_provided';
+            if (!videoEl.isConnected) return 'video_not_connected_to_dom';
+            if (AdDetector.isNodeWithinAdContainer(videoEl)) return 'within_ad_container';
             if (context === 'preview') {
-                if (currentPageType === 'watch' || currentPageType === 'shorts') return false;
-                if (isMiniplayerBlockingPreview()) return false;
+                if (currentPageType === 'watch' || currentPageType === 'shorts') return `page_type_mismatch:${currentPageType}_blocks_preview`;
+                if (isMiniplayerBlockingPreview()) return 'miniplayer_blocking_preview';
             }
-            if (context === 'watch' && currentPageType !== 'watch') return false;
-            if (context === 'shorts' && currentPageType !== 'shorts') return false;
-            if (context === 'miniplayer' && !DOMHelpers.getMiniplayerPlayer()) return false;
-            return !!getContextRoot(videoEl, context);
+            if (context === 'watch' && currentPageType !== 'watch') return `page_type_mismatch:not_on_watch_page(current:${currentPageType})`;
+            if (context === 'shorts' && currentPageType !== 'shorts') return `page_type_mismatch:not_on_shorts_page(current:${currentPageType})`;
+            if (context === 'miniplayer' && !DOMHelpers.getMiniplayerPlayer()) return 'miniplayer_not_found';
+            if (!getContextRoot(videoEl, context)) return `root_not_found_for_context:${context}`;
+            return null;
         };
+
+        const canProcessContext = (videoEl, context) => !getIneligibilityReason(videoEl, context);
 
         const isContextLocked = (videoEl, expectedContext) => {
             if (!expectedContext) return false;
@@ -11709,6 +11863,7 @@ regular-item.ypp-fill-none {
         return {
             resolveContext,
             canProcessContext,
+            getIneligibilityReason,
             isContextLocked
         };
     })();
@@ -12044,7 +12199,12 @@ regular-item.ypp-fill-none {
         const enqueueVideo = (videoElement, type, triggerSource = 'observer') => {
             if (!videoElement) return;
             if (EventPreFilter.shouldDrop(videoElement)) return;
-            if (!RouteContextResolver.canProcessContext(videoElement, type)) return;
+            const canProcess = RouteContextResolver.canProcessContext(videoElement, type);
+            if (!canProcess) {
+                const reason = RouteContextResolver.getIneligibilityReason(videoElement, type);
+                logWarn('VideoObserverManager', `🚫 enqueueVideo: rejected [${type}]. Reason: ${reason}`);
+                return;
+            }
             // Protección: No encolar videos que son detectados como anuncios
             if (AdDetector.isNodeWithinAdContainer(videoElement)) {
                 // Log explícito y estandarizado para facilitar búsqueda en logs ("Anuncio detectado").
@@ -12148,7 +12308,7 @@ regular-item.ypp-fill-none {
                             // Obtiene la sesión de procesamiento activa asociada a este video
                             const prevSession = activeProcessingSessions.get(videoEl);
 
-                            // Si hay una sesión activa y el videoId es el mismo, 
+                            // Si hay una sesión activa y el videoId es el mismo,
                             // es un cambio de configuraciones (calidad o mejoras de audio)
                             if (prevSession && currentVideoId && prevSession.lastVideoId === currentVideoId) {
                                 logLog(
@@ -12332,7 +12492,7 @@ regular-item.ypp-fill-none {
                     // Detección de visibilidad ultra-robusta combinando clase, atributo y estado de ytd-app
                     const newState = !!(
                         document.querySelector(`${S.ELEMENTS.MINIPLAYER_ELEMENT}${S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE}`) ||
-                        document.querySelector('ytd-app')?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR)
+                        DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100)?.matches(S.ATTR.MINIPLAYER_ACTIVE_ATTR)
                     );
 
                     if (newState !== isMiniplayerActive) {
@@ -12515,36 +12675,40 @@ regular-item.ypp-fill-none {
             // Iniciar observación
             try {
                 // Observar el contenedor principal del video (watch)
-                // REVISAR AQUI, AGREGAR VALIDACION QUE MOVIE PLAYER NO ESTE EN MINIPLAYER
-                const playerContainer = document.querySelector(S.IDS.MOVIE_PLAYER);
+                // Usamos DOMHelpers.getWatchPlayer() que ya excluye el movie_player si está dentro del miniplayer
+                const playerContainer = DOMHelpers.getWatchPlayer();
                 if (playerContainer) {
                     observers.watch.observe(playerContainer, config);
                     logInfo('VideoObserverManager', '✅ Observador de Watch inicializado');
+                } else {
+                    logWarn('VideoObserverManager', '⚠️ No se encontró el contenedor de Watch (movie_player). No se pudo inicializar su observador.');
                 }
 
                 // Observar el contenedor principal de Shorts
-                const shorts = document.querySelector(S.IDS.SHORTS_PLAYER);
+                const shorts = DOMHelpers.getShortsPlayer();
                 if (shorts) {
                     observers.shorts.observe(shorts, config);
                     logInfo('VideoObserverManager', '✅ Observador de Shorts inicializado');
+                } else {
+                    logWarn('VideoObserverManager', 'ℹ️ Contenedor de Shorts no encontrado (normal si no se está en /shorts)');
                 }
 
                 // Observar el contenedor principal de previews
-                const previewEl = document.querySelector(S.IDS.VIDEO_PREVIEW_MAIN_CONTAINER);
+                const previewEl = DOMHelpers.getInlinePreviewMainContainer();
                 if (previewEl) {
                     observers.preview.observe(previewEl, config);
                     logInfo('VideoObserverManager', '✅ Observador de Previews inicializado');
                 }
 
                 // Observar el contenedor principal del miniplayer
-                const miniContainer = document.querySelector(S.ELEMENTS.MINIPLAYER_ELEMENT);
+                const miniContainer = DOMHelpers.getMiniplayerElement();
                 if (miniContainer) {
                     observers.miniplayer.observe(miniContainer, config);
                     // También observar ytd-app para el atributo `miniplayer-is-active`
                     // que YouTube usa para señalizar la activación del miniplayer.
                     // Nota: ytd-app NO es descendiente de ytd-miniplayer, por lo que
                     // necesita su propia llamada a observe() con su propio attributeFilter.
-                    const ytdApp = document.querySelector('ytd-app');
+                    const ytdApp = DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100);
                     if (ytdApp) {
                         observers.miniplayer.observe(ytdApp, {
                             attributes: true,
@@ -12575,18 +12739,26 @@ regular-item.ypp-fill-none {
             }
 
             pendingVideos.clear();
-            globalNavigationId++; // Invalidar sesiones en vuelo
+
+            // No invalidar sesiones en vuelo si estamos preservando el miniplayer,
+            // ya que una sesión miniplayer puede estar arrancando justo ahora.
+            if (!preserveMiniplayer) {
+                globalNavigationId++;
+            }
+
             stopAllSessions(preserveMiniplayer);
+
             if (previewWatchdogId) {
                 clearInterval(previewWatchdogId);
                 previewWatchdogId = null;
             }
-            logLog('VideoObserverManager', '🧹 Observadores y sesiones desconectadas');
+
+            logLog('VideoObserverManager', `🧹 Observadores desconectados (PreserveMiniplayer: ${preserveMiniplayer})`);
             // Full Teardown SPA: Limpiar timers y romper closures
             displayClearTimeouts.forEach((v, k) => clearTimeout(v));
             displayClearTimeouts.clear();
 
-            logLog('VideoObserverManager', '🧹 Observadores y timers liberados (Teardown parcial SPA)');
+            logLog('VideoObserverManager', '🧹 Timers liberados (Teardown parcial SPA)');
         };
 
         const clearCache = () => {
@@ -12847,7 +13019,18 @@ regular-item.ypp-fill-none {
 
         let stoppedCount = 0;
         for (const [videoEl, session] of activeProcessingSessions.entries()) {
-            if (preserveMiniplayer && session.type === 'miniplayer') continue;
+            // Protección crítica para Miniplayer:
+            // Si preserveMiniplayer es true, no solo evitamos cerrar sesiones tipo 'miniplayer',
+            // sino también cualquier sesión cuyo video esté FÍSICAMENTE dentro del contenedor del miniplayer.
+            // Esto cubre el gap de transición donde el video de 'watch' se mueve al miniplayer pero
+            // el script aún no ha procesado el cambio de tipo a 'miniplayer'.
+            const isPhysicallyInMiniplayer = !!videoEl.closest(S.ELEMENTS.MINIPLAYER_ELEMENT);
+
+            if (preserveMiniplayer && (session.type === 'miniplayer' || isPhysicallyInMiniplayer)) {
+                logLog('process', `⏭️ Preservando sesión en transición [${session.type}] para ${session.lastVideoId}`);
+                continue;
+            }
+
             SessionOrchestrator.finalizeSession(videoEl, 'stopAllSessions');
             stoppedCount++;
         }
@@ -12939,6 +13122,9 @@ regular-item.ypp-fill-none {
                     logLog('process', `🛡️ Blindaje anti doble-completado activado (fast-path) para ${videoId}`);
                 }
 
+                // Guardar referencia a savedData en la sesión para acceso posterior desde el intervalo
+                sessionRef.savedData = savedData;
+
                 if (sessionRef.isPlayerSettingsChange) {
                     logLog('process', `⏭️ Resume omitido: cambio de configuraciones detectado`);
                     sessionRef.isPlayerSettingsChange = false;
@@ -13003,6 +13189,7 @@ regular-item.ypp-fill-none {
                         (isLive ? cachedSettings?.saveLiveStreams : cachedSettings?.saveRegularVideos);
 
         if (isAutoSaveEnabled !== false) {
+            let tickCount = 0;
             intervalId = setInterval(async () => {
                 // Self-destruct: verificar que esta instancia siga siendo la sesión activa y no esté finalizada.
                 // Si la sesión fue reemplazada por otra en el mismo elemento o finalizada externamente,
@@ -13012,6 +13199,29 @@ regular-item.ypp-fill-none {
                     clearInterval(intervalId);
                     logLog('process', `🧹 Zombie interval eliminado [${type}] - ${videoId}`);
                     return;
+                }
+
+                tickCount++;
+
+                // --- UI WATCHDOG ---
+                // Si el usuario usa scripts como "Engine Tamer", el DOM puede ser reemplazado post-carga.
+                // Verificamos periódicamente si nuestra UI sigue presente y la re-inyectamos si es necesario.
+                if (tickCount % 4 === 0 && type === 'watch') {
+                    const display = document.getElementById('ypp-time-display-indicator');
+                    if (!display || !display.isConnected) {
+                        logWarn('startProcessingSession', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
+                        initTimeDisplay(player);
+                    }
+                }
+
+                // --- PERSISTENCE RESCUE ---
+                // Usa sessionRef.savedData (resuelto asíncronamente desde storage en fast-path).
+                // Si el video sigue en 0s pero deberíamos haber reanudado, forzamos un re-seek de último recurso.
+                const sessionSavedData = sessionRef.savedData;
+                const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
+                if (tickCount === 6 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > 10 && !isCurrentlyAd) {
+                    logWarn('startProcessingSession', '🆘 Persistence Rescue: El video sigue en 0s tras 6s. Forzando re-seek...');
+                    PlaybackController.resume(player, videoId, videoEl, { ...sessionSavedData, forceResumeTime: sessionSavedData.watchProgress }, type, sessionRef);
                 }
 
                 if (sessionRef.isResumePending) {
@@ -13551,6 +13761,25 @@ regular-item.ypp-fill-none {
 
                     // Notificar al usuario (Toast/PlaybackBar)
                     notifySeekOrProgress(safeTime, 'seek', { videoType: type, isForced: savedData.forceResumeTime > 0, videoEl });
+
+                    // --- PERSISTENCE CHECK ---
+                    // En cuentas logueadas, YouTube puede intentar forzar su propio progreso (native resume).
+                    // Verificamos 800ms después si el tiempo se mantuvo o si saltó hacia atrás.
+                    setTimeout(() => {
+                        const currentSession = activeProcessingSessions.get(videoEl);
+                        if (session && (session.isFinalized || currentSession !== session)) return;
+
+                        const currentTime = videoEl.currentTime;
+                        // Si el tiempo saltó hacia atrás más de 5 segundos respecto a lo que pedimos reanudar
+                        if (safeTime > 10 && currentTime < (safeTime - 5)) {
+                            logWarn('PlaybackController', `🔄 Detectado salto hacia atrás tras resume (${formatTime(safeTime)} -> ${formatTime(currentTime)}). Reintentando persistencia...`);
+                            if (typeof player?.seekTo === 'function') {
+                                player.seekTo(safeTime, true);
+                            } else {
+                                videoEl.currentTime = safeTime;
+                            }
+                        }
+                    }, 800);
                 } catch (e) {
                     logError('PlaybackController', '❌ Error al aplicar seek:', e);
                 }
@@ -13600,7 +13829,20 @@ regular-item.ypp-fill-none {
                 // Throttling de guardado por cambio de tiempo: No guardar si el tiempo no se movió significativamente
                 // (Evita spam de I/O si el video está cargando o pausado)
                 const lastSavedTime = parseFloat(videoEl.dataset.lastSavedTime || '-1');
+                const lastResumedTime = parseFloat(videoEl.dataset.lastResumedTime || '-1');
+                const lastResumeTs = parseInt(videoEl.dataset.lastResumeTimestamp || '0', 10);
+                const timeSinceResume = Date.now() - lastResumeTs;
+
                 const diff = currentTime - lastSavedTime;
+
+                // --- PROTECTION: Anti-Native Resume Overwrite ---
+                // Si acabamos de reanudar hace menos de 10 segundos y el tiempo actual es mucho menor
+                // que el tiempo que pedimos reanudar, es probable que YouTube haya forzado su propio progreso.
+                // No guardamos este tiempo para evitar corromper el historial local con el de la cuenta.
+                if (timeSinceResume < 10000 && lastResumedTime > 10 && currentTime < (lastResumedTime - 5) && !options.isManual) {
+                    logWarn('PlaybackController', `🛡️ Guardado bloqueado: Posible conflicto con reanudación nativa (${formatTime(currentTime)} < ${formatTime(lastResumedTime)})`);
+                    return { success: false, reason: 'native_resume_conflict' };
+                }
 
                 if (Math.abs(diff) < 0.05 && !options.isManual) {
                     return { success: false, reason: 'time_not_changed' };
@@ -13813,7 +14055,7 @@ regular-item.ypp-fill-none {
         const now = Date.now();
         const cached = _videoMetadataCache.get(videoId);
         if (cached && (now - cached.ts < 300_000)) {
-            // logDebug('getCascadedVideoInfo', `Hit cache global para ${videoId}`);
+            // logWarn('getCascadedVideoInfo', `Hit cache global para ${videoId}`);
             return { ...cached.info };
         }
 
@@ -14119,9 +14361,7 @@ regular-item.ypp-fill-none {
                 }
 
                 if (type === 'preview') {
-                    const videoPreviewLink = document.querySelector(
-                        `${S.IDS.VIDEO_PREVIEW_CONTAINER} a#media-container-link`
-                    );
+                    const videoPreviewLink = DOMHelpers.get('preview:link', () => document.querySelector(`${S.IDS.VIDEO_PREVIEW_CONTAINER} a#media-container-link`), 100);
 
                     if (videoPreviewLink?.href) {
                         const videoPreviewPlaylistId = extractYouTubePlaylistIdFromUrl(videoPreviewLink.href);
@@ -16615,6 +16855,48 @@ regular-item.ypp-fill-none {
     let initializationPromise = null;
     let backupIntervalId = null;
 
+    // ------------------------------------------
+    // MARK: 🔇 External Library Error Silencer
+    // ------------------------------------------
+    // La librería YouTube Helper API puede lanzar errores internos en cuentas logueadas
+    // (ej: "appState.player.playerObject.querySelector is not a function").
+    // Estos errores son "Uncaught (in promise)" que no podemos envolver en try-catch
+    // porque ocurren en callbacks internos de la librería, fuera de nuestro alcance.
+    // Interceptamos y absorbemos estos errores conocidos para evitar que el navegador
+    // los marque como críticos y potencialmente interrumpa cadenas de promesas.
+    // NOTA: Solo se suprimen errores que coincidan con firmas específicas de la librería.
+
+    /* (function installExternalLibraryErrorSilencer() {
+        /** @type {ReadonlyArray<string>} Firmas de errores conocidos de la Helper API
+        const KNOWN_HELPER_ERROR_SIGNATURES = [
+            'playerObject.querySelector is not a function',
+            'appState.player.playerObject',
+            '_handlePlayerUpdate',
+        ];
+
+        const isKnownHelperError = (message) => {
+            if (!message || typeof message !== 'string') return false;
+            return KNOWN_HELPER_ERROR_SIGNATURES.some(sig => message.includes(sig));
+        };
+
+        window.addEventListener('error', (event) => {
+            if (isKnownHelperError(event?.message)) {
+                logWarn('ExternalLibrarySilencer', `🔇 Error de librería externa suprimido: ${event.message}`);
+                event.preventDefault();
+                event.stopImmediatePropagation();
+            }
+        }, true /* capture phase para interceptar antes que otros handlers );
+
+        window.addEventListener('unhandledrejection', (event) => {
+            const msg = event?.reason?.message || String(event?.reason || '');
+            if (isKnownHelperError(msg)) {
+                logWarn('ExternalLibrarySilencer', `🔇 Promise rejection de librería externa suprimida: ${msg}`);
+                event.preventDefault();
+            }
+        });
+    })(); */
+
+
     // Inicialización global (solo una vez)
     const initializeGlobal = async () => {
         if (initializationPromise) {
@@ -16656,12 +16938,30 @@ regular-item.ypp-fill-none {
                 const hasActivePreviewSession = Array.from(activeProcessingSessions.values())
                     .some(s => s.type === 'preview');
 
-                // lastHandledPageType === null -> primera carga de página (bootstrap aún no fue derribado)
-                // En ese caso, si ya hay sesión activa para el mismo video, no hace falta reiniciar.
-                const isSamePageContext = lastHandledPageType === null || newPageType === lastHandledPageType;
+                // firstLoadGuard: lastHandledPageType === null -> primera carga de página
+                const isFirstLoad = lastHandledPageType === null;
+                const isSamePageContext = isFirstLoad || newPageType === lastHandledPageType;
+                const isSameVideo = currentVideoId === lastHandledVideoId;
 
-                if (currentVideoId && hasActiveSession && isSamePageContext) {
-                    logLog('handleNavigation', `Ignorando reinicio: Sesión activa detectada para ${currentVideoId} (${newPageType})`);
+                // Loop Guard & SPA Recovery:
+                // Si el ID coincide Y (tenemos sesión activa O es el mismo video/página que ya intentamos),
+                // evitamos el teardown (init(true)) que destruye el progreso.
+                if (currentVideoId && (hasActiveSession || (isSameVideo && isSamePageContext)) && isSamePageContext) {
+                    logLog('handleNavigation', `Ignorando reinicio redundante para ${currentVideoId} (${newPageType}). Sesión activa: ${hasActiveSession}`);
+
+                    // Si no hay sesión activa pero es el mismo video, intentamos un bootstrap ligero
+                    // (skipCleanup=true) por si el player acaba de aparecer en el DOM.
+                    if (!hasActiveSession && isSameVideo && isSamePageContext) {
+                        if (typeof VideoObserverManager?.init === 'function') {
+                            logLog('handleNavigation', '🔄 Programando reintento ligero de bootstrap (300ms)');
+                            setTimeout(() => {
+                                // Verificar nuevamente antes de ejecutar por si hubo otra navegación
+                                if (extractYouTubeVideoIdFromUrl(window.location.href) === currentVideoId) {
+                                    VideoObserverManager.init(true, false, true);
+                                }
+                            }, 300);
+                        }
+                    }
                     return;
                 }
 
@@ -16698,8 +16998,10 @@ regular-item.ypp-fill-none {
                 // Reinicializar observers; forzar bootstrap solo cuando no estamos preservando miniplayer.
                 // Si preserveMiniplayer=true, los observers existentes del miniplayer y su sesión deben mantener continuidad.
                 const shouldForceBootstrap = !preserveMiniplayer;
+                const skipCleanup = preserveMiniplayer; // Evitar cleanup destructivo si preservamos miniplayer
+
                 if (typeof VideoObserverManager?.clearCache === 'function') VideoObserverManager.clearCache();
-                if (typeof VideoObserverManager?.init === 'function') VideoObserverManager.init(shouldForceBootstrap, preserveMiniplayer);
+                if (typeof VideoObserverManager?.init === 'function') VideoObserverManager.init(shouldForceBootstrap, preserveMiniplayer, skipCleanup);
             };
 
             const debouncedNavigation = debounce(handleNavigation, 100);
@@ -16713,17 +17015,17 @@ regular-item.ypp-fill-none {
             document.addEventListener('yt-page-data-updated', debouncedNavigation);
 
             // 2. Inicializar YouTube Helper API y escuchar sus actualizaciones "silenciosas"
-            waitForHelper().then(h => {
-                YTHelper = h;
-                if (!h) return;
-
-                // Registrar listener persistente que ahora comparte el mismo flujo debounced
-                ythelperListener = () => {
-                    logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
-                    debouncedNavigation();
-                };
-                h.eventTarget.addEventListener('yt-helper-api-ready', ythelperListener);
-            });
+            /*  waitForHelper().then(h => {
+                 YTHelper = h;
+                 if (!h) return;
+ 
+                 // Registrar listener persistente que ahora comparte el mismo flujo debounced
+                 ythelperListener = () => {
+                     logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
+                     debouncedNavigation();
+                 };
+                 h.eventTarget.addEventListener('yt-helper-api-ready', ythelperListener);
+             }); */
 
             // 3. Limpiar recursos cuando la página se cierra para prevenir memory leaks
             window.addEventListener('unload', () => {
@@ -16849,10 +17151,33 @@ regular-item.ypp-fill-none {
 
                 // --- Backup en GitHub (si está habilitado) ---
                 try {
-                    /** Iniciar verificación de respaldo automático y programar chequeo periódico cada 15 min */
-                    if (backupIntervalId) clearInterval(backupIntervalId);
-                    checkGitHubBackup();
-                    backupIntervalId = setInterval(checkGitHubBackup, 15 * 60 * 1000);
+                    /**
+                     * Verificar primero si hay configuración válida para backup automático
+                     * antes de programar intervalos innecesarios.
+                     */
+                    const githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+                    const hasGistBackup = githubSettings?.gist?.autoBackup && githubSettings?.gist?.token;
+                    const hasRepoBackup = githubSettings?.repo?.autoBackup && githubSettings?.repo?.token;
+
+                    if (!hasGistBackup && !hasRepoBackup) {
+                        logLog('initializeGlobal', '⏭️ Backup automático omitido: no hay configuración válida (autoBackup + token)');
+                    } else {
+                        /**
+                         * Iniciar verificación de respaldo automático y programar chequeo periódico cada 5 min.
+                         * Se agrega un retraso aleatorio (jitter) para evitar que múltiples pestañas
+                         * disparen el chequeo exactamente al mismo tiempo al cargar YouTube.
+                         */
+                        if (backupIntervalId) clearInterval(backupIntervalId);
+
+                        const jitterMs = Math.floor(Math.random() * 60 * 1000); // 0-60s de jitter
+                        logLog('initializeGlobal', `Programando primer chequeo de backup en ${Math.round(jitterMs / 1000)}s`);
+
+                        setTimeout(() => {
+                            checkGitHubBackup();
+                            backupIntervalId = setInterval(checkGitHubBackup, 5 * 60 * 1000);
+                        }, jitterMs);
+                    }
+
                     logInfo('initializeGlobal', '✅ VideoObserverManager y observadores inicializados');
                 } catch (error) {
                     logError('initializeGlobal', '❌ Error al verificar backup de GitHub:', error);

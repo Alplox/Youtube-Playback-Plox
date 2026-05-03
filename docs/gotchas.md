@@ -277,3 +277,21 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 - **Behavior**: When active, the script may throttle session starts or logs structured telemetry to help diagnose the issue. 
 - **Indicator**: You might see `[safeModeEntered]` in the browser console logs.
 - **Recovery**: The script attempts to exit Safe Mode automatically after 45 seconds of stability. If it persists, a page reload is recommended.
+ 
+ ## Logged-in Accounts & External Conflicts (v0.0.9-13)
+ 
+ ### YouTube Helper API: TypeError on `querySelector`
+ - **Symptom**: Console error `TypeError: appState.player.playerObject.querySelector is not a function` in lines 521/729 of the external library.
+ - **Cause**: In logged-in or Premium accounts, YouTube may serve a player object that is not a standard DOM element (e.g., a Kevlar proxy), which lacks the `.querySelector` method.
+ - **Impact**: The external library may crash or stop emitting metadata updates.
+ - **Mitigation**: The script now uses **fallback UI selectors** (`.ytp-left-controls`) and catches library errors in `getCascadedVideoInfo`, ensuring the core functionality (history button and progress tracking) continues even if the library is in a "zombie" state.
+ 
+ ### Native Resume Conflict (Backwards Jumps)
+ - **Symptom**: After the script resumes a video at (e.g.) 17:02, the video suddenly jumps back to an older time (e.g. 07:02).
+ - **Cause**: Conflict with YouTube's native resume system. YouTube's internal state may force its own progress marker shortly after the script's seek.
+ - **Fix (Persistence Check)**: The script now performs a **verification seek 800ms after resume**. If it detects a backwards jump of >5s, it re-applies the correct seek once more.
+ - **Fix (Anti-Overwrite)**: `saveStatus` now blocks any save attempt that detects a significant backwards jump within the first 10 seconds of a session. This prevents YouTube's "stale" progress from overwriting the script's more accurate local history.
+ 
+ ### Structural Layout Shifts (Watch/Miniplayer)
+ - **Issue**: The progress bar gradient or the history button might fail to appear in some account types.
+ - **Solution**: Expanded container lookups to include `.ytp-left-controls` as a fallback for `.ytp-time-wrapper`. This ensures the UI is injected correctly regardless of YouTube's experimental layout variations.

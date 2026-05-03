@@ -1,3 +1,22 @@
+# 0.0.9-13
+
+### Fixed
+
+- **instanceof Element**: Added verification instanceof Element to prevent DOM errors
+- **Shorts Ad Detection Fix**: Fixed a bug where ads in Shorts were not being detected and were saved as regular shorts. The root cause was a 250ms cache in `AdDetector.isNodeWithinAdContainer` that stored the result of the initial check (which only verified in-feed ad containers). When the `ad-created` class appeared dynamically on the Shorts player AFTER the first check but WITHIN the 250ms cache window, subsequent calls would return the cached `false` result, allowing ads to bypass detection. Fixed by moving all player class checks (`ad-created`, `ad-showing`, `ad-interrupting`) to execute BEFORE the cache lookup, ensuring these dynamic classes are always checked fresh without cache interference.
+- **GitHub Token Validation**: Added token validation for GitHub backups before saving. Invalid tokens are now rejected.
+- **Gist ID preservation**: Fixed a issue where script was using `githubSettings.gistId` instead of `githubSettings.gist.id` completly ignoring Gist ID enter by user. #43
+- **Watch Observer Hardening**: Refactored the Watch observer initialization to use `DOMHelpers.getWatchPlayer()`. This ensures the observer only targets the legitimate main player and explicitly excludes `#movie_player` instances located within a miniplayer, preventing redundant triggers.
+- **UI Robustness**: Added fallback selectors (`.ytp-left-controls`) for the progress bar.
+- **Resume Robustness**: Implemented post-seek persistence verification (800ms) and anti-overwrite protection to prevent YouTube's native resume from overwriting YPP history for users logged in into their Youtube accounts.
+
+### Changed
+
+- **Logging System**: `logLog` now uses `console.log` instead of `console.debug` for better visibility in environments where `debug` output is filtered. Added grouping methods (`logGroup`, `logGroupEnd`) to improve log organization in the console.
+- **GitHub Backup Optimization**: Added pre-check before scheduling backup intervals to avoid unnecessary 5-minute polling when autoBackup is disabled or no valid token is configured. The script now verifies `autoBackup + token` presence for both Gist and Repository before creating any intervals.
+- **Youtube Helper API**: Removed library `Youtube-Helper-API` upon facing errors `Error in _handlePlayerUpdate: TypeError: appState.player.playerObject.querySelector is not a function` that were causing the script to break. Reported findings to developer. #42
+
+
 # 0.0.9-12
 
 ### Fixed

@@ -2,7 +2,7 @@
 // @name            YouTube Helper API
 // @author          ElectroKnight22
 // @namespace       electroknight22_helper_api_namespace
-// @version         0.10.1
+// @version         0.11.0
 // @license         MIT
 // @description     A helper api for YouTube scripts that provides easy and consistent access for commonly needed functions, objects, and values.
 // ==/UserScript==
@@ -12,6 +12,21 @@
 // eslint-disable-next-line no-unused-vars
 const youtubeHelperApi = (function () {
     'use strict';
+
+    const EVENTS = Object.freeze({
+        API_READY: 'yt-helper-api-ready',
+        API_UPDATE_STARTED: 'yt-helper-api-update-started',
+        AD_DETECTED: 'yt-helper-api-ad-detected',
+        IFRAME_DETECTED: 'yt-helper-api-detected-iframe',
+        VIDEO_LANGUAGE_UPDATED: 'yt-helper-api-playback-language-updated',
+        CHAT_STATE_UPDATED: 'yt-helper-api-chat-state-updated',
+        VIDEO_PLAY: 'yt-helper-api-current-video-play',
+        VIDEO_PAUSE: 'yt-helper-api-current-video-pause',
+        VIDEO_SEEKING: 'yt-helper-api-current-video-seeking',
+        VIDEO_SEEKED: 'yt-helper-api-current-video-seeked',
+        VIDEO_ENDED: 'yt-helper-api-current-video-ended',
+        VIDEO_VOLUMECHANGE: 'yt-helper-api-current-video-volumechange',
+    });
 
     const instance = {
         id: typeof crypto !== 'undefined' && crypto.randomUUID ? crypto.randomUUID() : null,
@@ -422,6 +437,7 @@ const youtubeHelperApi = (function () {
         gmCapabilities,
         apiProxy,
         debug,
+        EVENTS,
         eventTarget: privateEventTarget,
     };
 
@@ -532,10 +548,14 @@ const youtubeHelperApi = (function () {
                 }, 10000);
 
                 debug.logTypical('Player API ready, but missing playerResponse. Waiting for metadata...');
-                appState.player.videoElement.addEventListener('loadedmetadata', () => {
-                    clearTimeout(timeout);
-                    check();
-                }, { once: true });
+                appState.player.videoElement.addEventListener(
+                    'loadedmetadata',
+                    () => {
+                        clearTimeout(timeout);
+                        check();
+                    },
+                    { once: true },
+                );
             }
             check();
         });
@@ -610,7 +630,7 @@ const youtubeHelperApi = (function () {
         debug.logMinimal(`Video Ready. Title: "${stateSnapshot.video.title}". Id: "${stateSnapshot.video.id}"`);
         debug.logDetailed('Dispatching Ready Event with state:', stateSnapshot);
 
-        const event = new CustomEvent('yt-helper-api-ready', { detail: Object.freeze(eventDetail) });
+        const event = new CustomEvent(EVENTS.API_READY, { detail: Object.freeze(eventDetail) });
 
         privateEventTarget.dispatchEvent(event);
     }
@@ -618,14 +638,14 @@ const youtubeHelperApi = (function () {
     function _notifyAdDetected() {
         debug.logTypical('Ad detected!');
         privateEventTarget.dispatchEvent(
-            new CustomEvent('yt-helper-api-ad-detected', {
+            new CustomEvent(EVENTS.AD_DETECTED, {
                 detail: Object.freeze({ isPlayingAds: appState.player.isPlayingAds }),
             }),
         );
     }
 
     function checkIsIframe() {
-        if (appState.page.isIframe) privateEventTarget.dispatchEvent(new Event('yt-helper-api-detected-iframe'));
+        if (appState.page.isIframe) privateEventTarget.dispatchEvent(new Event(EVENTS.IFRAME_DETECTED));
     }
 
     async function updatePlayerState(event) {
@@ -671,7 +691,7 @@ const youtubeHelperApi = (function () {
         appState.video.isAutoDubbed = isAutoDubbed;
 
         privateEventTarget.dispatchEvent(
-            new CustomEvent('yt-helper-api-playback-language-updated', {
+            new CustomEvent(EVENTS.VIDEO_LANGUAGE_UPDATED, {
                 detail: Object.freeze({
                     isInit,
                     playingLanguage: appState.video.playingLanguage,
@@ -733,7 +753,7 @@ const youtubeHelperApi = (function () {
         appState.chat.isCollapsed = event?.detail ?? true;
         debug.logDetailed('Chat state updated', appState.chat);
         privateEventTarget.dispatchEvent(
-            new CustomEvent('yt-helper-api-chat-state-updated', { detail: Object.freeze({ ...appState.chat }) }),
+            new CustomEvent(EVENTS.CHAT_STATE_UPDATED, { detail: Object.freeze({ ...appState.chat }) }),
         );
     }
 
@@ -785,23 +805,34 @@ const youtubeHelperApi = (function () {
 
     function setupMediaEventRefire(signal) {
         const video = appState.player.videoElement;
-        const nativePlayerEventsToRefire = ['play', 'pause', 'seeking', 'seeked', 'ended', 'volumechange'];
+        const nativePlayerEventsToRefire = {
+            play: EVENTS.VIDEO_PLAY,
+            pause: EVENTS.VIDEO_PAUSE,
+            seeking: EVENTS.VIDEO_SEEKING,
+            seeked: EVENTS.VIDEO_SEEKED,
+            ended: EVENTS.VIDEO_ENDED,
+            volumechange: EVENTS.VIDEO_VOLUMECHANGE,
+        };
 
-        nativePlayerEventsToRefire.forEach((event) => {
-            video.addEventListener(event, (e) => {
-                const customEvent = new CustomEvent(`yt-helper-api-current-video-${event}`, {
-                    detail: {
-                        originalEvent: e,
-                        currentTime: video.currentTime,
-                        timestamp: Date.now(),
-                    },
-                    bubbles: true,
-                    cancelable: true,
-                });
+        Object.entries(nativePlayerEventsToRefire).forEach(([event, eventName]) => {
+            video.addEventListener(
+                event,
+                (e) => {
+                    const customEvent = new CustomEvent(eventName, {
+                        detail: {
+                            originalEvent: e,
+                            currentTime: video.currentTime,
+                            timestamp: Date.now(),
+                        },
+                        bubbles: true,
+                        cancelable: true,
+                    });
 
-                debug.logAll('refiring event', customEvent);
-                privateEventTarget.dispatchEvent(customEvent);
-            }, { signal });
+                    debug.logAll('refiring event', customEvent);
+                    privateEventTarget.dispatchEvent(customEvent);
+                },
+                { signal },
+            );
         });
     }
 
@@ -848,7 +879,7 @@ const youtubeHelperApi = (function () {
         updateLocked = true;
         debug.logDetailed('Player update triggered by:', event?.type || 'manual call');
         try {
-            const customEvent = new CustomEvent('yt-helper-api-update-started');
+            const customEvent = new CustomEvent(EVENTS.API_UPDATE_STARTED);
             privateEventTarget.dispatchEvent(customEvent);
             await updatePlayerState(event);
             updateAdState();
@@ -898,7 +929,7 @@ const youtubeHelperApi = (function () {
         document.addEventListener('fullscreenchange', updateFullscreenState);
         document.addEventListener('yt-set-theater-mode-enabled', updateTheaterState);
 
-        privateEventTarget.addEventListener('yt-helper-api-current-video-play', () => {
+        privateEventTarget.addEventListener(EVENTS.VIDEO_PLAY, () => {
             if (apiProxy.getVideoData()?.video_id !== appState.video.id) {
                 debug.logDetailed('Video data updated without player event. Updating video state manually...');
                 appState.player.response = apiProxy.getPlayerResponse();

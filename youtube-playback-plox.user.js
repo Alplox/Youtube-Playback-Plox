@@ -6185,7 +6185,7 @@ regular-item.ypp-fill-none {
     }
 
     function setInnerHTML(element, html) {
-        if (!element) return;
+        if (!(element instanceof Element)) return;
 
         // 1. Caso base: Si es solo texto, usar textContent (el sink más seguro y rápido)
         if (typeof html === 'string' && !html.includes('<')) {
@@ -6342,7 +6342,7 @@ regular-item.ypp-fill-none {
      * @param {() => void} [options.onInput] - Callback opcional tras cada cambio válido.
      */
     function applyNumericClamping(el, { min = 0, max, onInput } = {}) {
-        if (!el) return;
+        if (!(el instanceof Element)) return;
 
         const clamp = () => {
             // Sanitizar: Solo dígitos
@@ -9178,7 +9178,7 @@ regular-item.ypp-fill-none {
      * @param {string} message - HTML/texto a mostrar en el span de mensaje.
      */
     function showDisplayMessage(displayEl, message) {
-        if (!displayEl) return;
+        if (!(displayEl instanceof Element)) return;
         const messageEl = displayEl.querySelector('.ypp-time-display-message');
 
         // logLog('showDisplayMessage', `displayEl existe: ${!!displayEl}, messageEl existe: ${!!messageEl}, mensaje: "${message}"`)
@@ -9196,7 +9196,7 @@ regular-item.ypp-fill-none {
      * @param {HTMLElement} displayEl - Elemento raíz del display (.ypp-time-display).
      */
     function restoreDisplayButtons(displayEl) {
-        if (!displayEl) return;
+        if (!(displayEl instanceof Element)) return;
         const btnManualSave = displayEl.querySelector('.ypp-btn-save');
         const messageEl = displayEl.querySelector('.ypp-time-display-message');
 
@@ -9356,7 +9356,7 @@ regular-item.ypp-fill-none {
      * @param {string} contextType - Contexto ('watch', 'shorts', 'miniplayer', 'preview').
      */
     function setupManualSaveButton(displayEl, player, contextType) {
-        if (!cachedSettings?.manualSaveMode || !displayEl) return;
+        if (!cachedSettings?.manualSaveMode || !(displayEl instanceof Element)) return;
 
         // Evitar duplicados si ya fue inyectado
         if (displayEl.querySelector('.ypp-btn-save')) return;
@@ -9415,8 +9415,8 @@ regular-item.ypp-fill-none {
         // Si ya está conectado y TIENE la estructura de split button (v2), no hacer nada
         if (watchTimeDisplay?.isConnected && watchTimeDisplay.querySelector('.ypp-time-display-message')) return;
 
-        // Si el player no existe, no hacer nada
-        if (!playerContainer) return;
+        // Si el player no existe o no es un elemento válido, no hacer nada
+        if (!(playerContainer instanceof Element)) return;
 
         // Si ya existe pero no tiene la estructura v2, limpiarlo para re-crear
         if (watchTimeDisplay) {
@@ -9579,7 +9579,7 @@ regular-item.ypp-fill-none {
         }
 
         // 2. Limpieza agresiva de duplicados en el panel activo
-        if (shortsPlayerControls) {
+        if (shortsPlayerControls instanceof Element) {
             const redundant = shortsPlayerControls.querySelectorAll('.ypp-shorts-time-display');
             redundant.forEach(el => {
                 if (el !== shortsTimeDisplay) el.remove();
@@ -9587,15 +9587,17 @@ regular-item.ypp-fill-none {
         }
 
         // 3. Re-anclaje (Re-anchoring)
-        const target = shortsPlayerControls || overlayRoot || document.body;
+        const target = (shortsPlayerControls instanceof Element && shortsPlayerControls) ||
+                       (overlayRoot instanceof Element && overlayRoot) ||
+                       document.body;
         if (shortsTimeDisplay.parentElement !== target) {
             try { target.appendChild(shortsTimeDisplay); } catch (_) { }
         }
 
         // 4. Actualizar estado visual (floating vs anchored)
-        shortsTimeDisplay.classList.toggle('ypp-floating', !shortsPlayerControls);
+        shortsTimeDisplay.classList.toggle('ypp-floating', !(shortsPlayerControls instanceof Element));
 
-        if (shortsPlayerControls) {
+        if (shortsPlayerControls instanceof Element) {
             logLog('initShortsTimeDisplay', '✅ Visualización de tiempo para Shorts vinculada al Metapanel');
 
             // Si lo encontramos y se incrustó correctamente, detener operaciones de reintento pendientes
@@ -9924,7 +9926,7 @@ regular-item.ypp-fill-none {
         // Si ya está conectado y tiene estructura completa, no hacer nada
         if (miniplayerTimeDisplay?.isConnected && miniplayerTimeDisplay.querySelector('.ypp-time-display-message')) return;
 
-        if (!playerContainer) return;
+        if (!(playerContainer instanceof Element)) return;
 
         // Si ya existe pero estructura vieja, limpiar
         if (miniplayerTimeDisplay) {
@@ -10080,7 +10082,7 @@ regular-item.ypp-fill-none {
         // Si ya está conectado y tiene estructura v2, no hacer nada
         if (inlinePreviewTimeDisplay?.isConnected && inlinePreviewTimeDisplay.querySelector('.ypp-time-display-message')) return;
 
-        if (!previewPlayerEl) return;
+        if (!(previewPlayerEl instanceof Element)) return;
 
         // Si ya existe pero estructura vieja, limpiar
         if (inlinePreviewTimeDisplay) {

@@ -157,16 +157,24 @@
 
     window.MyScriptLogger = {
         _errorLogs: [],
-        log: build('debug', L.debug),
+        log: (c, ...a) => {
+            if (level >= L.debug) console.log(`%c[${c}]`, S.debug, ...a);
+        },
         debug: build('debug', L.debug),
         info: build('info', L.info),
         warn: (c, ...a) => {
             console.warn(`%c[${c}]`, S.warn, ...a);
-            window.MyScriptLogger._internalPushLog(c, a);
+            // window.MyScriptLogger._internalPushLog(c, a);
         },
         error: (c, ...a) => {
             console.error(`%c[${c}]`, S.error, ...a);
             window.MyScriptLogger._internalPushLog(c, a);
+        },
+        group: (label) => {
+            if (level >= L.debug) console.group(`%c[${label}]`, S.debug);
+        },
+        groupEnd: () => {
+            if (level >= L.debug) console.groupEnd();
         },
         _internalPushLog: (c, a) => {
             const timestamp = new Date().toISOString();
@@ -201,7 +209,7 @@
     window.addEventListener('unhandledrejection', (e) => {
         if (e.reason && (e.reason instanceof Error) && e.reason.stack && e.reason.stack.includes('youtube-playback-plox')) {
             window.MyScriptLogger.error('Unhandled Promise', e.reason);
-        } else if (e.reason && e.reason.message && e.reason.message.includes('getCascadedVideoInf')) {
+        } else if (e.reason && e.reason.message && e.reason.message.includes('getCascadedVideoInfo')) {
             window.MyScriptLogger.error('Unhandled Promise', e.reason);
         } else if (e.reason && e.reason.stack === undefined) {
             window.MyScriptLogger.error('Unhandled Promise', e.reason);
@@ -210,7 +218,7 @@
 })();
 
 // Atajo para no tener que escribir window.MyScriptLogger cada vez
-const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.MyScriptLogger;
+const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGroup, groupEnd: logGroupEnd } = window.MyScriptLogger;
 
 // --- INICIO CARGA LÓGICA PRINCIPAL DEL USERSCRIPT ---
 
@@ -961,6 +969,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
     // Función para cargar las traducciones desde el archivo JSON externo
     async function loadTranslations() {
+        logGroup('loadTranslations')
         const CACHE_KEY = CONFIG.STORAGE_KEYS.translations;
         const TTL_MS = 6 * 60 * 60 * 1000; // 6 horas
 
@@ -1038,6 +1047,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         const cachePayload = JSON.stringify({ ts: Date.now(), version: data?.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null, data });
         try { if (typeof GM_setValue === 'function') await GM_setValue(CACHE_KEY, cachePayload); } catch (_) { }
 
+        logGroupEnd();
         return data;
     }
 
@@ -4378,6 +4388,10 @@ regular-item.ypp-fill-none {
     border-top: 1px solid var(--ypp-border);
 }
 
+.ypp-management-footer-section[data-section="danger"] .ypp-management-footer-item:last-child {
+    margin-left: auto;
+}
+
 .ypp-management-footer-section[data-section="session"] {
     justify-content: flex-end;
 }
@@ -6468,6 +6482,8 @@ regular-item.ypp-fill-none {
     * @param {number} retries - Número de reintentos (opcional, por defecto 0).
     * @returns {Promise} - Promesa que se resuelve cuando YouTube Helper API está listo.
     */
+
+    // https://github.com/Alplox/Youtube-Playback-Plox/issues/42
     function waitForHelper(retries = 1) {
         return new Promise((resolve, reject) => {
             const MAX_RETRIES = 10;
@@ -10859,28 +10875,30 @@ regular-item.ypp-fill-none {
                 };
 
                 const rawGistToken = getVal('gist_token') || '';
-                const safeGistToken = rawGistToken
+                let safeGistToken = rawGistToken
                     .trim()
                     .replace(/[^\x00-\x7F]/g, '');
 
                 // Validación
                 const isValid = /^gh[pus]_[A-Za-z0-9_]+$/.test(safeGistToken);
 
-                if (!isValid) {
+                if (!isValid && safeGistToken !== '') {
                     showFloatingToast(`${SVG_ICONS.warning} ${t('githubInvalidToken')}`);
                     safeGistToken = '';
+                    return
                 }
 
                 const rawRepoToken = getVal('repo_token') || '';
-                const safeRepoToken = rawRepoToken
+                let safeRepoToken = rawRepoToken
                     .trim()
                     .replace(/[^\x00-\x7F]/g, '');
 
                 // Validación
                 const isValidRepoToken = /^gh[pus]_[A-Za-z0-9_]+$/.test(safeRepoToken);
-                if (!isValidRepoToken) {
+                if (!isValidRepoToken && safeRepoToken !== '') {
                     showFloatingToast(`${SVG_ICONS.warning} ${t('githubInvalidToken')}`);
                     safeRepoToken = '';
+                    return
                 }
 
                 const newGithubSettings = {
@@ -11182,10 +11200,10 @@ regular-item.ypp-fill-none {
                 className: 'ypp-management-footer-section',
                 atribute: { 'data-section': 'danger' }
             });
-            const sessionSection = createElement('div', {
+           /*  const sessionSection = createElement('div', {
                 className: 'ypp-management-footer-section',
                 atribute: { 'data-section': 'session' }
-            });
+            }); */
 
             /**
              * Referencia al cierre del menú desplegable actualmente abierto.
@@ -11383,8 +11401,8 @@ regular-item.ypp-fill-none {
             selectionSection.append(btnSelectAll, btnClearSelection);
             dataSection.append(importMenu, exportAllMenu, exportSelectedMenu);
             dangerSection.append(btnDeleteSelected, btnClearAll);
-            sessionSection.append(cancelBtn);
-            btnGroup.append(selectionSection, dataSection, dangerSection, sessionSection);
+            dangerSection.append(cancelBtn);
+            btnGroup.append(selectionSection, dataSection, dangerSection/* , sessionSection */);
             managementModeContainer.append(btnGroup);
 
             managementModeFragment.append(managementModeContainer);
@@ -17134,19 +17152,31 @@ regular-item.ypp-fill-none {
                 // --- Backup en GitHub (si está habilitado) ---
                 try {
                     /**
-                     * Iniciar verificación de respaldo automático y programar chequeo periódico cada 5 min.
-                     * Se agrega un retraso aleatorio (jitter) para evitar que múltiples pestañas
-                     * disparen el chequeo exactamente al mismo tiempo al cargar YouTube.
+                     * Verificar primero si hay configuración válida para backup automático
+                     * antes de programar intervalos innecesarios.
                      */
-                    if (backupIntervalId) clearInterval(backupIntervalId);
+                    const githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+                    const hasGistBackup = githubSettings?.gist?.autoBackup && githubSettings?.gist?.token;
+                    const hasRepoBackup = githubSettings?.repo?.autoBackup && githubSettings?.repo?.token;
 
-                    const jitterMs = Math.floor(Math.random() * 60 * 1000); // 0-60s de jitter
-                    logLog('initializeGlobal', `Programando primer chequeo de backup en ${Math.round(jitterMs / 1000)}s`);
+                    if (!hasGistBackup && !hasRepoBackup) {
+                        logLog('initializeGlobal', '⏭️ Backup automático omitido: no hay configuración válida (autoBackup + token)');
+                    } else {
+                        /**
+                         * Iniciar verificación de respaldo automático y programar chequeo periódico cada 5 min.
+                         * Se agrega un retraso aleatorio (jitter) para evitar que múltiples pestañas
+                         * disparen el chequeo exactamente al mismo tiempo al cargar YouTube.
+                         */
+                        if (backupIntervalId) clearInterval(backupIntervalId);
 
-                    setTimeout(() => {
-                        checkGitHubBackup();
-                        backupIntervalId = setInterval(checkGitHubBackup, 5 * 60 * 1000);
-                    }, jitterMs);
+                        const jitterMs = Math.floor(Math.random() * 60 * 1000); // 0-60s de jitter
+                        logLog('initializeGlobal', `Programando primer chequeo de backup en ${Math.round(jitterMs / 1000)}s`);
+
+                        setTimeout(() => {
+                            checkGitHubBackup();
+                            backupIntervalId = setInterval(checkGitHubBackup, 5 * 60 * 1000);
+                        }, jitterMs);
+                    }
 
                     logInfo('initializeGlobal', '✅ VideoObserverManager y observadores inicializados');
                 } catch (error) {

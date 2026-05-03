@@ -12,7 +12,10 @@
 
 ### Changed
 
+- **Logging System**: `logLog` now uses `console.log` instead of `console.debug` for better visibility in environments where `debug` output is filtered. Added grouping methods (`logGroup`, `logGroupEnd`) to improve log organization in the console.
+- **GitHub Backup Optimization**: Added pre-check before scheduling backup intervals to avoid unnecessary 5-minute polling when autoBackup is disabled or no valid token is configured. The script now verifies `autoBackup + token` presence for both Gist and Repository before creating any intervals.
 - **Youtube Helper API**: Removed library `Youtube-Helper-API` upon facing errors `Error in _handlePlayerUpdate: TypeError: appState.player.playerObject.querySelector is not a function` that were causing the script to break. Reported findings to developer. #42
+
 
 # 0.0.9-12
 

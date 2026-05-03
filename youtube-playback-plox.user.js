@@ -139,7 +139,7 @@
     'use strict';
 
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    const level = L.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const S = {
         debug: 'color:#6a9955;',

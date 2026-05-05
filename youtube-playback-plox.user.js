@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-14
+// @version      0.0.9-15
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -226,7 +226,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-14';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-15';
 
     // ------------------------------------------
     // MARK: 🛡️ Initialization Guard (SPA Safety)
@@ -1236,6 +1236,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     // IDs (Añadir # antes de cada ID con S.IDs)
     const IDs = {
         // === VIDEOS ===
+        PRIMARY_INNER: 'primary-inner',
         MOVIE_PLAYER: 'movie_player',
 
         // === SHORTS ===
@@ -1355,6 +1356,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 
         return {
             /**
+             * Obtiene uno de los contenedores principales del reproductor normal.
+             * @returns {Element|null} Contenedor #primary-inner (o null si no existe).
+             */
+            getWatchPrimaryInner: () => get('primaryInner', () => document.querySelector(S.IDS.PRIMARY_INNER) ?? null),
+
+            /**
              * Obtiene el contenedor principal del reproductor normal.
              * @returns {Element|null} Contenedor #movie_player (o null si no existe).
              */
@@ -1455,7 +1462,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
              */
             getShortsPlayer: () =>
                 get('shortsPlayer', () =>
-                    document.querySelector(S.IDS.SHORTS_PLAYER) ?? null),
+                    document.querySelector(S.IDS.SHORTS_PLAYER) ?? null
+                ),
             /**
              * Obtiene el elemento de video del reproductor de Shorts.
              * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor de Shorts.
@@ -1526,15 +1534,16 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
              */
             getInlinePreviewMainContainer: () =>
                 get('inlinePreviewMainContainer', () =>
-                    document.querySelector(S.IDS.VIDEO_PREVIEW_MAIN_CONTAINER) ?? null),
-
+                    document.querySelector(S.IDS.VIDEO_PREVIEW_MAIN_CONTAINER) ?? null
+                ),
             /**
              * Obtiene el elemento reproductor interno alojado en el Inline Preview.
              * @returns {Element|null} Player en el inline preview.
              */
             getInlinePreviewPlayer: () =>
                 get('inlinePreviewPlayer', () =>
-                    document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER) ?? null),
+                    document.querySelector(S.IDS.INLINE_PREVIEW_PLAYER) ?? null
+                ),
             /**
              * Obtiene el elemento de video del reproductor interno alojado en el Inline Preview.
              * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor interno del Inline Preview.
@@ -1707,7 +1716,22 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         // 3. Persistencia optimizada
         if (options?.persist) {
             try {
-                const settings = await Settings.get();
+                // Use direct storage access during initialization to avoid recursion
+                let settings;
+                try {
+                    settings = await Settings.get();
+                } catch (recursionError) {
+                    // Fallback to direct storage access if Settings.get() causes recursion
+                    const raw = GM_getValue(CONFIG.STORAGE_KEYS.settings, null);
+                    let parsed = {};
+                    if (raw && typeof raw === 'object') {
+                        parsed = raw;
+                    } else if (typeof raw === 'string' && raw.trim()) {
+                        parsed = JSON.parse(raw);
+                    }
+                    settings = { ...CONFIG.defaultSettings, ...parsed };
+                }
+
                 // Solo guardamos si realmente hay un cambio en el objeto de configuración
                 if (settings.language !== validLang) {
                     settings.language = validLang;
@@ -4610,6 +4634,26 @@ regular-item.ypp-fill-none {
     svg {
         width: 16px;
         height: 16px;
+    }
+}
+
+/* Estilos cuando NO existe .ytp-delhi-modern */
+/* Medida para https://greasyfork.org/es/scripts/564036-old-youtube-player */
+#movie_player:not(:has(.ytp-delhi-modern)) {
+    .ytp-time-wrapper:not(.ytp-miniplayer-ui *) {
+        display: flex !important; 
+        flex-direction: row !important; 
+        align-items: center !important; 
+        gap: 10px !important;
+    }
+}
+
+ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
+    .ytp-time-wrapper {
+        display: flex !important; 
+        flex-direction: row !important; 
+        align-items: center !important; 
+        gap: 10px !important;
     }
 }
 `;
@@ -12029,99 +12073,104 @@ regular-item.ypp-fill-none {
             }, 700);
         };
 
-        // Estado para observador de espera de player
-        let watchPlayerWaitState = { observer: null, timeoutId: null, resolved: false };
+        // Estado de espera de watch player
+        let watchPlayerWaitState = { timeoutId: null, intervalId: null, resolved: false };
+
+        // Configuración de tiempos
+        const WATCH_PLAYER_POLL_INTERVAL = 1500; // Revisar cada 1.5s por si el Observer falla
+        const WATCH_PLAYER_MAX_WAIT = 120000;    // Máximo absoluto de espera: 2 minutos (seguridad ante bugs de navegación)
 
         /**
          * Espera reactiva a que aparezca el #movie_player en página watch.
-         * Usa MutationObserver para detectar inmediatamente + safety timeout.
+         * Usa Polling periódico + seguridad de tipo de página.
          * @param {boolean} force - Si es true, fuerza re-procesamiento ignorando cache
          */
         const waitForWatchPlayerReactive = (force = false) => {
-            // Limpiar estado previo si existe
-            if (watchPlayerWaitState.observer) {
-                watchPlayerWaitState.observer.disconnect();
-                watchPlayerWaitState.observer = null;
-            }
-            if (watchPlayerWaitState.timeoutId) {
-                clearTimeout(watchPlayerWaitState.timeoutId);
-                watchPlayerWaitState.timeoutId = null;
-            }
-            watchPlayerWaitState.resolved = false;
+           const clearWaitState = (isResolved = false) => { 
+                if (watchPlayerWaitState.timeoutId) {
+                    clearTimeout(watchPlayerWaitState.timeoutId);
+                    watchPlayerWaitState.timeoutId = null;
+                }
+                if (watchPlayerWaitState.intervalId) {
+                    clearInterval(watchPlayerWaitState.intervalId);
+                    watchPlayerWaitState.intervalId = null;
+                }
+                watchPlayerWaitState.resolved = isResolved; 
+            };
 
-            // Verificar si existe
+            // Limpiar estado previo completamente (nueva búsqueda)
+            clearWaitState();
+
+            // Verificación inmediata (fast path)
             const existingVideo = DOMHelpers.getWatchPlayerVideo();
             if (existingVideo) {
                 if (existingVideo.closest(S.ELEMENTS.MINIPLAYER_ELEMENT)) {
-                    logLog('VideoObserverManager', '⏭️ Video encontrado está en miniplayer, omitiendo bootstrap de watch');
+                    logLog('VideoObserverManager', '⏭️ Video en miniplayer, omitiendo bootstrap de watch');
                 } else {
                     if (force) videoTypeCache.delete(existingVideo);
+                    logInfo('VideoObserverManager', '✅ Video detectado directectamente para bootstrap');
                     enqueueVideo(existingVideo, 'watch');
                 }
+                // No necesitamos esperar nada
                 return;
             }
 
+            let attempts = 0;
+
             const tryProcess = () => {
                 if (watchPlayerWaitState.resolved) return false;
+                attempts++;
+
+                // Si ya no estamos en watch, abortar
                 if (currentPageType !== 'watch') {
-                    watchPlayerWaitState.resolved = true;
+                    clearWaitState(true);
+                    logInfo('VideoObserverManager', '🚪 Usuario salió de watch, deteniendo búsqueda');
                     return false;
                 }
 
                 const video = DOMHelpers.getWatchPlayerVideo();
                 if (video) {
-                    watchPlayerWaitState.resolved = true;
-                    if (watchPlayerWaitState.observer) {
-                        watchPlayerWaitState.observer.disconnect();
-                        watchPlayerWaitState.observer = null;
-                    }
-                    if (watchPlayerWaitState.timeoutId) {
-                        clearTimeout(watchPlayerWaitState.timeoutId);
-                        watchPlayerWaitState.timeoutId = null;
-                    }
+                    clearWaitState(true);
 
-                    logInfo('VideoObserverManager', '✅ Video en watch player detectado en MutationObserver');
                     if (video.closest(S.ELEMENTS.MINIPLAYER_ELEMENT)) {
-                        logLog('VideoObserverManager', '⏭️ Video encontrado está en miniplayer, omitiendo bootstrap de watch');
+                        logLog('VideoObserverManager', '⏭️ Video en miniplayer, omitiendo bootstrap');
                     } else {
                         if (force) videoTypeCache.delete(video);
+                        logInfo('VideoObserverManager', `✅ Video detectado en intento N=${attempts} de bootstrap`);
                         enqueueVideo(video, 'watch');
                     }
                     return true;
+                }  else {
+                    // Imprimir solo cada 10 intentos (cada 15 segundos) para no hacer spam
+                    if (attempts % 10 === 0) {
+                        logInfo('VideoObserverManager', `🔍 Intento N=${attempts} - Video aún no encontrado...`);
+                    }
                 }
-
                 return false;
             };
 
-            // Intentar una vez más antes de iniciar observer
+            // Intento síncrono inicial
             if (tryProcess()) return;
 
-            // Crear MutationObserver para detectar cuando aparece el player
-            watchPlayerWaitState.observer = new MutationObserver(() => {
-                tryProcess();
-            });
+            // 1. Polling (Interval): Si una extensión reemplaza el nodo o inyecta tarde, 
+            // el MutationObserver principal en initObservers no capta el nodo final. 
+            // El polling cada 1.5s asegura que lo encontremos.
+            watchPlayerWaitState.intervalId = setInterval(tryProcess, WATCH_PLAYER_POLL_INTERVAL);
 
-            // Observar todo el documento buscando aparición de #movie_player
-            watchPlayerWaitState.observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-
-            // Safety timeout: desconectar observer después de 4 segundos
+            // 2. Max Timeout (Seguridad anti-memory leak): Si por algún bug de YouTube o del script 
+            // currentPageType no se actualiza, esto evita que el interval se quede vivo para siempre.
             watchPlayerWaitState.timeoutId = setTimeout(() => {
                 if (!watchPlayerWaitState.resolved) {
-                    watchPlayerWaitState.resolved = true;
-                    if (watchPlayerWaitState.observer) {
-                        watchPlayerWaitState.observer.disconnect();
-                        watchPlayerWaitState.observer = null;
-                    }
-                    logWarn('VideoObserverManager', '⏱️ Timeout esperando #movie_player (4s). Posible interferencia persistente.');
+                    clearWaitState(true);
+                    logWarn('VideoObserverManager',
+                        `⏱️ Timeout (${WATCH_PLAYER_MAX_WAIT / 1000}s) #movie_player no encontrado`);
                 }
-            }, 4000);
+            }, WATCH_PLAYER_MAX_WAIT);
         };
-
+        
         /**
          * Escanea el DOM en busca de videos existentes para procesarlos inmediatamente.
+         * Para cuando usuario carga la pagina por primera vez.
          * @param {boolean} force - Si es true, ignora el cache para forzar el re-procesamiento (útil en navegación).
          */
         const bootstrap = (force = false) => {
@@ -12186,6 +12235,8 @@ regular-item.ypp-fill-none {
             if (!videoElement || activeAdWaiters.has(videoElement)) return;
             activeAdWaiters.add(videoElement);
 
+            logInfo('VideoObserverManager', `🔄 Ad recovery scheduled for [${type}] video`);
+
             let lastCheck = 0;
             let intervalId = null;
             const cleanup = () => {
@@ -12193,6 +12244,7 @@ regular-item.ypp-fill-none {
                 videoElement.removeEventListener('play', onAdWait);
                 if (intervalId) clearInterval(intervalId);
                 activeAdWaiters.delete(videoElement);
+                logLog('VideoObserverManager', `🧹 Ad recovery cleaned up for [${type}] video`);
             };
             const onAdWait = () => {
                 // Throttling: Solo comprobar anuncios cada 2000ms para reducir carga sin perder reactividad
@@ -12201,11 +12253,15 @@ regular-item.ypp-fill-none {
                 lastCheck = now;
 
                 if (!document.contains(videoElement)) {
+                    logLog('VideoObserverManager', `🗑️ Video [${type}] removed from DOM during ad recovery`);
                     cleanup();
                     return;
                 }
 
-                if (!AdDetector.isNodeWithinAdContainer(videoElement)) {
+                const isStillAd = AdDetector.isNodeWithinAdContainer(videoElement);
+                logLog('VideoObserverManager', `🔍 Ad recovery check [${type}]: aun en anuncio = ${isStillAd}`);
+
+                if (!isStillAd) {
                     cleanup();
                     logInfo('VideoObserverManager', `✅ Video [${type}] liberado de anuncios, re-evaluando...`);
                     enqueueVideo(videoElement, type);
@@ -12216,12 +12272,14 @@ regular-item.ypp-fill-none {
             videoElement.addEventListener('play', onAdWait);
             // Fallback: cubrir casos donde no hay eventos (ej. pausa/buffering tras falso positivo)
             intervalId = setInterval(onAdWait, 2000);
+            logInfo('VideoObserverManager', `⏰ Ad recovery started for [${type}] with events and interval`);
         };
 
         /**
          * Encola un video para su procesamiento.
          * @param {HTMLVideoElement} videoElement - El video a encolar.
          * @param {string} type - El tipo de video (watch, shorts, miniplayer, preview).
+         * @param {string} triggerSource - La fuente que disparó el encolamiento (observer, navigation, etc.).
          */
         const enqueueVideo = (videoElement, type, triggerSource = 'observer') => {
             if (!videoElement) return;
@@ -12786,13 +12844,13 @@ regular-item.ypp-fill-none {
             displayClearTimeouts.clear();
 
             // Limpiar observador de espera de Watch player
-            if (watchPlayerWaitState.observer) {
-                watchPlayerWaitState.observer.disconnect();
-                watchPlayerWaitState.observer = null;
-            }
             if (watchPlayerWaitState.timeoutId) {
                 clearTimeout(watchPlayerWaitState.timeoutId);
                 watchPlayerWaitState.timeoutId = null;
+            }
+            if (watchPlayerWaitState.intervalId) {
+                clearInterval(watchPlayerWaitState.intervalId);
+                watchPlayerWaitState.intervalId = null;
             }
             watchPlayerWaitState.resolved = true;
 

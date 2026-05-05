@@ -1,3 +1,11 @@
+# 0.0.9-15
+
+### Fixed
+
+- **old-youtube-player**: Implemented a fallback style if a user has userscripts that remove Delhi classes, restoring the pill button group visibility in the progress bar. https://github.com/Alplox/Youtube-Playback-Plox/issues/46#issuecomment-4366541757
+- **Observer Duplication**: Removed duplicate MutationObserver from `waitForWatchPlayerReactive` function that was causing race conditions and duplicate video processing. The function now uses only polling and timeout mechanisms, while DOM mutation detection is handled exclusively by the main observer system in `initObservers`.
+- **Infinite Recursion in setLanguage**: Fixed "too much recursion" error by implementing fallback to direct storage access when Settings.get() causes recursion during initialization.
+
 # 0.0.9-14
 
 ### Fixed

@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-15
+// @version      0.0.9-16
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -140,7 +140,7 @@
     'use strict';
 
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.silent; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
+    const level = L.debug; // Cambiar a 'debug' para ver todo, o 'warn'/'error' para menos
 
     const S = {
         debug: 'color:#6a9955;',
@@ -226,7 +226,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 (() => {
     'use strict';
 
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-15';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-16';
 
     // ------------------------------------------
     // MARK: 🛡️ Initialization Guard (SPA Safety)
@@ -9675,7 +9675,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ------------------------------------------
     /**
     * Actualiza el mensaje en la barra de reproducción.
-    * El display debe estar previamente inicializado por `processWatchVideo` vía `initTimeDisplay`.
+    * El display debe estar previamente inicializado por `processMediaVideo` vía `initTimeDisplay`.
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video para verificar estado de pausa
     */
@@ -9975,7 +9975,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     /**
     * Actualiza el mensaje en el Miniplayer.
-    * El display debería ya estar inicializado por `processMiniplayerVideo`.
+    * El display debería ya estar inicializado por `processMediaVideo`.
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video
     */
@@ -10124,7 +10124,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     /**
     * Actualiza el mensaje en Inline Previews.
-    * El display debería ya estar inicializado por `processPreviewVideo`.
+    * El display debería ya estar inicializado por `processMediaVideo`.
     * @param {string} message - Mensaje a mostrar
     * @param {HTMLElement} videoEl - Elemento de video
     */
@@ -12024,20 +12024,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 logInfo('VideoObserverManager', `🎥 Procesando video tipo: ${type}`, { src: video.src });
 
-                switch (type) {
-                    case 'watch':
-                        processWatchVideo(video);
-                        break;
-                    case 'shorts':
-                        processShortsVideo(video);
-                        break;
-                    case 'miniplayer':
-                        processMiniplayerVideo(video);
-                        break;
-                    case 'preview':
-                        processPreviewVideo(video);
-                        break;
-                }
+                processMediaVideo(video, type);
             });
 
             // Continuar con el siguiente lote si hay más videos
@@ -12086,7 +12073,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          * @param {boolean} force - Si es true, fuerza re-procesamiento ignorando cache
          */
         const waitForWatchPlayerReactive = (force = false) => {
-           const clearWaitState = (isResolved = false) => { 
+            const clearWaitState = (isResolved = false) => {
                 if (watchPlayerWaitState.timeoutId) {
                     clearTimeout(watchPlayerWaitState.timeoutId);
                     watchPlayerWaitState.timeoutId = null;
@@ -12095,7 +12082,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     clearInterval(watchPlayerWaitState.intervalId);
                     watchPlayerWaitState.intervalId = null;
                 }
-                watchPlayerWaitState.resolved = isResolved; 
+                watchPlayerWaitState.resolved = isResolved;
             };
 
             // Limpiar estado previo completamente (nueva búsqueda)
@@ -12140,7 +12127,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         enqueueVideo(video, 'watch');
                     }
                     return true;
-                }  else {
+                } else {
                     // Imprimir solo cada 10 intentos (cada 15 segundos) para no hacer spam
                     if (attempts % 10 === 0) {
                         logInfo('VideoObserverManager', `🔍 Intento N=${attempts} - Video aún no encontrado...`);
@@ -12167,7 +12154,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             }, WATCH_PLAYER_MAX_WAIT);
         };
-        
+
         /**
          * Escanea el DOM en busca de videos existentes para procesarlos inmediatamente.
          * Para cuando usuario carga la pagina por primera vez.
@@ -13319,6 +13306,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     logWarn('startProcessingSession', '🆘 Persistence Rescue: El video sigue en 0s tras 6s. Forzando re-seek...');
                     PlaybackController.resume(player, videoId, videoEl, { ...sessionSavedData, forceResumeTime: sessionSavedData.watchProgress }, type, sessionRef);
                 }
+                // REVISAR AQUI PORQUE USA FORCERESUMETIME
 
                 if (sessionRef.isResumePending) {
                     // Evitar guardar 0s (falso progreso) mientras el resume original aún está en bucle de espera
@@ -13394,7 +13382,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         try {
                             VideoObserverManager.bootstrap(true);
                         } catch (_) {
-                            try { processPreviewVideo(videoEl); } catch (_) { }
+                            try { processMediaVideo(videoEl, 'preview'); } catch (_) { }
                         }
                     }
                     return;
@@ -13451,204 +13439,233 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
     };
 
-    async function processWatchVideo(videoEl) {
-        if (!RouteContextResolver.isContextLocked(videoEl, 'watch')) return;
+    /**
+     * Configuración por contexto para el router unificado de procesamiento.
+     * Mantiene las validaciones especiales cerca de cada tipo sin duplicar el flujo base.
+     * @type {Record<'watch'|'shorts'|'miniplayer'|'preview', {
+     *   logScope: string,
+     *   missingPlayerLog?: string,
+     *   allowMissingPlayer?: boolean,
+     *   getPlayer: (videoEl: HTMLVideoElement) => Element|null,
+     *   beforeAdCheck?: (videoEl: HTMLVideoElement) => boolean,
+     *   afterAdCheck?: (videoEl: HTMLVideoElement) => boolean,
+     *   afterPlayerResolved?: (videoEl: HTMLVideoElement, player: Element|null) => Promise<boolean>|boolean,
+     *   resolveVideoId: (videoEl: HTMLVideoElement, player: Element) => string|null,
+     *   initDisplay: (player: Element) => void,
+     *   startLog: (videoId: string) => string
+     * }>}
+     */
+    const PROCESS_MEDIA_VIDEO_CONFIG = Object.freeze({
+        watch: {
+            logScope: 'processMediaVideo/watch',
+            missingPlayerLog: '⚠️ Player de Watch no encontrado, omitiendo procesamiento.',
+            getPlayer: () => DOMHelpers.getWatchPlayer(),
+            afterAdCheck: () => {
+                // Safeguard: solo procesar como Watch si la URL es realmente de video.
+                // Previene que el miniplayer en Home active el procesador de Watch por error.
+                if (currentPageType === 'watch') return true;
+                logLog('processMediaVideo/watch', '⚠️ Abortando: No estamos en /watch (posible Miniplayer en Home)');
+                return false;
+            },
+            resolveVideoId: (_videoEl, player) => {
+                const playerVideoId = player ? getPlayerVideoId(player) : null;
+                const urlId = extractYouTubeVideoIdFromUrl(window.location.href);
+
+                // Validación crítica: evita race conditions en navegación SPA.
+                // Si el player reporta otro ID, la API interna aún no se ha actualizado.
+                if (!playerVideoId || playerVideoId !== urlId) {
+                    logWarn('processMediaVideo/watch', `⚠️ Mismatch de ID detectado (Player: ${playerVideoId} vs URL: ${urlId}). Abortando procesamiento hasta actualización de API.`);
+                    return null;
+                }
+
+                return playerVideoId;
+            },
+            initDisplay: player => initTimeDisplay(player),
+            startLog: videoId => `📝 Procesando video de Watch: ${videoId}`
+        },
+        shorts: {
+            logScope: 'processMediaVideo/shorts',
+            missingPlayerLog: '⚠️ Player de Shorts no encontrado, omitiendo procesamiento.',
+            getPlayer: () => DOMHelpers.getShortsPlayer(),
+            afterAdCheck: () => {
+                if (currentPageType === 'shorts') return true;
+                logLog('processMediaVideo/shorts', '⚠️ Abortando: No estamos en /shorts');
+                return false;
+            },
+            resolveVideoId: (_videoEl, player) => {
+                const playerVideoId = player ? getPlayerVideoId(player) : null;
+                const urlId = extractYouTubeVideoIdFromUrl(window.location.href);
+
+                // Validación crítica: evita race conditions en navegación SPA para Shorts.
+                if (!playerVideoId || playerVideoId !== urlId) {
+                    logWarn('processMediaVideo/shorts', `⚠️ Mismatch de ID detectado en Shorts (Player: ${playerVideoId} vs URL: ${urlId}).`);
+                    return null;
+                }
+
+                return playerVideoId;
+            },
+            initDisplay: () => initShortsTimeDisplay(),
+            startLog: videoId => `📱 Procesando video de Shorts: ${videoId}`
+        },
+        miniplayer: {
+            logScope: 'processMediaVideo/miniplayer',
+            allowMissingPlayer: true,
+            getPlayer: () => DOMHelpers.getMiniplayerPlayer(),
+            afterPlayerResolved: (_videoEl, player) => {
+                if (!player) {
+                    logLog('processMediaVideo/miniplayer', '🔍 Omitiendo: Miniplayer detectado pero no está activo/visible todavía.', {
+                        isMiniplayerActive: !!player,
+                    });
+                    return false;
+                }
+
+                // Evitar IDs stale durante transición de src/SPA en miniplayer.
+                playerVideoIdCache.delete(player);
+                return true;
+            },
+            resolveVideoId: (_videoEl, player) => {
+                // Para miniplayer, priorizar SIEMPRE el ID del player local.
+                // youtubeHelperApi.video.id representa el contexto global y puede diferir.
+                const playerVideoId = player ? getPlayerVideoId(player) : null;
+                const helperVideoId = (typeof youtubeHelperApi !== 'undefined' && youtubeHelperApi.video?.id)
+                    ? youtubeHelperApi.video.id
+                    : null;
+                const videoId = playerVideoId || helperVideoId || null;
+
+                if (playerVideoId && helperVideoId && playerVideoId !== helperVideoId) {
+                    logWarn(
+                        'processMediaVideo/miniplayer',
+                        `⚠️ Desfase de IDs detectado (player=${playerVideoId}, helper=${helperVideoId}). Priorizando player para sesión miniplayer.`
+                    );
+                }
+
+                if (!videoId) {
+                    logWarn('processMediaVideo/miniplayer', '⚠️ ID del video no encontrado en miniplayer, omitiendo procesamiento.');
+                    return null;
+                }
+
+                return videoId;
+            },
+            initDisplay: player => initMiniplayerTimeDisplay(player),
+            startLog: videoId => `📺 Procesando video de Miniplayer: ${videoId}`
+        },
+        preview: {
+            logScope: 'processMediaVideo/preview',
+            getPlayer: () => DOMHelpers.getInlinePreviewPlayer(),
+            beforeAdCheck: videoEl => {
+                // Si miniplayer está activo, priorizamos su sesión para evitar competencia de IDs/seek.
+                if (DOMHelpers.getMiniplayerPlayer() && !DOMHelpers.getMiniplayerPlayerVideo()?.paused) {
+                    logLog('processMediaVideo/preview', '⏭️ Omitiendo preview: miniplayer activo.');
+                    SessionOrchestrator.finalizeSession(videoEl, 'previewBlockedByMiniplayer');
+                    return false;
+                }
+                return true;
+            },
+            afterPlayerResolved: async (videoEl) => {
+                // Debounce de sesión para evitar picos de CPU al deslizar sobre el grid.
+                if (videoEl.dataset.yppDebouncing === 'true') return false;
+                videoEl.dataset.yppDebouncing = 'true';
+
+                await new Promise(resolve => setTimeout(resolve, 150));
+                delete videoEl.dataset.yppDebouncing;
+
+                if (!videoEl.isConnected) {
+                    logLog('processMediaVideo/preview', '⏭️ Preview desconectado tras debounce, omitiendo.');
+                    return false;
+                }
+
+                if (AdDetector.isNodeWithinAdContainer(videoEl)) {
+                    logWarn('processMediaVideo/preview', '🚫 Anuncio detectado en Preview (post-debounce), omitiendo procesamiento.');
+                    return false;
+                }
+
+                return true;
+            },
+            resolveVideoId: (videoEl, player) => {
+                const resolvedPlayerVideoId = player ? getPlayerVideoId(player) : null;
+                const activeMiniplayer = DOMHelpers.getMiniplayerPlayer();
+                const activeMiniplayerId = activeMiniplayer ? getPlayerVideoId(activeMiniplayer) : null;
+                const previewHref = videoEl.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-rich-grid-media')
+                    ?.querySelector?.('a#thumbnail[href], a.yt-simple-endpoint[href]')
+                    ?.getAttribute?.('href') || null;
+                const previewHrefVideoId = previewHref ? extractYouTubeVideoIdFromUrl(previewHref) : null;
+                // Preferimos el ID del enlace del tile cuando existe, para evitar IDs stale
+                // del player compartido durante coexistencia con miniplayer pausado.
+                const videoId = previewHrefVideoId || resolvedPlayerVideoId;
+                const hasPreviewIdConflictWithMiniplayer =
+                    !!activeMiniplayerId &&
+                    !!resolvedPlayerVideoId &&
+                    !previewHrefVideoId &&
+                    resolvedPlayerVideoId === activeMiniplayerId;
+
+                if (hasPreviewIdConflictWithMiniplayer) {
+                    logLog(
+                        'processMediaVideo/preview',
+                        `⏭️ Omitiendo preview por conflicto de ID con miniplayer activo (id=${resolvedPlayerVideoId}).`
+                    );
+                    return null;
+                }
+
+                if (!videoId) {
+                    logWarn('processMediaVideo/preview', '⚠️ Omitiendo preview: no se pudo resolver videoId (href/player).');
+                    return null;
+                }
+
+                // Refuerzo: algunos anuncios no tienen clase inmediatamente, pero se detectan por ID.
+                if (AdDetector.isVideoIdAnAd(videoId)) {
+                    logWarn('processMediaVideo/preview', `🚫 ID [${videoId}] identificado como anuncio por asociación, abortando preview.`);
+                    return null;
+                }
+
+                return videoId;
+            },
+            initDisplay: player => initInlinePreviewTimeDisplay(player),
+            startLog: videoId => `👁️ Procesando video de Preview: ${videoId}`
+        }
+    });
+
+    /**
+     * Procesa un video según su contexto resuelto, compartiendo el pipeline común
+     * de bloqueo de contexto, anuncio, player, videoId, UI y sesión.
+     * @param {HTMLVideoElement} videoEl - Elemento de video detectado.
+     * @param {'watch'|'shorts'|'miniplayer'|'preview'} type - Contexto de procesamiento.
+     * @returns {Promise<void>}
+     */
+    async function processMediaVideo(videoEl, type) {
+        const config = PROCESS_MEDIA_VIDEO_CONFIG[type];
+        if (!config) return;
+        if (!RouteContextResolver.isContextLocked(videoEl, type)) return;
+        if (config.beforeAdCheck && !config.beforeAdCheck(videoEl)) return;
+
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
-            logWarn('processWatchVideo', '🚫 Anuncio detectado en Watch, omitiendo procesamiento.');
+            logWarn(config.logScope, `🚫 Anuncio detectado en ${type}, omitiendo procesamiento.`);
+            if (type === 'preview') {
+                SessionOrchestrator.finalizeSession(videoEl, 'previewAdDetected');
+            }
+            return;
+        }
+        if (config.afterAdCheck && !config.afterAdCheck(videoEl)) return;
+
+        const player = config.getPlayer(videoEl);
+        if (!player && !config.allowMissingPlayer) {
+            if (config.missingPlayerLog) {
+                logWarn(config.logScope, config.missingPlayerLog);
+            }
             return;
         }
 
-        // Safeguard: Solo procesar como Watch si la URL es realmente de video
-        // (Previene que el miniplayer en el Home active el procesador de Watch por error)
-        if (currentPageType !== 'watch') {
-            logLog('processWatchVideo', '⚠️ Abortando: No estamos en /watch (posible Miniplayer en Home)');
-            return;
+        if (config.afterPlayerResolved) {
+            const shouldContinue = await config.afterPlayerResolved(videoEl, player);
+            if (!shouldContinue) return;
         }
 
-        const player = DOMHelpers.getWatchPlayer();
-        if (!player) {
-            logWarn('processWatchVideo', '⚠️ Player de Watch no encontrado, omitiendo procesamiento.');
-            return;
-        }
+        const videoId = config.resolveVideoId(videoEl, player);
+        if (!videoId) return;
 
-        const playerVideoId = player ? getPlayerVideoId(player) : null;
-        const urlId = extractYouTubeVideoIdFromUrl(window.location.href);
-
-        // Validacion Crítica: Evitar race conditions en navegación SPA.
-        // Si el Player reporta un ID diferente al de la URL, es que la API interna aún no se ha actualizado.
-        if (!playerVideoId || playerVideoId !== urlId) {
-            logWarn('processWatchVideo', `⚠️ Mismatch de ID detectado (Player: ${playerVideoId} vs URL: ${urlId}). Abortando procesamiento hasta actualización de API.`);
-            return;
-        }
-
-        const videoId = playerVideoId;
-
-        // Inicializar display proactivamente pasando el player ya resuelto
-        initTimeDisplay(player);
-
-        logInfo('processWatchVideo', `📝 Procesando video de Watch: ${videoId}`);
-        startProcessingSession(videoEl, 'watch', videoId, player);
-    }
-
-    async function processShortsVideo(videoEl) {
-        if (!RouteContextResolver.isContextLocked(videoEl, 'shorts')) return;
-        const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
-        if (isAd) {
-            logWarn('processShortsVideo', '🚫 Anuncio detectado en Shorts, omitiendo procesamiento.');
-            return;
-        }
-
-        if (currentPageType !== 'shorts') {
-            logLog('processShortsVideo', '⚠️ Abortando: No estamos en /shorts');
-            return;
-        }
-
-        const player = DOMHelpers.getShortsPlayer();
-        if (!player) {
-            logWarn('processShortsVideo', '⚠️ Player de Shorts no encontrado, omitiendo procesamiento.');
-            return;
-        }
-
-        const playerVideoId = player ? getPlayerVideoId(player) : null;
-        const urlId = extractYouTubeVideoIdFromUrl(window.location.href);
-
-        // Validacion Crítica: Evitar race conditions en navegación SPA (Shorts).
-        if (!playerVideoId || playerVideoId !== urlId) {
-            logWarn('processShortsVideo', `⚠️ Mismatch de ID detectado en Shorts (Player: ${playerVideoId} vs URL: ${urlId}).`);
-            return;
-        }
-
-        const videoId = playerVideoId;
-
-        initShortsTimeDisplay()
-        logInfo('processShortsVideo', `📱 Procesando video de Shorts: ${videoId}`);
-        startProcessingSession(videoEl, 'shorts', videoId, player);
-    }
-
-    async function processMiniplayerVideo(videoEl) {
-        if (!RouteContextResolver.isContextLocked(videoEl, 'miniplayer')) return;
-        const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
-        if (isAd) {
-            logWarn('processMiniplayerVideo', '🚫 Anuncio detectado en miniplayer, omitiendo procesamiento.');
-            return;
-        }
-
-        const isMiniplayerActive = DOMHelpers.getMiniplayerPlayer();
-        const player = isMiniplayerActive ? isMiniplayerActive : null;
-
-        if (!isMiniplayerActive) {
-            logLog('processMiniplayerVideo', '🔍 Omitiendo: Miniplayer detectado pero no está activo/visible todavía.', {
-                isMiniplayerActive: !!isMiniplayerActive,
-            });
-            return;
-        }
-
-        // Evitar IDs stale durante transición de src/SPA en miniplayer.
-        if (player) playerVideoIdCache.delete(player);
-
-        // Para miniplayer, priorizar SIEMPRE el ID del player local.
-        // youtubeHelperApi.video.id representa el contexto global (watch/preview) y puede diferir,
-        // causando sesiones inválidas que se detienen por "ID cambiado".
-        const playerVideoId = player ? getPlayerVideoId(player) : null;
-        const helperVideoId = (typeof youtubeHelperApi !== 'undefined' && youtubeHelperApi.video?.id)
-            ? youtubeHelperApi.video.id
-            : null;
-        let videoId = playerVideoId || helperVideoId || null;
-
-        if (playerVideoId && helperVideoId && playerVideoId !== helperVideoId) {
-            logWarn(
-                'processMiniplayerVideo',
-                `⚠️ Desfase de IDs detectado (player=${playerVideoId}, helper=${helperVideoId}). Priorizando player para sesión miniplayer.`
-            );
-        }
-
-        if (!videoId) {
-            logWarn('processMiniplayerVideo', '⚠️ ID del video no encontrado en miniplayer, omitiendo procesamiento.');
-            return;
-        }
-
-        // Inicializar display del miniplayer proactivamente
-        initMiniplayerTimeDisplay(player);
-
-        logInfo('processMiniplayerVideo', `📺 Procesando video de Miniplayer: ${videoId}`);
-        startProcessingSession(videoEl, 'miniplayer', videoId, player);
-    }
-
-    async function processPreviewVideo(videoEl) {
-        const previewContextLocked = RouteContextResolver.isContextLocked(videoEl, 'preview');
-        if (!previewContextLocked) return;
-        // Si miniplayer está activo, priorizamos su sesión para evitar competencia de IDs/seek.
-        if (DOMHelpers.getMiniplayerPlayer() && !DOMHelpers.getMiniplayerPlayerVideo()?.paused) {
-            logLog('processPreviewVideo', '⏭️ Omitiendo preview: miniplayer activo.');
-            SessionOrchestrator.finalizeSession(videoEl, 'previewBlockedByMiniplayer');
-            return;
-        }
-
-        const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
-        if (isAd) {
-            logWarn('processPreviewVideo', '🚫 Anuncio detectado en Preview, omitiendo procesamiento.');
-            SessionOrchestrator.finalizeSession(videoEl, 'previewAdDetected');
-            return;
-        }
-
-        const player = DOMHelpers.getInlinePreviewPlayer();
-        if (!player) return;
-
-        // Debounce de sesion (150ms) para evitar picos de CPU al deslizar sobre el grid
-        if (videoEl.dataset.yppDebouncing === 'true') return;
-        videoEl.dataset.yppDebouncing = 'true';
-
-        await new Promise(r => setTimeout(r, 150));
-        delete videoEl.dataset.yppDebouncing;
-
-        // Validar que el video siga siendo procesable
-        if (!videoEl.isConnected) {
-            logLog('processPreviewVideo', '⏭️ Preview desconectado tras debounce, omitiendo.');
-            return;
-        }
-        if (AdDetector.isNodeWithinAdContainer(videoEl)) {
-            logWarn('processPreviewVideo', '🚫 Anuncio detectado en Preview (post-debounce), omitiendo procesamiento.');
-            return;
-        }
-
-        const resolvedPlayerVideoId = player ? getPlayerVideoId(player) : null;
-        const activeMiniplayer = DOMHelpers.getMiniplayerPlayer();
-        const activeMiniplayerId = activeMiniplayer ? getPlayerVideoId(activeMiniplayer) : null;
-        const previewHref = videoEl.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-rich-grid-media')
-            ?.querySelector?.('a#thumbnail[href], a.yt-simple-endpoint[href]')
-            ?.getAttribute?.('href') || null;
-        const previewHrefVideoId = previewHref ? extractYouTubeVideoIdFromUrl(previewHref) : null;
-        // Preferimos el ID del enlace del tile cuando existe, para evitar IDs stale
-        // del player compartido durante coexistencia con miniplayer pausado.
-        const videoId = previewHrefVideoId || resolvedPlayerVideoId;
-        const hasPreviewIdConflictWithMiniplayer =
-            !!activeMiniplayerId &&
-            !!resolvedPlayerVideoId &&
-            !previewHrefVideoId &&
-            resolvedPlayerVideoId === activeMiniplayerId;
-        if (hasPreviewIdConflictWithMiniplayer) {
-            logLog(
-                'processPreviewVideo',
-                `⏭️ Omitiendo preview por conflicto de ID con miniplayer activo (id=${resolvedPlayerVideoId}).`
-            );
-            return;
-        }
-        if (!videoId) {
-            logWarn('processPreviewVideo', '⚠️ Omitiendo preview: no se pudo resolver videoId (href/player).');
-            return;
-        }
-
-        // Refuerzo: Doble validación antes de iniciar sesión para Previews
-        // Algunos anuncios no tienen la clase del player inmediatamente, pero se detectan por ID
-        if (AdDetector.isVideoIdAnAd(videoId)) {
-            logWarn('processPreviewVideo', `🚫 ID [${videoId}] identificado como anuncio por asociación, abortando preview.`);
-            return;
-        }
-
-        initInlinePreviewTimeDisplay(player);
-        logInfo('processPreviewVideo', `👁️ Procesando video de Preview: ${videoId}`);
-        startProcessingSession(videoEl, 'preview', videoId, player);
+        config.initDisplay(player);
+        logInfo(config.logScope, config.startLog(videoId));
+        startProcessingSession(videoEl, type, videoId, player);
     }
 
 

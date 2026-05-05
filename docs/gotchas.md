@@ -92,6 +92,11 @@ If something goes wrong during migration:
 
 ## Common Issues
 
+### Unified video processing router
+- `processMediaVideo(videoEl, type)` is now the single entry point for Watch, Shorts, Miniplayer, and Inline Preview processing.
+- Context-specific behavior lives in `PROCESS_MEDIA_VIDEO_CONFIG`. Keep SPA URL/player ID validation for Watch and Shorts, local-player ID priority for Miniplayer, and debounce/miniplayer-conflict/ad-ID checks for Preview inside those hooks.
+- Do not reintroduce separate `processWatchVideo`, `processShortsVideo`, `processMiniplayerVideo`, or `processPreviewVideo` functions unless a context needs a genuinely separate lifecycle.
+
 ### Live Content Visibility
 - On Live streams, the script now forces both the "Live" badge and the original YouTube time current/duration to be visible alongside the script's injected button.
 - **Why**: YouTube often hides these elements when it detects custom modifications in the time display area; forcing them back ensures a complete UI experience.

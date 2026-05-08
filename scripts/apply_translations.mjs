@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
-// pegar aquí el bloque de nuevas traducciones.
-// Este objeto contiene las traducciones que se van a añadir o sobrescribir en los distintos idiomas.
+// Paste the new translations block here.
+// This object contains the translations to be added or overwritten in the different languages.
 const newTranslations = {
     "en-GB": {
         "searchInSpotify": "Search in Spotify"
@@ -171,11 +171,11 @@ try {
     const anchorKey = 'countOncePerSessionTooltip';
 
     if (!trans[canonicalLang]) {
-        throw new Error(`El idioma canónico '${canonicalLang}' no se encuentra en translations.json`);
+        throw new Error(`The canonical language '${canonicalLang}' is not found in translations.json`);
     }
 
-    // 1. Asegurar que las llaves nuevas existan en el idioma canónico (en-US)
-    // para establecer su posición. Si no están, las insertamos después del anchorKey.
+    // 1. Ensure that the new keys exist in the canonical language (en-US)
+    // to establish their position. If they don't exist, insert them after the anchorKey.
     const allNewKeys = new Set();
     for (const lang in newTranslations) {
         for (const key in newTranslations[lang]) {
@@ -192,14 +192,14 @@ try {
             newCanonical[k] = trans[canonicalLang][k];
             if (k === anchorKey) {
                 for (const newKey of missingInCanonical) {
-                    // Usamos el valor de 'en-GB' o de el primer lenguaje que lo tenga como base para en-US
+                    // We use the value of 'en-GB' or the first language that has it as a base for en-US
                     newCanonical[newKey] = (newTranslations['en-GB'] && newTranslations['en-GB'][newKey]) ||
                         Object.values(newTranslations).find(l => l[newKey])[newKey];
                 }
                 inserted = true;
             }
         }
-        // Si no encontró el anchor, al final
+        // If the anchor was not found, insert at the end
         if (!inserted) {
             for (const newKey of missingInCanonical) {
                 newCanonical[newKey] = (newTranslations['en-GB'] && newTranslations['en-GB'][newKey]) ||
@@ -207,35 +207,35 @@ try {
             }
         }
         trans[canonicalLang] = newCanonical;
-        console.log(`Se añadieron ${missingInCanonical.length} llaves nuevas al idioma canónico (${canonicalLang}).`);
+        console.log(`Added ${missingInCanonical.length} new keys to the canonical language (${canonicalLang}).`);
     }
 
     const canonicalOrder = Object.keys(trans[canonicalLang]);
 
-    // 2. Procesar SOLO los lenguajes definidos en newTranslations (y omitir el canónico si ya se procesó arriba)
+    // 2. Process ONLY the languages defined in newTranslations (and omit the canonical if it was already processed above)
     for (const lang in newTranslations) {
         if (lang === canonicalLang && missingInCanonical.length === 0) {
-            // Si el usuario incluyó en-US en newTranslations y no se procesó antes, podríamos actualizarlo aquí
-            // Pero por simplicidad, si está en newTranslations lo procesamos igual para actualizar valores
+            // If the user included en-US in newTranslations and it wasn't processed before, we could update it here
+            // But for simplicity, if it's in newTranslations we process it anyway to update values
         }
 
         const oldLangDict = trans[lang] || {};
         const newLangDict = {};
 
         for (const key of canonicalOrder) {
-            // Prioridad 1: Valor nuevo en la constante
+            // Priority 1: New value in the constant
             if (newTranslations[lang] && newTranslations[lang][key] !== undefined) {
                 newLangDict[key] = newTranslations[lang][key];
             }
-            // Prioridad 2: Valor antiguo en el json
+            // Priority 2: Old value in the json
             else if (oldLangDict[key] !== undefined) {
                 newLangDict[key] = oldLangDict[key];
             }
-            // (Opcional) Prioridad 3: Si es una llave nueva pero este idioma no la tiene en newTranslations,
-            // podrías dejarlo vacío o no ponerlo. Lo dejaremos fuera para no inflar idiomas no traducidos.
+            // (Optional) Priority 3: If it's a new key but this language doesn't have it in newTranslations,
+            // you could leave it empty or not put it. We'll leave it out to avoid bloating untranslated languages.
         }
 
-        // 3. Añadir llaves que existieran en el idioma pero no en el canónico (por si acaso)
+        // 3. Add keys that existed in the language but not in the canonical (just in case)
         for (const key in oldLangDict) {
             if (newLangDict[key] === undefined) {
                 newLangDict[key] = oldLangDict[key];
@@ -246,9 +246,9 @@ try {
     }
 
     writeFileSync('translations.json', JSON.stringify(data, null, 4), 'utf8');
-    console.log("Proceso completado. Solo se modificaron los idiomas presentes en la constante y el canónico para el orden.");
+    console.log("Process completed. Only the languages present in the constant and the canonical for the order were modified.");
 
 } catch (e) {
-    console.error("Error al actualizar las traducciones:", e);
+    console.error("Error updating translations:", e);
     process.exit(1);
 }

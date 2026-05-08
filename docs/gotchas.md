@@ -97,6 +97,11 @@ If something goes wrong during migration:
 - Context-specific behavior lives in `PROCESS_MEDIA_VIDEO_CONFIG`. Keep SPA URL/player ID validation for Watch and Shorts, local-player ID priority for Miniplayer, and debounce/miniplayer-conflict/ad-ID checks for Preview inside those hooks.
 - Do not reintroduce separate `processWatchVideo`, `processShortsVideo`, `processMiniplayerVideo`, or `processPreviewVideo` functions unless a context needs a genuinely separate lifecycle.
 
+### Playback display manager
+- `PlaybackDisplayManager` owns player button-group identity, message priority, timeout cleanup, fixed-time display state, manual-save button targeting, and seek `play` listeners for Watch, Shorts, Miniplayer, and Preview.
+- Legacy per-context message wrappers were removed; notification and cleanup paths should call `PlaybackDisplayManager.show()`, `PlaybackDisplayManager.clear()`, `PlaybackDisplayManager.destroy()`, or the existing `notifySeekOrProgress()` facade directly.
+- Fixed-time and saved-state UI sync should target active sessions by `videoId` instead of scanning every display/player pair. If no active session exists, the next session will rebuild the UI from saved data.
+
 ### Live Content Visibility
 - On Live streams, the script now forces both the "Live" badge and the original YouTube time current/duration to be visible alongside the script's injected button.
 - **Why**: YouTube often hides these elements when it detects custom modifications in the time display area; forcing them back ensures a complete UI experience.
@@ -152,8 +157,8 @@ console.log(`Migrated: ${info.migrated}`);
 ```
 ### FreeTube Integration
 
-- **Deduplicación en Importación**: FreeTube v0.23.15 Beta permite múltiples entradas para un mismo video en su historial (usando `_id`). El script colapsa estas entradas para mantener su modelo de entrada única por videoId, conservando siempre la que tiene el `timeWatched` más reciente.
-- **Formato JSON-L**: Los archivos `.db` exportados por FreeTube ahora son NDJSON (una línea de JSON por objeto). El script maneja esto automáticamente tanto en importación como en exportación.
+- **Deduplication on Import**: FreeTube v0.23.15 Beta allows multiple entries for the same video in its history (using `_id`). The script collapses these entries to maintain its single-entry-per-videoId model, always keeping the one with the most recent `timeWatched`.
+- **JSON-L Format**: The `.db` files exported by FreeTube are now NDJSON (one JSON line per object). The script handles this automatically in both import and export.
 
 ## Obsidian Integration Tool
 

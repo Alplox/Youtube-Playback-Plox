@@ -3,6 +3,9 @@
 ### Changed
 
 - **Video Processing Router**: Consolidated the duplicated Watch, Shorts, Miniplayer, and Inline Preview processing entry points into `processMediaVideo()` with per-context configuration hooks. This keeps the shared session-start pipeline in one place while preserving context-specific safeguards for SPA ID mismatches, miniplayer priority, preview debounce, and ad blocking.
+- **Operation Flow**: Added `docs/operation-flow.md` documenting the runtime path from YouTube page load/navigation through video observation, context resolution, session orchestration, resume, interval checks, and final playback progress persistence.
+- **Playback Display Manager**: Centralized player button group state, playback notifications, fixed-time UI sync, manual-save button targeting, display timeouts, and play-listener cleanup behind `PlaybackDisplayManager`, and removed legacy per-context message wrappers so new paths call the manager directly.
+- **Playback Display Encapsulation**: Refactored DOM injection for time displays (watch, shorts, miniplayer, preview) by moving `initTimeDisplay` logic directly inside `PlaybackDisplayManager.ensure()`, encapsulating global UI references to avoid cluttering the script and improve efficiency.
 
 # 0.0.9-15
 

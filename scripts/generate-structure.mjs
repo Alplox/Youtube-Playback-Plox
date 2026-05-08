@@ -6,9 +6,9 @@
  * functions, classes, and modules to generate a technical map of the code.
  *
  * It creates/updates 'docs/userscript-structure.md' with:
- * - A table of contents with line numbers.
- * - Detailed sections for each MARK found.
- * - A list of functions and classes per section.
+ * - A table of contents with line numbers (linked to source).
+ * - Detailed sections for each MARK found (title links to source line).
+ * - A list of functions and classes per section (each name links to its line).
  *
  * Output:
  *   - Creates/Updates 'docs/userscript-structure.md'.
@@ -16,12 +16,14 @@
  * Usage:
  *   node scripts/generate-structure.mjs
  */
-
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const source = readFileSync('youtube-playback-plox.user.js', 'utf8');
-const lines = source.split('\n');
+// Path to the source file relative to the docs/ output - used for links
+const SOURCE_FILE = 'youtube-playback-plox.user.js';
+const SOURCE_LINK = `../${SOURCE_FILE}`; // relative from docs/
 
+const source = readFileSync(SOURCE_FILE, 'utf8');
+const lines = source.split('\n');
 const marks = [];
 let currentMark = null;
 let lineNum = 0;
@@ -38,16 +40,12 @@ for (const line of lines) {
         };
         continue;
     }
-
     if (!currentMark) continue;
-
-    // Capturar funciones/clases/const relevantes
     const fnMatch = line.match(
         /^(?:async\s+)?function\s+(\w+)|^\s*(?:const|let)\s+(\w+)\s*=\s*(?:async\s+)?\(|^\s*(?:const|let)\s+(\w+)\s*=\s*\(\s*\)\s*=>/
     );
     const classMatch = line.match(/^class\s+(\w+)/);
     const arrowObjMatch = line.match(/^\s*(?:const|let)\s+(\w+)\s*=\s*Object\.freeze\(|^\s*(?:const|let)\s+(\w+)\s*=\s*\(\(\)\s*=>/);
-
     if (fnMatch) {
         const name = fnMatch[1] || fnMatch[2] || fnMatch[3];
         if (name) currentMark.functions.push({ type: 'fn', name, line: lineNum });
@@ -60,43 +58,45 @@ for (const line of lines) {
         if (name) currentMark.functions.push({ type: 'module', name, line: lineNum });
     }
 }
-
 if (currentMark) marks.push(currentMark);
 
-// Generar markdown
+// Generate markdown
 const now = new Date().toISOString().split('T')[0];
 const version = source.match(/@version\s+(.+)/)?.[1]?.trim() ?? 'unknown';
 
 let md = `# Userscript Structure\n`;
-md += `> Auto-generado el ${now} · versión ${version}\n`;
-md += "> **NO editar manualmente** — regenerar con `node ./scripts/generate-structure.mjs`\n\n";
+md += `> Auto-generated on ${now} · version ${version}\n`;
+md += "> **DO NOT EDIT MANUALLY** - regenerate with `node ./scripts/generate-structure.mjs`\n\n";
 md += `---\n\n`;
-md += `## Índice de secciones\n\n`;
+md += `## Sections index\n\n`;
 
 marks.forEach((mark, i) => {
     const anchor = mark.label.toLowerCase()
         .replace(/[^\w\s-]/g, '')
         .trim()
         .replace(/\s+/g, '-');
-    md += `${i + 1}. [${mark.label}](#${anchor}) — línea ${mark.line}\n`;
+    // TOC entry links both to the section anchor AND to the source line
+    md += `${i + 1}. [${mark.label}](#${anchor}) - [line ${mark.line}](${SOURCE_LINK}#L${mark.line})\n`;
 });
 
 md += `\n---\n\n`;
 
 marks.forEach(mark => {
-    md += `## ${mark.label}\n`;
-    md += `> Línea ${mark.line}\n\n`;
+    md += `## [${mark.label}](${SOURCE_LINK}#L${mark.line})\n`;
+    md += `> [Line ${mark.line}](${SOURCE_LINK}#L${mark.line})\n\n`;
+
     if (mark.functions.length > 0) {
-        md += `| Tipo | Nombre | Línea |\n`;
+        md += `| Type | Name | Line |\n`;
         md += `|---|---|---|\n`;
         mark.functions.forEach(f => {
-            md += `| \`${f.type}\` | \`${f.name}\` | ${f.line} |\n`;
+            // function name and line number are both links to the source line
+            md += `| \`${f.type}\` | [\`${f.name}\`](${SOURCE_LINK}#L${f.line}) | [${f.line}](${SOURCE_LINK}#L${f.line}) |\n`;
         });
     } else {
-        md += `_Sin funciones o constantes relevantes detectadas._\n`;
+        md += `_No relevant functions or constants detected._\n`;
     }
     md += `\n`;
 });
 
 writeFileSync('docs/userscript-structure.md', md);
-console.log(`✅ userscript-structure.md generado (${marks.length} secciones)`);
+console.log(`✅ userscript-structure.md generated (${marks.length} sections)`);

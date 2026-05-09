@@ -8591,63 +8591,83 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     // MARK: 📺 Get Player Video ID
-    // Cache para IDs de video por elemento player (TTL corto para evitar stale data en SPA)
+    /**
+     * Cache entry stored for each YouTube player instance.
+     *
+     * @typedef {Object} PlayerVideoCacheEntry
+     * @property {string} id - Current video ID.
+     * @property {number} timestamp - Cache creation timestamp in milliseconds.
+     */
+
+    /**
+     * Temporary cache of video IDs per YouTube player instance.
+     *
+     * Used to avoid repeated calls to expensive player methods during
+     * rapid SPA navigations.
+     *
+     * @type {WeakMap<YT.Player, PlayerVideoCacheEntry>}
+     */
     const playerVideoIdCache = new WeakMap();
 
     /**
-     * Obtiene el ID del video desde el reproductor de YouTube.
-     * @param {HTMLDivElement} player - Elemento del reproductor de YouTube.
-     * @returns {string|null} - ID del video o null si no se pudo obtener.
+     * Retrieves the current video ID from a YouTube player instance.
+     *
+     * Uses a two-level strategy:
+     * 1. A short-lived cache (TTL: 500ms) to avoid redundant calls during fast SPA navigations.
+     * 2. Sequential API calls from lightest to heaviest:
+     *    - `getVideoData()` — lightweight, preferred.
+     *    - `getPlayerResponse()` — heavier, used as fallback.
+     *
+     * @param {YT.Player | null | undefined} player - The YouTube player instance to query.
+     * @returns {string | null} The video ID string (e.g. `"dQw4w9WgXcW"`), or `null` if it
+     *   could not be determined.
+     *
+     * @example
+     * const id = getPlayerVideoId(player);
+     * if (id) console.log('Playing:', id);
      */
     const getPlayerVideoId = (player) => {
         if (!player) return null;
 
         const now = Date.now();
-
-        // 1. Verificación de Cache (High-Performance Path)
-        // Usamos un TTL de 500ms para evitar stale data en navegación SPA rápida (menos que el intervalo de 1s)
         const cached = playerVideoIdCache.get(player);
-        if (cached && (now - cached.timestamp < 500)) {
+
+        // TTL of 500ms to avoid stale data on fast SPA navigations (less than the 1s interval)
+        if (cached && now - cached.timestamp < 500) {
+            logLog('getPlayerVideoId', `ID detected (Cache Hit): ${cached.id}`);
             return cached.id;
         }
 
         let id = null;
 
+        // 1. Lightweight first
         try {
-            if (typeof player.getPlayerResponse === 'function') {
-                const resp = player.getPlayerResponse();
-                id = resp?.videoDetails?.videoId
-                    || resp?.microformat?.playerMicroformatRenderer?.externalVideoId;
-            }
+            id = player.getVideoData?.()?.video_id;
         } catch (e) {
-            logWarn('getPlayerVideoId', 'playerResponse falló', e);
+            logWarn('getPlayerVideoId', 'getVideoData failed', e);
         }
 
-        if (!id && typeof player.getVideoData === 'function') {
-            id = player.getVideoData()?.video_id;
-        }
-
-        // Fallback a URL
+        // 2. Heavy fallback
         if (!id) {
-            const videoId = extractYouTubeVideoIdFromUrl(window.location.href);
-            if (videoId) {
-                logLog('getPlayerVideoId', `ID detectado (Fallback): ${videoId}`);
-                id = videoId;
+            try {
+                const resp = player.getPlayerResponse?.();
+                id = resp?.videoDetails?.videoId
+                    ?? resp?.microformat?.playerMicroformatRenderer?.externalVideoId;
+            } catch (e) {
+                logWarn('getPlayerVideoId', 'getPlayerResponse failed', e);
             }
         }
 
-        // Actualizar cache antes de retornar
+        // 3. Cache and return
         if (id) {
             playerVideoIdCache.set(player, { id, timestamp: now });
-            logLog('getPlayerVideoId', `ID detectado (Cache Miss): ${id}`);
-        } else {
-            logWarn('getPlayerVideoId', '❌ no se pudo obtener videoId');
+            logLog('getPlayerVideoId', `ID detected (Cache Miss): ${id}`);
+            return id;
         }
 
-        return id;
-    }
-
-
+        logWarn('getPlayerVideoId', '❌ could not obtain videoId from player');
+        return null;
+    };
 
     // MARK: 📺 Get YouTube Page Type
     let _cachedPageType = null;
@@ -13329,7 +13349,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Si la URL no tiene ID, validar que sea un livestream de canal usando parseYouTubeResource
                 if (!urlVideoId) {
                     const isChannelLivestream = urlResource &&
-                    (urlType === 'live' && !urlVideoId && urlChannelId);
+                        (urlType === 'live' && !urlVideoId && urlChannelId);
 
                     if (isChannelLivestream) {
                         logLog('processMediaVideo/watch', `🔴 Livestream de canal detectado: usando ID del player ${playerVideoId} (urlChannelId: ${urlChannelId})`);

@@ -1,4 +1,4 @@
-# 0.0.9-16
+# 0.0.10
 
 ### Changed
 
@@ -6,6 +6,8 @@
 - **Operation Flow**: Added `docs/operation-flow.md` documenting the runtime path from YouTube page load/navigation through video observation, context resolution, session orchestration, resume, interval checks, and final playback progress persistence.
 - **Playback Display Manager**: Centralized player button group state, playback notifications, fixed-time UI sync, manual-save button targeting, display timeouts, and play-listener cleanup behind `PlaybackDisplayManager`, and removed legacy per-context message wrappers so new paths call the manager directly.
 - **Playback Display Encapsulation**: Refactored DOM injection for time displays (watch, shorts, miniplayer, preview) by moving `initTimeDisplay` logic directly inside `PlaybackDisplayManager.ensure()`, encapsulating global UI references to avoid cluttering the script and improve efficiency.
+- **Language Detection System**: Upgraded `detectBrowserLanguage` with a two-pass matching strategy (exact match then prefix match) and performance optimizations. The new implementation uses a `Map` for O(1) exact-match lookups and pre-calculates normalized keys to reduce overhead during prefix scanning, ensuring robust and efficient detection of the user's preferred language across different browser implementations.
+- **Storage Architecture Refactor**: Eliminated redundant storage access patterns by refactoring `Settings` and `Filters` objects to use the centralized `Storage` API instead of direct GM_getValue/GM_setValue calls. This removes duplicate logic for key prefixing, error handling, and storage backend routing, centralizing all persistence operations through the unified Storage abstraction layer.
 
 # 0.0.9-15
 

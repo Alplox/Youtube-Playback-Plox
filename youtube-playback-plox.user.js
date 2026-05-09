@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.9-16
+// @version      0.0.10
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -232,7 +232,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.9-16';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.10';
 
     /**
      * @typedef {Object} YPPState
@@ -1097,15 +1097,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     }
 
     // ============================================================================================================
-    // MARK: 📊 Global variables
-    // ============================================================================================================
-    let YTHelper = null;          // YouTube Helper API
-    let currentPageType = null;   // Current page type
-    let lastHandledVideoId = null; // Last video ID processed
-    let lastHandledPageType = null; // Last page type processed
-    let cachedSettings = null;    // User settings from GM_getValue
-
-    // ============================================================================================================
     // MARK: 📦 Config
     // ============================================================================================================
     const CONFIG = {
@@ -1181,6 +1172,36 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         }
     };
 
+    // ============================================================================================================
+    // MARK: 📊 Global variables
+    // ============================================================================================================
+    /** @type {Object|null} YouTube Helper API */
+    let YTHelper = null;
+
+    /** @type {string|null} Current page type */
+    let currentPageType = null;
+
+    /** @type {string|null} Last video ID processed */
+    let lastHandledVideoId = null;
+
+    /** @type {string|null} Last page type processed */
+    let lastHandledPageType = null;
+
+    /** @type {Object|null} User settings from GM_getValue */
+    let cachedSettings = { ...CONFIG.defaultSettings };
+
+    // Cleanup references
+    /** @type {MutationObserver|null} Theme change observer for cleanup */
+    let themeObserver = null;
+
+    /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Global navigation listener references for cleanup */
+    let globalNavigationListeners = [];
+
+    /** @type {Function|null} YTHelper handler reference for cleanup */
+    let YTHelperListener = null;
+
+    /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Floating button listener references for cleanup */
+    let floatingButtonListeners = [];
 
     // ============================================================================================================
     // MARK: Selectors
@@ -1747,7 +1768,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         });
     }
 
-
     /**
      * Establece el idioma del script y opcionalmente lo persiste en la configuración.
      * @param {string} lang - Código de idioma (ej. 'es-ES', 'en').
@@ -1783,9 +1803,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                 // Use direct storage access during initialization to avoid recursion
                 let settings;
                 try {
-                    settings = await Settings.get();
+                    settings = await getSettings();
                 } catch (recursionError) {
-                    // Fallback to direct storage access if Settings.get() causes recursion
+                    // Fallback to direct storage access if getSettings() causes recursion
                     const raw = GM_getValue(CONFIG.STORAGE_KEYS.settings, null);
                     let parsed = {};
                     if (raw && typeof raw === 'object') {
@@ -1799,7 +1819,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                 // Solo guardamos si realmente hay un cambio en el objeto de configuración
                 if (settings.language !== validLang) {
                     settings.language = validLang;
-                    await Settings.set(settings);
+                    await setSettings(settings);
                     logInfo('setLanguage', `Idioma persistido: ${validLang}`);
                 }
             } catch (e) {
@@ -1811,31 +1831,47 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         return true;
     }
 
-    // Función para detectar el idioma del navegador
     function detectBrowserLanguage() {
-        const primaryLang = navigator.language || navigator.userLanguage; // "es-ES" o "en"
+        const primaryLang = navigator.language || navigator.userLanguage || '';
         const candidates = (Array.isArray(navigator.languages) && navigator.languages.length)
             ? navigator.languages
-            : (primaryLang ? [primaryLang] : []);
+            : [primaryLang];
 
         logLog('detectBrowserLanguage', 'candidates:', candidates);
 
-        // Coincidencia exacta priorizando navigator.languages[0]
-        for (const lang of candidates) {
-            if (TRANSLATIONS[lang]) return lang;
+        const allAvailableKeys = [
+            ...Object.keys(FALLBACK_TRANSLATIONS),
+            ...Object.keys(TRANSLATIONS)
+        ];
+
+        const normalizedMap = new Map();
+        for (const key of allAvailableKeys) {
+            normalizedMap.set(key.toLowerCase(), key);
         }
 
-        // Coincidencia por prefijo (ejemplo: "es" -> "es-ES" o "es-419")
+        const supportedLangs = Array.from(normalizedMap.keys());
+
         for (const lang of candidates) {
-            const prefix = (lang || '').split('-')[0];
-            const matched = Object.keys(TRANSLATIONS).find(k => k === prefix || k.startsWith(prefix + '-'));
-            if (matched) {
-                logLog('detectBrowserLanguage', 'matched by prefix:', matched);
-                return matched;
+            const normalized = (lang || '').toLowerCase();
+            const prefix = normalized.split('-')[0];
+
+            if (normalizedMap.has(normalized)) {
+                return normalizedMap.get(normalized);
+            }
+
+            if (prefix) {
+                const matched = supportedLangs.find(k =>
+                    k === prefix || k.startsWith(prefix + '-')
+                );
+
+                if (matched) {
+                    logLog('detectBrowserLanguage', `matched '${normalized}' by prefix:`, matched);
+                    return normalizedMap.get(matched);
+                }
             }
         }
 
-        logWarn(`Idioma del navegador '${primaryLang}' no soportado, usando default.`);
+        logWarn('detectBrowserLanguage', `Language '${primaryLang}' not suported, going with default: ${CONFIG.defaultSettings.language}`);
         return CONFIG.defaultSettings.language;
     }
 
@@ -4761,15 +4797,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         logLog('applyTheme', `Tema aplicado: ${isDark ? 'dark' : 'light'}`);
     }
 
-    /** @type {MutationObserver|null} Observer de cambios de tema para cleanup */
-    let themeObserver = null;
-    /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Referencias a listeners globales para cleanup */
-    let globalNavigationListeners = [];
-    /** @type {Function|null} Referencia al handler de YTHelper para cleanup */
-    let ythelperListener = null;
-    /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Referencias a listeners del botón flotante para cleanup */
-    let floatingButtonListeners = [];
-
     /**
      * Observa cambios en el atributo 'dark' de YouTube y actualiza data-theme.
      */
@@ -4815,9 +4842,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         globalNavigationListeners = [];
 
         // Limpiar listener de YTHelper
-        if (YTHelper && ythelperListener) {
-            YTHelper.eventTarget.removeEventListener('yt-helper-api-ready', ythelperListener);
-            ythelperListener = null;
+        if (YTHelper && YTHelperListener) {
+            YTHelper.eventTarget.removeEventListener('yt-helper-api-ready', YTHelperListener);
+            YTHelperListener = null;
         }
 
         // Limpiar listeners del botón flotante
@@ -5730,122 +5757,81 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
-    * Objeto Settings para gestionar la configuración del usuario.
-    * Proporciona métodos asíncronos para obtener y establecer
-    * la configuración del usuario utilizando GM_getValue y GM_setValue.
-    */
-    const Settings = {
-        /**
-         * Obtiene la configuración del usuario.
-         * @returns {Promise<Object>} Una promesa que resuelve un objeto con
-         * los ajustes del usuario, combinando los ajustes por defecto
-         * con los ajustes almacenados.
-         */
-        async get() {
-            try {
-                const raw = await GM_getValue(CONFIG.STORAGE_KEYS.settings, null);
-                // const parsed = raw ? JSON.parse(raw) : {};
+     * Helper functions para configuración y filtros usando Storage centralizado.
+     * Eliminan la redundancia de objetos Settings/Filters wrappers.
+     */
+    const getSettings = async () => {
+        try {
+            const raw = await Storage.get(CONFIG.STORAGE_KEYS.settings);
+            let parsed = {};
 
-                /** @type {Record<string, any>} **/
-                let parsed = {};
-
-                if (raw && typeof raw === 'object') {
-                    // Algunos managers o migraciones pueden guardar/retornar un objeto directamente.
-                    parsed = raw;
-                } else if (typeof raw === 'string' && raw.trim()) {
-                    parsed = JSON.parse(raw);
-                }
-
-                return { ...CONFIG.defaultSettings, ...parsed };
-            } catch (error) {
-                logError('Settings', 'Error al cargar configuración del usuario:', error);
-                return { ...CONFIG.defaultSettings };
+            if (raw && typeof raw === 'object') {
+                parsed = raw;
+            } else if (typeof raw === 'string' && raw.trim()) {
+                parsed = JSON.parse(raw);
             }
-        },
 
-        /**
-         * Obtiene la configuración del usuario e incluye metadatos sobre qué claves estaban presentes
-         * en el storage (antes de mezclar defaults).
-         * usar idioma del navegador solo si el usuario nunca eligió idioma.
-         * @returns {Promise<{settings: Object, hadLanguageInStorage: boolean}>}
-         */
-        async getWithMeta() {
-            try {
-                const raw = await GM_getValue(CONFIG.STORAGE_KEYS.settings, null);
-
-                /** @type {Record<string, any>} */
-                let parsed = {};
-
-                if (raw && typeof raw === 'object') {
-                    parsed = raw;
-                } else if (typeof raw === 'string' && raw.trim()) {
-                    parsed = JSON.parse(raw);
-                }
-
-                return {
-                    settings: { ...CONFIG.defaultSettings, ...parsed },
-                    hadLanguageInStorage: Object.prototype.hasOwnProperty.call(parsed || {}, 'language')
-                };
-            } catch (error) {
-                logError('Settings', 'Error al cargar configuración del usuario (meta):', error);
-                return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
-            }
-        },
-
-        /**
-         * Establece la configuración del usuario.
-         * @param {Object} settings - Un objeto que contiene los nuevos ajustes del usuario.
-         * @returns {Promise<void>} Una promesa que resuelve cuando la configuración es guardada.
-         */
-        async set(settings) {
-            try {
-                const serialized = JSON.stringify(settings);
-                await GM_setValue(CONFIG.STORAGE_KEYS.settings, serialized);
-            } catch (error) {
-                logError('Settings', 'Error al guardar configuración del usuario:', error);
-            }
+            return { ...CONFIG.defaultSettings, ...parsed };
+        } catch (error) {
+            logError('getSettings', 'Error al cargar configuración del usuario:', error);
+            return { ...CONFIG.defaultSettings };
         }
     };
 
-    /**
-     * Objeto Filters para gestionar la persistencia del estado del modal de videos guardados.
-     */
-    const Filters = {
-        /**
-         * Obtiene los filtros guardados.
-         * @returns {Promise<Object>} Filtros combinados con los valores por defecto.
-         */
-        async get() {
-            try {
-                const raw = await GM_getValue(CONFIG.STORAGE_KEYS.filters, null);
-                let parsed = {};
+    const getSettingsWithMeta = async () => {
+        try {
+            const raw = await Storage.get(CONFIG.STORAGE_KEYS.settings);
+            let parsed = {};
 
-                if (raw && typeof raw === 'object') {
-                    parsed = raw;
-                } else if (typeof raw === 'string' && raw.trim()) {
-                    parsed = JSON.parse(raw);
-                }
-
-                return { ...CONFIG.defaultFilters, ...parsed };
-            } catch (error) {
-                logError('Filters', 'Error al cargar filtros del usuario:', error);
-                return { ...CONFIG.defaultFilters };
+            if (raw && typeof raw === 'object') {
+                parsed = raw;
+            } else if (typeof raw === 'string' && raw.trim()) {
+                parsed = JSON.parse(raw);
             }
-        },
 
-        /**
-         * Guarda o actualiza los filtros.
-         * @param {Object} newValues - Nuevos valores de filtros a fusionar.
-         * @returns {Promise<void>}
-         */
-        async set(newValues) {
-            try {
-                const current = await this.get();
-                const updated = { ...current, ...newValues };
-                await GM_setValue(CONFIG.STORAGE_KEYS.filters, JSON.stringify(updated));
-            } catch (error) {
-                logError('Filters', 'Error al guardar filtros del usuario:', error);
+            return {
+                settings: { ...CONFIG.defaultSettings, ...parsed },
+                hadLanguageInStorage: Object.prototype.hasOwnProperty.call(parsed || {}, 'language')
+            };
+        } catch (error) {
+            logError('getSettingsWithMeta', 'Error al cargar configuración del usuario (meta):', error);
+            return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
+        }
+    };
+
+    const setSettings = async (settings) => {
+        try {
+            await Storage.set(CONFIG.STORAGE_KEYS.settings, settings);
+        } catch (error) {
+            logError('setSettings', 'Error al guardar configuración del usuario:', error);
+        }
+    };
+
+    const getFilters = async () => {
+        try {
+            const raw = await Storage.get(CONFIG.STORAGE_KEYS.filters);
+            let parsed = {};
+
+            if (raw && typeof raw === 'object') {
+                parsed = raw;
+            } else if (typeof raw === 'string' && raw.trim()) {
+                parsed = JSON.parse(raw);
             }
+
+            return { ...CONFIG.defaultFilters, ...parsed };
+        } catch (error) {
+            logError('getFilters', 'Error al cargar filtros del usuario:', error);
+            return { ...CONFIG.defaultFilters };
+        }
+    };
+
+    const setFilters = async (newValues) => {
+        try {
+            const current = await getFilters();
+            const updated = { ...current, ...newValues };
+            await Storage.set(CONFIG.STORAGE_KEYS.filters, updated);
+        } catch (error) {
+            logError('setFilters', 'Error al guardar filtros del usuario:', error);
         }
     };
 
@@ -10514,7 +10500,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
         };
 
-        const settings = { ...await Settings.get() };
+        const settings = { ...await getSettings() };
         const githubSettings = { ...await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings) };
 
         // Crear overlay
@@ -10710,7 +10696,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 };
 
                 await Promise.all([
-                    Settings.set(newSettings),
+                    setSettings(newSettings),
                     GM_setValue(CONFIG.STORAGE_KEYS.github, newGithubSettings)
                 ]);
 
@@ -15628,7 +15614,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
 
     const createFloatingButton = async () => {
-        const settings = cachedSettings || await Settings.get();
+        const settings = cachedSettings || await getSettings();
 
         if (!settings.showFloatingButtons) return;
 
@@ -15663,7 +15649,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         closeModalVideos();
 
         // Cargar filtros guardados para asegurar sincronización
-        const savedFilters = await Filters.get();
+        const savedFilters = await getFilters();
 
         // Usar los filtros pasados como parámetro o los guardados
         currentOrderBy = savedFilters.orderBy ?? CONFIG.defaultFilters.orderBy;
@@ -15708,7 +15694,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         searchContainer.appendChild(createSearchInput(currentSearchQuery, async (query) => {
             currentSearchQuery = query;
-            await Filters.set({ searchQuery: query });
+            await setFilters({ searchQuery: query });
             await updateVideoList();
         }));
 
@@ -15730,14 +15716,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         filtersGrid.appendChild(createSortSelector(currentOrderBy, async (selected) => {
             currentOrderBy = selected;
-            await Filters.set({ orderBy: selected });
+            await setFilters({ orderBy: selected });
             updateActiveFilterBadge();
             await updateVideoList();
         }));
 
         filtersGrid.appendChild(createFilterSelector(currentFilterBy, async (selected) => {
             currentFilterBy = selected;
-            await Filters.set({ filterBy: selected });
+            await setFilters({ filterBy: selected });
             updateActiveFilterBadge();
             await updateVideoList();
         }));
@@ -15752,7 +15738,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             async (min, max) => {
                 currentMinViews = min;
                 currentMaxViews = max;
-                await Filters.set({ minViews: min, maxViews: max });
+                await setFilters({ minViews: min, maxViews: max });
                 updateActiveFilterBadge();
                 await updateVideoList();
             }
@@ -15762,7 +15748,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             async (min, max) => {
                 currentMinPercent = min;
                 currentMaxPercent = max;
-                await Filters.set({ minPercent: min, maxPercent: max });
+                await setFilters({ minPercent: min, maxPercent: max });
                 updateActiveFilterBadge();
                 await updateVideoList();
             }
@@ -16562,11 +16548,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         /* GM_registerMenuCommand(`📋 ${t('savedVideos')}`, () => { try { showSavedVideosList(); } catch (_) { } }); */
         GM_registerMenuCommand(`📚 ${t('viewAllHistory')}`, async () => {
             // Guardar filtros y esperar a que se complete
-            await Filters.set({ filterBy: 'all', searchQuery: '' });
+            await setFilters({ filterBy: 'all', searchQuery: '' });
             try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error abriendo listado de historial:', e); }
         });
         GM_registerMenuCommand(`✅ ${t('viewCompletedVideos')}`, async () => {
-            await Filters.set({ filterBy: 'completed' });
+            await setFilters({ filterBy: 'completed' });
             try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error abriendo listado de completados:', e); }
         });
     }
@@ -16925,11 +16911,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 lastHandledVideoId = currentVideoId;
                 lastHandledPageType = newPageType;
 
-                logInfo('handleNavigation',
-                    `🌐 Actualización de estado detectada -
-                    currentPageType: ${currentPageType}
-                    URL Actual: ${window.location.href}
-                    `);
+                logInfo('handleNavigation', `currentPageType: ${currentPageType} - URL Actual: ${window.location.href}`);
 
                 // Solo preservamos el miniplayer si NO vamos a la página 'watch'
                 const preserveMiniplayer = currentPageType !== 'watch';
@@ -16973,12 +16955,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 if (YTHelper) {
                     // Registrar listener persistente que ahora comparte el mismo flujo debounced
-                    ythelperListener = () => {
+                    YTHelperListener = () => {
                         logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
                         debouncedNavigation();
                     };
 
-                    YTHelper.eventTarget.addEventListener('yt-helper-api-ready', ythelperListener);
+                    YTHelper.eventTarget.addEventListener('yt-helper-api-ready', YTHelperListener);
                     logInfo('YTHelper', 'Registra evento yt-helper-api-ready');
                 } else {
                     logError('YTHelper', 'Referencia a YouTube Helper API no obtenida');
@@ -17001,7 +16983,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         logError('initializeGlobal', '❌ Error al cargar traducciones:', err);
                         return null;
                     }),
-                    Settings.getWithMeta().catch((err) => {
+                    getSettingsWithMeta().catch((err) => {
                         logError('initializeGlobal', '❌ Error al cargar settings:', err);
                         return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
                     })
@@ -17056,7 +17038,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Guardar preferencia si era primera carga o si el idioma cambió
                 if (!hadLanguageInStorage || (loadedSettings?.language !== langToUse)) {
-                    await Settings.set(cachedSettings);
+                    await setSettings(cachedSettings);
                     logInfo('initializeGlobal', `Idioma guardado/actualizado en settings: ${langToUse}`);
                 }
             } catch (error) {

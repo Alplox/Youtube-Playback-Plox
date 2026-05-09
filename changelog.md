@@ -1,5 +1,9 @@
 # 0.0.10
 
+### Fixed
+
+- **Livestream Channel URLs**: Fixed bug where livestreams accessed via channel URLs like `https://www.youtube.com/@CHANNEL/live` would not save playback progress. The issue was caused by ID mismatch validation failing because these URLs don't contain video IDs. Updated `parseYouTubeResource()` to recognize `/@handle/live` and `/channel/*/live` patterns, and modified the watch context resolver to trust the player's video ID when the URL doesn't contain one.
+
 ### Changed
 
 - **Video Processing Router**: Consolidated the duplicated Watch, Shorts, Miniplayer, and Inline Preview processing entry points into `processMediaVideo()` with per-context configuration hooks. This keeps the shared session-start pipeline in one place while preserving context-specific safeguards for SPA ID mismatches, miniplayer priority, preview debounce, and ad blocking.

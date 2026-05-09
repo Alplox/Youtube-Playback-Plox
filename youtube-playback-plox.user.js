@@ -9015,8 +9015,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // --- handle (@user) ---
         const handleMatch = path.match(/\/@([A-Za-z0-9._-]+)/);
         if (handleMatch) {
+            // Check if it's a livestream URL like /@handle/live
+            if (path.endsWith('/live') || path.includes('/live/')) {
+                logLog("parseYouTubeResource", "handle livestream", handleMatch[1]);
+                return { type: "live", id: null, channelId: handleMatch[1], isHandle: true };
+            }
             logLog("parseYouTubeResource", "handle", handleMatch[1]);
             return { type: "channel", id: handleMatch[1], isHandle: true };
+        }
+
+        // --- channel livestream ---
+        const channelLiveMatch = path.match(/\/channel\/([A-Za-z0-9_-]+)\/live/);
+        if (channelLiveMatch) {
+            logLog("parseYouTubeResource", "channel livestream", channelLiveMatch[1]);
+            return { type: "live", id: null, channelId: channelLiveMatch[1] };
         }
 
         return null;
@@ -11631,7 +11643,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (currentPageType === 'watch' || currentPageType === 'shorts') return `page_type_mismatch:${currentPageType}_blocks_preview`;
                 if (isMiniplayerBlockingPreview()) return 'miniplayer_blocking_preview';
             }
-            if (context === 'watch' && currentPageType !== 'watch') return `page_type_mismatch:not_on_watch_page(current:${currentPageType})`;
+            if (context === 'watch' && currentPageType !== 'watch') {
+                // Permitir watch context para livestreams de canal
+                const urlResource = parseYouTubeResource(window.location.href);
+                const isChannelLivestream = urlResource &&
+                    (urlResource.type === 'live' && !urlResource.id && urlResource.channelId);
+
+                if (!isChannelLivestream) {
+                    return `page_type_mismatch:not_on_watch_page(current:${currentPageType})`;
+                }
+            }
             if (context === 'shorts' && currentPageType !== 'shorts') return `page_type_mismatch:not_on_shorts_page(current:${currentPageType})`;
             if (context === 'miniplayer' && !DOMHelpers.getMiniplayerPlayer()) return 'miniplayer_not_found';
             if (!getContextRoot(videoEl, context)) return `root_not_found_for_context:${context}`;
@@ -11965,8 +11986,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             logInfo('VideoObserverManager', `🔍 Realizando bootstrap de videos existentes...${force ? ' (FORZADO)' : ''}`);
 
-            // 1. Buscar video en Watch
-            if (currentPageType === 'watch') {
+            // Detectar si estamos en una página de livestream de canal
+            const urlResource = parseYouTubeResource(window.location.href);
+            const isChannelLivestream = urlResource &&
+                (urlResource.type === 'live' && !urlResource.id && urlResource.channelId);
+
+            // 1. Buscar video en Watch o livestreams de canal
+            if (currentPageType === 'watch' || isChannelLivestream) {
+                logInfo('VideoObserverManager', `🎯 Procesando video: pageType=${currentPageType}, isChannelLivestream=${!!isChannelLivestream}`);
                 waitForWatchPlayerReactive(force);
             }
 
@@ -13262,22 +13289,57 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             getPlayer: () => DOMHelpers.getWatchPlayer(),
             afterAdCheck: () => {
                 // Safeguard: solo procesar como Watch si la URL es realmente de video.
-                // Previene que el miniplayer en Home active el procesador de Watch por error.
-                if (currentPageType === 'watch') return true;
-                logLog('processMediaVideo/watch', '⚠️ Abortando: No estamos en /watch (posible Miniplayer en Home)');
+                // Permitir también livestreams de canal (@handle/live)
+                const urlResource = parseYouTubeResource(window.location.href);
+                const isChannelLivestream = urlResource &&
+                    (urlResource.type === 'live' && !urlResource.id && urlResource.channelId);
+
+                logLog('processMediaVideo/watch', `🔍 afterAdCheck: pageType=${currentPageType}, isChannelLivestream=${!!isChannelLivestream}, channelId=${urlResource?.channelId}`);
+
+                if (currentPageType === 'watch' || isChannelLivestream) {
+                    logLog('processMediaVideo/watch', `✅ afterAdCheck: Permitiendo procesamiento`);
+                    return true;
+                }
+                logLog('processMediaVideo/watch', `⚠️ Abortando: No estamos en /watch ni livestream de canal (pageType: ${currentPageType})`);
                 return false;
             },
             resolveVideoId: (_videoEl, player) => {
                 const playerVideoId = player ? getPlayerVideoId(player) : null;
-                const urlId = extractYouTubeVideoIdFromUrl(window.location.href);
+                const urlResource = parseYouTubeResource(window.location.href);
+                const {
+                    type: urlType,
+                    id: urlVideoId,
+                    channelId: urlChannelId
+                } = urlResource;
+
+                logLog('processMediaVideo/watch', `🔍 resolveVideoId: playerVideoId=${playerVideoId}, urlVideoId=${urlVideoId}, urlType=${urlType}`);
 
                 // Validación crítica: evita race conditions en navegación SPA.
-                // Si el player reporta otro ID, la API interna aún no se ha actualizado.
-                if (!playerVideoId || playerVideoId !== urlId) {
-                    logWarn('processMediaVideo/watch', `⚠️ Mismatch de ID detectado (Player: ${playerVideoId} vs URL: ${urlId}). Abortando procesamiento hasta actualización de API.`);
+                if (!playerVideoId) {
+                    logWarn('processMediaVideo/watch', `⚠️ No se pudo obtener ID del player (urlVideoId: ${urlVideoId}). Abortando procesamiento.`);
                     return null;
                 }
 
+                // Si la URL tiene un ID de video, debe coincidir con el del player
+                if (urlVideoId && playerVideoId !== urlVideoId) {
+                    logWarn('processMediaVideo/watch', `⚠️ Mismatch de ID detectado (Player: ${playerVideoId} vs urlVideoId: ${urlVideoId}). Abortando procesamiento hasta actualización de API.`);
+                    return null;
+                }
+
+                // Si la URL no tiene ID, validar que sea un livestream de canal usando parseYouTubeResource
+                if (!urlVideoId) {
+                    const isChannelLivestream = urlResource &&
+                    (urlType === 'live' && !urlVideoId && urlChannelId);
+
+                    if (isChannelLivestream) {
+                        logLog('processMediaVideo/watch', `🔴 Livestream de canal detectado: usando ID del player ${playerVideoId} (urlChannelId: ${urlChannelId})`);
+                    } else {
+                        logWarn('processMediaVideo/watch', `⚠️ URL sin ID de video pero no es livestream de canal detectado. Abortando procesamiento.`);
+                        return null;
+                    }
+                }
+
+                logLog('processMediaVideo/watch', `✅ resolveVideoId: Retornando playerVideoId=${playerVideoId}`);
                 return playerVideoId;
             },
             initDisplay: player => PlaybackDisplayManager.ensure('watch', player),
@@ -16872,19 +16934,31 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const isSameVideo = currentVideoId === lastHandledVideoId;
 
                 // Loop Guard & SPA Recovery:
-                // Si el ID coincide Y (tenemos sesión activa O es el mismo video/página que ya intentamos),
-                // evitamos el teardown (init(true)) que destruye el progreso.
-                if (currentVideoId && (hasActiveSession || (isSameVideo && isSamePageContext)) && isSamePageContext) {
-                    logLog('handleNavigation', `Ignorando reinicio redundante para ${currentVideoId} (${newPageType}). Sesión activa: ${hasActiveSession}`);
+                // Para videos normales: Si el ID coincide Y (tenemos sesión activa O es el mismo video/página que ya intentamos)
+                // Para livestreams: Si no hay ID pero es la misma página y tenemos sesión activa O es livestream de canal
+                const urlResource = parseYouTubeResource(window.location.href);
+                const isChannelLivestream = urlResource &&
+                    (urlResource.type === 'live' && !urlResource.id && urlResource.channelId);
 
-                    // Si no hay sesión activa pero es el mismo video, intentamos un bootstrap ligero
-                    // (skipCleanup=true) por si el player acaba de aparecer en el DOM.
-                    if (!hasActiveSession && isSameVideo && isSamePageContext) {
+                if ((currentVideoId && (hasActiveSession || (isSameVideo && isSamePageContext)) && isSamePageContext) ||
+                    (isChannelLivestream && (hasActiveSession || isSamePageContext))) {
+
+                    const identifier = currentVideoId || `livestream:${urlResource?.channelId}`;
+                    logLog('handleNavigation', `Ignorando reinicio redundante para ${identifier} (${newPageType}). Sesión activa: ${hasActiveSession}`);
+
+                    // Si no hay sesión activa pero es el mismo contexto, intentamos un bootstrap ligero
+                    if (!hasActiveSession && isSamePageContext) {
                         if (typeof VideoObserverManager?.init === 'function') {
                             logLog('handleNavigation', '🔄 Programando reintento ligero de bootstrap (300ms)');
                             setTimeout(() => {
                                 // Verificar nuevamente antes de ejecutar por si hubo otra navegación
-                                if (extractYouTubeVideoIdFromUrl(window.location.href) === currentVideoId) {
+                                const currentUrl = window.location.href;
+                                const currentResource = parseYouTubeResource(currentUrl);
+                                const stillSameContext = currentVideoId ?
+                                    extractYouTubeVideoIdFromUrl(currentUrl) === currentVideoId :
+                                    currentResource?.type === 'live' && currentResource?.channelId === urlResource?.channelId;
+
+                                if (stillSameContext) {
                                     VideoObserverManager.init(true, false, true);
                                 }
                             }, 300);

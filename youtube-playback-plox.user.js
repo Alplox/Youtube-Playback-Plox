@@ -129,7 +129,7 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1818971/YouTube%20Helper%20API.js
+// @require      https://update.greasyfork.org/scripts/549881/1820274/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 (function () {
@@ -6005,7 +6005,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // Contenedores de Anuncios In-Feed / Layouts / Homes
                     // Solo usamos inFeedAdContainers (no inAnyAdContainers).
                     // inPlayerAdContainers (.ytp-ad-module, .video-ads, #player-ads) son nodos PERMANENTES
-                    // en el DOM del player — están presentes aunque no haya ningún anuncio activo.
+                    // en el DOM del player - están presentes aunque no haya ningún anuncio activo.
                     // Usarlos en closestComposed causa FALSE POSITIVES para cualquier <video> dentro del player.
                     if (AdSelectorText.inFeedAdContainers) {
                         if (DOMHelpers.closestComposed(node, AdSelectorText.inFeedAdContainers)) return true;
@@ -8615,8 +8615,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Uses a two-level strategy:
      * 1. A short-lived cache (TTL: 500ms) to avoid redundant calls during fast SPA navigations.
      * 2. Sequential API calls from lightest to heaviest:
-     *    - `getVideoData()` — lightweight, preferred.
-     *    - `getPlayerResponse()` — heavier, used as fallback.
+     *    - `getVideoData()` - lightweight, preferred.
+     *    - `getPlayerResponse()` - heavier, used as fallback.
      *
      * @param {YT.Player | null | undefined} player - The YouTube player instance to query.
      * @returns {string | null} The video ID string (e.g. `"dQw4w9WgXcW"`), or `null` if it
@@ -8670,9 +8670,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     // MARK: 📺 Get YouTube Page Type
+    // Page Type Cache
     let _cachedPageType = null;
     let _lastPath = null;
 
+    /**
+     * Channel IDs that map to specialized page types instead of the generic "channel" type.
+     * @type {Record<string, string>}
+     */
     const CHANNEL_SPECIAL = {
         'UC-9-kyTW8ZkZNDHQJ6FgpwQ': 'music',
         'UCYfdidRxbB8Qhf0Nx7ioOYw': 'news',
@@ -8680,6 +8685,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         'UCtFRv9O2AHqOZjjynzrv-xg': 'learning'
     };
 
+    /**
+     * Attempts to detect the current page type using ytd-page-manager's attributes.
+     * More reliable than URL parsing for ambiguous SPA states (e.g. browse subtypes).
+     *
+     * @param {string} path - `location.pathname` of the current page.
+     * @returns {string | null} Page type string, or `null` if detection failed.
+     */
     function getTypeFromPageManager(path) {
         const manager = DOMHelpers.get('page:manager', () => document.querySelector('ytd-page-manager'), 100);
         if (!manager) return null;
@@ -8689,27 +8701,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         if (subtype === 'watch') return 'watch';
         if (subtype === 'shorts') return 'shorts';
-
         if (type === 'search') return 'search';
 
-        // "browse" cubre home, channel, etc.
+        // "browse" covers home, channel pages, playlists, etc.
         if (type === 'browse') {
-
+            // Trust the subtype attribute when available
             if (subtype) return subtype;
 
-            if (path.startsWith('/@')) {
-                return 'channel';
-            }
+            if (path.startsWith('/@')) return 'channel';
 
             if (path.startsWith('/channel/')) {
                 const channelId = path.split('/')[2];
-                return CHANNEL_SPECIAL[channelId] || 'channel';
+                return CHANNEL_SPECIAL[channelId] ?? 'channel';
             }
 
-            if (path.startsWith('/c/')) {
-                const customName = path.split('/')[2];
-                return CHANNEL_SPECIAL[customName] || 'channel';
-            }
+            // Note: /c/ custom URLs are deprecated by YouTube (redirect to /@handle).
+            // The lookup against CHANNEL_SPECIAL is kept for legacy support but will
+            // rarely match since the map uses channel IDs, not custom names.
+            if (path.startsWith('/c/')) return 'channel';
 
             return 'browse';
         }
@@ -8717,6 +8726,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         return null;
     }
 
+    /**
+     * Attempts to detect the current page type by reading internal data from `ytd-app`.
+     * Used as a secondary fallback when the page-manager approach fails.
+     *
+     * @returns {string | null} Page type string, or `null` if detection failed.
+     */
     function getTypeFromYtApp() {
         const app = DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100);
         if (!app) return null;
@@ -8730,143 +8745,170 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 case 'browse': return 'browse';
                 case 'search': return 'search';
             }
-        } catch { }
+        } catch { /* ytd-app data may be unavailable during navigation */ }
 
         return null;
     }
 
+    /**
+     * Detects the YouTube page type purely from the URL pathname.
+     * Uses `charCodeAt(1)` on the first character after `/` to avoid repeated
+     * `startsWith` calls and keep this fast for the hot path.
+     *
+     * @param {string} path - `location.pathname` of the current page.
+     * @returns {string} A page type string. Falls back to `"unknown"` if unrecognized.
+     */
     function detectFromURL(path) {
         if (path === '/') return 'home';
+
         const c1 = path.charCodeAt(1);
 
         switch (c1) {
-            case 115: // s
+            case 115: // 's' - shorts, sports, subscriptions, search
                 if (path.startsWith('/shorts')) return 'shorts';
                 if (path.startsWith('/sports')) return 'sports';
                 if (path.startsWith('/subscriptions')) return 'subscriptions';
                 if (path.startsWith('/search') || path.startsWith('/results')) return 'search';
                 break;
-            case 119: // w
+            case 119: // 'w' - watch
                 if (path.startsWith('/watch')) return 'watch';
                 break;
-            case 101: // e
+            case 101: // 'e' - embed
                 if (path.startsWith('/embed')) return 'embed';
                 break;
-            case 112: // p
+            case 112: // 'p' - playlist
                 if (path.startsWith('/playlist')) return 'playlist';
                 break;
-            case 103: // g
+            case 103: // 'g' - gaming
                 if (path.startsWith('/gaming')) return 'gaming';
                 break;
-            case 102: // f
+            case 102: // 'f' - feed/* routes
                 if (path.startsWith('/feed/you')) return 'you';
                 if (path.startsWith('/feed/history')) return 'history';
                 if (path.startsWith('/feed/subscriptions')) return 'subscriptions';
                 break;
-            case 64: // @
+            case 64: // '@' - handle-based channel URL
                 return 'channel';
-            case 99: // c
+            case 99: // 'c' - /channel/ or /c/ (deprecated custom URLs)
                 if (path.startsWith('/channel/')) {
                     const channelId = path.split('/')[2];
-                    return CHANNEL_SPECIAL[channelId] || 'channel';
+                    return CHANNEL_SPECIAL[channelId] ?? 'channel';
                 }
-
-                if (path.startsWith('/c/')) {
-                    const customName = path.split('/')[2];
-                    return CHANNEL_SPECIAL[customName] || 'channel';
-                }
+                // /c/ uses custom names, not channel IDs - CHANNEL_SPECIAL won't match,
+                // so the lookup is skipped and we return 'channel' directly.
+                if (path.startsWith('/c/')) return 'channel';
                 break;
-            case 117: // u
+            case 117: // 'u' - /user/ (legacy channel URLs)
                 if (path.startsWith('/user')) return 'channel';
                 break;
-            case 85: // U
+            case 85: // 'U' - bare /UC... channel ID at root (rare)
                 if (path.startsWith('/UC')) {
                     const id = path.slice(1);
-                    return CHANNEL_SPECIAL[id] || 'channel';
+                    return CHANNEL_SPECIAL[id] ?? 'channel';
                 }
                 break;
-            case 114: // r
-                if (path === '/reporthistory') {
-                    return 'reporthistory';
-                }
+            case 114: // 'r' - report history
+                if (path === '/reporthistory') return 'reporthistory';
                 break;
         }
 
-        // Detección de videos en vivo o enlaces con "/live"
-        // Ejemplo: https://www.youtube.com/@NASA/live
-        // Para raros casos, ya que Youtube usa "/watch" igual para directos.
+        // Livestream URLs: e.g. https://www.youtube.com/@NASA/live
+        // YouTube still uses /watch for most live streams; this covers the vanity-URL form.
         if (path.endsWith('/live') || path.includes('/live/')) return 'live';
 
         return 'unknown';
     }
 
+    /**
+     * Writes a resolved page type to the module-level cache.
+     *
+     * @param {string} path - The pathname the type was resolved for.
+     * @param {string} type - The resolved page type.
+     * @returns {string} The same `type` value (for inline use in `return cachePageType(...)`).
+     */
     function cachePageType(path, type) {
         _lastPath = path;
         _cachedPageType = type;
         return type;
     }
 
+    /**
+     * Returns the current YouTube page type using a layered detection strategy.
+     *
+     * Detection order (fastest / most reliable first):
+     * 1. **Cache** - returns immediately if the pathname hasn't changed.
+     * 2. **URL** - unambiguous types (`watch`, `shorts`, `home`) are resolved without touching the DOM.
+     * 3. **ytd-page-manager** - reliable for SPA states where the URL alone is ambiguous.
+     * 4. **ytd-app internal data** - secondary DOM fallback.
+     * 5. **Full URL parse** - final fallback covering all remaining path patterns.
+     *
+     * @returns {string} The detected page type (e.g. `"watch"`, `"shorts"`, `"channel"`,
+     *   `"search"`, `"home"`, `"playlist"`, `"browse"`, `"unknown"`, …).
+     */
     function getYouTubePageType() {
         const path = location.pathname;
 
-        // Retornar caché si la URL no cambió
+        // Return cached result if the URL hasn't changed since the last call
         if (path === _lastPath && _cachedPageType !== null) return _cachedPageType;
 
-        // 1. Detección rápida por URL para tipos inequívocos y evitar DOM stale en SPA
-        const definitiveUrlType = detectFromURL(path);
-        if (definitiveUrlType === 'watch' || definitiveUrlType === 'shorts' || definitiveUrlType === 'home') {
-            return cachePageType(path, definitiveUrlType);
+        // 1. Fast URL detection for unambiguous types - avoids potentially stale DOM reads
+        const urlType = detectFromURL(path);
+        if (urlType === 'watch' || urlType === 'shorts' || urlType === 'home') {
+            return cachePageType(path, urlType);
         }
 
-        // 2. Intentar desde page-manager (más fiable iterando en otros casos)
+        // 2. ytd-page-manager attributes (most reliable for ambiguous SPA browse states)
         const managerType = getTypeFromPageManager(path);
         if (managerType) return cachePageType(path, managerType);
 
-        // 3. Intentar desde datos internos de ytd-app
+        // 3. Internal ytd-app data
         const appType = getTypeFromYtApp();
         if (appType) return cachePageType(path, appType);
 
-        // 4. Fallback final completo por URL
-        return cachePageType(path, definitiveUrlType);
+        // 4. Full URL-based detection as the final fallback
+        return cachePageType(path, urlType);
     }
 
-    // ============================================================================================================
-    // MARK: 📺 YouTube Resource URL Parser
-    // ============================================================================================================
+
+    // MARK: YouTube Resource URL Parser
     /**
-     * Parsea una URL de YouTube o un ID directo y devuelve un recurso normalizado.
+     * Parses a YouTube URL or bare video ID into a normalized resource descriptor.
      *
-     * Soporta:
-     * - URLs de video (`watch?v=`, `youtu.be`, `embed`, `shorts`, `live`)
-     * - Playlists (`playlist?list=`)
-     * - Canales (`/channel/`, `/@handle`)
-     * - IDs directos de video
+     * Supported inputs:
+     * - Bare 11-character video IDs (`"dQw4w9WgXcQ"`)
+     * - Video URLs: `watch?v=`, `youtu.be`, `/embed/`, `/shorts/`, `/live/`, `/v/`
+     * - Playlist URLs: `playlist?list=`
+     * - Channel URLs: `/channel/`, `/@handle`, `/c/`, `/user/`
+     * - Channel livestream URLs: `/@handle/live`, `/channel/{id}/live`
      *
-     * @param {string} input - URL de YouTube o ID de video.
+     * @param {string} input - A YouTube URL or bare video ID.
      *
      * @returns {(
-     *   | {
-     *       type: "video" | "shorts" | "live";
+     *   | { type: "video" | "shorts";
      *       id: string;
      *       context?: {
      *         playlistId?: string;
      *         playlistType?: "playlist" | "mix" | "mix_multi" | "album" | "channel_uploads" | "liked" | "watch_later" | "unknown";
-     *         start?: number | string;
+     *         start?: string | number;
      *       };
      *     }
-     *   | {
-     *       type: "playlist";
+     *   | { type: "live";
+     *       id: string;
+     *       context?: { playlistId?: string; start?: string | number };
+     *     }
+     *   | { type: "live";
+     *       id: null;
+     *       channelId: string;
+     *       isHandle?: boolean;
+     *     }
+     *   | { type: "playlist";
      *       id: string;
      *       context?: {
      *         playlistType?: "playlist" | "mix" | "mix_multi" | "album" | "channel_uploads" | "liked" | "watch_later" | "unknown";
      *       };
      *     }
-     *   | {
-     *       type: "channel";
-     *       id: string;
-     *       isHandle?: boolean;
-     *     }
-     * ) | null}
+     *   | { type: "channel"; id: string; isHandle?: boolean }
+     * ) | null} Normalized resource, or `null` if the input could not be parsed.
      *
      * @example
      * parseYouTubeResource("dQw4w9WgXcQ")
@@ -8874,11 +8916,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      *
      * @example
      * parseYouTubeResource("https://www.youtube.com/watch?v=dQw4w9WgXcQ&list=RDdQw4w9WgXcQ")
-     * // {
-     * //   type: "video",
-     * //   id: "dQw4w9WgXcQ",
-     * //   context: { playlistId: "RDdQw4w9WgXcQ", playlistType: "mix" }
-     * // }
+     * // { type: "video", id: "dQw4w9WgXcQ", context: { playlistId: "RDdQw4w9WgXcQ", playlistType: "mix" } }
      *
      * @example
      * parseYouTubeResource("https://www.youtube.com/playlist?list=PLxxx")
@@ -8887,17 +8925,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @example
      * parseYouTubeResource("https://www.youtube.com/@YouTube")
      * // { type: "channel", id: "YouTube", isHandle: true }
+     *
+     * @example
+     * parseYouTubeResource("https://www.youtube.com/@NASA/live")
+     * // { type: "live", id: null, channelId: "NASA", isHandle: true }
      */
     function parseYouTubeResource(input) {
         if (!input || typeof input !== 'string') return null;
 
         const trimmed = input.trim();
+        const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
 
-        const videoIdRegex = /^[A-Za-z0-9_-]{11}$/;
-
-        // --- ID directo ---
-        if (videoIdRegex.test(trimmed)) {
-            return { type: "video", id: trimmed };
+        // --- Bare video ID ---
+        if (VIDEO_ID_RE.test(trimmed)) {
+            return { type: 'video', id: trimmed };
         }
 
         let url;
@@ -8918,149 +8959,139 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         if (!isYouTubeHost) return null;
 
-        const listParam = params.get("list");
-        const vParam = params.get("v");
+        const listParam = params.get('list');
+        const vParam = params.get('v');
 
-        // --- helpers ---
+        /**
+         * Builds an optional context object from query parameters.
+         * Returns `undefined` when there's nothing to attach.
+         * @returns {{ playlistId?: string; playlistType?: string; start?: string | number } | undefined}
+         */
         const buildContext = () => {
             const ctx = {};
 
-            if (listParam && listParam.length > 5) {
+            // Minimum sane length guard - avoids attaching garbage list params
+            // Allow valid short IDs like RDMM (4 chars) and standard playlists (PL..., 2 chars minimum)
+            if (listParam && listParam.length >= 2) {
                 ctx.playlistId = listParam;
                 ctx.playlistType = classifyPlaylist(listParam);
             }
 
-            const t = params.get("t") || params.get("start");
+            const t = params.get('t') ?? params.get('start');
             if (t) ctx.start = t;
 
             return Object.keys(ctx).length ? ctx : undefined;
         };
 
-        // --- PLAYLIST ---
-        if (path.includes("/playlist") && listParam && listParam.length > 5) {
+        // --- Playlist page (must check before watch?v= to avoid mis-classifying
+        //     mix pages that also carry a v= param) ---
+        if (path.includes('/playlist') && listParam && listParam.length > 5) {
             return {
-                type: "playlist",
+                type: 'playlist',
                 id: listParam,
-                context: {
-                    playlistType: classifyPlaylist(listParam)
-                }
+                context: { playlistType: classifyPlaylist(listParam) }
             };
         }
 
-        // --- VIDEO (watch?v=) ---
-        if (vParam && videoIdRegex.test(vParam)) {
-            logLog("parseYouTubeResource", "watch?v=", vParam);
-            return {
-                type: "video",
-                id: vParam,
-                context: buildContext()
-            };
+        // --- Standard video: watch?v= ---
+        if (vParam && VIDEO_ID_RE.test(vParam)) {
+            logLog('parseYouTubeResource', 'watch?v=', vParam);
+            return { type: 'video', id: vParam, context: buildContext() };
         }
 
-        // --- watch/ID ---
+        // --- /watch/{id} (non-standard but sometimes seen in embeds) ---
         const watchMatch = path.match(/\/watch\/([A-Za-z0-9_-]{11})/);
         if (watchMatch) {
-            logLog("parseYouTubeResource", "watch/ID", watchMatch[1]);
-            return {
-                type: "video",
-                id: watchMatch[1],
-                context: buildContext()
-            };
+            logLog('parseYouTubeResource', 'watch/ID', watchMatch[1]);
+            return { type: 'video', id: watchMatch[1], context: buildContext() };
         }
 
-        // --- shorts ---
+        // --- /shorts/{id} ---
         const shortsMatch = path.match(/\/shorts\/([A-Za-z0-9_-]{11})/);
         if (shortsMatch) {
-            logLog("parseYouTubeResource", "shorts", shortsMatch[1]);
-            return {
-                type: "shorts",
-                id: shortsMatch[1],
-                context: buildContext()
-            };
+            logLog('parseYouTubeResource', 'shorts', shortsMatch[1]);
+            return { type: 'shorts', id: shortsMatch[1], context: buildContext() };
         }
 
-        // --- embed ---
+        // --- /embed/{id} ---
         const embedMatch = path.match(/\/embed\/([A-Za-z0-9_-]{11})/);
         if (embedMatch) {
-            logLog("parseYouTubeResource", "embed", embedMatch[1]);
-            return {
-                type: "video",
-                id: embedMatch[1],
-                context: buildContext()
-            };
+            logLog('parseYouTubeResource', 'embed', embedMatch[1]);
+            return { type: 'video', id: embedMatch[1], context: buildContext() };
         }
 
-        // --- legacy /v/ ---
+        // --- /v/{id} (legacy Flash player URLs) ---
         const legacyMatch = path.match(/\/v\/([A-Za-z0-9_-]{11})/);
         if (legacyMatch) {
-            logLog("parseYouTubeResource", "legacy /v/", legacyMatch[1]);
-            return {
-                type: "video",
-                id: legacyMatch[1],
-                context: buildContext()
-            };
+            logLog('parseYouTubeResource', 'legacy /v/', legacyMatch[1]);
+            return { type: 'video', id: legacyMatch[1], context: buildContext() };
         }
 
-        // --- live ---
-        const liveMatch = path.match(/\/live\/([A-Za-z0-9_-]{11})/);
-        if (liveMatch) {
-            logLog("parseYouTubeResource", "live", liveMatch[1]);
-            return {
-                type: "live",
-                id: liveMatch[1],
-                context: buildContext()
-            };
+        // --- /live/{id} (direct livestream by video ID) ---
+        const liveIdMatch = path.match(/\/live\/([A-Za-z0-9_-]{11})/);
+        if (liveIdMatch) {
+            logLog('parseYouTubeResource', 'live', liveIdMatch[1]);
+            return { type: 'live', id: liveIdMatch[1], context: buildContext() };
         }
 
-        // --- youtu.be ---
-        if (host === "youtu.be") {
+        // --- youtu.be/{id} short links ---
+        if (host === 'youtu.be') {
             const shortId = path.slice(1);
-            if (videoIdRegex.test(shortId)) {
-                logLog("parseYouTubeResource", "youtu.be", shortId);
-                return {
-                    type: "video",
-                    id: shortId,
-                    context: buildContext()
-                };
+            if (VIDEO_ID_RE.test(shortId)) {
+                logLog('parseYouTubeResource', 'youtu.be', shortId);
+                return { type: 'video', id: shortId, context: buildContext() };
             }
         }
 
-        // --- channel ---
-        const channelMatch = path.match(/\/channel\/([A-Za-z0-9_-]+)/);
-        if (channelMatch) {
-            logLog("parseYouTubeResource", "channel", channelMatch[1]);
-            return { type: "channel", id: channelMatch[1] };
-        }
-
-        // --- handle (@user) ---
+        // --- Channel livestream via /@handle/live ---
+        // Must be checked BEFORE the general handle match below.
         const handleMatch = path.match(/\/@([A-Za-z0-9._-]+)/);
         if (handleMatch) {
-            // Check if it's a livestream URL like /@handle/live
             if (path.endsWith('/live') || path.includes('/live/')) {
-                logLog("parseYouTubeResource", "handle livestream", handleMatch[1]);
-                return { type: "live", id: null, channelId: handleMatch[1], isHandle: true };
+                logLog('parseYouTubeResource', 'handle livestream', handleMatch[1]);
+                // id is null because we don't know the video ID until the stream starts, or may never have one
+                return { type: 'live', id: null, channelId: handleMatch[1], isHandle: true };
             }
-            logLog("parseYouTubeResource", "handle", handleMatch[1]);
-            return { type: "channel", id: handleMatch[1], isHandle: true };
+            logLog('parseYouTubeResource', 'handle', handleMatch[1]);
+            return { type: 'channel', id: handleMatch[1], isHandle: true };
         }
 
-        // --- channel livestream ---
+        // --- Channel livestream via /channel/{id}/live ---
+        // MUST come before the general /channel/{id} match below - otherwise the
+        // longer path would be captured as a plain channel and this branch would
+        // never be reached.
         const channelLiveMatch = path.match(/\/channel\/([A-Za-z0-9_-]+)\/live/);
         if (channelLiveMatch) {
-            logLog("parseYouTubeResource", "channel livestream", channelLiveMatch[1]);
-            return { type: "live", id: null, channelId: channelLiveMatch[1] };
+            logLog('parseYouTubeResource', 'channel livestream', channelLiveMatch[1]);
+            return { type: 'live', id: null, channelId: channelLiveMatch[1] };
+        }
+
+        // --- /channel/{id} ---
+        const channelMatch = path.match(/\/channel\/([A-Za-z0-9_-]+)/);
+        if (channelMatch) {
+            logLog('parseYouTubeResource', 'channel', channelMatch[1]);
+            return { type: 'channel', id: channelMatch[1] };
         }
 
         return null;
     }
 
     // MARK: 📺 Get YouTube Video ID from URL
+    /**
+     * Extracts a bare video ID from any YouTube URL or resource string.
+     *
+     * Returns `null` for channel-level livestream URLs (e.g. `/@NASA/live`) because
+     * no video ID is available until the stream resolves to a watch page.
+     *
+     * @param {string} url - A YouTube URL or bare video ID string.
+     * @returns {string | null} The 11-character video ID, or `null` if not resolvable.
+     */
     function extractYouTubeVideoIdFromUrl(url) {
         const result = parseYouTubeResource(url);
-
         if (!result) return null;
 
-        if (result.type === "video" || result.type === "shorts" || result.type === "live") {
+        // result.id is null for channel-live URLs - propagate null intentionally
+        if (result.type === 'video' || result.type === 'shorts' || result.type === 'live') {
             return result.id;
         }
 
@@ -9068,58 +9099,98 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     // MARK: 📺 Get YouTube Video Context from URL
+    /**
+     * Extracts both the video ID and playlist context from a YouTube URL.
+     *
+     * @param {string} url - A YouTube URL or bare video ID string.
+     * @returns {{
+     *   videoId: string | null,
+     *   playlistId: string | null,
+     *   playlistType: string | null
+     * }} Parsed context. All fields are `null` when the URL cannot be parsed or
+     *    does not carry the relevant data.
+     */
     function getYouTubeVideoContextFromUrl(url) {
         const result = parseYouTubeResource(url);
 
         if (!result) {
-            return { videoId: null, playlistId: null };
+            return { videoId: null, playlistId: null, playlistType: null };
         }
 
+        const isVideo = result.type === 'video' || result.type === 'shorts' || result.type === 'live';
+
         return {
-            videoId: (["video", "shorts", "live"].includes(result.type)) ? result.id : null,
-            playlistId: result.context?.playlistId || null,
-            playlistType: result.context?.playlistType || null
+            videoId: isVideo ? result.id : null,
+            playlistId: result.context?.playlistId ?? null,
+            playlistType: result.context?.playlistType ?? null
         };
     }
 
     // MARK: 📺 Get YouTube Playlist ID from URL
+    /**
+     * Extracts the playlist ID from a YouTube URL.
+     * Works for both dedicated playlist pages and video watch pages with a list param.
+     *
+     * @param {string} url - A YouTube URL.
+     * @returns {string | null} The playlist ID, or `null` if none is present.
+     */
     function extractYouTubePlaylistIdFromUrl(url) {
         const result = parseYouTubeResource(url);
-
         if (!result) return null;
 
-        if (result.type === "playlist") {
-            return result.id;
-        }
+        if (result.type === 'playlist') return result.id;
 
-        return result.context?.playlistId || null;
+        return result.context?.playlistId ?? null;
     }
-
-    // MARK: 📺 Get YouTube Playlist URL Type
-    function classifyPlaylist(listId) {
-        if (!listId) return "unknown";
-
-        if (listId.startsWith("RDMM")) return "mix_multi"; // Mix generado desde una playlist o múltiples señales (YouTube Music)
-        if (listId.startsWith("RD")) return "mix"; // Mix basado en un video específico (Radio/autoplay)
-        if (listId.startsWith("OLAK5uy_")) return "album"; // Album
-        if (listId.startsWith("UU")) return "channel_uploads"; // Uploads del canal
-        if (listId.startsWith("LL")) return "liked"; // Liked videos
-        if (listId.startsWith("WL")) return "watch_later"; // Watch later
-
-        return "playlist";
-    }
-
-
-    // MARK: 📺 Get Playlist Name
-    const playlistNameCache = new Map();
-    const pendingPlaylistRequests = new Map(); // Track pending HTTP requests
-    const playlistNameFetchCooldowns = new Map();
-    const PLAYLIST_NAME_FETCH_COOLDOWN_MS = 15 * 60 * 1000;
 
     /**
-     * Determina si se debe evitar una nueva solicitud HTTP del título de playlist.
-     * @param {string} playlistId - ID de la playlist.
-     * @returns {boolean} True si la petición debe ser aplazada.
+     * Classifies a YouTube playlist ID into a semantic type based on its prefix.
+     *
+     * Known prefix conventions:
+     * - `RDMM` - YouTube Music auto-generated mix (multiple signals)
+     * - `RD`   - Radio/autoplay mix seeded from a specific video
+     * - `OLAK5uy_` - Album playlist (YouTube Music)
+     * - `UU`   - Channel uploads
+     * - `LL`   - Liked Videos
+     * - `WL`   - Watch Later
+     * - `PL`   - Standard user/channel playlist (implicit default)
+     *
+     * @param {string} listId - The raw `list=` parameter value.
+     * @returns {"playlist" | "mix" | "mix_multi" | "album" | "channel_uploads" | "liked" | "watch_later" | "unknown"}
+     */
+    function classifyPlaylist(listId) {
+        if (!listId) return 'unknown';
+
+        if (listId.startsWith('RDMM')) return 'mix_multi';
+        if (listId.startsWith('RD')) return 'mix';
+        if (listId.startsWith('OLAK5uy_')) return 'album';
+        if (listId.startsWith('UU')) return 'channel_uploads';
+        if (listId.startsWith('LL')) return 'liked';
+        if (listId.startsWith('WL')) return 'watch_later';
+
+        return 'playlist';
+    }
+
+    // MARK: 📺 get Playlist Name
+
+    /** In-memory cache of resolved playlist titles keyed by playlist ID. */
+    const playlistNameCache = new Map();
+
+    /** Deduplicates concurrent requests for the same playlist ID. */
+    const pendingPlaylistRequests = new Map();
+
+    /** Timestamps of the last HTTP fetch attempt per playlist ID. */
+    const playlistNameFetchCooldowns = new Map();
+
+    /** Minimum time (ms) between HTTP fetches for the same playlist ID. */
+    const PLAYLIST_NAME_FETCH_COOLDOWN_MS = 15 * 60 * 1000; // 15 minutes
+
+    /**
+     * Returns `true` if a recent HTTP fetch for this playlist ID was made within the
+     * cooldown window, meaning a new network request should be suppressed.
+     *
+     * @param {string} playlistId - The playlist ID to check.
+     * @returns {boolean}
      */
     const shouldThrottlePlaylistNameFetch = (playlistId) => {
         const lastAttempt = playlistNameFetchCooldowns.get(playlistId);
@@ -9128,137 +9199,185 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
-     * Obtiene el nombre de una playlist desde YouTube API o DOM o la URL.
-     * @param {string} playlistId - ID de la playlist.
-     * @returns {string|null} Nombre de la playlist o null si no se encuentra.
+     * Extracts the `ytInitialData` JSON object from raw YouTube HTML using a
+     * brace-counting parser instead of a regex, which is the only reliable approach
+     * for deeply nested JSON that cannot be captured with a simple `{.+?}` pattern.
      *
-     * Ejemplo de URL:
-     * https://www.youtube.com/watch?v=VIDEO_ID&list=PLAYLIST_ID
+     * @param {string} html - Raw HTML of a YouTube page.
+     * @returns {object | null} Parsed `ytInitialData`, or `null` if not found or invalid.
+     */
+    function extractYtInitialData(html) {
+        // Look for either assignment form YouTube uses
+        const marker = html.indexOf('ytInitialData = ');
+        if (marker === -1) return null;
+
+        const jsonStart = html.indexOf('{', marker);
+        if (jsonStart === -1) return null;
+
+        // Walk the string counting braces to find the matching closing brace.
+        // A regex like `{.+?}` would stop at the very first `}` (i.e. the first
+        // nested object), producing invalid JSON.
+        let depth = 0;
+        let i = jsonStart;
+        while (i < html.length) {
+            const ch = html[i];
+            if (ch === '{') depth++;
+            else if (ch === '}') {
+                depth--;
+                if (depth === 0) break;
+            }
+            i++;
+        }
+
+        try {
+            return JSON.parse(html.slice(jsonStart, i + 1));
+        } catch {
+            return null;
+        }
+    }
+
+    /**
+     * Resolves the display title of a YouTube playlist by ID.
+     *
+     * Resolution strategy (fastest to slowest):
+     * 1. **Memory cache** - returns immediately on a valid cached title.
+     * 2. **Deduplication** - reuses an in-flight promise if one already exists.
+     * 3. **DOM lookup** - reads the title from the current page when the user is
+     *    already watching or browsing that playlist (zero network cost).
+     * 4. **HTTP fetch** - downloads the playlist page and parses `ytInitialData`
+     *    or the `<title>` tag, subject to a 15-minute per-ID cooldown.
+     *
+     * Falls back to returning the raw `playlistId` string when all strategies fail,
+     * so callers always receive a non-null, displayable value.
+     *
+     * @param {string} playlistId - The YouTube playlist ID (the `list=` param value).
+     * @returns {Promise<string>} Resolved playlist title, or the raw `playlistId` as fallback.
+     *
+     * @example
+     * const title = await getPlaylistName('PLxxxxxxxxxxx');
+     * // "My Awesome Playlist"
      */
     async function getPlaylistName(playlistId) {
         if (!playlistId) return null;
 
-        // 1. Verificar cache en memoria
-        if (playlistNameCache.has(playlistId)) {
-            const cachedTitle = playlistNameCache.get(playlistId);
-            // Si el cache tiene un título válido (no genérico), usarlo directamente
-            if (cachedTitle && cachedTitle !== playlistId) {
-                logLog('getPlaylistName', `✅ Usando título cacheado válido para ${playlistId}: "${cachedTitle}"`);
-                return cachedTitle;
-            }
+        // 1. Memory cache - skip if the stored value is just the ID itself (placeholder)
+        const cached = playlistNameCache.get(playlistId);
+        if (cached && cached !== playlistId) {
+            logLog('getPlaylistName', `Cache hit for ${playlistId}: "${cached}"`);
+            return cached;
         }
 
-        // 2. Verificar si hay una petición en curso
+        // 2. Deduplicate concurrent requests
         if (pendingPlaylistRequests.has(playlistId)) {
-            logLog('getPlaylistName', `⏳ Ya existe una petición en curso para ${playlistId}, reutilizando promesa...`);
+            logLog('getPlaylistName', `Reusing in-flight request for ${playlistId}`);
             return pendingPlaylistRequests.get(playlistId);
         }
 
         const requestPromise = (async () => {
-            const currentPlaylistId = extractYouTubePlaylistIdFromUrl(window.location.href);
-            logLog('getPlaylistName', `currentPlaylistId: ${currentPlaylistId}`);
 
+            // 3. DOM lookup - only when the user is already on a page for this playlist
+            const currentPlaylistId = extractYouTubePlaylistIdFromUrl(window.location.href);
             if (currentPlaylistId === playlistId) {
 
                 if (currentPageType !== 'watch' && currentPageType !== 'playlist') {
-                    logLog('getPlaylistName', `No estamos en watch o playlist, saltando busqueda en DOM`);
-                    return null;
-                }
+                    logLog('getPlaylistName', `Skipping DOM lookup - page type is "${currentPageType}"`);
+                } else {
+                    let element = null;
 
-                let playlistName = null;
+                    if (currentPageType === 'watch') {
+                        // Playlist panel in the watch-page sidebar (covers mixes and standard playlists)
+                        element = DOMHelpers.get(`playlist:name:${playlistId}`, () => (
+                            document.querySelector('ytd-playlist-panel-renderer #header-description h3 a') ||
+                            document.querySelector('ytd-playlist-panel-renderer #header-description h3') ||
+                            document.querySelector('ytd-playlist-panel-renderer yt-formatted-string.title') ||
+                            document.querySelector('#header-description yt-formatted-string.title') ||
+                            document.querySelector('#container #header-description yt-formatted-string') ||
+                            document.querySelector('yt-formatted-string.title:nth-child(1)') ||
+                            document.querySelector('.byline-title')
+                        ), 250);
+                    }
 
-                if (currentPageType === 'watch') {
-                    // Intentar múltiples selectores para el panel de playlist solo en watch
-                    playlistName = DOMHelpers.get(`playlist:name:${playlistId}`, () => (
-                        // Playlist panel en el reproductor (Watch Page Sidebar)
-                        document.querySelector('ytd-playlist-panel-renderer #header-description h3 a') ||
-                        document.querySelector('ytd-playlist-panel-renderer #header-description h3') ||
+                    if (currentPageType === 'playlist') {
+                        // Playlist browse page header (also covers miniplayer scenario)
+                        element = DOMHelpers.get(`playlist:browseName:${playlistId}`, () => (
+                            document.querySelector('.yt-page-header-view-model__page-header-title h1') ||
+                            document.querySelector('yt-page-header-view-model h1.dynamicTextViewModelH1')
+                        ), 250);
+                    }
 
-                        // YouTube Mix y estructuras antiguas
-                        document.querySelector('ytd-playlist-panel-renderer yt-formatted-string.title') ||
-                        document.querySelector('#header-description yt-formatted-string.title') ||
-
-                        // Alternativas adicionales
-                        document.querySelector('#container #header-description yt-formatted-string') ||
-                        document.querySelector('yt-formatted-string.title:nth-child(1)') ||
-
-                        // Overlay del reproductor
-                        document.querySelector('.byline-title')
-                    ), 250);
-                }
-
-
-                if (currentPageType === 'playlist') {
-                    // si estamos en la página de la playlist, escenario miniplayer
-                    playlistName = DOMHelpers.get(`playlist:browseName:${playlistId}`, () => (
-                        document.querySelector('.yt-page-header-view-model__page-header-title h1') ||
-                        document.querySelector('yt-page-header-view-model h1.dynamicTextViewModelH1')
-                    ), 250);
-                }
-
-
-                const finalDomName = playlistName?.textContent?.trim();
-                logLog('getPlaylistName', `finalDomName: ${finalDomName}`);
-
-                if (finalDomName && finalDomName !== playlistId) {
-                    playlistNameCache.set(playlistId, finalDomName);
-                    return finalDomName;
+                    const domTitle = element?.textContent?.trim();
+                    if (domTitle && domTitle !== playlistId) {
+                        logLog('getPlaylistName', `DOM resolved "${domTitle}" for ${playlistId}`);
+                        playlistNameCache.set(playlistId, domTitle);
+                        return domTitle;
+                    }
                 }
             }
 
-            // Solo hacer HTTP request si no hay cache válido o si el cache es genérico
+            // 4. HTTP fetch - rate-limited by a per-ID cooldown
             if (shouldThrottlePlaylistNameFetch(playlistId)) {
-                logLog('getPlaylistName', `⏳ Cooldown activo para ${playlistId}, evitando nueva solicitud`);
+                logLog('getPlaylistName', `Throttled - skipping HTTP fetch for ${playlistId}`);
                 return playlistNameCache.get(playlistId) || playlistId;
             }
+
+            logLog('getPlaylistName', `Fetching playlist page for ${playlistId}`);
+            playlistNameFetchCooldowns.set(playlistId, Date.now());
+
+            // GM_xmlhttpRequest is callback-based; wrap it in a Promise here at the
+            // boundary rather than mixing it with the outer async/await flow.
             return new Promise((resolve) => {
-                logLog('getPlaylistName', `🌐 Making HTTP request for playlist ${playlistId}`);
-                playlistNameFetchCooldowns.set(playlistId, Date.now());
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: `https://www.youtube.com/playlist?list=${playlistId}`,
-                    onload: function (response) {
+                    onload(response) {
                         try {
-                            const htmlText = response.responseText;
-                            let ytInitialDataMatch = htmlText.match(/var ytInitialData = ({.+?});/) || htmlText.match(/window\["ytInitialData"\] = ({.+?});/);
+                            const html = response.responseText;
                             let title = null;
 
-                            if (ytInitialDataMatch) {
-                                try {
-                                    const data = JSON.parse(ytInitialDataMatch[1]);
-                                    title = data?.contents?.twoColumnWatchNextResults?.playlist?.playlist?.title ||
-                                        data?.contents?.twoColumnWatchNextResults?.playlist?.playlist?.header?.title ||
-                                        data?.header?.playlistHeaderRenderer?.title?.simpleText ||
-                                        data?.header?.playlistHeaderRenderer?.title?.runs?.[0]?.text ||
-                                        data?.metadata?.playlistMetadataRenderer?.title ||
-                                        data?.microformat?.microformatDataRenderer?.title
-                                } catch (e) {
-                                    logError('getPlaylistName', 'Error al parsear ytInitialData para metadatos de playlist:', e);
-                                }
+                            // Primary: parse ytInitialData using the brace-counter
+                            // (regex-based extraction is unreliable for deeply nested JSON)
+                            const data = extractYtInitialData(html);
+                            if (data) {
+                                title =
+                                    data?.contents?.twoColumnWatchNextResults?.playlist?.playlist?.title ||
+                                    data?.contents?.twoColumnWatchNextResults?.playlist?.playlist?.header?.title ||
+                                    data?.header?.playlistHeaderRenderer?.title?.simpleText ||
+                                    data?.header?.playlistHeaderRenderer?.title?.runs?.[0]?.text ||
+                                    data?.metadata?.playlistMetadataRenderer?.title ||
+                                    data?.microformat?.microformatDataRenderer?.title ||
+                                    null;
                             }
 
-                            if (!title || title === 'null') {
-                                const titleMatch = htmlText.match(/<title>(.*?) - YouTube<\/title>/) || htmlText.match(/<title>(.*?)<\/title>/);
-                                if (titleMatch) title = titleMatch[1].trim();
+                            // Secondary: <title> tag (always present, lower fidelity)
+                            if (!title) {
+                                const tagMatch =
+                                    html.match(/<title>(.+?) - YouTube<\/title>/) ||
+                                    html.match(/<title>(.+?)<\/title>/);
+                                if (tagMatch) title = tagMatch[1].trim();
                             }
 
-                            title = (title && title !== 'null' && title !== 'undefined') ? title : playlistId;
-                            playlistNameCache.set(playlistId, title);
-                            resolve(title);
+                            // Guard against the literal strings "null" / "undefined"
+                            // that can appear when YouTube serializes missing fields
+                            const resolved = (title && title !== 'null' && title !== 'undefined')
+                                ? title
+                                : playlistId;
 
+                            playlistNameCache.set(playlistId, resolved);
+                            resolve(resolved);
                         } catch (e) {
-                            logError('getPlaylistName', 'Error al procesar respuesta de playlist:', e);
+                            logError('getPlaylistName', 'Failed to parse playlist page response:', e);
                             resolve(playlistId);
                         }
                     },
-                    onerror: (err) => {
-                        logError('getPlaylistName', 'Error de red al obtener nombre de playlist:', err);
+                    onerror(err) {
+                        logError('getPlaylistName', 'Network error fetching playlist name:', err);
                         resolve(playlistId);
                     }
                 });
             });
         })();
 
+        // Register and auto-clean the in-flight promise
         pendingPlaylistRequests.set(playlistId, requestPromise);
         return requestPromise.finally(() => {
             pendingPlaylistRequests.delete(playlistId);
@@ -12027,24 +12146,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             // 3. Buscar video en Miniplayer
-            if (currentPageType !== 'watch') {
-                const miniplayerVideo = DOMHelpers.getMiniplayerPlayerVideo();
-                if (miniplayerVideo) {
-                    if (force) videoTypeCache.delete(miniplayerVideo);
-                    enqueueVideo(miniplayerVideo, 'miniplayer');
-                } else {
-                    // YouTube puede aplicar `miniplayer-is-active` en ytd-app DESPUÉS de la navegación.
-                    // Programamos un reintento breve para cubrir ese gap de timing.
-                    setTimeout(() => {
-                        // El TTL del cache es de 125ms, por lo que a los 600ms re-evaluará el DOM garantizado.
-                        const retryVideo = DOMHelpers.getMiniplayerPlayerVideo();
-                        if (!retryVideo) return;
-                        logLog('VideoObserverManager', '📱 Miniplayer detectado en reintento post-bootstrap, encolando...');
-                        videoTypeCache.delete(retryVideo);
-                        isMiniplayerActive = true;
-                        enqueueVideo(retryVideo, 'miniplayer');
-                    }, 600);
-                }
+            // Siempre buscamos miniplayer si existe, independientemente de currentPageType, 
+            // para cubrir gaps de sincronización durante la navegación SPA.
+            const miniplayerVideo = DOMHelpers.getMiniplayerPlayerVideo();
+            if (miniplayerVideo) {
+                if (force) videoTypeCache.delete(miniplayerVideo);
+                enqueueVideo(miniplayerVideo, 'miniplayer');
+            } else if (currentPageType !== 'watch') {
+                // Si no hay video síncrono pero no estamos en watch, programamos reintento 
+                // ya que YouTube puede aplicar `miniplayer-is-active` en ytd-app DESPUÉS de la navegación.
+                // Programamos un reintento breve para cubrir ese gap de timing.
+                setTimeout(() => {
+                    // El TTL del cache es de 125ms, por lo que a los 600ms re-evaluará el DOM garantizado.
+                    const retryVideo = DOMHelpers.getMiniplayerPlayerVideo();
+                    if (!retryVideo) return;
+                    logLog('VideoObserverManager', '📱 Miniplayer detectado en reintento post-bootstrap, encolando...');
+                    videoTypeCache.delete(retryVideo);
+                    isMiniplayerActive = true;
+                    enqueueVideo(retryVideo, 'miniplayer');
+                }, 600);
             }
 
             // 4. Buscar video tipo Preview (Home / Search)
@@ -13033,6 +13153,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         sessionRef.videoInfo = {
             videoId: videoId,
             lastViewedPlaylistId: fastPlaylistId || null,
+            playlistTitle: null,
             title: null,
             author: null,
             isLive: false,
@@ -13094,12 +13215,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return;
             }
 
-            // Fusionar metadatos frescos en la sesión, preservando el playlistId del fast-path si el nuevo es inválido.
+            // Fusionar metadatos frescos en la sesión, preservando el playlistId y playlistTitle del fast-path si el nuevo es inválido.
             if (freshInfo) {
-                if (!freshInfo.lastViewedPlaylistId && sessionRef.videoInfo.lastViewedPlaylistId) {
-                    freshInfo.lastViewedPlaylistId = sessionRef.videoInfo.lastViewedPlaylistId;
+                // Preservar playlistId del fast-path si el nuevo es inválido
+                /*    if (!freshInfo.lastViewedPlaylistId && sessionRef.videoInfo.lastViewedPlaylistId) {
+                       freshInfo.lastViewedPlaylistId = sessionRef.videoInfo.lastViewedPlaylistId;
+                   }
+   
+                   // Preservar playlistTitle existente si el nuevo es null/vacío
+                   if ((!freshInfo.playlistTitle || freshInfo.playlistTitle === '') && sessionRef.videoInfo.playlistTitle) {
+                       freshInfo.playlistTitle = sessionRef.videoInfo.playlistTitle;
+                   } */
+
+                // Fusionar sobrescribiendo valores existentes con datos frescos
+                for (const [key, value] of Object.entries(freshInfo)) {
+                    if (value !== undefined) {
+                        sessionRef.videoInfo[key] = value;
+                    }
                 }
-                Object.assign(sessionRef.videoInfo, freshInfo);
             }
 
             logInfo('process', `💾 Metadatos cacheados para seguimiento de [${type}] - ${videoId}`);
@@ -13125,9 +13258,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Si la sesión fue reemplazada por otra en el mismo elemento o finalizada externamente,
                 // este intervalo debe detenerse para evitar procesos "zombie" y fugas de memoria.
                 const currentSession = activeProcessingSessions.get(videoEl);
-                if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized) {
+                const isLocked = RouteContextResolver.isContextLocked(videoEl, type);
+
+                if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized || !isLocked) {
+                    const isMismatch = !isLocked && currentSession === sessionRef && !sessionRef.isFinalized;
+                    const reason = isMismatch ? 'context_mismatch' : 'zombie';
+
                     clearInterval(intervalId);
-                    logLog('process', `🧹 Zombie interval eliminado [${type}] - ${videoId}`);
+                    if (isMismatch) {
+                        SessionOrchestrator.finalizeSession(videoEl, reason);
+                    }
+                    logLog('process', `🧹 Interval eliminado [${type}] - ${videoId} (Reason: ${reason})`);
                     return;
                 }
 
@@ -14043,19 +14184,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      *   - `viewCount` (number): Número total de visualizaciones.
      *   - `lengthSeconds` (number): Duración total en segundos.
      *   - `lastViewedPlaylistId` (string|null): ID de la lista de reproducción actual.
-     *   - `playlistTitle` (string|null): Título de la lista activa.
-     *   - `lastViewedPlaylistType` (string): Categoría de la playlist detectada.
-     *   - `lastViewedPlaylistItemId` (string|null): ID único del ítem en la secuencia.
+     *   - `playlistTitle` (string|null): Título de la lista activa. Solo se usa en formato interno, campo no usado en FreeTube
+     *   - `lastViewedPlaylistType` (string): Categoría de la playlist detectada. No se asigna, es una cadena vacía por defecto para compatibilidad con FreeTube
+     *   - `lastViewedPlaylistItemId` (string|null): ID único del ítem en la secuencia. No se asigna, es null por defecto para compatibilidad con FreeTube
      */
     async function getCascadedVideoInfo(initialPlayer, videoId, videoEl, type) {
         // Cache global de metadatos (TTL 5 min)
         const now = Date.now();
-        const cached = _videoMetadataCache.get(videoId);
-        if (cached && (now - cached.ts < 300_000)) {
-            // logWarn('getCascadedVideoInfo', `Hit cache global para ${videoId}`);
-            return { ...cached.info };
-        }
-
         let info = {
             videoId: videoId,
             title: null,
@@ -14071,6 +14206,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             lastViewedPlaylistType: '',       // No se asigna, es una cadena vacía por defecto para compatibilidad con FreeTube
             lastViewedPlaylistItemId: null    // No se asigna, es null por defecto para compatibilidad con FreeTube
         };
+
+        const cached = _videoMetadataCache.get(videoId);
+        if (cached && (now - cached.ts < 300_000)) {
+            // Si el caché tiene información básica completa, lo usamos como base
+            if (cached.info.title && cached.info.author) {
+                // Clonamos para evitar mutar el objeto en caché directamente durante la cascada
+                info = { ...cached.info };
+
+                // Si ya tenemos playlistTitle o no hay playlist detectada en el caché,
+                // y no estamos en un contexto que pueda aportar más info (como watch con URL nueva),
+                // podemos retornar rápido.
+                const hasPlaylistInfo = !!info.playlistTitle;
+                if (hasPlaylistInfo || (!info.lastViewedPlaylistId && type === 'shorts')) {
+                    return { ...info };
+                }
+
+                logLog('getCascadedVideoInfo', `Caché parcial para ${videoId}. Continuando resolución de playlist...`);
+            }
+        }
 
         const finalizeInfo = (res) => {
             if (res.title && res.author && (res.viewCount !== null || res.isLive)) {
@@ -14186,7 +14340,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 info.description = info.description ?? YTHelper.video.rawDescription;
                 info.viewCount = info.viewCount ?? (parseInt(YTHelper.video.viewCount, 10) || null);
                 info.lengthSeconds = info.lengthSeconds ?? (YTHelper.video.lengthSeconds ? Math.round(YTHelper.video.lengthSeconds) : null);
-                info.lastViewedPlaylistId = info.lastViewedPlaylistId ?? YTHelper.video.playlistId;  // No confiable, suele fallar deteccion
+                info.lastViewedPlaylistId = (info.lastViewedPlaylistId ?? YTHelper.video.playlistId) || null; // Harden: avoid undefined
                 // info.playlistTitle: null (no obtenible mediante este metodo)
                 // info.lastViewedPlaylistType: '' (No se asigna)
                 // info.lastViewedPlaylistItemId: null (No se asigna)
@@ -14415,14 +14569,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             // Playlist Title - Fetch fallback via Innertube /next
+            logInfo('getCascadedVideoInfo', `Playlist title check - lastViewedPlaylistId: "${info.lastViewedPlaylistId}", playlistTitle: "${info.playlistTitle}", type: "${type}"`);
             if (
-                info.lastViewedPlaylistId && info.lastViewedPlaylistId !== '' && !info.lastViewedPlaylistId.startsWith('RD') &&
+                info.lastViewedPlaylistId && info.lastViewedPlaylistId !== '' &&
                 (info.playlistTitle === null || info.playlistTitle === '') &&
-                (type === 'watch' || type === 'miniplayer')
+                (type === 'watch' || type === 'miniplayer' || type === 'preview')
             ) {
                 // Nivel 1: Si hay playlistId, obtener título (maneja cache automáticamente)
                 // Si estamos en Watch, el título de la playlist suele estar ya cacheado o disponible en el DOM
-                info.playlistTitle = await getPlaylistName(info.lastViewedPlaylistId) ?? info.playlistTitle;
+                logInfo('getCascadedVideoInfo', `lastViewedPlaylistId: ${info.lastViewedPlaylistId}`)
+                const resolvedPlaylistTitle = await getPlaylistName(info.lastViewedPlaylistId);
+                logInfo('getCascadedVideoInfo', `getPlaylistName returned: "${resolvedPlaylistTitle}" for playlistId: ${info.lastViewedPlaylistId}`)
+                info.playlistTitle = resolvedPlaylistTitle ?? info.playlistTitle;
+                logInfo('getCascadedVideoInfo', `Final playlistTitle: "${info.playlistTitle}"`)
 
 
                 // Nivel 2: Fallback en fast-transitions: Si seguimos en null, es posible que el DOM/API aún no se hayan propagado.
@@ -17016,7 +17175,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Reinicializar observers; forzar bootstrap solo cuando no estamos preservando miniplayer.
                 // Si preserveMiniplayer=true, los observers existentes del miniplayer y su sesión deben mantener continuidad.
                 const shouldForceBootstrap = !preserveMiniplayer;
-                const skipCleanup = preserveMiniplayer; // Evitar cleanup destructivo si preservamos miniplayer
+                
+                // Evitar cleanup destructivo solo si ya estábamos en un contexto que no es watch y seguimos en uno que no es watch,
+                // y hay una sesión de miniplayer que preservar.
+                const skipCleanup = preserveMiniplayer && lastHandledPageType !== 'watch' && hasActiveMiniplayerSession;
 
                 if (typeof VideoObserverManager?.clearCache === 'function') VideoObserverManager.clearCache();
                 if (typeof VideoObserverManager?.init === 'function') VideoObserverManager.init(shouldForceBootstrap, preserveMiniplayer, skipCleanup);

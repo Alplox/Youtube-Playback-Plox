@@ -3,6 +3,7 @@
 ### Added
 
 - **Saved videos modal - customizable action toolbar**: Added a toolbar under the search row with Quick access and Actions toggles (persisted via a dedicated storage key separate from main script settings), row-level opacity modes (full / dim until hover / hidden until hover), a per-row overflow menu (⋯) listing all actions available for that entry.
+- **Enhanced Action Toolbar Grid**: Refactored the video entry action toolbar into a 5-column CSS Grid. Added native Drag-and-Drop support in the settings UI, allowing users to reorder buttons within and between "Quick Access" and "Actions" sections. The "More actions" (⋯) button is now consistently positioned and vertically centered next to the button grid.
 
 ### Fixed
 
@@ -20,6 +21,7 @@
 - **Playback Display Encapsulation**: Refactored DOM injection for time displays (watch, shorts, miniplayer, preview) by moving `initTimeDisplay` logic directly inside `PlaybackDisplayManager.ensure()`, encapsulating global UI references to avoid cluttering the script and improve efficiency.
 - **Language Detection System**: Upgraded `detectBrowserLanguage` with a two-pass matching strategy (exact match then prefix match) and performance optimizations. The new implementation uses a `Map` for O(1) exact-match lookups and pre-calculates normalized keys to reduce overhead during prefix scanning, ensuring robust and efficient detection of the user's preferred language across different browser implementations.
 - **Storage Architecture Refactor**: Eliminated redundant storage access patterns by refactoring `Settings` and `Filters` objects to use the centralized `Storage` API instead of direct GM_getValue/GM_setValue calls. This removes duplicate logic for key prefixing, error handling, and storage backend routing, centralizing all persistence operations through the unified Storage abstraction layer.
+- **Lifecycle Memory Management (`DisposableStore`)**: Implemented a centralized `DisposableStore` class with two instances: `GlobalDisposables` (script-wide, cleared on unload) and `ModalDisposables` (cleared every time the Saved Videos modal closes). Replaced all manual `addEventListener`/`removeEventListener` tracking arrays (`globalNavigationListeners`, `floatingButtonListeners`, `modalVisibilityListeners`, `YTHelperListener`) with a unified `addDisposableListener(target, event, handler, options, store)` helper that automatically registers cleanup in the appropriate store. Migrated all modal toolbar interactions (drag-and-drop reordering, visibility toggles, opacity modes, overflow menu, event delegation) and all script-wide listeners (navigation, YTHelper, floating button) to this system. `cleanupGlobalListeners` and `closeModalVideos` now call `.dispose()` on their respective stores, with `ModalDisposables` auto-resetting after disposal so it can be reused across repeated open/close cycles. `createElement`'s `onClickEvent` option now also accepts a `store` parameter for automatic registration.
 
 # 0.0.9-15
 

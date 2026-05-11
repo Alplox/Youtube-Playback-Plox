@@ -497,7 +497,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "savedVideosToolbarEntryOpacityHidden": "Hidden until hover",
             "savedVideosToolbarMaxSlotsReached": "You can pin at most 5 actions per row.",
             "savedVideosMoreActions": "More actions",
-            "savedVideosToolbarSectionTitle": "Row actions & visibility",
+            "savedVideosToolbarSectionTitle": "Row actions and visibility",
             "savedVideosToolbarSectionToggleTitle": "Expand or collapse row action settings",
             "savedVideosToolbarShowOverflowButton": "More actions (⋯) button",
             "savedVideosToolbarShowOverflowHint": "When off, the ⋯ button is hidden on each row. Pinned actions remain controlled by the toggles above.",
@@ -1253,14 +1253,79 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     /** @type {MutationObserver|null} Theme change observer for cleanup */
     let themeObserver = null;
 
-    /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Global navigation listener references for cleanup */
-    let globalNavigationListeners = [];
+    /**
+     * Managed disposable store to prevent memory leaks.
+     * Enforces explicit cleanup of event listeners and other resources.
+     */
+    class DisposableStore {
+        constructor() {
+            this._disposables = new Set();
+            this._isDisposed = false;
+        }
 
-    /** @type {Function|null} YTHelper handler reference for cleanup */
-    let YTHelperListener = null;
+        /**
+         * Adds a disposable to the store.
+         * @param {(() => void) | { dispose: () => void }} disposable
+         * @returns {(() => void) | { dispose: () => void }}
+         */
+        add(disposable) {
+            if (!disposable) return disposable;
+            if (this._isDisposed) {
+                if (typeof disposable === 'function') disposable();
+                else if (disposable && typeof disposable.dispose === 'function') disposable.dispose();
+                return disposable;
+            }
+            this._disposables.add(disposable);
+            return disposable;
+        }
 
-    /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Floating button listener references for cleanup */
-    let floatingButtonListeners = [];
+        /**
+         * Disposes all registered resources and resets the store for reuse.
+         */
+        dispose() {
+            if (this._isDisposed) return;
+            this._isDisposed = true;
+            for (const disposable of this._disposables) {
+                try {
+                    if (typeof disposable === 'function') disposable();
+                    else if (disposable && typeof disposable.dispose === 'function') disposable.dispose();
+                } catch (e) {
+                    logError('DisposableStore', 'Error disposing resource:', e);
+                }
+            }
+            this._disposables.clear();
+            // Reset so the same store instance can be reused (e.g. ModalDisposables)
+            this._isDisposed = false;
+        }
+    }
+
+    /**
+     * Global store for script-wide listeners.
+     */
+    const GlobalDisposables = new DisposableStore();
+
+    /**
+     * Modal-specific store for listeners that should only exist while the Saved Videos modal is open.
+     */
+    const ModalDisposables = new DisposableStore();
+
+    /**
+     * Registers a listener to a target and returns a disposable that removes it.
+     * Automatically registers with the provided store (GlobalDisposables by default).
+     * @param {EventTarget} target
+     * @param {string} type
+     * @param {EventListenerOrEventListenerObject} handler
+     * @param {boolean | AddEventListenerOptions} [options]
+     * @param {DisposableStore|null} [store]
+     * @returns {() => void}
+     */
+    function addDisposableListener(target, type, handler, options, store = GlobalDisposables) {
+        if (!target) return () => {};
+        target.addEventListener(type, handler, options);
+        const dispose = () => target.removeEventListener(type, handler, options);
+        if (store) store.add(dispose);
+        return dispose;
+    }
 
     // ============================================================================================================
     // MARK: Selectors
@@ -2905,6 +2970,16 @@ regular-item.ypp-fill-none {
     display: none !important;
 }
 
+.ypp-saved-videos-toolbar-toggle.dragging {
+    opacity: 0.5;
+    transform: scale(0.9);
+}
+
+.ypp-saved-videos-toolbar-toggles.drag-over {
+    background: rgba(var(--ypp-primary-rgb), 0.1);
+    border-radius: 20px;
+}
+
 .ypp-active-filter-badge {
     position: absolute;
     top: -10px;
@@ -3358,18 +3433,18 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-titleLink {
-    display: block;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
     font-weight: 600;
     font-size: 1.4rem;
     color: var(--ypp-primary-text);
     text-decoration: none;
-
-    max-height: 40px;
-    overflow-y: auto;
-    overflow-x: hidden;
-
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: normal;
-    line-height: 1.2;
+    line-height: 1.3;
+    max-height: 3.6rem;
 
     &:hover {
         text-decoration: underline;
@@ -3695,14 +3770,34 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-containerButtonsTime {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
-    gap: 8px;
+    flex-direction: column;
+    gap: 6px;
     margin-left: auto;
+    position: relative;
+    padding-right: 44px; /* Espacio para el ⋯ */
+    justify-content: center;
+    width: fit-content;
+    flex-shrink: 0;
+    min-height: 36px;
+}
+
+.ypp-buttons-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    max-width: 204px; /* 5 botones * 36px + 4 gaps * 6px */
+    align-items: center;
+    justify-content: flex-start;
+    min-height: 36px;
+}
+
+.ypp-saved-video-overflow-trigger {
+    position: absolute !important;
+    right: 0;
+    top: 50% !important;
+    transform: translateY(-50%) !important;
+    margin: 0 !important;
 }
 
 .ypp-sort-select,
@@ -5045,28 +5140,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
-     * Limpia listeners globales para prevenir memory leaks.
+     * Limpia todos los listeners globales registrados para evitar memory leaks.
      */
     function cleanupGlobalListeners() {
-        // Limpiar listeners de navegación
-        globalNavigationListeners.forEach(({ target, event, handler }) => {
-            target.removeEventListener(event, handler);
-        });
-        globalNavigationListeners = [];
-
-        // Limpiar listener de YTHelper
-        if (YTHelper && YTHelperListener) {
-            YTHelper.eventTarget.removeEventListener('yt-helper-api-ready', YTHelperListener);
-            YTHelperListener = null;
-        }
-
-        // Limpiar listeners del botón flotante
-        floatingButtonListeners.forEach(({ target, event, handler }) => {
-            target.removeEventListener(event, handler);
-        });
-        floatingButtonListeners = [];
-
-        logLog('cleanupGlobalListeners', 'Listeners globales desconectados');
+        GlobalDisposables.dispose();
+        logLog('cleanupGlobalListeners', 'Recursos globales liberados');
     }
 
     // ============================================================================================================
@@ -6030,10 +6108,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const src = raw && typeof raw === 'object' ? raw : {};
         const merged = { ...d, ...src };
         merged.quickAccess = Array.isArray(merged.quickAccess)
-            ? merged.quickAccess.slice(0, 5)
+            ? [...merged.quickAccess]
             : [...d.quickAccess];
         merged.actions = Array.isArray(merged.actions)
-            ? merged.actions.slice(0, 5)
+            ? [...merged.actions]
             : [...d.actions];
         merged.actionVisibility = typeof merged.actionVisibility === 'object' && merged.actionVisibility !== null
             ? { ...merged.actionVisibility }
@@ -6744,7 +6822,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         attributes = {},
         props = {},
         styles = {},
-        children = []
+        children = [],
+        store = null
     } = {}) {
 
         const el = document.createElement(tag);
@@ -6759,9 +6838,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             el.textContent = text;
         }
 
-        // Legacy click handler
+        // Legacy click handler - now tracked by store
         if (typeof onClickEvent === 'function') {
-            el.addEventListener('click', onClickEvent);
+            addDisposableListener(el, 'click', onClickEvent, {}, store);
         }
 
         // Events
@@ -15433,8 +15512,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let lastRecalculateClick = null;
     /** @type {Map<string, string>} Cache global de títulos por ID para uso en createVideoEntry */
     let modalVideoTitleById = new Map();
-    /** @type {Array<{target: EventTarget, event: string, handler: Function}>} Referencias a listeners del modal para cleanup */
-    let modalVisibilityListeners = [];
     /** @type {HTMLElement|null} Referencia al área de playlist para cleanup */
     let playlistAreaElement = null;
     /** @type {Function|null} Referencia al handler de playlist para cleanup */
@@ -15893,11 +15970,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             virtualScroller = null;
         }
 
-        // Limpiar listeners de visibilidad del modal para prevenir memory leaks
-        modalVisibilityListeners.forEach(({ target, event, handler }) => {
-            target.removeEventListener(event, handler);
-        });
-        modalVisibilityListeners = [];
+        // Limpiar recursos del modal (listeners, etc)
+        ModalDisposables.dispose();
 
         // Limpiar listener de playlist para prevenir memory leaks
         if (playlistAreaElement && playlistRefreshHandler) {
@@ -16159,12 +16233,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const isFullscreen = !!document.fullscreenElement;
             wrapper.style.display = isFullscreen ? 'none' : 'flex';
         };
-        floatingButtonListeners.push(
-            { target: document, event: 'fullscreenchange', handler: updateVisibility },
-            { target: window, event: 'yt-navigate-finish', handler: updateVisibility }
-        );
-        document.addEventListener('fullscreenchange', updateVisibility);
-        window.addEventListener('yt-navigate-finish', updateVisibility);
+
+        addDisposableListener(document, 'fullscreenchange', updateVisibility);
+        addDisposableListener(window, 'yt-navigate-finish', updateVisibility);
         updateVisibility();
     };
 
@@ -16298,7 +16369,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             updateActiveFilterBadge();
         };
 
-        advancedToggleBtn.addEventListener('click', () => toggleAdvanced());
+        addDisposableListener(advancedToggleBtn, 'click', () => toggleAdvanced(), {}, ModalDisposables);
 
         // Function to calculate and update the active filter badge
         const updateActiveFilterBadge = () => {
@@ -16339,28 +16410,32 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             id: 'ypp-management-mode-btn',
             className: 'ypp-btn ypp-btn-primary ypp-shadow-md',
             html: `${SVG_ICONS.compose} ${t('manageVideos')}`,
-            onClickEvent: async () => { await toggleManagementMode(); }
+            onClickEvent: async () => { await toggleManagementMode(); },
+            store: ModalDisposables
         });
 
         const btnCreatePlaylist = createElement('button', {
             id: 'ypp-create-playlist-btn',
             className: 'ypp-btn ypp-btn-outline-secondary ypp-shadow-md',
             html: `${SVG_ICONS.playlist} ${t('createPlaylist')}`,
-            onClickEvent: async () => { await togglePlaylistCreationMode(); }
+            onClickEvent: async () => { await togglePlaylistCreationMode(); },
+            store: ModalDisposables
         });
 
         const btnSettings = createElement('button', {
             id: 'ypp-settings-btn',
             className: 'ypp-btn ypp-btn-outline-primary ypp-shadow-md',
             html: `${SVG_ICONS.settingsFill} ${t('settings')}`,
-            onClickEvent: async () => { await showSettingsUI(); }
+            onClickEvent: async () => { await showSettingsUI(); },
+            store: ModalDisposables
         });
 
         const btnClose = createElement('button', {
             className: 'ypp-btn ypp-btn-secondary',
             html: `${SVG_ICONS.close} ${t('close')}`,
             attributes: { 'aria-label': t('close') },
-            onClickEvent: closeModalVideos
+            onClickEvent: closeModalVideos,
+            store: ModalDisposables
         });
 
         secondRow.appendChild(btnToggleManagement);
@@ -16375,8 +16450,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const handleOverlayClick = (e) => {
             if (e.target === videosOverlay) closeModalVideos();
         };
-        modalVisibilityListeners.push({ target: videosOverlay, event: 'click', handler: handleOverlayClick });
-        videosOverlay.addEventListener('click', handleOverlayClick);
+        addDisposableListener(videosOverlay, 'click', handleOverlayClick, {}, ModalDisposables);
         document.body.appendChild(videosOverlay);
         document.body.appendChild(videosContainer);
 
@@ -16674,11 +16748,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 html: `${def.toolbarIconHtml()} ${escapeHTML(label)}`,
                 attributes: { type: 'button', role: 'menuitem' }
             });
-            opt.addEventListener('click', async (ev) => {
+            addDisposableListener(opt, 'click', async (ev) => {
                 ev.stopPropagation();
                 closeSavedVideoOverflowMenu();
                 await def.run({ ...ctx, videoId, button: opt, event: ev });
-            });
+            }, {}, ModalDisposables);
             menu.appendChild(opt);
         }
 
@@ -16894,35 +16968,97 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             sectionToggle.setAttribute('aria-expanded', ex ? 'true' : 'false');
         };
 
-        sectionToggle.addEventListener('click', (ev) => {
+        addDisposableListener(sectionToggle, 'click', (ev) => {
             ev.stopPropagation();
             cachedSavedVideosModalSettings.toolbarSectionExpanded = !cachedSavedVideosModalSettings.toolbarSectionExpanded;
             syncSectionExpanded();
             void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-        });
+        }, {}, ModalDisposables);
 
-        const makeToggleRow = (labelKey, ids) => {
+        const makeToggleRow = (labelKey, ids, groupKey) => {
             const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
             row.appendChild(createElement('span', {
                 className: 'ypp-saved-videos-toolbar-row-label',
                 text: t(labelKey)
             }));
-            const chips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
+            const chips = createElement('div', {
+                className: 'ypp-saved-videos-toolbar-toggles',
+                attributes: { 'data-group-key': groupKey }
+            });
+
+            // Drag & Drop handlers for the container
+            addDisposableListener(chips, 'dragover', (ev) => {
+                ev.preventDefault();
+                chips.classList.add('drag-over');
+                ev.dataTransfer.dropEffect = 'move';
+            }, {}, ModalDisposables);
+            addDisposableListener(chips, 'dragleave', () => chips.classList.remove('drag-over'), {}, ModalDisposables);
+            addDisposableListener(chips, 'drop', (ev) => {
+                ev.preventDefault();
+                chips.classList.remove('drag-over');
+                const actionId = ev.dataTransfer.getData('text/plain');
+                if (!actionId) return;
+
+                // Find insertion index
+                const children = [...chips.children];
+                let insertIndex = children.length;
+                for (let i = 0; i < children.length; i++) {
+                    const rect = children[i].getBoundingClientRect();
+                    if (ev.clientX < rect.left + rect.width / 2) {
+                        insertIndex = i;
+                        break;
+                    }
+                }
+
+                // Update settings arrays
+                const oldQA = cachedSavedVideosModalSettings.quickAccess || [];
+                const oldAct = cachedSavedVideosModalSettings.actions || [];
+
+                // Remove from everywhere to be sure
+                cachedSavedVideosModalSettings.quickAccess = oldQA.filter(id => id !== actionId);
+                cachedSavedVideosModalSettings.actions = oldAct.filter(id => id !== actionId);
+
+                // Insert into target group
+                if (groupKey === 'quickAccess') {
+                    cachedSavedVideosModalSettings.quickAccess.splice(insertIndex, 0, actionId);
+                } else {
+                    cachedSavedVideosModalSettings.actions.splice(insertIndex, 0, actionId);
+                }
+
+                // Persist and refresh UI
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                const newToolbar = mountSavedVideosModalActionsToolbar(container);
+                wrap.replaceWith(newToolbar);
+
+                // Refresh video list to reflect new order
+                void updateVideoList();
+            }, {}, ModalDisposables);
+
             for (const id of ids) {
                 const def = SAVED_VIDEO_ACTIONS_BY_ID[id];
                 if (!def) continue;
                 const on = cachedSavedVideosModalSettings.actionVisibility[id] !== false;
                 const btn = createElement('button', {
-                    className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'is-active' : 'is-inactive'}`,
+                    className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'}`,
                     html: def.toolbarIconHtml(),
                     attributes: {
                         type: 'button',
                         title: t(def.labelKey),
                         'aria-pressed': on ? 'true' : 'false',
-                        'data-toolbar-action-id': id
+                        'data-toolbar-action-id': id,
+                        draggable: 'true'
                     }
                 });
-                btn.addEventListener('click', (ev) => {
+
+                addDisposableListener(btn, 'dragstart', (ev) => {
+                    ev.dataTransfer.setData('text/plain', id);
+                    ev.dataTransfer.effectAllowed = 'move';
+                    // Delay adding class to avoid ghost image being affected
+                    setTimeout(() => btn.classList.add('dragging'), 0);
+                }, {}, ModalDisposables);
+                addDisposableListener(btn, 'dragend', () => btn.classList.remove('dragging'), {}, ModalDisposables);
+
+                addDisposableListener(btn, 'click', (ev) => {
                     ev.stopPropagation();
                     const curOff = cachedSavedVideosModalSettings.actionVisibility[id] === false;
                     if (curOff) {
@@ -16931,20 +17067,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         cachedSavedVideosModalSettings.actionVisibility[id] = false;
                     }
                     const nextOn = cachedSavedVideosModalSettings.actionVisibility[id] !== false;
+                    btn.classList.toggle('ypp-btn-primary', nextOn);
                     btn.classList.toggle('is-active', nextOn);
+                    btn.classList.toggle('ypp-btn-outline-primary', !nextOn);
                     btn.classList.toggle('is-inactive', !nextOn);
                     btn.setAttribute('aria-pressed', nextOn ? 'true' : 'false');
                     applySavedVideoActionDatasetToVideosContainer(container);
                     void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                });
+
+                    // Refresh video list to reflect new order/visibility
+                    void updateVideoList();
+                }, {}, ModalDisposables);
                 chips.appendChild(btn);
             }
             row.appendChild(chips);
             return row;
         };
 
-        inner.appendChild(makeToggleRow('savedVideosToolbarQuickAccess', settings.quickAccess));
-        inner.appendChild(makeToggleRow('savedVideosToolbarActions', settings.actions));
+        inner.appendChild(makeToggleRow('savedVideosToolbarQuickAccess', settings.quickAccess, 'quickAccess'));
+        inner.appendChild(makeToggleRow('savedVideosToolbarActions', settings.actions, 'actions'));
 
         const opacityRow = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-row' });
         opacityRow.appendChild(createElement('span', {
@@ -16960,22 +17101,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const syncOpacityActive = () => {
             const cur = cachedSavedVideosModalSettings.entryButtonOpacityMode || 'full';
             opacityBtns.querySelectorAll('button[data-opacity-mode]').forEach((b) => {
-                b.classList.toggle('ypp-saved-videos-opacity-active', b.dataset.opacityMode === cur);
+                const active = b.dataset.opacityMode === cur;
+                b.classList.toggle('ypp-btn-primary', active);
+                b.classList.toggle('ypp-btn-outline-primary', !active);
             });
         };
         for (const { key, label } of modes) {
             const b = createElement('button', {
-                className: 'ypp-btn ypp-btn-outline-secondary',
+                className: 'ypp-btn ypp-btn-sm',
                 text: label,
                 attributes: { type: 'button', 'data-opacity-mode': key }
             });
-            b.addEventListener('click', (ev) => {
+            addDisposableListener(b, 'click', (ev) => {
                 ev.stopPropagation();
                 cachedSavedVideosModalSettings.entryButtonOpacityMode = key;
                 applySavedVideoActionDatasetToVideosContainer(container);
                 void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
                 syncOpacityActive();
-            });
+            }, {}, ModalDisposables);
             opacityBtns.appendChild(b);
         }
         syncOpacityActive();
@@ -16989,7 +17132,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }));
         const overflowChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
         const overflowBtn = createElement('button', {
-            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ${cachedSavedVideosModalSettings.showOverflowMenu ? 'is-active' : 'is-inactive'}`,
+            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ${cachedSavedVideosModalSettings.showOverflowMenu ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'}`,
             text: '⋯',
             attributes: {
                 type: 'button',
@@ -16997,16 +17140,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 'aria-pressed': cachedSavedVideosModalSettings.showOverflowMenu ? 'true' : 'false'
             }
         });
-        overflowBtn.addEventListener('click', (ev) => {
+        addDisposableListener(overflowBtn, 'click', (ev) => {
             ev.stopPropagation();
             cachedSavedVideosModalSettings.showOverflowMenu = !cachedSavedVideosModalSettings.showOverflowMenu;
             const on = cachedSavedVideosModalSettings.showOverflowMenu;
+            overflowBtn.classList.toggle('ypp-btn-primary', on);
             overflowBtn.classList.toggle('is-active', on);
+            overflowBtn.classList.toggle('ypp-btn-outline-primary', !on);
             overflowBtn.classList.toggle('is-inactive', !on);
             overflowBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
             applySavedVideoActionDatasetToVideosContainer(container);
             void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-        });
+        }, {}, ModalDisposables);
         overflowChips.appendChild(overflowBtn);
         overflowRow.appendChild(overflowChips);
         inner.appendChild(overflowRow);
@@ -17024,7 +17169,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {HTMLElement} container
      */
     const setupModalEventDelegation = (container) => {
-        container.addEventListener('click', async (e) => {
+        addDisposableListener(container, 'click', async (e) => {
             if (e.target.matches('.ypp-video-checkbox')) {
                 e.stopPropagation();
                 const videoId = e.target.dataset.videoId;
@@ -17063,7 +17208,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     ...rowElToSavedVideoActionContext(item, videoId)
                 });
             }
-        });
+        }, {}, ModalDisposables);
     };
 
     /* Cache para URLs de miniaturas validadas para evitar re-validaciones durante el scroll */
@@ -17329,17 +17474,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             isProtected
         };
 
-        const buttonsChildren = [];
-        const orderedSlotIds = [...(modalToolbar.quickAccess || []), ...(modalToolbar.actions || [])];
-        for (const actionId of orderedSlotIds) {
+        const createButtonForId = (actionId) => {
             const def = SAVED_VIDEO_ACTIONS_BY_ID[actionId];
-            if (!def) continue;
-            if (!def.isAvailable(actionCtx)) continue;
+            if (!def || !def.isAvailable(actionCtx)) return null;
+
+            // Evitar renderizar si el usuario lo ocultó en ajustes, ayuda a centrar botones si otra fila no tiene botones
+            if (modalToolbar.actionVisibility && modalToolbar.actionVisibility[actionId] === false) {
+                return null;
+            }
+
             const spec = def.buildPrimaryButton(actionCtx);
-            if (!spec) continue;
-            const baseClass = spec.className || '';
-            buttonsChildren.push(createElement('button', {
-                className: `${baseClass} ypp-saved-video-entry-action`.trim(),
+            if (!spec) return null;
+            return createElement('button', {
+                className: `${spec.className || ''} ypp-saved-video-entry-action`.trim(),
                 html: spec.html,
                 attributes: {
                     type: 'button',
@@ -17347,7 +17494,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     'data-action': def.dataAction,
                     'data-action-id': actionId
                 }
-            }));
+            });
+        };
+
+        const qaButtons = (modalToolbar.quickAccess || []).map(id => createButtonForId(id)).filter(Boolean);
+        const actButtons = (modalToolbar.actions || []).map(id => createButtonForId(id)).filter(Boolean);
+
+        const buttonsChildren = [];
+        if (qaButtons.length > 0) {
+            buttonsChildren.push(createElement('div', { className: 'ypp-buttons-row ypp-qa-row', children: qaButtons }));
+        }
+        if (actButtons.length > 0) {
+            buttonsChildren.push(createElement('div', { className: 'ypp-buttons-row ypp-act-row', children: actButtons }));
         }
 
         buttonsChildren.push(createElement('button', {
@@ -17897,12 +18055,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const debouncedNavigation = debounce(handleNavigation, 100);
 
             // 1. Escuchar eventos estándar de YouTube
-            globalNavigationListeners.push(
-                { target: window, event: 'yt-navigate-finish', handler: debouncedNavigation },
-                { target: document, event: 'yt-page-data-updated', handler: debouncedNavigation }
-            );
-            window.addEventListener('yt-navigate-finish', debouncedNavigation);
-            document.addEventListener('yt-page-data-updated', debouncedNavigation);
+            addDisposableListener(window, 'yt-navigate-finish', debouncedNavigation);
+            addDisposableListener(document, 'yt-page-data-updated', debouncedNavigation);
 
             // 2. Inicializar YouTube Helper API y escuchar sus actualizaciones "silenciosas"
             try {
@@ -17921,13 +18075,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 if (YTHelper) {
                     // Registrar listener persistente que ahora comparte el mismo flujo debounced
-                    YTHelperListener = () => {
+                    addDisposableListener(YTHelper.eventTarget, 'yt-helper-api-ready', () => {
                         logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
                         debouncedNavigation();
-                    };
-
-                    YTHelper.eventTarget.addEventListener('yt-helper-api-ready', YTHelperListener);
-                    logInfo('YTHelper', 'Registra evento yt-helper-api-ready');
+                    });
+                    logInfo('YTHelper', 'Registrado listener persistente para yt-helper-api-ready');
                 } else {
                     logError('YTHelper', 'Referencia a YouTube Helper API no obtenida');
                 }

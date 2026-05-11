@@ -489,6 +489,18 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "recalculateStorageTooltip": "Recalculate storage usage",
             "openInFreeTube": "Open in FreeTube",
             "searchInSpotify": "Search in Spotify",
+            "savedVideosToolbarQuickAccess": "Quick access",
+            "savedVideosToolbarActions": "Actions",
+            "savedVideosToolbarEntryOpacity": "Row button visibility",
+            "savedVideosToolbarEntryOpacityFull": "Always visible",
+            "savedVideosToolbarEntryOpacityDim": "Dim until hover",
+            "savedVideosToolbarEntryOpacityHidden": "Hidden until hover",
+            "savedVideosToolbarMaxSlotsReached": "You can pin at most 5 actions per row.",
+            "savedVideosMoreActions": "More actions",
+            "savedVideosToolbarSectionTitle": "Row actions & visibility",
+            "savedVideosToolbarSectionToggleTitle": "Expand or collapse row action settings",
+            "savedVideosToolbarShowOverflowButton": "More actions (⋯) button",
+            "savedVideosToolbarShowOverflowHint": "When off, the ⋯ button is hidden on each row. Pinned actions remain controlled by the toggles above.",
             "importingFromFreeTube": "Importing from FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importing from FreeTube as SQLite...",
             "videosImported": "videos imported",
@@ -717,6 +729,18 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "recalculateStorageTooltip": "Recalcular el uso de almacenamiento",
             "openInFreeTube": "Abrir en FreeTube",
             "searchInSpotify": "Buscar en Spotify",
+            "savedVideosToolbarQuickAccess": "Acceso rápido",
+            "savedVideosToolbarActions": "Acciones",
+            "savedVideosToolbarEntryOpacity": "Visibilidad de botones en filas",
+            "savedVideosToolbarEntryOpacityFull": "Siempre visibles",
+            "savedVideosToolbarEntryOpacityDim": "Atenuar hasta pasar el cursor",
+            "savedVideosToolbarEntryOpacityHidden": "Ocultar hasta pasar el cursor",
+            "savedVideosToolbarMaxSlotsReached": "Como máximo 5 acciones por fila.",
+            "savedVideosMoreActions": "Más acciones",
+            "savedVideosToolbarSectionTitle": "Acciones en filas y visibilidad",
+            "savedVideosToolbarSectionToggleTitle": "Desplegar u ocultar ajustes de acciones en filas",
+            "savedVideosToolbarShowOverflowButton": "Botón Más acciones (⋯)",
+            "savedVideosToolbarShowOverflowHint": "Mostrar u ocultar el botón de menú en cada fila (las acciones ancladas siguen gobernadas por los interruptores de arriba).",
             "importingFromFreeTube": "Importando desde FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importando desde FreeTube como SQLite...",
             "videosImported": "videos importados",
@@ -945,6 +969,18 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "recalculateStorageTooltip": "Recalculer l'utilisation du stockage",
             "openInFreeTube": "Ouvrir dans FreeTube",
             "searchInSpotify": "Rechercher dans Spotify",
+            "savedVideosToolbarQuickAccess": "Accès rapide",
+            "savedVideosToolbarActions": "Actions",
+            "savedVideosToolbarEntryOpacity": "Visibilité des boutons sur les lignes",
+            "savedVideosToolbarEntryOpacityFull": "Toujours visibles",
+            "savedVideosToolbarEntryOpacityDim": "Atténuer jusqu'au survol",
+            "savedVideosToolbarEntryOpacityHidden": "Masquer jusqu'au survol",
+            "savedVideosToolbarMaxSlotsReached": "5 actions maximum par ligne.",
+            "savedVideosMoreActions": "Plus d'actions",
+            "savedVideosToolbarSectionTitle": "Actions des lignes et visibilité",
+            "savedVideosToolbarSectionToggleTitle": "Déplier ou replier les réglages d'actions sur les lignes",
+            "savedVideosToolbarShowOverflowButton": "Bouton Plus d'actions (⋯)",
+            "savedVideosToolbarShowOverflowHint": "Afficher ou masquer le bouton de menu sur chaque ligne (les actions épinglées restent réglées par les interrupteurs ci-dessus).",
             "importingFromFreeTube": "Importation depuis FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importation depuis FreeTube en tant que SQLite...",
             "videosImported": "vidéos importées",
@@ -1108,7 +1144,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             filters: 'YT_PLAYBACK_PLOX_userFilters',
             github: 'YT_PLAYBACK_PLOX_githubSettings',
             migration: 'YT_PLAYBACK_PLOX_migrationVersion',
-            translations: 'YT_PLAYBACK_PLOX_translations_cache'
+            translations: 'YT_PLAYBACK_PLOX_translations_cache',
+            buttonsSavedVideosEntries: 'YT_PLAYBACK_PLOX_buttonsSavedVideosEntries'
         },
 
         /* Default values for user settings */
@@ -1169,6 +1206,28 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             maxViews: 0,
             minPercent: 0,
             maxPercent: 100
+        },
+
+        /**
+         * Defaults for saved-videos modal UI only (separate from user script settings).
+         * @type {{
+         *   quickAccess: string[],
+         *   actions: string[],
+         *   actionVisibility: Record<string, boolean>,
+         *   entryButtonOpacityMode: 'full'|'dimUntilHover'|'hiddenUntilHover',
+         *   inactiveToolbarOpacity: number,
+         *   toolbarSectionExpanded: boolean,
+         *   showOverflowMenu: boolean
+         * }}
+         */
+        defaultSavedVideosModalSettings: {
+            quickAccess: ['qa-freetube', 'qa-spotify'],
+            actions: ['force-time', 'unlink-playlist', 'toggle-protection', 'delete-entry'],
+            actionVisibility: {},
+            entryButtonOpacityMode: 'full',
+            inactiveToolbarOpacity: 0.7,
+            toolbarSectionExpanded: false,
+            showOverflowMenu: true
         }
     };
 
@@ -2690,6 +2749,160 @@ regular-item.ypp-fill-none {
 .ypp-filters-toggle-btn.active {
     background: var(--ypp-primary);
     color: var(--ypp-white);
+}
+
+.ypp-saved-videos-toolbar-wrap {
+    position: relative;
+    z-index: 9;
+    border-bottom: 1px solid var(--ypp-border);
+}
+
+.ypp-saved-videos-toolbar-section-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: var(--ypp-spacing-sm) var(--ypp-spacing-lg);
+    border: none;
+    background: var(--ypp-bg);
+    color: var(--ypp-text);
+    cursor: pointer;
+    font-size: 1.05rem;
+    text-align: left;
+    transition: background 0.2s ease;
+}
+
+.ypp-saved-videos-toolbar-section-toggle:hover {
+    background: var(--ypp-bg-secondary);
+}
+
+.ypp-saved-videos-toolbar-section-toggle.active {
+    background: var(--ypp-bg-secondary);
+}
+
+.ypp-saved-videos-toolbar-chevron {
+    display: inline-flex;
+    transition: transform 0.25s ease;
+    flex-shrink: 0;
+}
+
+.ypp-saved-videos-toolbar-section-toggle.active .ypp-saved-videos-toolbar-chevron {
+    transform: rotate(180deg);
+}
+
+.ypp-saved-videos-actions-toolbar-body {
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.35s ease, opacity 0.25s ease;
+    max-height: 0;
+    opacity: 0;
+    padding: 0 var(--ypp-spacing-lg);
+    overflow: hidden;
+    pointer-events: none;
+}
+
+.ypp-saved-videos-actions-toolbar-body.expanded {
+    max-height: 480px;
+    opacity: 1;
+    padding: var(--ypp-spacing-sm) var(--ypp-spacing-lg) var(--ypp-spacing-md);
+    pointer-events: auto;
+}
+
+.ypp-saved-videos-actions-toolbar-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.ypp-saved-videos-toolbar-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ypp-saved-videos-toolbar-row-label {
+    min-width: 100px;
+    font-size: 0.85rem;
+    color: var(--ypp-text-secondary);
+}
+
+.ypp-saved-videos-toolbar-toggles {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.ypp-saved-videos-toolbar-toggle.is-inactive {
+    opacity: var(--ypp-toolbar-inactive-opacity, 0.7);
+}
+
+.ypp-saved-videos-toolbar-opacity-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ypp-saved-videos-toolbar-opacity-btns {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.ypp-saved-videos-opacity-active {
+    box-shadow: inset 0 0 0 2px var(--ypp-primary);
+    border-radius: 6px;
+}
+
+.ypp-saved-video-overflow-menu {
+    background: var(--ypp-bg);
+    border: 1px solid var(--ypp-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+    padding: 4px 0;
+}
+
+.ypp-videosContainer[data-ypp-act-force_time="off"] .ypp-video-item [data-action-id="force-time"] {
+    display: none !important;
+}
+
+.ypp-videosContainer[data-ypp-act-unlink_playlist="off"] .ypp-video-item [data-action-id="unlink-playlist"] {
+    display: none !important;
+}
+
+.ypp-videosContainer[data-ypp-act-toggle_protection="off"] .ypp-video-item [data-action-id="toggle-protection"] {
+    display: none !important;
+}
+
+.ypp-videosContainer[data-ypp-act-delete_entry="off"] .ypp-video-item [data-action-id="delete-entry"] {
+    display: none !important;
+}
+
+.ypp-videosContainer[data-ypp-act-qa_freetube="off"] .ypp-video-item [data-action-id="qa-freetube"] {
+    display: none !important;
+}
+
+.ypp-videosContainer[data-ypp-act-qa_spotify="off"] .ypp-video-item [data-action-id="qa-spotify"] {
+    display: none !important;
+}
+
+.ypp-videosContainer[data-entry-action-opacity="dim"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
+    opacity: 0.7;
+}
+
+.ypp-videosContainer[data-entry-action-opacity="dim"] .ypp-containerButtonsTime:hover .ypp-btn-circle.ypp-saved-video-entry-action {
+    opacity: 1;
+}
+
+.ypp-videosContainer[data-entry-action-opacity="hidden"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
+    opacity: 0;
+}
+
+.ypp-videosContainer[data-entry-action-opacity="hidden"] .ypp-containerButtonsTime:hover .ypp-btn-circle.ypp-saved-video-entry-action {
+    opacity: 1;
+}
+
+.ypp-videosContainer[data-ypp-overflow-menu="off"] .ypp-saved-video-overflow-trigger {
+    display: none !important;
 }
 
 .ypp-active-filter-badge {
@@ -5807,6 +6020,69 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
     };
 
+    /**
+     * Normalizes persisted saved-videos modal UI settings (own storage key).
+     * @param {object|null|undefined} raw
+     * @returns {typeof CONFIG.defaultSavedVideosModalSettings}
+     */
+    const normalizeSavedVideosModalSettings = (raw) => {
+        const d = CONFIG.defaultSavedVideosModalSettings;
+        const src = raw && typeof raw === 'object' ? raw : {};
+        const merged = { ...d, ...src };
+        merged.quickAccess = Array.isArray(merged.quickAccess)
+            ? merged.quickAccess.slice(0, 5)
+            : [...d.quickAccess];
+        merged.actions = Array.isArray(merged.actions)
+            ? merged.actions.slice(0, 5)
+            : [...d.actions];
+        merged.actionVisibility = typeof merged.actionVisibility === 'object' && merged.actionVisibility !== null
+            ? { ...merged.actionVisibility }
+            : {};
+        const mode = merged.entryButtonOpacityMode;
+        merged.entryButtonOpacityMode = (mode === 'full' || mode === 'dimUntilHover' || mode === 'hiddenUntilHover')
+            ? mode
+            : d.entryButtonOpacityMode;
+        const op = Number(merged.inactiveToolbarOpacity);
+        merged.inactiveToolbarOpacity = Number.isFinite(op) && op >= 0 && op <= 1 ? op : d.inactiveToolbarOpacity;
+        merged.toolbarSectionExpanded = typeof merged.toolbarSectionExpanded === 'boolean'
+            ? merged.toolbarSectionExpanded
+            : d.toolbarSectionExpanded;
+        merged.showOverflowMenu = typeof merged.showOverflowMenu === 'boolean'
+            ? merged.showOverflowMenu
+            : d.showOverflowMenu;
+        return merged;
+    };
+
+    /**
+     * Loads saved-videos modal UI settings from dedicated storage.
+     * @returns {Promise<typeof CONFIG.defaultSavedVideosModalSettings>}
+     */
+    const getSavedVideosModalSettings = async () => {
+        try {
+            const raw = await Storage.get(CONFIG.STORAGE_KEYS.buttonsSavedVideosEntries);
+            if (raw && typeof raw === 'object') {
+                return normalizeSavedVideosModalSettings(raw);
+            }
+            return normalizeSavedVideosModalSettings(null);
+        } catch (error) {
+            logError('getSavedVideosModalSettings', 'Error loading saved videos modal settings:', error);
+            return normalizeSavedVideosModalSettings(null);
+        }
+    };
+
+    /**
+     * Persists saved-videos modal UI settings.
+     * @param {typeof CONFIG.defaultSavedVideosModalSettings} settings
+     * @returns {Promise<void>}
+     */
+    const setSavedVideosModalSettings = async (settings) => {
+        try {
+            await Storage.set(CONFIG.STORAGE_KEYS.buttonsSavedVideosEntries, normalizeSavedVideosModalSettings(settings));
+        } catch (error) {
+            logError('setSavedVideosModalSettings', 'Error saving saved videos modal settings:', error);
+        }
+    };
+
     const getFilters = async () => {
         try {
             const raw = await Storage.get(CONFIG.STORAGE_KEYS.filters);
@@ -6452,7 +6728,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     * @param {string} [options.html] - HTML interno del elemento (usa setInnerHTML seguro).
     * @param {Function} [options.onClickEvent] - Función legacy para el evento click.
     * @param {Object.<string, Function>} [options.events] - Eventos a añadir, e.g., { click: fn, mouseover: fn }.
-    * @param {Object.<string, string>} [options.atribute] - Atributos HTML a añadir, e.g., { src: 'img.png' }.
+    * @param {Object.<string, string>} [options.attributes] - Atributos HTML a añadir, e.g., { src: 'img.png' }.
     * @param {Object.<string, any>} [options.props] - Propiedades del elemento, e.g., { value: '123' }.
     * @param {Object.<string, string>} [options.styles] - Estilos CSS a aplicar, e.g., { color: 'red', fontSize: '14px' }.
     * @param {Array<string|Node>} [options.children] - Hijos a añadir al elemento, strings o nodos.
@@ -15164,6 +15440,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     /** @type {Function|null} Referencia al handler de playlist para cleanup */
     let playlistRefreshHandler = null;
 
+    /** @type {typeof CONFIG.defaultSavedVideosModalSettings|null} UI del modal de videos (clave de storage dedicada) */
+    let cachedSavedVideosModalSettings = null;
+
+    /** @type {HTMLElement|null} Menú overflow de acciones por fila (un solo nodo) */
+    let savedVideoOverflowMenuEl = null;
+
+    /** @type {((ev: Event) => void)|null} */
+    let savedVideoOverflowDocHandler = null;
+
     /** @constant {number} Altura estimada de cada item de video en px. Se usa para calcular posiciones en el virtual scroller. */
     const VIDEO_ITEM_HEIGHT = 120;
 
@@ -15600,6 +15885,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     function closeModalVideos() {
+        closeSavedVideoOverflowMenu();
+
         // Destruir VirtualScroller para liberar recursos
         if (virtualScroller) {
             virtualScroller.destroy();
@@ -15951,6 +16238,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         topRow.appendChild(searchContainer);
         videosContainer.appendChild(topRow);
 
+        cachedSavedVideosModalSettings = await getSavedVideosModalSettings();
+        videosContainer.appendChild(mountSavedVideosModalActionsToolbar(videosContainer));
+        applySavedVideoActionDatasetToVideosContainer(videosContainer);
+
         // Collapsible Advanced Section
         const advancedSection = createElement('div', { className: 'ypp-filters-advanced' });
         const filtersGrid = createElement('div', { className: 'ypp-filters-grid' });
@@ -16248,6 +16539,490 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         });
     }
 
+    async function handleToggleProtectionAction(videoId) {
+        const info = await Storage.get(videoId);
+
+        if (!info) {
+            logWarn('handleToggleProtectionAction', `No se encontró información para el video ${videoId}`);
+            return;
+        }
+
+        info.isProtected = !info.isProtected;
+        await Storage.set(videoId, info);
+
+        const msg = info.isProtected
+            ? `${SVG_ICONS.shieldYesFill} ${t('protected')}`
+            : `${SVG_ICONS.shieldOff} ${t('unprotected')}`;
+        showFloatingToast(msg);
+
+        await updateVideoList();
+    }
+
+    /**
+     * Normaliza el título del video para búsqueda en Spotify (misma heurística que el botón legacy).
+     * @param {string} rawTitle
+     * @returns {string}
+     */
+    const cleanTitleForSpotifySearch = (rawTitle) => {
+        if (!rawTitle) return '';
+        let c = rawTitle.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '')
+            // Removes common YouTube metadata (e.g., "Official Video", "Lyrics", "HD", "4K", etc.)
+            .replace(/\b(official\s*video|music\s*video|lyrics?|hd|4k|audio|remastered)\b/gi, '')
+
+            // Removes trailing context like "Live at ..." or "From ..." (often not part of track title)
+            .replace(/live\s+at.+$/i, '')
+            .replace(/from\s+.+$/i, '')
+
+            // Removes platform-specific suffixes like "- YouTube"
+            .replace(/\s*-\s*YouTube.*$/i, '')
+
+            // Normalizes different quote styles to standard double quotes
+            .replace(/["‘’“”]/g, '"')
+
+            // Removes "- Topic" suffix (auto-generated YouTube channels)
+            .replace(/\s*-\s*Topic.*$/i, '')
+
+            // Collapses extra whitespace and trims the result
+            .replace(/\s+/g, ' ')
+            .trim();
+        const q = c.match(/"([^"]+)"/);
+        if (q && q[1]) {
+            const a = c.split('"')[0].trim().replace(/[-–]+$/, '').trim();
+            return a ? `${a} - ${q[1]}` : q[1];
+        }
+        const p = c.split(/[-–—]+/).map((x) => x.trim()).filter(Boolean);
+        return p.length >= 2 ? `${p[0]} - ${p[1]}` : c;
+    };
+
+    /**
+     * Sufijo estable para atributos data-ypp-act-* en el contenedor del modal.
+     * @param {string} actionId
+     * @returns {string}
+     */
+    const savedVideoActionIdToAttrSuffix = (actionId) =>
+        String(actionId).replace(/[^a-z0-9_-]+/gi, '_').replace(/-/g, '_');
+
+    /**
+     * Cierra el menú overflow de acciones del modal de videos (si está abierto).
+     */
+    const closeSavedVideoOverflowMenu = () => {
+        if (savedVideoOverflowDocHandler) {
+            document.removeEventListener('click', savedVideoOverflowDocHandler, true);
+            savedVideoOverflowDocHandler = null;
+        }
+        if (savedVideoOverflowMenuEl) {
+            savedVideoOverflowMenuEl.remove();
+            savedVideoOverflowMenuEl = null;
+        }
+    };
+
+    /**
+     * Reconstruye el contexto mínimo para isAvailable/run desde la fila del DOM.
+     * @param {HTMLElement} itemEl
+     * @param {string} videoId
+     * @returns {object}
+     */
+    const rowElToSavedVideoActionContext = (itemEl, videoId) => {
+        const isLiveEntry = itemEl.dataset.yppIsLive === '1';
+        const lastViewedPlaylistId = itemEl.dataset.yppLastPlaylistId || '';
+        const rawTitle = itemEl.dataset.yppTitle || '';
+        const videoUrl = itemEl.dataset.yppVideoUrl || '';
+        const forceResume = Number(itemEl.dataset.yppForceResume) || 0;
+        const isProtected = itemEl.classList.contains('ypp-protected-item');
+        const minimalInfo = {
+            title: rawTitle,
+            isLive: isLiveEntry,
+            lastViewedPlaylistId: lastViewedPlaylistId || null,
+            forceResumeTime: forceResume,
+            isProtected
+        };
+        return {
+            videoId,
+            videoUrl,
+            rawTitle,
+            title: rawTitle,
+            isLiveEntry,
+            lastViewedPlaylistId: lastViewedPlaylistId || null,
+            item: { info: minimalInfo },
+            info: minimalInfo,
+            hasFixedTime: forceResume > 0,
+            isProtected
+        };
+    };
+
+    /**
+     * Abre el menú lazy de todas las acciones disponibles para la fila.
+     * @param {HTMLElement} triggerBtn
+     * @param {string} videoId
+     * @param {HTMLElement} itemEl
+     */
+    const openSavedVideosRowActionMenu = (triggerBtn, videoId, itemEl) => {
+        closeSavedVideoOverflowMenu();
+        const ctx = rowElToSavedVideoActionContext(itemEl, videoId);
+        const menu = createElement('div', {
+            className: 'ypp-saved-video-overflow-menu',
+            attributes: { role: 'menu' }
+        });
+
+        const menuOrder = ['qa-freetube', 'qa-spotify', 'force-time', 'unlink-playlist', 'toggle-protection', 'delete-entry'];
+        for (const id of menuOrder) {
+            const def = SAVED_VIDEO_ACTIONS_BY_ID[id];
+            if (!def || !def.isAvailable(ctx)) continue;
+            const label = t(def.labelKey);
+            const opt = createElement('button', {
+                className: 'ypp-btn ypp-btn-outline-secondary ypp-footer-action-menu-option',
+                html: `${def.toolbarIconHtml()} ${escapeHTML(label)}`,
+                attributes: { type: 'button', role: 'menuitem' }
+            });
+            opt.addEventListener('click', async (ev) => {
+                ev.stopPropagation();
+                closeSavedVideoOverflowMenu();
+                await def.run({ ...ctx, videoId, button: opt, event: ev });
+            });
+            menu.appendChild(opt);
+        }
+
+        document.body.appendChild(menu);
+        savedVideoOverflowMenuEl = menu;
+        const rect = triggerBtn.getBoundingClientRect();
+        menu.style.position = 'fixed';
+        menu.style.zIndex = '100002';
+        menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 228))}px`;
+        menu.style.top = `${rect.bottom + 6}px`;
+        menu.style.maxHeight = 'min(70vh, 420px)';
+        menu.style.overflowY = 'auto';
+        menu.style.minWidth = '200px';
+
+        savedVideoOverflowDocHandler = (ev) => {
+            if (menu.contains(ev.target) || triggerBtn.contains(ev.target)) return;
+            closeSavedVideoOverflowMenu();
+        };
+        setTimeout(() => document.addEventListener('click', savedVideoOverflowDocHandler, true), 0);
+    };
+
+    /**
+     * Aplica data-* de visibilidad y opacidad en el contenedor del modal (sin re-render de la lista).
+     * @param {HTMLElement|null} container
+     * @param {typeof CONFIG.defaultSavedVideosModalSettings|null} [settings=cachedSavedVideosModalSettings]
+     */
+    const applySavedVideoActionDatasetToVideosContainer = (container, settings = cachedSavedVideosModalSettings) => {
+        if (!container || !settings) return;
+        const ids = [...new Set([...(settings.quickAccess || []), ...(settings.actions || [])])];
+        for (const id of ids) {
+            const vis = settings.actionVisibility[id] !== false;
+            container.setAttribute(`data-ypp-act-${savedVideoActionIdToAttrSuffix(id)}`, vis ? 'on' : 'off');
+        }
+        const mode = settings.entryButtonOpacityMode || 'full';
+        const map = { full: 'full', dimUntilHover: 'dim', hiddenUntilHover: 'hidden' };
+        container.setAttribute('data-entry-action-opacity', map[mode] || 'full');
+        container.setAttribute('data-ypp-overflow-menu', settings.showOverflowMenu !== false ? 'on' : 'off');
+    };
+
+    /** @type {Record<string, { id: string, group: string, dataAction: string, labelKey: string, toolbarIconHtml: () => string, isAvailable: (ctx: object) => boolean, buildPrimaryButton: (ctx: object) => object|null, run: (ctx: object) => Promise<void> }>} */
+    const SAVED_VIDEO_ACTIONS_BY_ID = {
+        'qa-freetube': {
+            id: 'qa-freetube',
+            group: 'quickAccess',
+            dataAction: 'qa-freetube',
+            labelKey: 'openInFreeTube',
+            toolbarIconHtml: () => SVG_ICONS.freetubeIconFill,
+            isAvailable: () => true,
+            buildPrimaryButton() {
+                return {
+                    className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md',
+                    html: SVG_ICONS.freetubeIconFill,
+                    attributes: { type: 'button', title: t('openInFreeTube') }
+                };
+            },
+            async run(ctx) {
+                if (ctx.event) ctx.event.preventDefault();
+                window.location.assign(`freetube://${ctx.videoUrl}`);
+            }
+        },
+        'qa-spotify': {
+            id: 'qa-spotify',
+            group: 'quickAccess',
+            dataAction: 'qa-spotify',
+            labelKey: 'searchInSpotify',
+            toolbarIconHtml: () => SVG_ICONS.spotifyIconFill,
+            isAvailable: () => true,
+            buildPrimaryButton() {
+                return {
+                    className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md',
+                    html: SVG_ICONS.spotifyIconFill,
+                    attributes: { type: 'button', title: t('searchInSpotify') }
+                };
+            },
+            async run(ctx) {
+                if (ctx.event) {
+                    ctx.event.preventDefault();
+                    ctx.event.stopPropagation();
+                }
+                const cleanedTitle = cleanTitleForSpotifySearch(ctx.rawTitle || ctx.title || '');
+                const query = encodeURIComponent(cleanedTitle);
+                const spotifyApp = `spotify:search:${query}`;
+                const spotifyWeb = `https://open.spotify.com/search/${query}`;
+                const opened = window.open(spotifyApp, '_blank', 'noopener,noreferrer');
+                setTimeout(() => {
+                    if (!opened || opened.closed || opened.location.href === 'about:blank') {
+                        window.open(spotifyWeb, '_blank', 'noopener,noreferrer');
+                    }
+                }, 500);
+            }
+        },
+        'force-time': {
+            id: 'force-time',
+            group: 'actions',
+            dataAction: 'force-time',
+            labelKey: 'setStartTime',
+            toolbarIconHtml: () => SVG_ICONS.stopWatch,
+            isAvailable: (ctx) => !ctx.isLiveEntry,
+            buildPrimaryButton(ctx) {
+                if (!this.isAvailable(ctx)) return null;
+                const hasFixed = ctx.info?.forceResumeTime > 0;
+                return {
+                    className: `ypp-btn ypp-btn-circle ${hasFixed ? 'ypp-btn-info' : 'ypp-btn-outline-info'} ypp-shadow-md`,
+                    html: hasFixed ? SVG_ICONS.pin : SVG_ICONS.stopWatch,
+                    attributes: {
+                        type: 'button',
+                        title: hasFixed
+                            ? t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(ctx.info.forceResumeTime)) })
+                            : t('setStartTime')
+                    }
+                };
+            },
+            async run(ctx) {
+                await handleForceTimeAction(ctx.videoId);
+            }
+        },
+        'unlink-playlist': {
+            id: 'unlink-playlist',
+            group: 'actions',
+            dataAction: 'unlink-playlist',
+            labelKey: 'removeFromPlaylist',
+            toolbarIconHtml: () => SVG_ICONS.playlistRemove,
+            isAvailable: (ctx) => !!ctx.lastViewedPlaylistId,
+            buildPrimaryButton(ctx) {
+                if (!this.isAvailable(ctx)) return null;
+                return {
+                    className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md',
+                    html: SVG_ICONS.playlistRemove,
+                    attributes: { type: 'button', title: t('removeFromPlaylist') }
+                };
+            },
+            async run(ctx) {
+                await handleUnlinkPlaylistAction(ctx.videoId);
+            }
+        },
+        'toggle-protection': {
+            id: 'toggle-protection',
+            group: 'actions',
+            dataAction: 'toggle-protection',
+            labelKey: 'protect',
+            toolbarIconHtml: () => SVG_ICONS.shieldOff,
+            isAvailable: () => true,
+            buildPrimaryButton(ctx) {
+                const prot = !!ctx.isProtected;
+                return {
+                    className: `ypp-btn ypp-btn-circle ${prot ? 'ypp-btn-success' : 'ypp-btn-outline-success'} ypp-shadow-md`,
+                    html: prot ? SVG_ICONS.shieldYesFill : SVG_ICONS.shieldOff,
+                    attributes: { type: 'button', title: prot ? t('unprotect') : t('protect') }
+                };
+            },
+            async run(ctx) {
+                await handleToggleProtectionAction(ctx.videoId);
+            }
+        },
+        'delete-entry': {
+            id: 'delete-entry',
+            group: 'actions',
+            dataAction: 'delete-entry',
+            labelKey: 'deleteEntry',
+            toolbarIconHtml: () => SVG_ICONS.trash,
+            isAvailable: () => true,
+            buildPrimaryButton(ctx) {
+                return {
+                    className: 'ypp-btn ypp-btn-circle ypp-btn-outline-danger ypp-shadow-md',
+                    html: SVG_ICONS.trash,
+                    attributes: { type: 'button', title: t('deleteEntry'), 'data-title': ctx.title || '' }
+                };
+            },
+            async run(ctx) {
+                const titleAttr = ctx.button?.dataset?.title ?? ctx.rawTitle ?? ctx.title ?? '';
+                await handleDeleteEntryAction(ctx.videoId, titleAttr);
+            }
+        }
+    };
+
+    /** @type {Map<string, (typeof SAVED_VIDEO_ACTIONS_BY_ID)['qa-freetube']>} */
+    const SAVED_VIDEO_ACTIONS_BY_DATA_ACTION = new Map(
+        Object.values(SAVED_VIDEO_ACTIONS_BY_ID).map((def) => [def.dataAction, def])
+    );
+
+    /**
+     * Monta la toolbar de acciones (toggles + opacidad) bajo la barra de búsqueda del modal.
+     * Sección colapsable (como filtros avanzados) para ahorrar espacio durante la búsqueda.
+     * @param {HTMLElement} container - videosContainer
+     * @returns {HTMLElement}
+     */
+    function mountSavedVideosModalActionsToolbar(container) {
+        const settings = cachedSavedVideosModalSettings;
+        if (!settings) return createElement('div', { className: 'ypp-saved-videos-toolbar-wrap' });
+
+        const wrap = createElement('div', { className: 'ypp-saved-videos-toolbar-wrap' });
+        wrap.style.setProperty('--ypp-toolbar-inactive-opacity', String(settings.inactiveToolbarOpacity));
+
+        const sectionToggle = createElement('button', {
+            className: 'ypp-saved-videos-toolbar-section-toggle',
+            attributes: {
+                type: 'button',
+                'aria-expanded': settings.toolbarSectionExpanded ? 'true' : 'false',
+                title: t('savedVideosToolbarSectionToggleTitle')
+            }
+        });
+        const chevronSpan = createElement('span', { className: 'ypp-saved-videos-toolbar-chevron', html: SVG_ICONS.chevronDown });
+        sectionToggle.appendChild(chevronSpan);
+        sectionToggle.appendChild(createElement('span', { text: t('savedVideosToolbarSectionTitle') }));
+
+        const body = createElement('div', { className: 'ypp-saved-videos-actions-toolbar-body' });
+        const inner = createElement('div', { className: 'ypp-saved-videos-actions-toolbar-inner' });
+
+        const syncSectionExpanded = () => {
+            const ex = !!cachedSavedVideosModalSettings.toolbarSectionExpanded;
+            body.classList.toggle('expanded', ex);
+            sectionToggle.classList.toggle('active', ex);
+            sectionToggle.setAttribute('aria-expanded', ex ? 'true' : 'false');
+        };
+
+        sectionToggle.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            cachedSavedVideosModalSettings.toolbarSectionExpanded = !cachedSavedVideosModalSettings.toolbarSectionExpanded;
+            syncSectionExpanded();
+            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+        });
+
+        const makeToggleRow = (labelKey, ids) => {
+            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+            row.appendChild(createElement('span', {
+                className: 'ypp-saved-videos-toolbar-row-label',
+                text: t(labelKey)
+            }));
+            const chips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
+            for (const id of ids) {
+                const def = SAVED_VIDEO_ACTIONS_BY_ID[id];
+                if (!def) continue;
+                const on = cachedSavedVideosModalSettings.actionVisibility[id] !== false;
+                const btn = createElement('button', {
+                    className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'is-active' : 'is-inactive'}`,
+                    html: def.toolbarIconHtml(),
+                    attributes: {
+                        type: 'button',
+                        title: t(def.labelKey),
+                        'aria-pressed': on ? 'true' : 'false',
+                        'data-toolbar-action-id': id
+                    }
+                });
+                btn.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    const curOff = cachedSavedVideosModalSettings.actionVisibility[id] === false;
+                    if (curOff) {
+                        delete cachedSavedVideosModalSettings.actionVisibility[id];
+                    } else {
+                        cachedSavedVideosModalSettings.actionVisibility[id] = false;
+                    }
+                    const nextOn = cachedSavedVideosModalSettings.actionVisibility[id] !== false;
+                    btn.classList.toggle('is-active', nextOn);
+                    btn.classList.toggle('is-inactive', !nextOn);
+                    btn.setAttribute('aria-pressed', nextOn ? 'true' : 'false');
+                    applySavedVideoActionDatasetToVideosContainer(container);
+                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                });
+                chips.appendChild(btn);
+            }
+            row.appendChild(chips);
+            return row;
+        };
+
+        inner.appendChild(makeToggleRow('savedVideosToolbarQuickAccess', settings.quickAccess));
+        inner.appendChild(makeToggleRow('savedVideosToolbarActions', settings.actions));
+
+        const opacityRow = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-row' });
+        opacityRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('savedVideosToolbarEntryOpacity')
+        }));
+        const opacityBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+        const modes = [
+            { key: 'full', label: t('savedVideosToolbarEntryOpacityFull') },
+            { key: 'dimUntilHover', label: t('savedVideosToolbarEntryOpacityDim') },
+            { key: 'hiddenUntilHover', label: t('savedVideosToolbarEntryOpacityHidden') }
+        ];
+        const syncOpacityActive = () => {
+            const cur = cachedSavedVideosModalSettings.entryButtonOpacityMode || 'full';
+            opacityBtns.querySelectorAll('button[data-opacity-mode]').forEach((b) => {
+                b.classList.toggle('ypp-saved-videos-opacity-active', b.dataset.opacityMode === cur);
+            });
+        };
+        for (const { key, label } of modes) {
+            const b = createElement('button', {
+                className: 'ypp-btn ypp-btn-outline-secondary',
+                text: label,
+                attributes: { type: 'button', 'data-opacity-mode': key }
+            });
+            b.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                cachedSavedVideosModalSettings.entryButtonOpacityMode = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                syncOpacityActive();
+            });
+            opacityBtns.appendChild(b);
+        }
+        syncOpacityActive();
+        opacityRow.appendChild(opacityBtns);
+        inner.appendChild(opacityRow);
+
+        const overflowRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        overflowRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('savedVideosToolbarShowOverflowButton')
+        }));
+        const overflowChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
+        const overflowBtn = createElement('button', {
+            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ${cachedSavedVideosModalSettings.showOverflowMenu ? 'is-active' : 'is-inactive'}`,
+            text: '⋯',
+            attributes: {
+                type: 'button',
+                title: t('savedVideosToolbarShowOverflowHint'),
+                'aria-pressed': cachedSavedVideosModalSettings.showOverflowMenu ? 'true' : 'false'
+            }
+        });
+        overflowBtn.addEventListener('click', (ev) => {
+            ev.stopPropagation();
+            cachedSavedVideosModalSettings.showOverflowMenu = !cachedSavedVideosModalSettings.showOverflowMenu;
+            const on = cachedSavedVideosModalSettings.showOverflowMenu;
+            overflowBtn.classList.toggle('is-active', on);
+            overflowBtn.classList.toggle('is-inactive', !on);
+            overflowBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            applySavedVideoActionDatasetToVideosContainer(container);
+            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+        });
+        overflowChips.appendChild(overflowBtn);
+        overflowRow.appendChild(overflowChips);
+        inner.appendChild(overflowRow);
+
+        body.appendChild(inner);
+        wrap.appendChild(sectionToggle);
+        wrap.appendChild(body);
+        syncSectionExpanded();
+
+        return wrap;
+    }
+
+    /**
+     * Delegación de clics en la lista virtual del modal (acciones por fila + overflow).
+     * @param {HTMLElement} container
+     */
     const setupModalEventDelegation = (container) => {
         container.addEventListener('click', async (e) => {
             if (e.target.matches('.ypp-video-checkbox')) {
@@ -16269,43 +17044,27 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             const videoId = item.dataset.videoId;
 
-            switch (action) {
-                case 'force-time':
-                    await handleForceTimeAction(videoId);
-                    break;
-                case 'unlink-playlist':
-                    await handleUnlinkPlaylistAction(videoId);
-                    break;
-                case 'delete-entry':
-                    const title = btn.dataset.title;
-                    await handleDeleteEntryAction(videoId, title);
-                    break;
-                case 'toggle-protection':
-                    await handleToggleProtectionAction(videoId);
-                    break;
+            if (action === 'open-action-menu') {
+                openSavedVideosRowActionMenu(btn, videoId, item);
+                return;
+            }
+
+            const def = SAVED_VIDEO_ACTIONS_BY_DATA_ACTION.get(action);
+            if (def) {
+                const rawTitle = item.dataset.yppTitle || '';
+                await def.run({
+                    videoId,
+                    itemEl: item,
+                    rawTitle,
+                    title: rawTitle,
+                    videoUrl: item.dataset.yppVideoUrl || '',
+                    event: e,
+                    button: btn,
+                    ...rowElToSavedVideoActionContext(item, videoId)
+                });
             }
         });
     };
-
-    async function handleToggleProtectionAction(videoId) {
-        const info = await Storage.get(videoId);
-
-        if (!info) {
-            logWarn('handleToggleProtectionAction', `No se encontró información para el video ${videoId}`);
-            return;
-        }
-
-        info.isProtected = !info.isProtected;
-        await Storage.set(videoId, info);
-
-        const msg = info.isProtected
-            ? `${SVG_ICONS.shieldYesFill} ${t('protected')}`
-            : `${SVG_ICONS.shieldOff} ${t('unprotected')}`;
-        showFloatingToast(msg);
-
-        await updateVideoList();
-    }
-
 
     /* Cache para URLs de miniaturas validadas para evitar re-validaciones durante el scroll */
     const thumbUrlCache = new Map();
@@ -16557,98 +17316,44 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         fragment.appendChild(createElement('div', { className: 'ypp-infoDiv', children: infoChildren }));
 
+        const modalToolbar = cachedSavedVideosModalSettings || CONFIG.defaultSavedVideosModalSettings;
+        const actionCtx = {
+            item,
+            info,
+            isLiveEntry,
+            lastViewedPlaylistId,
+            videoId,
+            title,
+            videoUrl,
+            hasFixedTime,
+            isProtected
+        };
+
         const buttonsChildren = [];
-        if (!isLiveEntry) {
+        const orderedSlotIds = [...(modalToolbar.quickAccess || []), ...(modalToolbar.actions || [])];
+        for (const actionId of orderedSlotIds) {
+            const def = SAVED_VIDEO_ACTIONS_BY_ID[actionId];
+            if (!def) continue;
+            if (!def.isAvailable(actionCtx)) continue;
+            const spec = def.buildPrimaryButton(actionCtx);
+            if (!spec) continue;
+            const baseClass = spec.className || '';
             buttonsChildren.push(createElement('button', {
-                className: `ypp-btn ypp-btn-circle ${hasFixedTime ? 'ypp-btn-info' : 'ypp-btn-outline-info'} ypp-shadow-md`,
-                html: hasFixedTime ? SVG_ICONS.pin : SVG_ICONS.stopWatch,
-                attributes: { 'data-action': 'force-time', title: hasFixedTime ? t('changeOrRemoveStartTime', { time: formatTime(normalizeSeconds(info.forceResumeTime)) }) : t('setStartTime') }
+                className: `${baseClass} ypp-saved-video-entry-action`.trim(),
+                html: spec.html,
+                attributes: {
+                    type: 'button',
+                    ...(spec.attributes || {}),
+                    'data-action': def.dataAction,
+                    'data-action-id': actionId
+                }
             }));
         }
 
-        if (lastViewedPlaylistId) {
-            buttonsChildren.push(createElement('button', {
-                className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md',
-                html: SVG_ICONS.playlistRemove,
-                attributes: { 'data-action': 'unlink-playlist', title: t('removeFromPlaylist') }
-            }));
-        }
-
         buttonsChildren.push(createElement('button', {
-            className: `ypp-btn ypp-btn-circle ${isProtected ? 'ypp-btn-success' : 'ypp-btn-outline-success'} ypp-shadow-md`,
-            html: isProtected ? SVG_ICONS.shieldYesFill : SVG_ICONS.shieldOff,
-            attributes: { 'data-action': 'toggle-protection', title: isProtected ? t('unprotect') : t('protect') }
-        }));
-
-        buttonsChildren.push(createElement('button', {
-            className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md',
-            id: 'ypp-btn-open-in-freetube',
-            html: SVG_ICONS.freetubeIconFill,
-            attributes: { title: t('openInFreeTube') },
-            onClickEvent: (event) => {
-                event.preventDefault();
-                window.location.assign(`freetube://${videoUrl}`);
-            }
-        }));
-
-        buttonsChildren.push(createElement('button', {
-            className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md',
-            id: 'ypp-btn-open-in-spotify',
-            html: SVG_ICONS.spotifyIconFill,
-            attributes: { title: t('searchInSpotify') },
-            onClickEvent: (event) => {
-                event.preventDefault();
-                event.stopPropagation();
-
-                const cleanTitleForSpotify = (t) => {
-                    if (!t) return '';
-                    let c = t.replace(/\(.*?\)/g, '').replace(/\[.*?\]/g, '')
-                        // Removes common YouTube metadata (e.g., "Official Video", "Lyrics", "HD", "4K", etc.)
-                        .replace(/\b(official\s*video|music\s*video|lyrics?|hd|4k|audio|remastered)\b/gi, '')
-
-                        // Removes trailing context like "Live at ..." or "From ..." (often not part of track title)
-                        .replace(/live\s+at.+$/i, '')
-                        .replace(/from\s+.+$/i, '')
-
-                        // Removes platform-specific suffixes like "- YouTube"
-                        .replace(/\s*-\s*YouTube.*$/i, '')
-
-                        // Normalizes different quote styles to standard double quotes
-                        .replace(/["‘’“”]/g, '"')
-
-                        // Removes "- Topic" suffix (auto-generated YouTube channels)
-                        .replace(/\s*-\s*Topic.*$/i, '')
-
-                        // Collapses extra whitespace and trims the result
-                        .replace(/\s+/g, ' ')
-                        .trim();
-                    const q = c.match(/"([^"]+)"/);
-                    if (q && q[1]) {
-                        const a = c.split('"')[0].trim().replace(/[-–]+$/, '').trim();
-                        return a ? `${a} - ${q[1]}` : q[1];
-                    }
-                    const p = c.split(/[-–—]+/).map(x => x.trim()).filter(Boolean);
-                    return p.length >= 2 ? `${p[0]} - ${p[1]}` : c;
-                };
-
-                const cleanedTitle = cleanTitleForSpotify(title);
-                const query = encodeURIComponent(cleanedTitle);
-                const spotifyApp = `spotify:search:${query}`;
-                const spotifyWeb = `https://open.spotify.com/search/${query}`;
-
-                const opened = window.open(spotifyApp, '_blank', 'noopener,noreferrer');
-                setTimeout(() => {
-                    if (!opened || opened.closed || opened.location.href === 'about:blank') {
-                        window.open(spotifyWeb, '_blank', 'noopener,noreferrer');
-                    }
-                }, 500);
-            }
-        }));
-
-        buttonsChildren.push(createElement('button', {
-            className: 'ypp-btn ypp-btn-circle ypp-btn-outline-danger ypp-shadow-md',
-            html: SVG_ICONS.trash,
-            attributes: { 'data-action': 'delete-entry', title: t('deleteEntry'), 'data-title': title }
+            className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md ypp-saved-video-overflow-trigger',
+            text: '⋯',
+            attributes: { type: 'button', 'data-action': 'open-action-menu', title: t('savedVideosMoreActions') }
         }));
 
         fragment.appendChild(createElement('div', { className: 'ypp-containerButtonsTime', children: buttonsChildren }));
@@ -16657,6 +17362,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             className: `ypp-videoWrapper ${itemClass} ${isProtected ? 'ypp-protected-item' : ''} ${selectionClass} ypp-video-item`,
             attributes: {
                 'data-video-id': videoId,
+                'data-ypp-is-live': isLiveEntry ? '1' : '0',
+                'data-ypp-last-playlist-id': lastViewedPlaylistId || '',
+                'data-ypp-title': title,
+                'data-ypp-video-url': videoUrl,
+                'data-ypp-force-resume': String(forceResumeTime > 0 ? forceResumeTime : 0),
                 /*  'data-video-type': type,
                  'data-video-status': isCompleted ? 'completed' : (isLiveEntry ? 'live' : 'watching'),
                  'data-video-duration': lengthSeconds,
@@ -17175,7 +17885,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Reinicializar observers; forzar bootstrap solo cuando no estamos preservando miniplayer.
                 // Si preserveMiniplayer=true, los observers existentes del miniplayer y su sesión deben mantener continuidad.
                 const shouldForceBootstrap = !preserveMiniplayer;
-                
+
                 // Evitar cleanup destructivo solo si ya estábamos en un contexto que no es watch y seguimos en uno que no es watch,
                 // y hay una sesión de miniplayer que preservar.
                 const skipCleanup = preserveMiniplayer && lastHandledPageType !== 'watch' && hasActiveMiniplayerSession;

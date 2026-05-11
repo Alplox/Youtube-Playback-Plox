@@ -302,6 +302,12 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
  - **Fix (Persistence Check)**: The script now performs a **verification seek 800ms after resume**. If it detects a backwards jump of >5s, it re-applies the correct seek once more.
  - **Fix (Anti-Overwrite)**: `saveStatus` now blocks any save attempt that detects a significant backwards jump within the first 10 seconds of a session. This prevents YouTube's "stale" progress from overwriting the script's more accurate local history.
  
- ### Structural Layout Shifts (Watch/Miniplayer)
- - **Issue**: The progress bar gradient or the history button might fail to appear in some account types.
- - **Solution**: Expanded container lookups to include `.ytp-left-controls` as a fallback for `.ytp-time-wrapper`. This ensures the UI is injected correctly regardless of YouTube's experimental layout variations.
+### Structural Layout Shifts (Watch/Miniplayer)
+- **Issue**: The progress bar gradient or the history button might fail to appear in some account types.
+- **Solution**: Expanded container lookups to include `.ytp-left-controls` as a fallback for `.ytp-time-wrapper`. This ensures the UI is injected correctly regardless of YouTube's experimental layout variations.
+
+## Saved videos modal UI (toolbar / overflow) (v0.0.10)
+
+- **Separate storage key**: Toolbar toggles, row-button opacity mode, slot lists, `toolbarSectionExpanded`, and `showOverflowMenu` are stored under `CONFIG.STORAGE_KEYS.buttonsSavedVideosEntries` (`YT_PLAYBACK_PLOX_buttonsSavedVideosEntries`), not under main user settings (`userSettings`). Clearing or exporting only script settings may leave this object intact until you reset it explicitly.
+- **Visibility without list rebuild**: Primary row buttons are toggled via `data-ypp-act-*` on `.ypp-videosContainer` and CSS; changing a toggle does not call `updateVideoList()`. The ⋯ button is hidden with `data-ypp-overflow-menu="off"` when the user disables **More actions (⋯) button** in the collapsible panel.
+- **Collapsible panel**: The slot/opacity/overflow controls live in a section that starts collapsed (`toolbarSectionExpanded: false` by default) so the search row stays compact during normal browsing.

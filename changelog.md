@@ -1,5 +1,9 @@
 # 0.0.10
 
+### Added
+
+- **Saved videos modal - customizable action toolbar**: Added a toolbar under the search row with Quick access and Actions toggles (persisted via a dedicated storage key separate from main script settings), row-level opacity modes (full / dim until hover / hidden until hover), a per-row overflow menu (⋯) listing all actions available for that entry.
+
 ### Fixed
 
 - **Playlist Title Loss**: Resolved an issue where `playlistTitle` was being saved as `null` when a `lastViewedPlaylistId` was present. The fix involves (1) hardening metadata resolution to prevent `undefined` leakage, (2) upgrading the metadata cache to allow "context upgrades" when a video moves from preview to watch, (3) expanding title fetch logic to include the `preview` context, and (4) protecting session metadata from `null` overwrites during asynchronous merging.

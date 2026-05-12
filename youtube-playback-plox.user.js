@@ -503,6 +503,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "savedVideosToolbarSectionToggleTitle": "Expand or collapse row action settings",
             "savedVideosToolbarShowOverflowButton": "More actions (⋯) button",
             "savedVideosToolbarShowOverflowHint": "When off, the ⋯ button is hidden on each row. Pinned actions remain controlled by the toggles above.",
+            "dimColouredLabels": "Dim 'Coloured Label(s)'",
+            "dimColouredLabelsTooltip": "Makes colored labels (like watch percentage) appear dimmed until you hover over the video entry.",
             "importingFromFreeTube": "Importing from FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importing from FreeTube as SQLite...",
             "videosImported": "videos imported",
@@ -745,6 +747,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "savedVideosToolbarSectionToggleTitle": "Desplegar u ocultar ajustes de acciones en filas",
             "savedVideosToolbarShowOverflowButton": "Botón Más acciones (⋯)",
             "savedVideosToolbarShowOverflowHint": "Mostrar u ocultar el botón de menú en cada fila (las acciones ancladas siguen gobernadas por los interruptores de arriba).",
+            "dimColouredLabels": "Atenuar etiquetas de colores",
+            "dimColouredLabelsTooltip": "Hace que las etiquetas de colores (como el porcentaje visto) aparezcan atenuadas hasta que pases el ratón sobre el video.",
             "importingFromFreeTube": "Importando desde FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importando desde FreeTube como SQLite...",
             "videosImported": "videos importados",
@@ -1232,7 +1236,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             entryButtonOpacityMode: 'full',
             inactiveToolbarOpacity: 0.7,
             toolbarSectionExpanded: false,
-            showOverflowMenu: true
+            showOverflowMenu: true,
+            dimColouredLabels: false
         }
     };
 
@@ -1886,7 +1891,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             FALLBACK_TRANSLATIONS?.[defaultLang]?.[key] // 4. Local Inmutable (Default)
             ?? fallbackMsg;                            // 5. Hardcoded Fallback
 
-        return escapeHTML(replaceParams(text, normParams));
+        return replaceParams(text, normParams);
+        // return escapeHTML(replaceParams(text, normParams));
     }
 
     // Función para reemplazar parámetros en las traducciones
@@ -2973,6 +2979,25 @@ regular-item.ypp-fill-none {
 
 .ypp-videosContainer[data-ypp-overflow-menu="off"] .ypp-saved-video-overflow-trigger {
     display: none !important;
+}
+
+.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-timestamp.forced,
+.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-playlist-indicator {
+    -webkit-transition: all 0.2s ease;
+    -o-transition: all 0.2s ease;
+    transition: all 0.2s ease;
+}
+
+.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced,
+.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator,
+.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator * {
+    filter: grayscale(1) brightness(0.85);
+    opacity: 0.7;
+    color: var(--ypp-muted) !important;
 }
 
 .ypp-saved-videos-toolbar-toggle.dragging {
@@ -5213,7 +5238,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         restart: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3a9 9 0 1 1-5.657 2"/><path d="M3 4.5h4v4"/></g></svg>',
 
 
-
         /* octicon - MIT ------------------------------------ */
         // https://icon-sets.iconify.design/octicon/compose-16/
         compose: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="m14.515.456l.965.965a1.555 1.555 0 0 1 0 2.2L9.745 9.355a1.55 1.55 0 0 1-.672.396l-2.89.826a.67.67 0 0 1-.828-.474a.66.66 0 0 1 .004-.35l.825-2.89c.073-.254.209-.486.396-.673L12.315.456c.144-.145.316-.259.505-.337a1.54 1.54 0 0 1 1.19 0c.189.078.361.192.505.337m-3.322 3.008l-3.67 3.669a.2.2 0 0 0-.057.096L6.97 8.965l1.736-.496a.2.2 0 0 0 .096-.056l3.67-3.67Zm2.065-2.066L12.135 2.52l1.28 1.28l1.122-1.122a.22.22 0 0 0 .065-.157a.22.22 0 0 0-.065-.157l-.965-.966a.22.22 0 0 0-.157-.065a.23.23 0 0 0-.157.065"/><path fill="currentColor" d="M0 14.25V2.75A1.75 1.75 0 0 1 1.75 1H7a.75.75 0 0 1 0 1.5H1.75a.25.25 0 0 0-.25.25v11.5a.25.25 0 0 0 .25.25h11.5a.25.25 0 0 0 .25-.25V8.5a.75.75 0 0 1 1.5 0v5.75c0 .464-.184.909-.513 1.237A1.75 1.75 0 0 1 13.25 16H1.75A1.75 1.75 0 0 1 0 14.25"/></svg>',
@@ -5273,7 +5297,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         translate: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M4.545 6.714 4.11 8H3l1.862-5h1.284L8 8H6.833l-.435-1.286zm1.634-.736L5.5 3.956h-.049l-.679 2.022z"/><path d="M0 2a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-3H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zm7.138 9.995q.289.451.63.846c-.748.575-1.673 1.001-2.768 1.292.178.217.451.635.555.867 1.125-.359 2.08-.844 2.886-1.494.777.665 1.739 1.165 2.93 1.472.133-.254.414-.673.629-.89-1.125-.253-2.057-.694-2.82-1.284.681-.747 1.222-1.651 1.621-2.757H14V8h-3v1.047h.765c-.318.844-.74 1.546-1.272 2.13a6 6 0 0 1-.415-.492 2 2 0 0 1-.94.31"/></svg>',
         // https://www.svgrepo.com/svg/512899/spotify-162 - PD License
         spotifyIconFill: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="currentColor" fill-rule="evenodd" d="M15.915 8.865c-3.223-1.914-8.54-2.09-11.618-1.156a.935.935 0 0 1-.543-1.79c3.533-1.073 9.405-.866 13.116 1.337a.935.935 0 0 1-.955 1.609M15.81 11.7a.78.78 0 0 1-1.073.257c-2.687-1.652-6.785-2.13-9.964-1.165A.78.78 0 0 1 4.32 9.3c3.631-1.102 8.146-.568 11.233 1.329a.78.78 0 0 1 .257 1.071m-1.224 2.723a.623.623 0 0 1-.857.207c-2.348-1.435-5.304-1.759-8.785-.964a.622.622 0 1 1-.277-1.215c3.809-.871 7.076-.496 9.712 1.115.294.18.387.563.207.857M10 0C4.477 0 0 4.477 0 10s4.477 10 10 10 10-4.477 10-10S15.523.001 10 .001z"/></svg>',
-
+        // https://www.svgrepo.com/svg/522978/pallete-2
+        palette: '<svg class="ypp-svg-reset ypp-fill-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 2.75c-5.107 0-9.25 4.151-9.25 9.276 0 4.762 3.579 8.685 8.183 9.215.462.053.957-.14 1.353-.537a.93.93 0 0 0 0-1.314c-.312-.312-.625-.73-.796-1.203-.175-.485-.219-1.094.137-1.66.323-.513.807-.788 1.315-.922.49-.128 1.031-.136 1.552-.104a23 23 0 0 1 1.638.179c.557.072 1.1.139 1.626.164 1.074.051 1.902-.084 2.467-.546.542-.443 1.025-1.341 1.025-3.272 0-5.125-4.143-9.276-9.25-9.276M1.25 12.026C1.25 6.076 6.061 1.25 12 1.25s10.75 4.826 10.75 10.776c0 2.145-.537 3.584-1.575 4.433-1.014.829-2.326.939-3.489.883a22 22 0 0 1-1.862-.19c-.52-.067-.99-.128-1.42-.154-.467-.028-.821-.01-1.08.058-.24.063-.356.157-.427.27-.039.062-.066.158.004.351.074.206.236.442.447.654a2.43 2.43 0 0 1 0 3.432c-.65.652-1.58 1.084-2.587.968-5.355-.616-9.511-5.175-9.511-10.705M9.585 6.25a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5M7.335 7a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0m7.165-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5M12.25 7a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0M6.5 10.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5m-2.25.75a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0m13.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5m-2.25.75a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0" clip-rule="evenodd"/></svg>',
 
         /* OTROS */
         // https://svgicons.com/icon/285913/freetube - CC0 1.0
@@ -6133,6 +6158,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         merged.showOverflowMenu = typeof merged.showOverflowMenu === 'boolean'
             ? merged.showOverflowMenu
             : d.showOverflowMenu;
+        merged.dimColouredLabels = typeof merged.dimColouredLabels === 'boolean'
+            ? merged.dimColouredLabels
+            : d.dimColouredLabels;
         return merged;
     };
 
@@ -10503,46 +10531,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
     })();
 
-
-
-
-    /**
-     * Limpia proactivamente todos los posibles mensajes y estados de la barra de reproducción.
-     * Útil durante la transición entre videos para evitar "zombies" de la interfaz.
-     */
-    function clearAllPlaybackMessages() {
-        PlaybackDisplayManager.clear('watch');
-        PlaybackDisplayManager.clear('shorts');
-        PlaybackDisplayManager.clear('miniplayer');
-        PlaybackDisplayManager.clear('preview');
-        logLog('UI', '🧹 Limpieza total de mensajes de reproducción realizada');
-    }
-
-    /**
-     * Limpia mensajes de forma contextual para no borrar notificaciones de otros players activos.
-     * @param {'watch'|'shorts'|'miniplayer'|'preview'} type
-     */
-    function clearPlaybackMessagesForType(type) {
-        if (type === 'preview') {
-            PlaybackDisplayManager.clear('preview');
-            return;
-        }
-        if (type === 'miniplayer') {
-            PlaybackDisplayManager.clear('miniplayer');
-            return;
-        }
-        if (type === 'shorts') {
-            PlaybackDisplayManager.clear('shorts');
-            return;
-        } if (type === 'watch') {
-            PlaybackDisplayManager.clear('watch');
-            return;
-        }
-
-        clearAllPlaybackMessages()
-    }
-
-
     // ============================================================================================================
     // MARK: 🍞 Toasts
     // ============================================================================================================
@@ -13516,7 +13504,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         // Limpiar proactivamente cualquier mensaje o estado visual previo (zombies de SPA)
-        /* clearPlaybackMessagesForType(type); */
         PlaybackDisplayManager.clear(type);
         logLog('UI', `🧹 Limpieza total de mensajes de reproducción realizada`);
 
@@ -16832,6 +16819,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const map = { full: 'full', dimUntilHover: 'dim', hiddenUntilHover: 'hidden' };
         container.setAttribute('data-entry-action-opacity', map[mode] || 'full');
         container.setAttribute('data-ypp-overflow-menu', settings.showOverflowMenu !== false ? 'on' : 'off');
+        container.setAttribute('data-ypp-dim-coloured-labels', settings.dimColouredLabels === true ? 'on' : 'off');
     };
 
     /** @type {Record<string, { id: string, group: string, dataAction: string, labelKey: string, toolbarIconHtml: () => string, isAvailable: (ctx: object) => boolean, buildPrimaryButton: (ctx: object) => object|null, run: (ctx: object) => Promise<void> }>} */
@@ -17197,6 +17185,41 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         overflowChips.appendChild(overflowBtn);
         overflowRow.appendChild(overflowChips);
         inner.appendChild(overflowRow);
+
+        const dimRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        dimRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('dimColouredLabels')
+        }));
+        const dimChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
+        const dimBtn = createElement('button', {
+            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ${cachedSavedVideosModalSettings.dimColouredLabels ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'}`,
+            html: SVG_ICONS.palette,
+            attributes: {
+                type: 'button',
+                title: t('dimColouredLabelsTooltip'),
+                'aria-pressed': cachedSavedVideosModalSettings.dimColouredLabels ? 'true' : 'false'
+            }
+        });
+        addDisposableListener(dimBtn, 'click', (ev) => {
+            ev.stopPropagation();
+            cachedSavedVideosModalSettings.dimColouredLabels = !cachedSavedVideosModalSettings.dimColouredLabels;
+            const on = cachedSavedVideosModalSettings.dimColouredLabels;
+            dimBtn.classList.toggle('ypp-btn-primary', on);
+            dimBtn.classList.toggle('is-active', on);
+            dimBtn.classList.toggle('ypp-btn-outline-primary', !on);
+            dimBtn.classList.toggle('is-inactive', !on);
+            dimBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            applySavedVideoActionDatasetToVideosContainer(container);
+            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+
+            // Re-render list to apply dimming if using classes, or just let CSS handle it
+            // If using CSS classes on the container, applySavedVideoActionDatasetToVideosContainer should handle it.
+            void updateVideoList();
+        }, {}, ModalDisposables);
+        dimChips.appendChild(dimBtn);
+        dimRow.appendChild(dimChips);
+        inner.appendChild(dimRow);
 
         body.appendChild(inner);
         wrap.appendChild(sectionToggle);

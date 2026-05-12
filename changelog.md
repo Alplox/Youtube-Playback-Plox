@@ -2,6 +2,7 @@
 
 ### Added
 
+- **Saved videos modal - dimming coloured labels**: Added a new option in the toolbar of the saved videos modal to dim the coloured percentage labels in the list. #48
 - **Saved videos modal - customizable action toolbar**: Added a toolbar under the search row with Quick access and Actions toggles (persisted via a dedicated storage key separate from main script settings), row-level opacity modes (full / dim until hover / hidden until hover), a per-row overflow menu (⋯) listing all actions available for that entry. #48
 - **Manual Save Hybrid Mode**: Added a new sub-option to "Manual Save Mode" that allows automatic saving to resume after a video is manually saved or if it was previously saved in the database. #49
 

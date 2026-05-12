@@ -379,6 +379,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "enableProgressBarGradient": "Enable color gradient in progress bar",
             "manualSaveMode": "Manual save mode",
             "manualSaveModeTooltip": "If enabled, progress will only be saved when clicking the save button.",
+            "manualSaveHybridMode": "Enable automatic saving after manual save (including already saved videos)",
+            "manualSaveHybridModeTooltip": "If enabled, once a video is saved, the script will automatically continue saving progress for that video in the current session.",
             "enableAutomaticSavingFor": "Enable automatic saving for",
             "regularVideos": "Regular videos",
             "miniplayerVideos": "Miniplayer videos",
@@ -619,6 +621,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "enableProgressBarGradient": "Habilitar degradado de colores en barra de progreso",
             "manualSaveMode": "Modo de guardado manual",
             "manualSaveModeTooltip": "Si está activado, el progreso solo se guardará al pulsar el botón de guardado.",
+            "manualSaveHybridMode": "Habilitar guardado automático tras primer guardado manual (incluyendo videos ya guardados)",
+            "manualSaveHybridModeTooltip": "Si está activado, una vez guardado un vídeo, el script continuará guardándolo automáticamente durante el resto de la sesión.",
             "enableAutomaticSavingFor": "Habilitar guardado automático para",
             "regularVideos": "Videos regulares",
             "miniplayerVideos": "Vídeos en minirreproductor",
@@ -1145,7 +1149,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             github: 'YT_PLAYBACK_PLOX_githubSettings',
             migration: 'YT_PLAYBACK_PLOX_migrationVersion',
             translations: 'YT_PLAYBACK_PLOX_translations_cache',
-            buttonsSavedVideosEntries: 'YT_PLAYBACK_PLOX_buttonsSavedVideosEntries'
+            savedVideosModal: 'YT_PLAYBACK_PLOX_savedVideosModal'
         },
 
         /* Default values for user settings */
@@ -1156,6 +1160,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             enableProgressBarGradient: true, // Enable gradient colors in progress bar
 
             manualSaveMode: false,           // Manual save mode
+            manualSaveHybridMode: false,     // Automatic saving after first manual save
 
             saveRegularVideos: true,         // Save regular videos       
             saveMiniplayerVideos: true,      // Save videos in miniplayer
@@ -1320,7 +1325,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
      * @returns {() => void}
      */
     function addDisposableListener(target, type, handler, options, store = GlobalDisposables) {
-        if (!target) return () => {};
+        if (!target) return () => { };
         target.addEventListener(type, handler, options);
         const dispose = () => target.removeEventListener(type, handler, options);
         if (store) store.add(dispose);
@@ -2923,7 +2928,7 @@ regular-item.ypp-fill-none {
     border: 1px solid var(--ypp-border);
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-    padding: 4px 0;
+    padding: 4px;
 }
 
 .ypp-videosContainer[data-ypp-act-force_time="off"] .ypp-video-item [data-action-id="force-time"] {
@@ -6137,7 +6142,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const getSavedVideosModalSettings = async () => {
         try {
-            const raw = await Storage.get(CONFIG.STORAGE_KEYS.buttonsSavedVideosEntries);
+            const raw = await Storage.get(CONFIG.STORAGE_KEYS.savedVideosModal);
             if (raw && typeof raw === 'object') {
                 return normalizeSavedVideosModalSettings(raw);
             }
@@ -6155,7 +6160,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const setSavedVideosModalSettings = async (settings) => {
         try {
-            await Storage.set(CONFIG.STORAGE_KEYS.buttonsSavedVideosEntries, normalizeSavedVideosModalSettings(settings));
+            await Storage.set(CONFIG.STORAGE_KEYS.savedVideosModal, normalizeSavedVideosModalSettings(settings));
         } catch (error) {
             logError('setSavedVideosModalSettings', 'Error saving saved videos modal settings:', error);
         }
@@ -8500,7 +8505,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
 
         // Ignorar si el modo de guardado manual está activo y no es un guardado manual
-        if (cachedSettings.manualSaveMode && !options.isManual) {
+        // EXCEPCIÓN: Si el modo híbrido está activo y la sesión ya fue autorizada (manual o pre-existente)
+        const session = videoEl ? activeProcessingSessions.get(videoEl) : null;
+        const isHybridAutoSave = cachedSettings.manualSaveHybridMode && session?.isAutoSaveAuthorized;
+
+        if (cachedSettings.manualSaveMode && !options.isManual && !isHybridAutoSave) {
             logLog(logContext, `No se guardó el video ${videoId} en ${currentTime}s porque el modo de guardado manual está activo`);
             return { success: false, reason: 'manual_save_mode_active' };
         }
@@ -8518,8 +8527,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (sourceData && sourceData.forceResumeTime > 0) {
             if (isFinished) {
                 logLog(logContext, `Video ${videoId} completado, manteniendo tiempo fijo`);
-
-                const session = activeProcessingSessions.get(videoEl);
                 let history = sourceData.completionHistory;
 
                 if (session && !session.hasLoggedCompletion) {
@@ -8538,7 +8545,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 await Storage.set(videoId, base);
             } else if (currentTime < 1) {
                 // Detectar si el usuario pulsó "Replay" (el tiempo saltó a < 1s en una sesión activa tras completarse)
-                const session = activeProcessingSessions.get(videoEl);
                 if (session && session.hasLoggedCompletion) {
                     logLog(logContext, `Replay detectado para video con tiempo fijo (${videoId}). Re-aplicando seek a ${sourceData.forceResumeTime}s`);
                     // Resetear bandera para permitir registrar la siguiente finalización
@@ -8577,7 +8583,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             completionHistory: sourceData?.completionHistory
         };
 
-        const session = activeProcessingSessions.get(videoEl);
+
         if (isFinished && session && !session.hasLoggedCompletion) {
             videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
             session.hasLoggedCompletion = true;
@@ -8645,7 +8651,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         logLog('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
 
         // Ignorar si el modo de guardado manual está activo y no es un guardado manual
-        if (cachedSettings.manualSaveMode && !options.isManual) {
+        const session = videoEl ? activeProcessingSessions.get(videoEl) : null;
+        const isHybridAutoSave = cachedSettings.manualSaveHybridMode && session?.isAutoSaveAuthorized;
+
+        if (cachedSettings.manualSaveMode && !options.isManual && !isHybridAutoSave) {
             return { success: false, reason: 'manual_save_mode_active' };
         }
 
@@ -8661,9 +8670,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Si tiene tiempo fijo, no sobreescribir
         if (sourceData && sourceData.forceResumeTime > 0) {
             if (isFinished) {
-                logLog('saveShortsVideo', `Short ${videoId} completado, manteniendo tiempo fijo`);
-
-                const session = activeProcessingSessions.get(videoEl);
+                logLog('saveShortsVideo', `Short ${videoId} completado, manteniendo tiempo fijo`)
                 let history = sourceData.completionHistory;
 
                 if (session && !session.hasLoggedCompletion) {
@@ -8682,7 +8689,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 await Storage.set(videoId, base);
             } else if (currentTime < 1) {
                 // Detectar si el usuario pulsó "Replay" (el tiempo saltó a < 1s en una sesión activa tras completarse)
-                const session = activeProcessingSessions.get(videoEl);
                 if (session && session.hasLoggedCompletion) {
                     logLog('saveShortsVideo', `Replay detectado para short con tiempo fijo (${videoId}). Re-aplicando seek a ${sourceData.forceResumeTime}s`);
                     // Resetear bandera para permitir registrar la siguiente finalización
@@ -8715,7 +8721,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             completionHistory: sourceData?.completionHistory
         };
 
-        const session = activeProcessingSessions.get(videoEl);
         if (isFinished && session && !session.hasLoggedCompletion) {
             videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
             session.hasLoggedCompletion = true;
@@ -8760,8 +8765,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     async function savePreview(player, currentTime, videoInfo, videoEl, previewType, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
 
-        // Previews suelen ser auto-saves, pero respetamos el modo manual
-        if (cachedSettings.manualSaveMode && !options.isManual) {
+        // Ignorar si el modo de guardado manual está activo y no es un guardado manual
+        const session = videoEl ? activeProcessingSessions.get(videoEl) : null;
+        const isHybridAutoSave = cachedSettings.manualSaveHybridMode && session?.isAutoSaveAuthorized;
+
+        if (cachedSettings.manualSaveMode && !options.isManual && !isHybridAutoSave) {
             return { success: false, reason: 'manual_save_mode_active' };
         }
         logLog('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
@@ -8799,13 +8807,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         if (safeIsFinished) {
-            const session = activeProcessingSessions.get(videoEl);
             if (session && !session.hasLoggedCompletion) {
                 videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
                 session.hasLoggedCompletion = true;
             }
         } else {
-            const session = activeProcessingSessions.get(videoEl);
             if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
                 const prev = sourceData?.watchProgress || 0;
                 const delta = prev - currentTime;
@@ -8850,7 +8856,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         logLog('saveLivestream', `Guardando livestream ${videoId} en ${currentTime}s`);
 
         // Ignorar si el modo de guardado manual está activo y no es un guardado manual
-        if (cachedSettings.manualSaveMode && !options.isManual) {
+        const session = videoEl ? activeProcessingSessions.get(videoEl) : null;
+        const isHybridAutoSave = cachedSettings.manualSaveHybridMode && session?.isAutoSaveAuthorized;
+
+        if (cachedSettings.manualSaveMode && !options.isManual && !isHybridAutoSave) {
             return { success: false, reason: 'manual_save_mode_active' };
         }
 
@@ -9910,6 +9919,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Recuperar info de la sesion activa para evitar pasar null y causar crash por cooldown
                 const session = activeProcessingSessions.get(video);
+
+                // Modo Híbrido: Al guardar manualmente por primera vez, autorizamos el autoguardado para el resto de la sesión
+                if (session && cachedSettings?.manualSaveHybridMode && !session.isAutoSaveAuthorized) {
+                    session.isAutoSaveAuthorized = true;
+                    logLog('setupManualSaveButton', `✨ Modo Híbrido: Primer guardado manual detectado, autorizando autoguardado para el resto de la sesión.`);
+                }
+
                 const result = await PlaybackController.saveStatus(activePlayer, video, contextType, videoId, session?.videoInfo, { isManual: true });
 
                 if (result?.videoInfo && session) {
@@ -10749,6 +10765,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     <input type="checkbox" name="manualSaveMode" ${settings.manualSaveMode ? 'checked' : ''}>
                     <span>${SVG_ICONS.bookmarkOutline}${t('manualSaveMode')}</span>
                 </label>
+                <div class="ypp-settings-third-level-section" style="margin-left: 28px; margin-top: 8px; ${settings.manualSaveMode ? '' : 'display: none;'} opacity: ${settings.manualSaveMode ? '1' : '0.5'};">
+                    <label class="ypp-label" title="${t('manualSaveHybridModeTooltip')}">
+                        <input type="checkbox" name="manualSaveHybridMode" ${settings.manualSaveHybridMode ? 'checked' : ''} ${settings.manualSaveMode ? '' : 'disabled'}>
+                        <span style="font-size: 0.9em;">${t('manualSaveHybridMode')}</span>
+                    </label>
+                </div>
             </div>
         </div>
     `;
@@ -11101,6 +11123,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             bodyModalSettings.querySelector(`[name="${name}"]`)?.addEventListener('change', updateAlertPreview);
         });
 
+        // Toggle visibilidad de sub-opción modo híbrido
+        const manualSaveCheckbox = bodyModalSettings.querySelector('[name="manualSaveMode"]');
+        const hybridSection = bodyModalSettings.querySelector('.ypp-settings-third-level-section');
+        if (manualSaveCheckbox && hybridSection) {
+            manualSaveCheckbox.addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                hybridSection.style.display = isChecked ? 'block' : 'none';
+                hybridSection.style.opacity = isChecked ? '1' : '0.5';
+                const hybridInput = hybridSection.querySelector('input');
+                if (hybridInput) hybridInput.disabled = !isChecked;
+            });
+        }
+
         // Aplicar clamping numérico a inputs específicos de settings
         applyNumericClamping(bodyModalSettings.querySelector('[name="minSecondsBetweenSaves"]'), { min: 1, max: 3600 });
         applyNumericClamping(bodyModalSettings.querySelector('[name="staticFinishPercent"]'), { min: 1, max: 99 });
@@ -11145,6 +11180,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     saveMiniplayerVideos: isChecked('saveMiniplayerVideos'),
                     saveInlinePreviews: isChecked('saveInlinePreviews'),
                     manualSaveMode: isChecked('manualSaveMode'),
+                    manualSaveHybridMode: isChecked('manualSaveHybridMode'),
                     countOncePerSession: isChecked('countOncePerSession'),
                     resumeCompletedFromStart: isChecked('resumeCompletedFromStart'),
                     language: getVal('language'),
@@ -13296,6 +13332,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 videoEl,
                 isFinalized: false,
                 isPlayerSettingsChange: false,
+                isAutoSaveAuthorized: false,
                 abortController
             };
             activeProcessingSessions.set(videoEl, session);
@@ -13520,6 +13557,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         getSavedVideoData(videoId, fastPlaylistId).then(async savedData => {
             // Verificar que la sesión no haya sido finalizada durante la lectura asíncrona de storage
             if (savedData && activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized) {
+                // Modo Híbrido: Si el video ya está en la base de datos, autorizamos el autoguardado de inmediato
+                if (cachedSettings?.manualSaveHybridMode) {
+                    sessionRef.isAutoSaveAuthorized = true;
+                    logLog('process', `✨ Modo Híbrido: Video ${videoId} ya existe en DB, autorizando autoguardado.`);
+                }
                 PlaybackDisplayManager.syncSavedState({ videoId, isSaved: true, isFixedTime: !!savedData.forceResumeTime });
 
                 // Blindaje anti doble-completado usando la duración ya disponible en videoInfo

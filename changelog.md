@@ -2,6 +2,8 @@
 
 ### Added
 
+- **Saved videos modal - display option toggles**: Added four toolbar toggles in the Saved Videos modal to independently show/hide: thumbnails, view counts, progress stats, and the action buttons area.
+- **Saved videos modal - Grid View mode**: Added an alternate Grid View layout accessible via a toggle in the toolbar. In Grid View, videos are displayed as thumbnail cards in a responsive multi-column grid (2 columns on narrow screens, 3 default, 4 on wide screens). Each card shows a thumbnail with a chevron trigger at the bottom; clicking it slides open a metadata dropdown with title, views, stats, and action buttons for that video. The dropdown interaction uses the `VirtualScroller` with dynamic height recalculation via `ResizeObserver` so row heights update live when the container resizes.
 - **Saved videos modal - dimming coloured labels**: Added a new option in the toolbar of the saved videos modal to dim the coloured percentage labels in the list. #48
 - **Saved videos modal - customizable action toolbar**: Added a toolbar under the search row with Quick access and Actions toggles (persisted via a dedicated storage key separate from main script settings), row-level opacity modes (full / dim until hover / hidden until hover), a per-row overflow menu (⋯) listing all actions available for that entry. #48
 - **Manual Save Hybrid Mode**: Added a new sub-option to "Manual Save Mode" that allows automatic saving to resume after a video is manually saved or if it was previously saved in the database. #49

@@ -503,8 +503,17 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "savedVideosToolbarSectionToggleTitle": "Expand or collapse row action settings",
             "savedVideosToolbarShowOverflowButton": "More actions (⋯) button",
             "savedVideosToolbarShowOverflowHint": "When off, the ⋯ button is hidden on each row. Pinned actions remain controlled by the toggles above.",
-            "dimColouredLabels": "Dim 'Coloured Label(s)'",
-            "dimColouredLabelsTooltip": "Makes colored labels (like watch percentage) appear dimmed until you hover over the video entry.",
+            "colouredLabelsStyle": "Labels Style",
+            "colouredLabelsVisibility": "Labels Visibility",
+            "colouredLabelsStyleColor": "Color",
+            "colouredLabelsStyleGrayscale": "Grayscale",
+            "colouredLabelsStyleColorOnHover": "Color on hover",
+            "colouredLabelsStyleGrayscaleOnHover": "Gray on hover",
+            "colouredLabelsVisibilityFull": "Always",
+            "colouredLabelsVisibilityDim": "Dim until hover",
+            "colouredLabelsVisibilityHiddenUntilHover": "Hidden until hover",
+            "colouredLabelsVisibilityHidden": "Remove",
+            "openInNewTab": "Open links in new tab",
             "importingFromFreeTube": "Importing from FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importing from FreeTube as SQLite...",
             "videosImported": "videos imported",
@@ -570,7 +579,18 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "copyLogsBtn": "Copy Logs",
             "reportIssue": "Report Issue",
             "logsCopied": "Logs copied to clipboard!",
-            "noLogs": "No errors recorded."
+            "noLogs": "No errors recorded.",
+            "displayOptions": "Display Options",
+            "showThumbnails": "Show thumbnails",
+            "showViews": "Show view counts",
+            "showStats": "Show progress stats",
+            "showButtons": "Show row action buttons",
+            "viewModeGrid": "Grid View",
+            "viewModeList": "List View",
+            "gridAlwaysExpanded": "Always expand items",
+            "gridExpansionMode": "Expansion mode",
+            "gridExpansionModeSingle": "Single item",
+            "gridExpansionModeRow": "Full row"
         },
         "es-ES": {
             "youtubePlaybackPlox": "YouTube Playback Plox",
@@ -747,8 +767,17 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "savedVideosToolbarSectionToggleTitle": "Desplegar u ocultar ajustes de acciones en filas",
             "savedVideosToolbarShowOverflowButton": "Botón Más acciones (⋯)",
             "savedVideosToolbarShowOverflowHint": "Mostrar u ocultar el botón de menú en cada fila (las acciones ancladas siguen gobernadas por los interruptores de arriba).",
-            "dimColouredLabels": "Atenuar etiquetas de colores",
-            "dimColouredLabelsTooltip": "Hace que las etiquetas de colores (como el porcentaje visto) aparezcan atenuadas hasta que pases el ratón sobre el video.",
+            "colouredLabelsStyle": "Estilo de etiquetas",
+            "colouredLabelsVisibility": "Visibilidad de etiquetas",
+            "colouredLabelsStyleColor": "Color",
+            "colouredLabelsStyleGrayscale": "Griseadas",
+            "colouredLabelsStyleColorOnHover": "Color en hover",
+            "colouredLabelsStyleGrayscaleOnHover": "Gris en hover",
+            "colouredLabelsVisibilityFull": "Siempre",
+            "colouredLabelsVisibilityDim": "Atenuar hasta hover",
+            "colouredLabelsVisibilityHiddenUntilHover": "Ocultar hasta hover",
+            "colouredLabelsVisibilityHidden": "Remover",
+            "openInNewTab": "Abrir enlaces en nueva pestaña",
             "importingFromFreeTube": "Importando desde FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importando desde FreeTube como SQLite...",
             "videosImported": "videos importados",
@@ -814,7 +843,18 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "copyLogsBtn": "Copiar registros",
             "reportIssue": "Reportar problema",
             "logsCopied": "¡Registros copiados al portapapeles!",
-            "noLogs": "No hay errores registrados."
+            "noLogs": "No hay errores registrados.",
+            "displayOptions": "Opciones de visualización",
+            "showThumbnails": "Mostrar miniaturas",
+            "showViews": "Mostrar recuento de vistas",
+            "showStats": "Mostrar estadísticas de progreso",
+            "showButtons": "Mostrar botones de acción (desactiva toda el área)",
+            "viewModeGrid": "Vista en cuadrícula",
+            "viewModeList": "Vista de lista",
+            "gridAlwaysExpanded": "Siempre expandir items",
+            "gridExpansionMode": "Modo de expansión",
+            "gridExpansionModeSingle": "Item único",
+            "gridExpansionModeRow": "Fila completa"
         },
         "fr": {
             "youtubePlaybackPlox": "YouTube Playback Plox",
@@ -1237,7 +1277,18 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             inactiveToolbarOpacity: 0.7,
             toolbarSectionExpanded: false,
             showOverflowMenu: true,
-            dimColouredLabels: false
+            colouredLabelsStyle: 'color',
+            colouredLabelsVisibility: 'full',
+            displayOptions: {
+                showThumbnails: true,
+                showViews: true,
+                showStats: true,
+                showButtons: true,
+                viewMode: 'list', // 'list' | 'grid'
+                gridAlwaysExpanded: false,
+                gridExpansionMode: 'single',
+                openInNewTab: true
+            }
         }
     };
 
@@ -1263,6 +1314,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     /** @type {MutationObserver|null} Theme change observer for cleanup */
     let themeObserver = null;
 
+    // ============================================================================================================
+    // MARK: 🗄️ Event Handlers store
+    // ============================================================================================================
     /**
      * Managed disposable store to prevent memory leaks.
      * Enforces explicit cleanup of event listeners and other resources.
@@ -2981,23 +3035,105 @@ regular-item.ypp-fill-none {
     display: none !important;
 }
 
-.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-progressInfo,
-.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-timestamp.forced,
-.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-playlist-indicator {
+/* Label Styles */
+.ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-timestamp.forced
+/* .ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-playlist-indicator  */{
+    filter: grayscale(1);
+}
+
+.ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
+/* .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator  */{
+    filter: grayscale(1);
+}
+.ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:hover .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:hover .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:hover .ypp-timestamp.forced
+/* .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:hover .ypp-playlist-indicator */ {
+    filter: grayscale(0);
+}
+
+.ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
+/* .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator */ {
+    filter: grayscale(0);
+}
+.ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:hover .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:hover .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:hover .ypp-timestamp.forced
+/* .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:hover .ypp-playlist-indicator */ {
+    filter: grayscale(1);
+}
+
+/* Label Visibility */
+.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-timestamp.forced,
+/* .ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-playlist-indicator, */
+.ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.forced
+/* .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-playlist-indicator  */{
     -webkit-transition: all 0.2s ease;
-    -o-transition: all 0.2s ease;
     transition: all 0.2s ease;
 }
 
-.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
-.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced,
-.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator,
-.ypp-videosContainer[data-ypp-dim-coloured-labels="on"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator * {
-    filter: grayscale(1) brightness(0.85);
-    opacity: 0.7;
-    color: var(--ypp-muted) !important;
+.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
+/* .ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator,
+.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator *  */{
+    opacity: 0.5;
+}
+
+.ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
+/* .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator  */{
+    opacity: 0;
+    pointer-events: none;
+}
+
+.ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-timestamp.forced
+/* .ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-playlist-indicator */ {
+    display: none !important;
+}
+
+/* Display Options toggles */
+.ypp-videosContainer[data-ypp-show-thumbs="false"] .ypp-thumb-wrapper {
+    display: none !important;
+}
+.ypp-videosContainer[data-ypp-show-views="false"] .ypp-views {
+    display: none !important;
+}
+.ypp-videosContainer[data-ypp-show-stats="false"] .ypp-progressInfo {
+    display: none !important;
+}
+.ypp-videosContainer[data-ypp-show-buttons="false"] .ypp-containerButtonsTime .ypp-buttons-row {
+    display: none !important;
+}
+
+.ypp-toolbar-separator {
+    width: 2px;
+    height: 24px;
+    background-color: var(--ypp-border);
+    margin: 0 var(--ypp-spacing-sm);
+    border-radius: 2px;
+}
+
+.ypp-display-toggle-buttons {
+    position: relative;
+}
+.ypp-display-toggle-buttons.is-inactive {
+    background-color: rgba(255, 60, 60, 0.15) !important;
+    border-color: rgba(255, 60, 60, 0.4) !important;
+    color: #ff6b6b !important;
 }
 
 .ypp-saved-videos-toolbar-toggle.dragging {
@@ -3697,6 +3833,19 @@ regular-item.ypp-fill-none {
     }
 }
 
+@media (max-width: 500px) {
+    .ypp-videoWrapper {
+        /* allow container to squeeze */
+        padding: var(--ypp-spacing-sm);
+    }
+    .ypp-thumb-wrapper {
+        width: 120px !important; /* shrink thumb on small screens */
+    }
+    .ypp-containerButtonsTime {
+        padding-right: 32px; /* reduce space for overflow */
+    }
+}
+
 
 
 .ypp-virtual-item {
@@ -3717,6 +3866,113 @@ regular-item.ypp-fill-none {
     min-height: 30px;
     margin: 0 10px 0 0;
     cursor: pointer;
+}
+
+/* =========================
+   Grid View Mode
+========================= */
+/* Grid mode: ensure virtual items fill full width when absolutely positioned */
+.ypp-videosContainer[data-ypp-view-mode="grid"] .ypp-virtual-item {
+    left: 0;
+    right: 0;
+    padding: 0 var(--ypp-spacing-md);
+    box-sizing: border-box;
+}
+.ypp-grid-row {
+    display: flex;
+    flex-direction: row;
+    width: 100%;
+    gap: var(--ypp-spacing-md);
+    box-sizing: border-box;
+}
+
+.ypp-grid-item {
+    flex: 0 0 calc((100% - (var(--ypp-spacing-md) * (var(--row-cols, 3) - 1))) / var(--row-cols, 3));
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    position: relative;
+    background: var(--ypp-bg);
+    border-radius: var(--ypp-spacing-md);
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    border: 1px solid var(--ypp-border);
+    box-sizing: border-box;
+}
+
+.ypp-grid-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.ypp-grid-item .ypp-thumb-wrapper {
+    width: 100%;
+    height: auto;
+    aspect-ratio: 16/9;
+    margin: 0;
+    max-width: none;
+    border-radius: var(--ypp-spacing-md) var(--ypp-spacing-md) 0 0;
+}
+
+.ypp-grid-item .ypp-video-checkbox {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    z-index: 2;
+    background: rgba(0,0,0,0.5);
+    border-radius: 4px;
+    padding: 2px;
+}
+
+.ypp-grid-chevron {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 32px;
+    padding: 0;
+    box-sizing: border-box;
+    background: var(--ypp-bg-secondary);
+    border-radius: 0 0 var(--ypp-spacing-md) var(--ypp-spacing-md);
+    color: var(--ypp-text-secondary);
+    transition: background 0.2s ease, color 0.2s ease;
+    cursor: pointer;
+}
+.ypp-grid-item:hover .ypp-grid-chevron {
+    background: var(--ypp-primary-transparent);
+    color: var(--ypp-primary);
+}
+.ypp-grid-item.is-expanded .ypp-grid-chevron {
+    transform: rotate(180deg);
+}
+
+.ypp-grid-dropdown-info {
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 0;
+    transition: max-height 0.3s ease;
+}
+.ypp-grid-item.is-expanded .ypp-grid-dropdown-info {
+    max-height: 400px;
+}
+.ypp-grid-dropdown-info .ypp-videoWrapper {
+    border: none;
+    min-height: 0;
+    height: auto !important;
+    padding: var(--ypp-spacing-sm);
+    background: transparent;
+    flex-direction: column;
+    align-items: flex-start;
+}
+.ypp-grid-dropdown-info .ypp-infoDiv {
+    width: 100%;
+}
+.ypp-grid-dropdown-info .ypp-containerButtonsTime {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 8px;
+    padding-right: 0;
+    align-items: flex-start;
 }
 
 /* Estilos para el área de playlist integrada */
@@ -5236,6 +5492,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         chevronDown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7 9a1 1 0 0 0-.707 1.707l5 5a1 1 0 0 0 1.414 0l5-5A1 1 0 0 0 17 9z" clip-rule="evenodd"/></svg>',
         // https://icon-sets.iconify.design/iconamoon/restart/
         restart: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3a9 9 0 1 1-5.657 2"/><path d="M3 4.5h4v4"/></g></svg>',
+        unfoldMore: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m7 15l5 5l5-5M7 9l5-5l5 5"/></svg>',
+        stack: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2"><path d="m12 6l-8 4l8 4l8-4z"/><path d="m4 14l8 4l8-4m-16-4l8 4l8-4"/></g></svg>',
 
 
         /* octicon - MIT ------------------------------------ */
@@ -5325,6 +5583,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         hourglass: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M6 2v6h.01L6 8.01 10 12l-4 4 .01.01H6V22h12v-5.99h-.01L18 16l-4-4 4-3.99-.01-.01H18V2h-12zm10 14.5V20H8v-3.5l4-4 4 4zm-4-5l-4-4V4h8v3.5l-4 4z"/></svg>',
         fire: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>',
         ice: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M22 11h-4.17l3.24-3.24-1.41-1.41L15 11h-2V9l4.65-4.65-1.41-1.41L13 6.17V2h-2v4.17L7.76 2.93 6.35 4.34 11 9v2H9L4.35 6.35 2.94 7.76 6.17 11H2v2h4.17l-3.24 3.24 1.41 1.41L9 13h2v2l-4.65 4.65 1.41 1.41L11 17.83V22h2v-4.17l3.24 3.24 1.41-1.41L13 15v-2h2l4.65 4.65 1.41-1.41L17.83 13H22v-2z"/></svg>',
+        grid: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M4 4h6v6H4zm10 0h6v6h-6zM4 14h6v6H4zm10 0h6v6h-6z"/></svg>',
+        list: '<svg class="ypp-svg-reset ypp-fill-currentColor" viewBox="0 0 24 24"><path d="M4 6h2v2H4zm0 5h2v2H4zm0 5h2v2H4zm4-10h12v2H8zm0 5h12v2H8zm0 5h12v2H8z"/></svg>',
     };
 
     // ============================================================================================================
@@ -6161,6 +6421,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         merged.dimColouredLabels = typeof merged.dimColouredLabels === 'boolean'
             ? merged.dimColouredLabels
             : d.dimColouredLabels;
+
+        merged.displayOptions = typeof merged.displayOptions === 'object' && merged.displayOptions !== null
+            ? { ...d.displayOptions, ...merged.displayOptions }
+            : { ...d.displayOptions };
+
+        if (merged.displayOptions.viewMode !== 'list' && merged.displayOptions.viewMode !== 'grid') {
+            merged.displayOptions.viewMode = 'list';
+        }
         return merged;
     };
 
@@ -7168,6 +7436,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         /**
          * Pre-calcula la posición Y (offset) de cada item sumando las alturas anteriores.
+         * Cuando un item ya está renderizado, usa su altura real del DOM en lugar de la estimada.
          * @private
          */
         _calculateOffsets() {
@@ -7175,7 +7444,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let offset = 0;
             for (let i = 0; i < this.items.length; i++) {
                 this.itemOffsets[i] = offset;
-                const h = this.getItemHeight(this.items[i], i);
+                // Prefer actual rendered height over the estimate to avoid gaps
+                const renderedEl = this.renderedItems.get(i);
+                const h = renderedEl ? renderedEl.offsetHeight : this.getItemHeight(this.items[i], i);
                 offset += h;
             }
             this.totalHeight = offset;
@@ -7348,6 +7619,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             this.renderedItems.clear();
             this.lastScrollTop = -1;
             this._render();
+        }
+
+        /**
+         * Recalcula alturas usando la altura real del DOM de los items ya renderizados
+         * y reposiciona los items en lugar de hacer un re-render completo.
+         * @param {boolean} [forceFullRefresh=false] - Si es true, destruye y re-renderiza todo
+         */
+        updateHeights(forceFullRefresh = false) {
+            if (forceFullRefresh) {
+                this._calculateOffsets();
+                this.refresh();
+                return;
+            }
+            // Recalculate using actual rendered heights where possible
+            this._calculateOffsets();
+            // Reposition all currently-rendered items with corrected offsets
+            for (const [idx, el] of this.renderedItems) {
+                el.style.top = `${this.itemOffsets[idx]}px`;
+            }
         }
 
         /**
@@ -15531,6 +15821,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     /** @type {VirtualScroller|null} Instancia del scroller virtual para la lista de videos */
     let virtualScroller = null;
+    /** @type {ResizeObserver|null} Observer para redimensionado de VirtualScroller */
+    let virtualScrollerResizeObserver = null;
     /** @type {number|null} ID del intervalo de actualización del uso de almacenamiento */
     let storageUsageRefreshIntervalId = null;
     /** @type {number|null} Caché del tamaño de almacenamiento del script en bytes */
@@ -15810,12 +16102,33 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return valA - valB;
         });
 
-        // Pre-procesar items para incluir headers de playlist
+        // Pre-procesar items para incluir headers de playlist y agrupar en filas si es Grid View
         const virtualItems = [];
         let lastPlaylistKey = null;
+        const isGridMode = cachedSavedVideosModalSettings?.displayOptions?.viewMode === 'grid';
+        let gridCols = 3;
+        if (window.innerWidth < 600) gridCols = 2;
+        else if (window.innerWidth >= 1200) gridCols = 4;
+
+        let currentRowChunk = [];
+        const flushRowChunk = () => {
+            if (currentRowChunk.length > 0) {
+                const alwaysExpanded = cachedSavedVideosModalSettings?.displayOptions?.gridAlwaysExpanded;
+                virtualItems.push({
+                    type: 'grid-row',
+                    items: currentRowChunk,
+                    expandedItemIds: alwaysExpanded
+                        ? new Set(currentRowChunk.map(i => i.info.videoId || i.videoId))
+                        : new Set(),
+                    gridCols: gridCols
+                });
+                currentRowChunk = [];
+            }
+        };
 
         for (const item of filteredItems) {
             if (item.type === 'playlist-video' && item.playlistKey && item.playlistKey !== lastPlaylistKey) {
+                if (isGridMode) flushRowChunk();
                 const basePlaylistTitle = item.playlistTitle || item.playlistKey;
                 const headerTitle = (item.playlistKey?.startsWith('RD') && basePlaylistTitle === item.playlistKey)
                     ? `Mix - ${item.info?.title || t('unknown')}`
@@ -15828,10 +16141,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 });
                 lastPlaylistKey = item.playlistKey;
             } else if (item.type !== 'playlist-video') {
+                if (isGridMode && lastPlaylistKey !== null) flushRowChunk();
                 lastPlaylistKey = null;
             }
-            virtualItems.push(item);
+
+            if (isGridMode) {
+                currentRowChunk.push(item);
+                if (currentRowChunk.length >= gridCols) {
+                    flushRowChunk();
+                }
+            } else {
+                virtualItems.push(item);
+            }
         }
+        if (isGridMode) flushRowChunk();
 
         // Si ya existe el scroller y el contenedor en el DOM, solo actualizar items y restaurar scroll
         // Manejar estado vacío (sin resultados) para evitar que se quede la lista previa
@@ -15932,6 +16255,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             itemHeight: VIDEO_ITEM_HEIGHT, // Fallback por si acaso
             getItemHeight: (item) => {
                 if (item.type === 'playlist-header') return 40;
+                if (item.type === 'grid-row') {
+                    // Calculate dynamic height based on container width and aspect ratio
+                    // Use gridCols (intended columns) instead of actual items length for consistency
+                    const cols = item.gridCols || 3;
+                    const containerWidth = scrollerContainer.getBoundingClientRect().width || scrollerContainer.clientWidth || window.innerWidth || 800;
+                    const padding = 32; // var(--ypp-spacing-md) * 2
+                    const gap = 16 * (cols - 1);
+                    const itemWidth = (containerWidth - padding - gap) / cols;
+                    const thumbHeight = itemWidth * 9 / 16;
+
+                    let h = thumbHeight + 42; // thumb height + borders + 32px chevron + 8px margin safety
+                    if (item.expandedItemIds?.size > 0) h += 400; // Extra space for dropdown content
+                    return Math.max(h, 120);
+                }
                 if (item.playlistKey) return 140; // Optimizado a 140px
                 return VIDEO_ITEM_HEIGHT;
             },
@@ -15956,6 +16293,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     return header;
                 }
 
+                if (item.type === 'grid-row') {
+                    return await createVideoGridRow(item);
+                }
+
                 return await createVideoEntry(item);
             },
             onRender: () => {
@@ -15965,7 +16306,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // let renderedVideos = 0;
 
                     virtualScroller.items.forEach(i => {
-                        if (i.type !== 'playlist-header') totalVideos++;
+                        if (i.type === 'grid-row') totalVideos += i.items.length;
+                        else if (i.type !== 'playlist-header') totalVideos++;
                     });
 
                     // virtualScroller.renderedItems.forEach((el, idx) => {
@@ -15986,6 +16328,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
         });
 
+        // Attach ResizeObserver to recalculate grid row heights when container width changes
+        if (virtualScrollerResizeObserver) {
+            virtualScrollerResizeObserver.disconnect();
+            virtualScrollerResizeObserver = null;
+        }
+        if (typeof ResizeObserver !== 'undefined') {
+            let resizeDebounceTimer = null;
+            virtualScrollerResizeObserver = new ResizeObserver(() => {
+                if (!virtualScroller || cachedSavedVideosModalSettings?.displayOptions?.viewMode !== 'grid') return;
+                clearTimeout(resizeDebounceTimer);
+                resizeDebounceTimer = setTimeout(() => {
+                    // Force full re-render on resize: card widths changed → thumbnail aspect ratio changed → heights stale
+                    if (virtualScroller) virtualScroller.updateHeights(true);
+                }, 120);
+            });
+            virtualScrollerResizeObserver.observe(scrollerContainer);
+        }
 
         logLog('updateVideoList', `✅ VirtualScroller inicializado con ${filteredItems.length} items`);
     }
@@ -15997,6 +16356,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (virtualScroller) {
             virtualScroller.destroy();
             virtualScroller = null;
+        }
+
+        // Destruir ResizeObserver del scroller grid
+        if (virtualScrollerResizeObserver) {
+            virtualScrollerResizeObserver.disconnect();
+            virtualScrollerResizeObserver = null;
         }
 
         // Limpiar recursos del modal (listeners, etc)
@@ -16819,7 +17184,31 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const map = { full: 'full', dimUntilHover: 'dim', hiddenUntilHover: 'hidden' };
         container.setAttribute('data-entry-action-opacity', map[mode] || 'full');
         container.setAttribute('data-ypp-overflow-menu', settings.showOverflowMenu !== false ? 'on' : 'off');
-        container.setAttribute('data-ypp-dim-coloured-labels', settings.dimColouredLabels === true ? 'on' : 'off');
+        // Legacy migration for labels
+        if (settings.colouredLabelsStyle === undefined) {
+            settings.colouredLabelsStyle = 'color';
+        }
+        if (settings.colouredLabelsVisibility === undefined) {
+            let oldDim = settings.dimColouredLabels;
+            if (oldDim === true || oldDim === 'dim') settings.colouredLabelsVisibility = 'dim';
+            else if (oldDim === 'hidden' || oldDim === 'hiddenUntilHover') settings.colouredLabelsVisibility = oldDim;
+            else if (oldDim === 'grayscale') {
+                settings.colouredLabelsVisibility = 'full';
+                settings.colouredLabelsStyle = 'grayscale';
+            }
+            else settings.colouredLabelsVisibility = 'full';
+        }
+
+        container.setAttribute('data-ypp-label-style', settings.colouredLabelsStyle || 'color');
+        container.setAttribute('data-ypp-label-visibility', settings.colouredLabelsVisibility || 'full');
+
+        if (settings.displayOptions) {
+            container.setAttribute('data-ypp-show-thumbs', settings.displayOptions.showThumbnails !== false ? 'true' : 'false');
+            container.setAttribute('data-ypp-show-views', settings.displayOptions.showViews !== false ? 'true' : 'false');
+            container.setAttribute('data-ypp-show-stats', settings.displayOptions.showStats !== false ? 'true' : 'false');
+            container.setAttribute('data-ypp-show-buttons', settings.displayOptions.showButtons !== false ? 'true' : 'false');
+            container.setAttribute('data-ypp-view-mode', settings.displayOptions.viewMode || 'list');
+        }
     };
 
     /** @type {Record<string, { id: string, group: string, dataAction: string, labelKey: string, toolbarIconHtml: () => string, isAvailable: (ctx: object) => boolean, buildPrimaryButton: (ctx: object) => object|null, run: (ctx: object) => Promise<void> }>} */
@@ -17186,40 +17575,201 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         overflowRow.appendChild(overflowChips);
         inner.appendChild(overflowRow);
 
-        const dimRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-        dimRow.appendChild(createElement('span', {
+        const styleRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        styleRow.appendChild(createElement('span', {
             className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('dimColouredLabels')
+            text: t('colouredLabelsStyle')
         }));
-        const dimChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
-        const dimBtn = createElement('button', {
-            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ${cachedSavedVideosModalSettings.dimColouredLabels ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'}`,
-            html: SVG_ICONS.palette,
-            attributes: {
-                type: 'button',
-                title: t('dimColouredLabelsTooltip'),
-                'aria-pressed': cachedSavedVideosModalSettings.dimColouredLabels ? 'true' : 'false'
-            }
+        const styleBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+        const styleModes = [
+            { key: 'color', label: t('colouredLabelsStyleColor') },
+            { key: 'grayscale', label: t('colouredLabelsStyleGrayscale') },
+            { key: 'colorOnHover', label: t('colouredLabelsStyleColorOnHover') },
+            { key: 'grayscaleOnHover', label: t('colouredLabelsStyleGrayscaleOnHover') }
+        ];
+        const syncStyleActive = () => {
+            const cur = cachedSavedVideosModalSettings.colouredLabelsStyle || 'color';
+            styleBtns.querySelectorAll('button[data-style-mode]').forEach((b) => {
+                const active = b.dataset.styleMode === cur;
+                b.classList.toggle('ypp-btn-primary', active);
+                b.classList.toggle('ypp-btn-outline-primary', !active);
+            });
+        };
+        for (const { key, label } of styleModes) {
+            const b = createElement('button', {
+                className: 'ypp-btn ypp-btn-sm',
+                text: label,
+                attributes: { type: 'button', 'data-style-mode': key }
+            });
+            addDisposableListener(b, 'click', (ev) => {
+                ev.stopPropagation();
+                cachedSavedVideosModalSettings.colouredLabelsStyle = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                syncStyleActive();
+                void updateVideoList();
+            }, {}, ModalDisposables);
+            styleBtns.appendChild(b);
+        }
+        syncStyleActive();
+        styleRow.appendChild(styleBtns);
+        inner.appendChild(styleRow);
+
+        const visRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        visRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('colouredLabelsVisibility')
+        }));
+        const visBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+        const visModes = [
+            { key: 'full', label: t('colouredLabelsVisibilityFull') },
+            { key: 'dim', label: t('colouredLabelsVisibilityDim') },
+            { key: 'hiddenUntilHover', label: t('colouredLabelsVisibilityHiddenUntilHover') },
+            { key: 'hidden', label: t('colouredLabelsVisibilityHidden') }
+        ];
+        const syncVisActive = () => {
+            const cur = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'full';
+            visBtns.querySelectorAll('button[data-vis-mode]').forEach((b) => {
+                const active = b.dataset.visMode === cur;
+                b.classList.toggle('ypp-btn-primary', active);
+                b.classList.toggle('ypp-btn-outline-primary', !active);
+            });
+        };
+        for (const { key, label } of visModes) {
+            const b = createElement('button', {
+                className: 'ypp-btn ypp-btn-sm',
+                text: label,
+                attributes: { type: 'button', 'data-vis-mode': key }
+            });
+            addDisposableListener(b, 'click', (ev) => {
+                ev.stopPropagation();
+                cachedSavedVideosModalSettings.colouredLabelsVisibility = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                syncVisActive();
+                void updateVideoList();
+            }, {}, ModalDisposables);
+            visBtns.appendChild(b);
+        }
+        syncVisActive();
+        visRow.appendChild(visBtns);
+        inner.appendChild(visRow);
+
+        const displayRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row ypp-saved-videos-toolbar-display-row' });
+        displayRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('displayOptions')
+        }));
+        const displayChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles ypp-display-options-toggles' });
+
+        const makeDisplayToggle = (key, icon, labelKey, isButtonsToggle = false) => {
+            const on = cachedSavedVideosModalSettings.displayOptions[key] !== false;
+            const btn = createElement('button', {
+                className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'} ${isButtonsToggle ? 'ypp-display-toggle-buttons' : ''}`,
+                html: icon,
+                attributes: {
+                    type: 'button',
+                    title: t(labelKey),
+                    'aria-pressed': on ? 'true' : 'false'
+                }
+            });
+
+            addDisposableListener(btn, 'click', (ev) => {
+                ev.stopPropagation();
+                cachedSavedVideosModalSettings.displayOptions[key] = !cachedSavedVideosModalSettings.displayOptions[key];
+                const nextOn = cachedSavedVideosModalSettings.displayOptions[key];
+                btn.classList.toggle('ypp-btn-primary', nextOn);
+                btn.classList.toggle('is-active', nextOn);
+                btn.classList.toggle('ypp-btn-outline-primary', !nextOn);
+                btn.classList.toggle('is-inactive', !nextOn);
+                btn.setAttribute('aria-pressed', nextOn ? 'true' : 'false');
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                void updateVideoList();
+            }, {}, ModalDisposables);
+            return btn;
+        };
+
+        displayChips.appendChild(makeDisplayToggle('showThumbnails', SVG_ICONS.video, 'showThumbnails'));
+        displayChips.appendChild(makeDisplayToggle('showViews', SVG_ICONS.people, 'showViews'));
+        displayChips.appendChild(makeDisplayToggle('showStats', SVG_ICONS.graph, 'showStats'));
+        displayChips.appendChild(makeDisplayToggle('showButtons', SVG_ICONS.settings, 'showButtons', true));
+        displayChips.appendChild(makeDisplayToggle('openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab'));
+
+        // Grid/List toggle separator
+        const sep = createElement('div', { className: 'ypp-toolbar-separator' });
+        displayChips.appendChild(sep);
+
+        // Grid-only options group
+        const gridOptionsGroup = createElement('div', {
+            className: 'ypp-toolbar-grid-options',
+            styles: { display: 'flex', gap: '8px' }
         });
-        addDisposableListener(dimBtn, 'click', (ev) => {
+
+        const syncGridOptionsVisibility = () => {
+            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
+            gridOptionsGroup.style.setProperty('display', isGrid ? 'flex' : 'none', 'important');
+        };
+
+        const viewModeToggle = createElement('button', {
+            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ypp-view-mode-toggle ypp-btn-outline-primary`,
+            attributes: { type: 'button' }
+        });
+
+        const syncViewModeBtn = () => {
+            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
+            setInnerHTML(viewModeToggle, isGrid ? SVG_ICONS.list : SVG_ICONS.grid);
+            viewModeToggle.setAttribute('title', t(isGrid ? 'viewModeList' : 'viewModeGrid'));
+            viewModeToggle.classList.toggle('is-grid', isGrid);
+        };
+        syncViewModeBtn();
+
+        addDisposableListener(viewModeToggle, 'click', (ev) => {
             ev.stopPropagation();
-            cachedSavedVideosModalSettings.dimColouredLabels = !cachedSavedVideosModalSettings.dimColouredLabels;
-            const on = cachedSavedVideosModalSettings.dimColouredLabels;
-            dimBtn.classList.toggle('ypp-btn-primary', on);
-            dimBtn.classList.toggle('is-active', on);
-            dimBtn.classList.toggle('ypp-btn-outline-primary', !on);
-            dimBtn.classList.toggle('is-inactive', !on);
-            dimBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
+            cachedSavedVideosModalSettings.displayOptions.viewMode = isGrid ? 'list' : 'grid';
+            syncViewModeBtn();
+            syncGridOptionsVisibility();
             applySavedVideoActionDatasetToVideosContainer(container);
             void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+            void updateVideoList(); // Re-render grid/list layout
+        }, {}, ModalDisposables);
 
-            // Re-render list to apply dimming if using classes, or just let CSS handle it
-            // If using CSS classes on the container, applySavedVideoActionDatasetToVideosContainer should handle it.
+        displayChips.appendChild(viewModeToggle);
+        syncGridOptionsVisibility();
+
+        // Always Expand Toggle
+        gridOptionsGroup.appendChild(makeDisplayToggle('gridAlwaysExpanded', SVG_ICONS.unfoldMore, 'gridAlwaysExpanded'));
+
+        // Expansion Mode Toggle (Single vs Row)
+        const expModeToggle = createElement('button', {
+            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ypp-btn-outline-primary`,
+            attributes: { type: 'button' }
+        });
+
+        const syncExpModeBtn = () => {
+            const mode = cachedSavedVideosModalSettings.displayOptions.gridExpansionMode || 'single';
+            setInnerHTML(expModeToggle, mode === 'row' ? SVG_ICONS.stack : SVG_ICONS.shield);
+            expModeToggle.setAttribute('title', `${t('gridExpansionMode')}: ${t(mode === 'row' ? 'gridExpansionModeRow' : 'gridExpansionModeSingle')}`);
+            expModeToggle.classList.toggle('ypp-btn-primary', mode === 'row');
+            expModeToggle.classList.toggle('ypp-btn-outline-primary', mode !== 'row');
+        };
+        syncExpModeBtn();
+
+        addDisposableListener(expModeToggle, 'click', (ev) => {
+            ev.stopPropagation();
+            const current = cachedSavedVideosModalSettings.displayOptions.gridExpansionMode || 'single';
+            cachedSavedVideosModalSettings.displayOptions.gridExpansionMode = current === 'single' ? 'row' : 'single';
+            syncExpModeBtn();
+            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
             void updateVideoList();
         }, {}, ModalDisposables);
-        dimChips.appendChild(dimBtn);
-        dimRow.appendChild(dimChips);
-        inner.appendChild(dimRow);
+
+        gridOptionsGroup.appendChild(expModeToggle);
+        displayChips.appendChild(gridOptionsGroup);
+
+        displayRow.appendChild(displayChips);
+        inner.appendChild(displayRow);
 
         body.appendChild(inner);
         wrap.appendChild(sectionToggle);
@@ -17318,7 +17868,125 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         return fallback;
     }
 
-    async function createVideoEntry(item) {
+    async function createVideoGridRow(rowItem) {
+        const rowEl = createElement('div', { className: 'ypp-grid-row' });
+        // Correctly set CSS variable (styles object in createElement doesn't support variables)
+        rowEl.style.setProperty('--row-cols', String(rowItem.gridCols || 3));
+
+        for (const item of rowItem.items) {
+            const videoId = item.info.videoId || item.videoId;
+            const isExpanded = rowItem.expandedItemIds?.has(videoId);
+
+            const gridItem = createElement('div', {
+                className: `ypp-grid-item ${isExpanded ? 'is-expanded' : ''}`,
+                attributes: { 'data-video-id': videoId }
+            });
+
+            // Thumbnail wrapper
+            const thumbClass = (item.info.type === 'shorts' || item.info.type === 'preview_shorts') ? 'ypp-thumb-shorts' : 'ypp-thumb-regular';
+            const skeletonEl = createElement('div', {
+                className: 'ypp-skeleton-thumb',
+                styles: { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', zIndex: '1', margin: '0', borderRadius: 'var(--ypp-spacing-md) var(--ypp-spacing-md) 0 0' }
+            });
+            const imgEl = createElement('img', {
+                className: `ypp-thumb ${thumbClass}`,
+                attributes: { title: item.info.title, alt: item.info.title, loading: 'lazy', draggable: 'false' },
+            });
+            const thumbWrapper = createElement('div', {
+                className: `ypp-thumb-wrapper ${thumbClass}`,
+                children: [skeletonEl, imgEl]
+            });
+
+            // Checkbox for selection mode
+            if (isPlaylistCreationMode || isManagementMode) {
+                const cb = createElement('input', {
+                    className: 'ypp-video-checkbox',
+                    attributes: { type: 'checkbox', 'data-action': 'toggle-selection', 'data-video-id': videoId },
+                    props: { checked: selectedVideos.has(videoId) }
+                });
+                thumbWrapper.appendChild(cb);
+            }
+            gridItem.appendChild(thumbWrapper);
+
+            getValidatedThumbnail(videoId).then(url => {
+                imgEl.onload = () => {
+                    imgEl.style.opacity = '1';
+                    setTimeout(() => skeletonEl.remove(), 300);
+                };
+                imgEl.onerror = () => {
+                    imgEl.style.opacity = '1';
+                    skeletonEl.remove();
+                };
+                imgEl.src = url;
+                if (imgEl.complete) imgEl.onload();
+            }).catch(() => {
+                imgEl.style.opacity = '1';
+                skeletonEl.remove();
+            });
+
+            // Dropdown chevron trigger
+            const chevron = createElement('div', {
+                className: 'ypp-grid-chevron',
+                html: SVG_ICONS.chevronDown,
+                attributes: { title: t('displayOptions') } // Reuse translation or just as hint
+            });
+
+            gridItem.appendChild(chevron);
+
+            // Dropdown info container
+            const dropdown = createElement('div', { className: 'ypp-grid-dropdown-info' });
+            // Defer rendering the actual video entry until expanded? No, better to render it directly to avoid async issues in layout.
+            // Wait, VirtualScroller renders sync/async. We can just render the info.
+            const entryEl = await createVideoEntry(item, true); // isDropdown = true
+            dropdown.appendChild(entryEl);
+            gridItem.appendChild(dropdown);
+
+            // Toggle expansion
+            addDisposableListener(gridItem, 'click', (e) => {
+                // If clicked on checkbox or links, ignore dropdown toggle
+                if (e.target.closest('.ypp-video-checkbox, a, button, .ypp-saved-video-entry-action')) return;
+
+                // Toggle expansion state on the rowItem object
+                const expMode = cachedSavedVideosModalSettings?.displayOptions?.gridExpansionMode || 'single';
+                if (expMode === 'row') {
+                    const allInRow = rowItem.items.map(i => i.info.videoId || i.videoId);
+                    const anyExpanded = allInRow.some(id => rowItem.expandedItemIds.has(id));
+                    if (anyExpanded) {
+                        allInRow.forEach(id => rowItem.expandedItemIds.delete(id));
+                    } else {
+                        allInRow.forEach(id => rowItem.expandedItemIds.add(id));
+                    }
+                } else {
+                    if (rowItem.expandedItemIds.has(videoId)) {
+                        rowItem.expandedItemIds.delete(videoId);
+                    } else {
+                        rowItem.expandedItemIds.add(videoId);
+                    }
+                }
+
+                // Immediately update CSS classes for visual feedback
+                const liveRow = e.currentTarget.closest('.ypp-grid-row');
+                const rowItemsElements = (liveRow || rowEl).querySelectorAll('.ypp-grid-item');
+                rowItemsElements.forEach(el => {
+                    el.classList.toggle('is-expanded', rowItem.expandedItemIds.has(el.dataset.videoId));
+                });
+
+                // Defer height recalculation until AFTER the CSS transition (300ms) so that
+                // _calculateOffsets reads the final post-transition offsetHeight, not mid-animation.
+                if (virtualScroller) {
+                    setTimeout(() => {
+                        if (virtualScroller) virtualScroller.updateHeights();
+                    }, 320);
+                }
+            }, {}, ModalDisposables);
+
+            rowEl.appendChild(gridItem);
+        }
+
+        return rowEl;
+    }
+
+    async function createVideoEntry(item, isDropdown = false) {
         const { info, playlistKey = null, playlistTitle = null } = item;
 
         const {
@@ -17431,38 +18099,46 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const fragment = document.createDocumentFragment();
 
-        if (isPlaylistCreationMode || isManagementMode) {
-            fragment.appendChild(createElement('input', {
-                className: 'ypp-video-checkbox',
-                attributes: {
-                    type: 'checkbox',
-                    'data-action': 'toggle-selection',
-                    'data-video-id': videoId
-                },
-                props: { checked: selectedVideos.has(videoId) }
+        let imgEl = null;
+        let skeletonEl = null;
+
+        if (!isDropdown) {
+            if (isPlaylistCreationMode || isManagementMode) {
+                fragment.appendChild(createElement('input', {
+                    className: 'ypp-video-checkbox',
+                    attributes: {
+                        type: 'checkbox',
+                        'data-action': 'toggle-selection',
+                        'data-video-id': videoId
+                    },
+                    props: { checked: selectedVideos.has(videoId) }
+                }));
+            }
+
+            skeletonEl = createElement('div', {
+                className: 'ypp-skeleton-thumb',
+                styles: { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', zIndex: '1', margin: '0', borderRadius: '0' }
+            });
+
+            imgEl = createElement('img', {
+                className: `ypp-thumb ${thumbClass}`,
+                attributes: { title, alt: title, loading: 'lazy', draggable: 'false' },
+            });
+
+            fragment.appendChild(createElement('div', {
+                className: `ypp-thumb-wrapper ${thumbClass}`,
+                children: [skeletonEl, imgEl]
             }));
         }
 
-        const skeletonEl = createElement('div', {
-            className: 'ypp-skeleton-thumb',
-            styles: { position: 'absolute', top: '0', left: '0', width: '100%', height: '100%', zIndex: '1', margin: '0', borderRadius: '0' }
-        });
-
-        const imgEl = createElement('img', {
-            className: `ypp-thumb ${thumbClass}`,
-            attributes: { title, alt: title, loading: 'lazy', draggable: 'false' },
-        });
-
-        fragment.appendChild(createElement('div', {
-            className: `ypp-thumb-wrapper ${thumbClass}`,
-            children: [skeletonEl, imgEl]
-        }));
+        const openInNewTab = cachedSavedVideosModalSettings?.displayOptions?.openInNewTab !== false;
+        const linkTarget = openInNewTab ? '_blank' : '_self';
 
         const infoChildren = [];
         infoChildren.push(createElement('a', {
             className: 'ypp-titleLink',
             html: `${escapeHTML(title)} ${SVG_ICONS.linkExternal}`,
-            attributes: { title, href: videoUrl, target: '_blank', rel: 'noopener noreferrer' }
+            attributes: { title, href: videoUrl, target: linkTarget, rel: 'noopener noreferrer' }
         }));
 
         if (isPlaylistItem && finalPlaylistTitle) {
@@ -17474,7 +18150,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     createElement('a', {
                         className: 'ypp-playlist-link',
                         html: `${SVG_ICONS.playlist} ${finalPlaylistTitle}  ${SVG_ICONS.linkExternal}`,
-                        attributes: { title: `${t('openPlaylist')}: ${finalPlaylistTitle}`, href: playlistUrl, target: '_blank', rel: 'noopener noreferrer' }
+                        attributes: { title: `${t('openPlaylist')}: ${finalPlaylistTitle}`, href: playlistUrl, target: linkTarget, rel: 'noopener noreferrer' }
                     })
                 ]
             }));
@@ -17484,7 +18160,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             infoChildren.push(createElement('a', {
                 className: 'ypp-author ypp-link',
                 html: `${escapeHTML(author)} ${SVG_ICONS.linkExternal}`,
-                attributes: { title: `${t('openChannel')}: ${author}`, href: `https://www.youtube.com/channel/${authorId}`, target: '_blank', rel: 'noopener noreferrer' }
+                attributes: { title: `${t('openChannel')}: ${author}`, href: `https://www.youtube.com/channel/${authorId}`, target: linkTarget, rel: 'noopener noreferrer' }
             }));
         } else {
             infoChildren.push(createElement('div', { className: 'ypp-author', text: author }));
@@ -17611,23 +18287,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         });
         if (wrapperStyle) el.style.cssText = wrapperStyle;
 
-        getValidatedThumbnail(videoId).then(url => {
-            if (!imgEl) return;
-            imgEl.onload = () => {
-                imgEl.style.opacity = '1';
-                setTimeout(() => { if (skeletonEl) skeletonEl.remove(); }, 300);
-            };
-            imgEl.onerror = () => {
-                imgEl.style.opacity = '1';
+        if (!isDropdown && imgEl) {
+            getValidatedThumbnail(videoId).then(url => {
+                if (!imgEl) return;
+                imgEl.onload = () => {
+                    imgEl.style.opacity = '1';
+                    setTimeout(() => { if (skeletonEl) skeletonEl.remove(); }, 300);
+                };
+                imgEl.onerror = () => {
+                    imgEl.style.opacity = '1';
+                    if (skeletonEl) skeletonEl.remove();
+                };
+                imgEl.src = url;
+                // Hack para asegurar que onload se dispare si está en caché
+                if (imgEl.complete) imgEl.onload();
+            }).catch(() => {
+                if (imgEl) imgEl.style.opacity = '1';
                 if (skeletonEl) skeletonEl.remove();
-            };
-            imgEl.src = url;
-            // Hack para asegurar que onload se dispare si está en caché
-            if (imgEl.complete) imgEl.onload();
-        }).catch(() => {
-            if (imgEl) imgEl.style.opacity = '1';
-            if (skeletonEl) skeletonEl.remove();
-        });
+            });
+        }
 
         return el;
     }

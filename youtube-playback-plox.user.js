@@ -312,18 +312,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "code": "en-US",
             "name": "English (US)",
             "ISO_3166": "us"
-        },
-        "es-ES": {
-            "emoji": "🇪🇸",
-            "code": "es-ES",
-            "name": "Español",
-            "ISO_3166": "es"
-        },
-        "fr": {
-            "emoji": "🇫🇷",
-            "code": "fr",
-            "name": "Français",
-            "ISO_3166": "fr"
         }
     };
 
@@ -598,517 +586,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "gridExpansionMode": "Expansion mode",
             "gridExpansionModeSingle": "Single item",
             "gridExpansionModeRow": "Full row"
-        },
-        "es-ES": {
-            "youtubePlaybackPlox": "YouTube Playback Plox",
-            "migrationBackupPrompt": "Se ha detectado una actualización en la base de datos de videos guardados. Para evitar una posible pérdida de datos debido a un error de migración, se le pedirá que guarde una copia de seguridad en formato JSON.",
-            "askDownloadBackupPreMigration": "¿Desea descargar la copia de seguridad JSON antes de que continúe la actualización?",
-            "settings": "Configuración",
-            "savedVideos": "Ver videos guardados",
-            "manageVideos": "Gestionar vídeos",
-            "viewAllHistory": "Ver todo el historial",
-            "viewCompletedVideos": "Ver videos completados",
-            "completedVideos": "Videos completados",
-            "close": "Cerrar",
-            "save": "Guardar",
-            "saveAs": "Guardar como",
-            "cancel": "Cancelar",
-            "delete": "Eliminar",
-            "undo": "Deshacer",
-            "show": "Mostrar",
-            "hide": "Ocultar",
-            "clearAll": "Eliminar todo",
-            "clearAllConfirm": "¿Estás seguro de que quieres eliminar TODOS los videos guardados? Esta acción se puede deshacer.",
-            "deleteEntry": "Eliminar entrada",
-            "deleteSelected": "Eliminar seleccionados",
-            "confirmDeleteSelected": "¿Seguro que quieres eliminar {count} vídeos?",
-            "retryNow": "Reintentar ahora",
-            "retryCompleted": "Reintentos completados",
-            "playlistPrefix": "Playlist",
-            "loading": "Cargando",
-            "progress": "Progreso",
-            "unknown": "Desconocido",
-            "deleted": "eliminado.",
-            "protect": "Proteger",
-            "unprotect": "Quitar protección",
-            "protected": "Protegido",
-            "unprotected": "Sin protección",
-            "protectedVideos": "Videos protegidos",
-            "protectedVideoWarning": "Este video está protegido y no puede eliminarse.",
-            "protectedItemsSkipped": "Se omitieron {count} elementos protegidos.",
-            "notAvailable": "N/A",
-            "errors": "errores",
-            "rendered": "Renderizados",
-            "configurationSaved": "Configuración guardada",
-            "noSavedVideos": "No hay videos guardados.",
-            "emptyStateSubtitle": "Intenta borrar tus filtros o explorar más vídeos.",
-            "progressSaved": "Progreso guardado",
-            "errorSaving": "Error guardando progreso",
-            "unknownError": "Error desconocido",
-            "language": "Idioma",
-            "showFloatingButton": "Mostrar botón flotante",
-            "enableProgressBarGradient": "Habilitar degradado de colores en barra de progreso",
-            "manualSaveMode": "Modo de guardado manual",
-            "manualSaveModeTooltip": "Si está activado, el progreso solo se guardará al pulsar el botón de guardado.",
-            "manualSaveHybridMode": "Habilitar guardado automático tras primer guardado manual (incluyendo videos ya guardados)",
-            "manualSaveHybridModeTooltip": "Si está activado, una vez guardado un vídeo, el script continuará guardándolo automáticamente durante el resto de la sesión.",
-            "enableAutomaticSavingFor": "Habilitar guardado automático para",
-            "regularVideos": "Videos regulares",
-            "miniplayerVideos": "Vídeos en minirreproductor",
-            "shorts": "Shorts",
-            "liveStreams": "Directos (Livestreams)",
-            "inlinePreviews": "Previsualizaciones en la página de inicio",
-            "minSecondsBetweenSaves": "Intervalo segundos mínimos entre guardados",
-            "alertStyle": "Estilo de alertas en la barra de reproducción",
-            "showAlertIcon": "Mostrar icono",
-            "showAlertText": "Mostrar mensaje",
-            "showAlertTime": "Mostrar marca de tiempo",
-            "alertPreview": "Vista previa",
-            "alertHidden": "Oculto",
-            "showHistoryButton": "Mostrar botón de historial en la barra de reproducción",
-            "hideTimestamp": "Ocultar marca de tiempo",
-            "staticFinishPercent": "Porcentaje para marcar video como completado",
-            "countOncePerSession": "Registrar tiempos de finalización adicionales solo una vez por sesión",
-            "countOncePerSessionTooltip": "Si está activado, una vez alcanzado el umbral de finalización, las repeticiones o la reproducción automática no se contarán varias veces dentro de la misma sesión.",
-            "resumeCompletedFromStart": "Reanudar vídeos completados desde el inicio",
-            "resumeCompletedFromStartTooltip": "Si está activado, los vídeos marcados como completados siempre comenzarán desde 00:00. Si está desactivado, permanecerán al final para permitir que el avance automático de YouTube continúe.",
-            "autoCleanupEnabled": "Activar limpieza automática del historial",
-            "autoCleanupDays": "Limpiar videos con más de (días)",
-            "autoCleanupDaysDescription": "Los videos que no hayan sido vistos en X días serán eliminados. Los videos protegidos están excluidos.",
-            "autoCleanupStarted": "Iniciando limpieza automática del historial...",
-            "autoCleanupNoVideosFound": "No se encontraron videos más antiguos de {days} días para eliminar.",
-            "autoCleanupFinished": "Limpieza automática completada: {count} videos eliminados.",
-            "downloadBackup": "Descargar respaldo",
-            "searchByTitleOrAuthor": "Buscar por título o autor...",
-            "advancedFilters": "Filtros avanzados",
-            "activeFilters": "{count} filtros activos",
-            "custom": "Personalizado",
-            "sortBy": "Ordenar por",
-            "mostRecent": "Más recientes",
-            "oldest": "Más antiguos",
-            "titleAZ": "Título (A-Z)",
-            "titleZA": "Título (Z-A)",
-            "authorAZ": "Autor (A-Z)",
-            "authorZA": "Autor (Z-A)",
-            "duration": "Duración",
-            "durationShort": "Duración (Más corta)",
-            "durationLong": "Duración (Más larga)",
-            "yourMostWatched": "Tus más vistos",
-            "yourLeastWatched": "Tus menos vistos",
-            "mostViewsYoutube": "Más vistas en YouTube",
-            "leastViewsYoutube": "Menos vistas en YouTube",
-            "progressDESC": "Progreso (Mayor a menor)",
-            "progressASC": "Progreso (Menor a mayor)",
-            "filterByType": "Filtrar por tipo",
-            "all": "Todos",
-            "videos": "Videos",
-            "playlist": "Playlist",
-            "completed": "Completado",
-            "completedOnce": "Completado al menos una vez",
-            "videosWithFixedTime": "Videos con tiempo fijo",
-            "views": "Vistas",
-            "minLimit": "Mín",
-            "maxLimit": "Máx",
-            "minViews": "Mín vistas",
-            "maxViews": "Máx vistas",
-            "minPercent": "Mín %",
-            "maxPercent": "Máx %",
-            "percentWatched": "% visto",
-            "remaining": "restantes",
-            "setStartTime": "Establecer tiempo de inicio",
-            "changeOrRemoveStartTime": "Siempre empezar en {time} (Click para cambiar o eliminar)",
-            "enterStartTime": "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23)",
-            "enterStartTimeOrEmpty": "Introduce el tiempo de inicio que siempre quieres usar (ejemplo: 1:23) o deja vacío para eliminar",
-            "watchedCount": "Visto {count} veces",
-            "watchedHistory": "Historial de visualización",
-            "openChannel": "Abrir canal",
-            "resumedAt": "Reanudado en",
-            "alwaysStartFrom": "Siempre desde",
-            "startTimeSet": "Tiempo de inicio establecido en",
-            "fixedTimeRemoved": "Tiempo fijo eliminado.",
-            "live": "Directo",
-            "previews": "Previsualizaciones",
-            "selectAllResults": "Seleccionar todos los resultados actuales",
-            "deselectAllResults": "Deseleccionar todos los resultados actuales",
-            "clearSelection": "Borrar selección",
-            "hiddenSelectedCurrentResults": "{count} elementos seleccionados no son visibles en los resultados actuales",
-            "allItemsCleared": "Todos los elementos eliminados",
-            "storageFull": "Almacenamiento lleno - No se puede guardar el progreso",
-            "allDataRestored": "Todos los datos restaurados",
-            "allDataCleared": "Todos los datos eliminados",
-            "noDataToRestore": "No hay datos para restaurar",
-            "clearAllDataConfirm": "¿Estás seguro de que quieres eliminar todos los datos?",
-            "itemsRestored": "{count} elementos restaurados",
-            "itemsDeleted": "{count} elementos eliminados",
-            "migratingData": "Migrando datos guardados desde versión anterior...",
-            "migratingDataProgress": "Migrando datos... {count} entradas procesadas",
-            "migrationComplete": "Migración completada: {migrated} videos migrados correctamente",
-            "migrationNoData": "No se encontraron datos para migrar",
-            "omitedVideos": "Videos omitidos",
-            "export": "Exportar",
-            "import": "Importar",
-            "dataExported": "Datos exportados",
-            "exportSelected": "Exportar seleccionados",
-            "itemsExported": "{count} elementos exportados",
-            "itemsImported": "Importados {count} elementos",
-            "importError": "Error al importar. Asegúrate de que el archivo sea válido.",
-            "exportError": "Error al exportar datos",
-            "invalidFormat": "Formato inválido",
-            "invalidJson": "JSON inválido",
-            "invalidDatabase": "Base de datos inválida",
-            "noValidVideos": "No se encontraron videos válidos para importar",
-            "fileTooLarge": "El archivo es demasiado grande ({size}MB, máx. {limit}MB)",
-            "fileTooLargeGist": "El archivo es demasiado grande para Gist ({size}MB, máx. {limit}MB)",
-            "storageUsageVideos": "Vídeos: {usage}",
-            "storageUsageTotal": "Total: {usage}",
-            "storageUsageAvailable": "Disponible: {usage}",
-            "storageUsageVideosTooltip": "Espacio utilizado por tus vídeos guardados actualmente",
-            "storageUsageTotalTooltip": "Todos los datos de YouTube en IndexedDB (incluye sobrecarga)",
-            "storageUsageAvailableTooltip": "Espacio total de almacenamiento IndexedDB disponible en el navegador",
-            "recalculateStorage": "Recalcular",
-            "recalculateStorageTooltip": "Recalcular el uso de almacenamiento",
-            "openInFreeTube": "Abrir en FreeTube",
-            "searchInSpotify": "Buscar en Spotify",
-            "savedVideosToolbarQuickAccess": "Acceso rápido",
-            "savedVideosToolbarActions": "Acciones",
-            "savedVideosToolbarEntryOpacity": "Visibilidad de botones en filas",
-            "savedVideosToolbarEntryOpacityFull": "Siempre visibles",
-            "savedVideosToolbarEntryOpacityDim": "Atenuar hasta pasar el cursor",
-            "savedVideosToolbarEntryOpacityHidden": "Ocultar hasta pasar el cursor",
-            "savedVideosToolbarMaxSlotsReached": "Como máximo 5 acciones por fila.",
-            "savedVideosMoreActions": "Más acciones",
-            "savedVideosToolbarSectionTitle": "Acciones en filas y visibilidad",
-            "savedVideosToolbarSectionToggleTitle": "Desplegar u ocultar ajustes de acciones en filas",
-            "savedVideosToolbarShowOverflowButton": "Botón Más acciones (⋯)",
-            "savedVideosToolbarShowOverflowHint": "Mostrar u ocultar el botón de menú en cada fila (las acciones ancladas siguen gobernadas por los interruptores de arriba).",
-            "colouredLabelsStyle": "Estilo de etiquetas",
-            "colouredLabelsVisibility": "Visibilidad de etiquetas",
-            "colouredLabelsStyleColor": "Color",
-            "colouredLabelsStyleGrayscale": "Griseadas",
-            "colouredLabelsStyleColorOnHover": "Color en hover",
-            "colouredLabelsStyleGrayscaleOnHover": "Gris en hover",
-            "colouredLabelsVisibilityFull": "Siempre",
-            "colouredLabelsVisibilityDim": "Atenuar hasta hover",
-            "colouredLabelsVisibilityHiddenUntilHover": "Ocultar hasta hover",
-            "colouredLabelsVisibilityHidden": "Remover",
-            "openInNewTab": "Abrir enlaces en nueva pestaña",
-            "importingFromFreeTube": "Importando desde FreeTube...",
-            "importingFromFreeTubeAsSQLite": "Importando desde FreeTube como SQLite...",
-            "videosImported": "videos importados",
-            "noVideosImported": "no se pudo importar ningún video",
-            "noVideosFoundInFreeTubeDB": "No se encontraron videos en la base de datos de FreeTube",
-            "videosImportedFromFreeTubeDB": "videos importados desde la base de datos de FreeTube",
-            "noVideosImportedFromFreeTubeDB": "no se pudo importar ningún video desde la base de datos de FreeTube",
-            "fileEmpty": "El archivo está vacío",
-            "processingFile": "Procesando archivo...",
-            "createPlaylist": "Crear playlist",
-            "openPlaylist": "Abrir playlist",
-            "selectVideos": "Seleccionar videos",
-            "selectedVideos": "Videos seleccionados",
-            "generatePlaylistLink": "Generar enlace de playlist",
-            "playlistLinkGenerated": "Enlace de playlist generado",
-            "playlistLimitReached": "Solo puedes seleccionar hasta 50 vídeos para una lista de reproducción pública",
-            "copyLink": "Copiar enlace",
-            "linkCopied": "Enlace copiado al portapapeles",
-            "removeFromPlaylist": "Quitar de la lista de reproducción",
-            "confirmRemoveFromPlaylist": "¿Estás seguro de que quieres quitar este vídeo de la lista de reproducción? Se mantendrá como vídeo individual.",
-            "playlistAssociationRemoved": "Asociación de la lista de reproducción eliminada",
-            "selectAtLeastOne": "Selecciona al menos un video",
-            "tooManyVideos": "Demasiados videos seleccionados (máx 200)",
-            "githubBackup": "Copia de seguridad de GitHub",
-            "githubToken": "Token de acceso personal",
-            "githubGistId": "ID del Gist",
-            "githubAutoBackup": "Activar copia de seguridad automática",
-            "githubInterval": "Intervalo de copia (horas 1-24)",
-            "githubBackupNow": "Crear copia ahora",
-            "githubLastSync": "Última sincronización",
-            "githubGistView": "Ver Gist",
-            "githubBackupSuccess": "Copia de seguridad completada",
-            "githubBackupError": "Error en la copia de seguridad",
-            "githubTokenRequired": "Se requiere un token de GitHub",
-            "githubInvalidToken": "Token de GitHub no válido",
-            "githubHelp": "¿Cómo configurarlo?",
-            "githubHelpStep1": "1. Ve a Configuración de GitHub > Configuración de desarrollador > Tokens de acceso personal > Tokens (clásicos).",
-            "githubHelpStep2Gist": "2. Genera un nuevo token con solo el alcance 'gist'.",
-            "githubHelpStep2Repo": "2. Genera un nuevo token con el alcance 'repo' (necesario para repositorios privados).",
-            "githubHelpStep3": "3. Pega el token generado abajo.",
-            "githubHelpStep4Repo": "4. Crea un repositorio privado en tu cuenta de GitHub e introduce el propietario y el nombre abajo.",
-            "githubHelpImportant": "Importante: Nunca compartas tu token o ID de Gist con nadie fuera de este script.",
-            "githubGistIdPlaceholder": "ID (vacío para nuevo)",
-            "githubGistIdExample": "Ejemplo de ID de Gist: https://gist.github.com/Alplox/123456789 -> ID: 123456789",
-            "githubSelectRepo": "Gist creado/actualizado correctamente",
-            "githubBackupNowInfo": "Esto creará una copia de seguridad de todos los vídeos guardados en formato JSON. El archivo se subirá como un Gist secreto en GitHub. Ten en cuenta que, aunque no es público, cualquiera con el ID del Gist puede acceder a su contenido. Este comportamiento es propio de GitHub Gists y está fuera del control de este script.",
-            "githubRepoBackupNowInfo": "Esto creará una copia de seguridad de todos los vídeos guardados en formato JSON. El archivo se subirá a tu repositorio privado como 'youtube-playback-plox-backup.json'. El historial de copias se mantendrá mediante commits de Git.",
-            "githubBackupType": "Almacenamiento de copia",
-            "githubBackupTypeGist": "GitHub Gist (secreto pero no completamente privado)",
-            "githubBackupTypeRepo": "Repositorio de GitHub (privado)",
-            "githubRepoOwner": "Propietario del repositorio",
-            "githubRepoOwnerPlaceholder": "Tu usuario de GitHub",
-            "githubRepoName": "Nombre del repositorio",
-            "githubRepoNamePlaceholder": "Ej.: ypp-backups",
-            "githubAutoDeleteToken": "Eliminar automáticamente el token del script tras copia manual",
-            "githubGistSafe": "Los Gists solo requieren el alcance 'gist' (privilegios mínimos).",
-            "githubCleanupGuide": "Limpieza de copias accidentales",
-            "githubCleanupStep1": "Para eliminar los datos completamente, puedes borrar el Gist o el repositorio directamente en GitHub.",
-            "githubCleanupStep2": "En repositorios, eliminar el archivo deja historial en commits anteriores. Borrar todo el repositorio es la única forma de eliminar todos los rastros.",
-            "githubRepoPrivacyError": "Error: El repositorio debe ser privado para realizar la copia.",
-            "githubRepoCheck": "Verificando privacidad del repositorio...",
-            "supportLogsTitle": "Soporte y registros de errores",
-            "copyLogsBtn": "Copiar registros",
-            "reportIssue": "Reportar problema",
-            "logsCopied": "¡Registros copiados al portapapeles!",
-            "noLogs": "No hay errores registrados.",
-            "displayOptions": "Opciones de visualización",
-            "showThumbnails": "Mostrar miniaturas",
-            "showViews": "Mostrar recuento de vistas",
-            "showStats": "Mostrar estadísticas de progreso",
-            "showButtons": "Mostrar botones de acción (desactiva toda el área)",
-            "viewModeGrid": "Vista en cuadrícula",
-            "viewModeList": "Vista de lista",
-            "gridAlwaysExpanded": "Siempre expandir items",
-            "gridExpansionMode": "Modo de expansión",
-            "gridExpansionModeSingle": "Item único",
-            "gridExpansionModeRow": "Fila completa"
-        },
-        "fr": {
-            "youtubePlaybackPlox": "YouTube Playback Plox",
-            "migrationBackupPrompt": "Une mise à jour de votre base de données de vidéos enregistrées a été détectée. Pour éviter toute perte de données potentielle due à une erreur de migration, vous serez invité à sauvegarder une copie de sécurité au format JSON.",
-            "askDownloadBackupPreMigration": "Voulez-vous télécharger la sauvegarde JSON avant que la mise à jour ne continue ?",
-            "settings": "Paramètres",
-            "savedVideos": "Voir les vidéos enregistrées",
-            "manageVideos": "Gérer les vidéos",
-            "viewAllHistory": "Voir tout l'historique",
-            "viewCompletedVideos": "Voir les vidéos terminées",
-            "completedVideos": "Vidéos terminées",
-            "close": "Fermer",
-            "save": "Enregistrer",
-            "saveAs": "Enregistrer sous",
-            "cancel": "Annuler",
-            "delete": "Supprimer",
-            "undo": "Annuler",
-            "show": "Afficher",
-            "hide": "Masquer",
-            "clearAll": "Tout effacer",
-            "clearAllConfirm": "Êtes-vous sûr de vouloir supprimer TOUTES les vidéos enregistrées ? Cette action peut être annulée.",
-            "deleteEntry": "Supprimer l'entrée",
-            "deleteSelected": "Supprimer la sélection",
-            "confirmDeleteSelected": "Êtes-vous sûr de vouloir supprimer {count} vidéos ?",
-            "retryNow": "Réessayer maintenant",
-            "retryCompleted": "Réessais terminés",
-            "playlistPrefix": "Playlist",
-            "loading": "Chargement",
-            "progress": "Progrès",
-            "unknown": "Inconnu",
-            "deleted": "supprimé.",
-            "protect": "Protéger",
-            "unprotect": "Retirer la protection",
-            "protected": "Protégé",
-            "unprotected": "Non protégé",
-            "protectedVideos": "Vidéos protégées",
-            "protectedVideoWarning": "Cette vidéo est protégée et ne peut pas être supprimée.",
-            "protectedItemsSkipped": "{count} éléments protégés ont été ignorés.",
-            "notAvailable": "N/A",
-            "errors": "erreurs",
-            "rendered": "Rendus",
-            "configurationSaved": "Configuration enregistrée",
-            "noSavedVideos": "Aucune vidéo enregistrée.",
-            "emptyStateSubtitle": "Essayez de vider vos filtres ou d'explorer plus de vidéos.",
-            "progressSaved": "Progrès enregistré",
-            "errorSaving": "Erreur lors de l'enregistrement de la progression",
-            "unknownError": "Erreur inconnue",
-            "language": "Langue",
-            "showFloatingButton": "Afficher le bouton flottant",
-            "enableProgressBarGradient": "Activer le dégradé de couleurs dans la barre de progression",
-            "manualSaveMode": "Mode de sauvegarde manuelle",
-            "manualSaveModeTooltip": "Si activé, la progression ne sera sauvegardée qu'en cliquant sur le bouton de sauvegarde.",
-            "enableAutomaticSavingFor": "Activer l’enregistrement automatique pour",
-            "regularVideos": "Vidéos régulières",
-            "miniplayerVideos": "Vidéos en mini-lecteur",
-            "shorts": "Shorts",
-            "liveStreams": "Diffusions en direct",
-            "inlinePreviews": "Aperçus intégrés sur l’accueil (Home)",
-            "minSecondsBetweenSaves": "Secondes minimales entre les sauvegardes",
-            "alertStyle": "Style d'alerte dans la barre de lecture",
-            "showAlertIcon": "Afficher l’icône",
-            "showAlertText": "Afficher le message",
-            "showAlertTime": "Afficher l’horodatage",
-            "alertPreview": "Aperçu",
-            "alertHidden": "Masqué",
-            "showHistoryButton": "Afficher le bouton d’historique dans la barre de lecture",
-            "hideTimestamp": "Masquer l’horodatage",
-            "staticFinishPercent": "Pourcentage pour marquer la vidéo comme terminée",
-            "countOncePerSession": "Enregistrer les complétions supplémentaires une seule fois par session",
-            "countOncePerSessionTooltip": "Si activé, une fois le seuil de complétion atteint, les relectures ou la lecture en boucle ne seront pas comptées plusieurs fois au cours de la même session.",
-            "resumeCompletedFromStart": "Reprendre les vidéos terminées depuis le début",
-            "resumeCompletedFromStartTooltip": "Si activé, les vidéos marquées comme terminées commenceront toujours à 00:00. Si désactivé, elles resteront à la fin pour permettre la lecture automatique de YouTube.",
-            "searchByTitleOrAuthor": "Rechercher par titre ou auteur...",
-            "advancedFilters": "Filtres avancés",
-            "activeFilters": "{count} filtres actifs",
-            "custom": "Personnalisé",
-            "sortBy": "Trier par",
-            "mostRecent": "Plus récent",
-            "oldest": "Plus ancien",
-            "titleAZ": "Titre (A-Z)",
-            "titleZA": "Titre (Z-A)",
-            "authorAZ": "Auteur (A-Z)",
-            "authorZA": "Auteur (Z-A)",
-            "duration": "Durée",
-            "durationShort": "Durée (La plus courte)",
-            "durationLong": "Durée (La plus longue)",
-            "yourMostWatched": "Vos plus regardés",
-            "yourLeastWatched": "Vos moins regardés",
-            "mostViewsYoutube": "Le plus de vues sur YouTube",
-            "leastViewsYoutube": "Le moins de vues sur YouTube",
-            "progressDESC": "Progression (Du plus au moins)",
-            "progressASC": "Progression (Du moins au plus)",
-            "filterByType": "Filtrer par type",
-            "all": "Tous",
-            "videos": "Vidéos",
-            "playlist": "Playlist",
-            "completed": "Terminé",
-            "completedOnce": "Complété au moins une fois",
-            "videosWithFixedTime": "Vidéos avec un temps fixe",
-            "views": "Vues",
-            "minLimit": "Min",
-            "maxLimit": "Max",
-            "minViews": "Vues min",
-            "maxViews": "Vues max",
-            "minPercent": "Min %",
-            "maxPercent": "Max %",
-            "percentWatched": "% regardé",
-            "remaining": "restant",
-            "setStartTime": "Définir l'heure de début",
-            "changeOrRemoveStartTime": "Toujours commencer à {time} (Cliquez pour changer ou supprimer)",
-            "enterStartTime": "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23)",
-            "enterStartTimeOrEmpty": "Entrez l'heure de début que vous souhaitez toujours utiliser (exemple: 1:23) ou laissez vide pour supprimer",
-            "watchedCount": "Visionné {count} fois",
-            "watchedHistory": "Historique de visionnage",
-            "openChannel": "Ouvrir la chaîne",
-            "resumedAt": "Repris à",
-            "alwaysStartFrom": "Toujours commencer à",
-            "startTimeSet": "Heure de début définie à",
-            "fixedTimeRemoved": "Heure fixe supprimée.",
-            "live": "Diffusion en direct",
-            "previews": "Aperçus",
-            "selectAllResults": "Sélectionner tous les résultats actuels",
-            "deselectAllResults": "Désélectionner tous les résultats actuels",
-            "clearSelection": "Effacer la sélection",
-            "hiddenSelectedCurrentResults": "{count} éléments sélectionnés ne sont pas visibles dans les résultats actuels",
-            "allItemsCleared": "Tous les éléments effacés",
-            "storageFull": "Stockage plein - Impossible d’enregistrer la progression",
-            "allDataRestored": "Toutes les données restaurées",
-            "allDataCleared": "Toutes les données ont été effacées",
-            "noDataToRestore": "Aucune donnée à restaurer",
-            "clearAllDataConfirm": "Êtes-vous sûr de vouloir supprimer toutes les données ?",
-            "itemsRestored": "{count} éléments restaurés",
-            "itemsDeleted": "{count} éléments supprimés",
-            "migratingData": "Migration des données enregistrées depuis la version précédente...",
-            "migratingDataProgress": "Migration des données... {count} éléments traités",
-            "migrationComplete": "Migration terminée : {migrated} vidéos migrées avec succès",
-            "migrationNoData": "Aucune donnée trouvée à migrer",
-            "omitedVideos": "Vidéos omises",
-            "export": "Exporter",
-            "import": "Importer",
-            "dataExported": "Données exportées",
-            "exportSelected": "Exporter la sélection",
-            "itemsExported": "{count} éléments exportés",
-            "itemsImported": "{count} éléments importés",
-            "importError": "Erreur lors de l'importation. Assurez-vous que le fichier est valide.",
-            "exportError": "Erreur lors de l'exportation des données",
-            "invalidFormat": "Format invalide",
-            "invalidJson": "JSON invalide",
-            "invalidDatabase": "Base de données invalide",
-            "noValidVideos": "Aucune vidéo valide trouvée à importer",
-            "fileTooLarge": "Le fichier est trop volumineux ({size}MB, max {limit}MB)",
-            "fileTooLargeGist": "Le fichier est trop volumineux pour Gist ({size}MB, max {limit}MB)",
-            "storageUsageVideos": "Vidéos : {usage}",
-            "storageUsageTotal": "Total : {usage}",
-            "storageUsageAvailable": "Disponible : {usage}",
-            "storageUsageVideosTooltip": "Espace utilisé par vos vidéos actuellement enregistrées",
-            "storageUsageTotalTooltip": "Toutes les données YouTube dans IndexedDB (inclut les surcharges)",
-            "storageUsageAvailableTooltip": "Espace total de stockage IndexedDB disponible dans le navigateur",
-            "recalculateStorage": "Recalculer",
-            "recalculateStorageTooltip": "Recalculer l'utilisation du stockage",
-            "openInFreeTube": "Ouvrir dans FreeTube",
-            "searchInSpotify": "Rechercher dans Spotify",
-            "savedVideosToolbarQuickAccess": "Accès rapide",
-            "savedVideosToolbarActions": "Actions",
-            "savedVideosToolbarEntryOpacity": "Visibilité des boutons sur les lignes",
-            "savedVideosToolbarEntryOpacityFull": "Toujours visibles",
-            "savedVideosToolbarEntryOpacityDim": "Atténuer jusqu'au survol",
-            "savedVideosToolbarEntryOpacityHidden": "Masquer jusqu'au survol",
-            "savedVideosToolbarMaxSlotsReached": "5 actions maximum par ligne.",
-            "savedVideosMoreActions": "Plus d'actions",
-            "savedVideosToolbarSectionTitle": "Actions des lignes et visibilité",
-            "savedVideosToolbarSectionToggleTitle": "Déplier ou replier les réglages d'actions sur les lignes",
-            "savedVideosToolbarShowOverflowButton": "Bouton Plus d'actions (⋯)",
-            "savedVideosToolbarShowOverflowHint": "Afficher ou masquer le bouton de menu sur chaque ligne (les actions épinglées restent réglées par les interrupteurs ci-dessus).",
-            "importingFromFreeTube": "Importation depuis FreeTube...",
-            "importingFromFreeTubeAsSQLite": "Importation depuis FreeTube en tant que SQLite...",
-            "videosImported": "vidéos importées",
-            "noVideosImported": "aucune vidéo n'a pu être importée",
-            "noVideosFoundInFreeTubeDB": "Aucune vidéo trouvée dans la base de données FreeTube",
-            "videosImportedFromFreeTubeDB": "vidéos importées depuis la base de données FreeTube",
-            "noVideosImportedFromFreeTubeDB": "aucune vidéo n'a pu être importée depuis la base de données FreeTube",
-            "fileEmpty": "Le fichier est vide",
-            "processingFile": "Traitement du fichier...",
-            "createPlaylist": "Créer une playlist",
-            "openPlaylist": "Ouvrir la playlist",
-            "selectVideos": "Sélectionner des vidéos",
-            "selectedVideos": "Vidéos sélectionnées",
-            "generatePlaylistLink": "Générer le lien de la playlist",
-            "playlistLinkGenerated": "Lien de la playlist généré",
-            "playlistLimitReached": "Vous pouvez sélectionner jusqu’à 50 vidéos pour une playlist publique",
-            "copyLink": "Copier le lien",
-            "linkCopied": "Lien copié dans le presse-papiers",
-            "removeFromPlaylist": "Retirer de la playlist",
-            "confirmRemoveFromPlaylist": "Êtes-vous sûr de vouloir retirer cette vidéo de la playlist ? Elle restera comme vidéo individuelle.",
-            "playlistAssociationRemoved": "Association à la playlist supprimée",
-            "selectAtLeastOne": "Sélectionnez au moins une vidéo",
-            "tooManyVideos": "Trop de vidéos sélectionnées (max 200)",
-            "githubBackup": "Sauvegarde GitHub",
-            "githubToken": "Jeton d'accès personnel",
-            "githubGistId": "ID du Gist",
-            "githubAutoBackup": "Activer la sauvegarde automatique",
-            "githubInterval": "Intervalle de sauvegarde (heures 1-24)",
-            "githubBackupNow": "Sauvegarder maintenant",
-            "githubLastSync": "Dernière synchronisation",
-            "githubGistView": "Voir le Gist",
-            "githubBackupSuccess": "Sauvegarde réussie",
-            "githubBackupError": "Erreur de sauvegarde",
-            "githubTokenRequired": "Jeton GitHub requis",
-            "githubInvalidToken": "Jeton GitHub invalide",
-            "githubHelp": "Comment configurer ?",
-            "githubHelpStep1": "1. Allez dans Paramètres GitHub > Paramètres développeur > Jetons d'accès personnel > Jetons (classiques).",
-            "githubHelpStep2Gist": "2. Générez un nouveau jeton avec uniquement le scope 'gist'.",
-            "githubHelpStep2Repo": "2. Générez un nouveau jeton avec le scope 'repo' (nécessaire pour les dépôts privés).",
-            "githubHelpStep3": "3. Collez le jeton généré ci-dessous.",
-            "githubHelpStep4Repo": "4. Créez un dépôt privé sur votre compte GitHub et entrez le propriétaire et le nom ci-dessous.",
-            "githubHelpImportant": "Important : Ne partagez jamais votre jeton ou l'ID du Gist avec qui que ce soit en dehors de ce script.",
-            "githubGistIdPlaceholder": "ID (vide pour nouveau)",
-            "githubGistIdExample": "Exemple d'ID Gist : https://gist.github.com/Alplox/123456789 -> ID : 123456789",
-            "githubSelectRepo": "Gist créé/mis à jour avec succès",
-            "githubBackupNowInfo": "Cela créera une sauvegarde de toutes les vidéos enregistrées au format JSON. Le fichier sera téléchargé comme un Gist secret sur GitHub. Notez que, bien qu'il ne soit pas public, toute personne disposant de l'ID du Gist peut accéder à son contenu.",
-            "githubRepoBackupNowInfo": "Cela créera une sauvegarde de toutes les vidéos enregistrées au format JSON. Le fichier sera téléchargé dans votre dépôt privé sous le nom 'youtube-playback-plox-backup.json'. L'historique sera conservé via les commits Git.",
-            "githubBackupType": "Stockage de sauvegarde",
-            "githubBackupTypeGist": "GitHub Gist (secret mais pas totalement privé)",
-            "githubBackupTypeRepo": "Dépôt GitHub (privé)",
-            "githubRepoOwner": "Propriétaire du dépôt",
-            "githubRepoOwnerPlaceholder": "Votre nom d'utilisateur GitHub",
-            "githubRepoName": "Nom du dépôt",
-            "githubRepoNamePlaceholder": "Ex. : ypp-backups",
-            "githubAutoDeleteToken": "Supprimer automatiquement le jeton du script après sauvegarde manuelle",
-            "githubGistSafe": "Les Gists nécessitent uniquement le scope 'gist' (privilège minimal).",
-            "githubCleanupGuide": "Nettoyage des sauvegardes accidentelles",
-            "githubCleanupStep1": "Pour supprimer complètement les données, vous pouvez supprimer le Gist ou le dépôt directement sur GitHub.",
-            "githubCleanupStep2": "Pour les dépôts, supprimer le fichier laisse un historique dans les commits précédents. Supprimer le dépôt entier est la seule façon d'effacer toutes les traces.",
-            "githubRepoPrivacyError": "Erreur : Le dépôt doit être privé pour effectuer la sauvegarde.",
-            "githubRepoCheck": "Vérification de la confidentialité du dépôt...",
-            "supportLogsTitle": "Support et journaux d’erreurs",
-            "copyLogsBtn": "Copier les journaux",
-            "reportIssue": "Signaler un problème",
-            "logsCopied": "Journaux copiés dans le presse-papiers !",
-            "noLogs": "Aucune erreur enregistrée."
         }
     };
 
@@ -1330,6 +807,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     /** @type {MutationObserver|null} Theme change observer for cleanup */
     let themeObserver = null;
 
+    // Cache global para datos de almacenamiento (evita JSON.parse masivos en renders)
+    let cachedBatchStorageData = null;
+    let isBatchStorageCacheValid = false;
+    // Debounce para actualizaciones de la UI
+    let debouncedUpdateVideoList = null;
+
     // ============================================================================================================
     // MARK: 🗄️ Event Handlers store
     // ============================================================================================================
@@ -1360,23 +843,57 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         }
 
         /**
-         * Disposes all registered resources and resets the store for reuse.
+         * Clears all registered resources without marking the store as disposed.
+         * Allows the store to be reused.
          */
-        dispose() {
-            if (this._isDisposed) return;
-            this._isDisposed = true;
+        clear() {
             for (const disposable of this._disposables) {
                 try {
                     if (typeof disposable === 'function') disposable();
                     else if (disposable && typeof disposable.dispose === 'function') disposable.dispose();
                 } catch (e) {
-                    logError('DisposableStore', 'Error disposing resource:', e);
+                    logError('DisposableStore', 'Error clearing resource:', e);
                 }
             }
             this._disposables.clear();
-            // Reset so the same store instance can be reused (e.g. ModalDisposables)
-            this._isDisposed = false;
         }
+
+        /**
+         * Disposes all registered resources and prevents further additions.
+         */
+        dispose() {
+            if (this._isDisposed) return;
+            this._isDisposed = true;
+            this.clear();
+        }
+    }
+
+    /**
+     * Cache simple con límite de tamaño (LRU-ish: elimina el más antiguo).
+     */
+    class SimpleLRUCache {
+        constructor(maxSize = 100) {
+            this.maxSize = maxSize;
+            this.cache = new Map();
+        }
+        get(key) {
+            if (!this.cache.has(key)) return undefined;
+            const value = this.cache.get(key);
+            this.cache.delete(key);
+            this.cache.set(key, value);
+            return value;
+        }
+        set(key, value) {
+            if (this.cache.has(key)) this.cache.delete(key);
+            else if (this.cache.size >= this.maxSize) {
+                const oldestKey = this.cache.keys().next().value;
+                this.cache.delete(oldestKey);
+            }
+            this.cache.set(key, value);
+        }
+        has(key) { return this.cache.has(key); }
+        delete(key) { this.cache.delete(key); }
+        clear() { this.cache.clear(); }
     }
 
     /**
@@ -2084,14 +1601,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     // MARK: 🎨 Styles
     // ============================================================================================================
 
-    /*  function injectStyles() {
-         if (document.querySelector('#youtube-playback-plox-styles')) return; // evitar duplicados
-
-         const style = document.createElement('style');
-         style.id = 'youtube-playback-plox-styles';
-         style.textContent =  */
-
-    GM_addStyle`
+    GM_addStyle(`
 :root {
     /* Colores fijos independiente de tema */
     --ypp-bg-time-display: rgba(17, 17, 17, 0.45);
@@ -4639,15 +4149,26 @@ regular-item.ypp-fill-none {
     }
 }
 
+.ypp-toast-actions {
+    display: flex;
+    gap: 8px;
+    margin-left: auto;
+}
+
 .ypp-toast-action {
     background: var(--ypp-primary);
     border: none;
     color: var(--ypp-white);
-    padding: 4px 8px;
+    padding: 6px 10px;
     border-radius: 4px;
     cursor: pointer;
     font-size: 12px;
-    margin-left: auto;
+    white-space: nowrap;
+    transition: filter 0.2s;
+}
+
+.ypp-toast-action:hover {
+    filter: brightness(1.1);
 }
 
 /* =========================
@@ -5370,9 +4891,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         gap: 10px !important;
     }
 }
-`;
-    /*   document.head.appendChild(style);
-  } */
+`);
 
     // ============================================================================================================
     // MARK: 🎨 Theme
@@ -6007,6 +5526,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          */
         async function set(key, value) {
             await initialize();
+            isBatchStorageCacheValid = false; // Invalida el cache masivo de renderizado
             const serialized = JSON.stringify(value);
             storageCache.set(key, serialized);
             if (IndexedDBAdapter.isSupported) {
@@ -6025,6 +5545,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          */
         async function del(key) {
             await initialize();
+            isBatchStorageCacheValid = false; // Invalida el cache masivo de renderizado
             storageCache.delete(key);
             if (IndexedDBAdapter.isSupported) {
                 try {
@@ -6617,15 +6138,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let _lastAdResult = null;
     let _lastAdRootFrame = -1;
 
-    /** @type {Map<string, { info: any, ts: number }>} Cache global de metadatos (TTL 5 min) */
-    const _videoMetadataCache = new Map();
     const _MAX_VIDEO_METADATA_CACHE_SIZE = 100;
+    const _videoMetadataCache = new SimpleLRUCache(_MAX_VIDEO_METADATA_CACHE_SIZE);
 
     // ============================================================================================================
     // MARK: 📢 Ad Detector
     // ============================================================================================================
-    const _adIdCache = new Map();
     const _MAX_AD_ID_CACHE_SIZE = 50;
+    const _adIdCache = new SimpleLRUCache(_MAX_AD_ID_CACHE_SIZE);
 
     const AdDetector = Object.freeze({
         /**
@@ -6769,13 +6289,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         isVideoIdAnAd(videoId) {
             if (!videoId) return false;
 
-            // Caché de resultados (2 segundos) para evitar spam de querySelectorAll en el DOM
             const now = Date.now();
             const cached = _adIdCache.get(videoId);
             if (cached && (now - cached.ts < 2000)) {
-                // LRU: mover al final al acceder (re-insertar para mantener orden)
-                _adIdCache.delete(videoId);
-                _adIdCache.set(videoId, cached);
                 return cached.val;
             }
 
@@ -6785,22 +6301,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 for (const adCont of adContainers) {
                     if (adCont.querySelector(`a[href*="${videoId}"], ytd-thumbnail[video-id="${videoId}"], [id="thumbnail"][href*="${videoId}"]`)) {
-                        // LRU Eviction guard
-                        if (_adIdCache.size >= _MAX_AD_ID_CACHE_SIZE) {
-                            const oldestKey = _adIdCache.keys().next().value;
-                            _adIdCache.delete(oldestKey);
-                        }
                         _adIdCache.set(videoId, { val: true, ts: now });
                         return true;
                     }
                 }
             } catch (_) { }
 
-            // LRU eviction para resultado negativo
-            if (_adIdCache.size >= _MAX_AD_ID_CACHE_SIZE) {
-                const oldestKey = _adIdCache.keys().next().value;
-                _adIdCache.delete(oldestKey);
-            }
             _adIdCache.set(videoId, { val: false, ts: now });
             return false;
         },
@@ -8680,7 +8186,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         return {
             ...normalized,
-            type: normalizeVideoType(normalized.type === 'short' ? 'shorts' : normalized.type),
+            type: normalizeVideoType(normalized.type),
             isCompleted: isCompleted
         };
     }
@@ -9876,7 +9382,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // MARK: 📺 get Playlist Name
 
     /** In-memory cache of resolved playlist titles keyed by playlist ID. */
-    const playlistNameCache = new Map();
+    const playlistNameCache = new SimpleLRUCache(200);
 
     /** Deduplicates concurrent requests for the same playlist ID. */
     const pendingPlaylistRequests = new Map();
@@ -10948,19 +10454,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const messageSpan = createElement('span', { html: message });
         toast.appendChild(messageSpan);
 
-        if (options.action) {
-            const actionBtn = createElement('button', {
-                className: 'ypp-toast-action',
-                text: options.action.label,
-                onClickEvent: () => {
-                    if (typeof options.action.callback === 'function') {
-                        options.action.callback();
-                    }
-                    fadeAndRemoveToast(toast, 0);
-                },
-                attributes: { 'aria-label': options.action.label, type: 'button' }
+        const actions = options.actions || (options.action ? [options.action] : []);
+        if (actions.length > 0) {
+            const actionsContainer = createElement('div', { className: 'ypp-toast-actions' });
+            actions.forEach(action => {
+                const actionBtn = createElement('button', {
+                    className: 'ypp-toast-action',
+                    text: action.label,
+                    onClickEvent: () => {
+                        if (typeof action.callback === 'function') {
+                            action.callback();
+                        }
+                        if (action.closeOnClick !== false) {
+                            fadeAndRemoveToast(toast, 0);
+                        }
+                    },
+                    attributes: { 'aria-label': action.label, type: 'button' }
+                });
+                actionsContainer.appendChild(actionBtn);
             });
-            toast.appendChild(actionBtn);
+            toast.appendChild(actionsContainer);
         }
 
         // Agregar botón de cerrar para toasts persistentes o de tipo keep
@@ -14955,11 +14468,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const finalizeInfo = (res) => {
             if (res.title && res.author && (res.viewCount !== null || res.isLive)) {
-                // LRU eviction: si el cache excede el tamaño máximo, eliminar la entrada más antigua
-                if (_videoMetadataCache.size >= _MAX_VIDEO_METADATA_CACHE_SIZE) {
-                    const oldestKey = _videoMetadataCache.keys().next().value;
-                    _videoMetadataCache.delete(oldestKey);
-                }
                 _videoMetadataCache.set(videoId, { info: { ...res }, ts: Date.now() });
             }
             return res;
@@ -15123,6 +14631,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 if (info.viewCount === 0 || info.viewCount === null) {
                     async function fetchShortsViews() {
+                        if (typeof ytcfg === 'undefined') return null;
                         if (!videoId) return null;
 
                         const res = await fetch(
@@ -15313,6 +14822,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Nivel 2: Fallback en fast-transitions: Si seguimos en null, es posible que el DOM/API aún no se hayan propagado.
                 async function fetchPlaylistTitle() {
+                    if (typeof ytcfg === 'undefined') return null;
                     if (!info.lastViewedPlaylistId) return null;
 
                     try {
@@ -15910,8 +15420,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {Promise<Map<string, any>>}
      */
     async function batchLoadStorageData(keys, batchSize = 50) {
-        const results = new Map();
+        if (isBatchStorageCacheValid && cachedBatchStorageData) {
+            return cachedBatchStorageData;
+        }
 
+        const results = new Map();
         for (let i = 0; i < keys.length; i += batchSize) {
             const batch = keys.slice(i, i + batchSize);
             const promises = batch.map(async key => {
@@ -15930,6 +15443,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
         }
 
+        cachedBatchStorageData = results;
+        isBatchStorageCacheValid = true;
         return results;
     }
 
@@ -16418,7 +15933,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         // Limpiar recursos del modal (listeners, etc)
-        ModalDisposables.dispose();
+        ModalDisposables.clear();
+
+        // Limpiar debounce
+        debouncedUpdateVideoList = null;
 
         // Limpiar listener de playlist para prevenir memory leaks
         if (playlistAreaElement && playlistRefreshHandler) {
@@ -16764,18 +16282,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const advancedSection = createElement('div', { className: 'ypp-filters-advanced' });
         const filtersGrid = createElement('div', { className: 'ypp-filters-grid' });
 
+        // Inicializar debounce para este modal
+        debouncedUpdateVideoList = debounce(updateVideoList, 150);
+
         filtersGrid.appendChild(createSortSelector(currentOrderBy, async (selected) => {
             currentOrderBy = selected;
             await setFilters({ orderBy: selected });
             updateActiveFilterBadge();
-            await updateVideoList();
+            void debouncedUpdateVideoList();
         }));
 
         filtersGrid.appendChild(createFilterSelector(currentFilterBy, async (selected) => {
             currentFilterBy = selected;
             await setFilters({ filterBy: selected });
             updateActiveFilterBadge();
-            await updateVideoList();
+            void debouncedUpdateVideoList();
         }));
 
         advancedSection.appendChild(filtersGrid);
@@ -16790,7 +16311,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 currentMaxViews = max;
                 await setFilters({ minViews: min, maxViews: max });
                 updateActiveFilterBadge();
-                await updateVideoList();
+                void debouncedUpdateVideoList();
             }
         ));
 
@@ -16800,7 +16321,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 currentMaxPercent = max;
                 await setFilters({ minPercent: min, maxPercent: max });
                 updateActiveFilterBadge();
-                await updateVideoList();
+                void debouncedUpdateVideoList();
             }
         ));
 
@@ -17880,7 +17401,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /* Cache para URLs de miniaturas validadas para evitar re-validaciones durante el scroll */
-    const thumbUrlCache = new Map();
+    const thumbUrlCache = new SimpleLRUCache(500);
 
     /**
      * Valida de forma asíncrona la mejor miniatura disponible para un video.
@@ -17890,35 +17411,34 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     async function getValidatedThumbnail(videoId) {
         if (!videoId) return '';
-        if (thumbUrlCache.has(videoId)) return thumbUrlCache.get(videoId);
+        const cached = thumbUrlCache.get(videoId);
+        if (cached) return cached;
 
-        const candidates = [
-            `https://i.ytimg.com/vi_webp/${videoId}/maxresdefault.webp`,
-            `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg`,
-            `https://i.ytimg.com/vi/${videoId}/hq720.jpg`,
-            `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
-        ];
+        const maxResWebp = `https://i.ytimg.com/vi_webp/${videoId}/maxresdefault.webp`;
+        const hqDefault = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
 
-        for (const url of candidates) {
-            try {
-                const isOk = await new Promise((resolve) => {
-                    const img = new Image();
-                    img.onload = () => resolve(img.naturalWidth > 120);
-                    img.onerror = () => resolve(false);
-                    img.src = url;
-                    // Timeout de seguridad para no bloquear el scroll indefinidamente
-                    setTimeout(() => resolve(false), 1000);
-                });
-                if (isOk) {
-                    thumbUrlCache.set(videoId, url);
-                    return url;
+        return new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => {
+                // Si naturalWidth > 120, maxresdefault existe
+                const url = img.naturalWidth > 120 ? maxResWebp : hqDefault;
+                thumbUrlCache.set(videoId, url);
+                resolve(url);
+            };
+            img.onerror = () => {
+                thumbUrlCache.set(videoId, hqDefault);
+                resolve(hqDefault);
+            };
+            img.src = maxResWebp;
+            // Timeout de seguridad
+            setTimeout(() => {
+                if (!img.complete) {
+                    img.src = '';
+                    thumbUrlCache.set(videoId, hqDefault);
+                    resolve(hqDefault);
                 }
-            } catch (_) { /* continue */ }
-        }
-
-        const fallback = candidates[candidates.length - 1];
-        thumbUrlCache.set(videoId, fallback);
-        return fallback;
+            }, 1500);
+        });
     }
 
     async function createVideoGridRow(rowItem) {
@@ -18803,28 +18323,43 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (deletedCount > 0) {
                 logInfo('runAutoCleanup', `✅ Limpieza completada: ${deletedCount} videos eliminados, ${protectedCount} protegidos omitidos.`);
 
-                const downloadAction = {
-                    label: t('downloadBackup'),
-                    callback: () => {
-                        try {
-                            const jsonString = JSON.stringify(exportedDeletedData, null, 2);
-                            const blob = new Blob([jsonString], { type: 'application/json' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            const timestamp = new Date().toISOString().split('T')[0];
-                            a.download = `youtube-playback-plox-v${SCRIPT_VERSION}-auto-cleanup-${timestamp}.json`;
-                            document.body.appendChild(a);
-                            a.click();
-                            a.remove();
-                            URL.revokeObjectURL(url);
-                        } catch (e) {
-                            logError('runAutoCleanup', 'Error al descargar backup de limpieza:', e);
+                const actions = [
+                    {
+                        label: t('downloadBackup'),
+                        callback: () => {
+                            try {
+                                const jsonString = JSON.stringify(exportedDeletedData, null, 2);
+                                const blob = new Blob([jsonString], { type: 'application/json' });
+                                const url = URL.createObjectURL(blob);
+                                const a = document.createElement('a');
+                                a.href = url;
+                                const timestamp = new Date().toISOString().split('T')[0];
+                                a.download = `youtube-playback-plox-v${SCRIPT_VERSION}-auto-cleanup-${timestamp}.json`;
+                                document.body.appendChild(a);
+                                a.click();
+                                a.remove();
+                                URL.revokeObjectURL(url);
+                            } catch (e) {
+                                logError('runAutoCleanup', 'Error al descargar backup de limpieza:', e);
+                            }
+                        },
+                        closeOnClick: false // Permitir que el usuario también pulse deshacer
+                    },
+                    {
+                        label: t('undo'),
+                        callback: async () => {
+                            try {
+                                const restoreKeys = Object.keys(exportedDeletedData).filter(k => k !== '__metadata__');
+                                await Promise.all(restoreKeys.map(key => StorageAsync.set(key, exportedDeletedData[key])));
+                                showFloatingToast(`${SVG_ICONS.check} ${t('itemsRestored', { count: restoreKeys.length })}`, 3000);
+                            } catch (e) {
+                                logError('runAutoCleanup', 'Error al deshacer limpieza:', e);
+                            }
                         }
                     }
-                };
+                ];
 
-                showFloatingToast(`${SVG_ICONS.trash} ${t('autoCleanupFinished', { count: deletedCount })}`, 15000, { action: downloadAction });
+                showFloatingToast(`${SVG_ICONS.trash} ${t('autoCleanupFinished', { count: deletedCount })}`, 15000, { actions });
             } else {
                 logLog('runAutoCleanup', `✨ ${t('autoCleanupNoVideosFound', { days: daysThreshold })}`);
                 showFloatingToast(`${SVG_ICONS.info} ${t('autoCleanupNoVideosFound', { days: daysThreshold })}`, 5000);

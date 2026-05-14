@@ -2,7 +2,8 @@
 
 ### Added
 
-- **Auto-cleanup**: Added auto-cleanup for old videos that reach past a configurable amount of days. The success notification includes a "Download Backup" button allowing users to immediately download a backup of the deleted items in case they wish to review or revert the cleanup. #44
+- **Auto-cleanup**: Added auto-cleanup for old videos that reach past a configurable amount of days. The success notification includes "Download Backup" and "Undo" buttons allowing users to immediately backup or revert the cleanup. #44
+- **Multi-Action Toasts**: Enhanced `showFloatingToast` to support multiple action buttons simultaneously.
 - **Saved videos modal - display options toolbar**: 
   - Added a toolbar under the searchbar with Quick access and Actions toggles, row-level opacity modes (full / dim until hover / hidden until hover), a per-row overflow menu (⋯) listing all actions available for that entry. #48
   - Added an alternate Grid View layout accessible via a toggle in the toolbar. In Grid View, videos are displayed as thumbnail cards in a responsive multi-column grid (2 columns on narrow screens, 3 default, 4 on wide screens). Each card shows a thumbnail with a chevron trigger at the bottom, clicking it opens a metadata dropdown with title, views, stats, and action buttons for that video.
@@ -12,6 +13,9 @@
 
 ### Fixed
 
+- **DisposableStore Lifecycle**: Resolved a memory leak issue by splitting `DisposableStore` into `clear()` (for resource reset without disposal) and `dispose()` (final cleanup).
+- **ytcfg Runtime Safety**: Added guard clauses for the global `ytcfg` variable to prevent `ReferenceError` crashes during rapid YouTube SPA transitions.
+- **CSS Standard Compatibility**: Replaced non-standard `GM_addStyle` tagged template usage with standard function calls for improved cross-manager compatibility.
 - **Playlist Title Loss**: Resolved an issue where `playlistTitle` was being saved as `null` when a `lastViewedPlaylistId` was present. The fix involves (1) hardening metadata resolution to prevent `undefined` leakage, (2) upgrading the metadata cache to allow "context upgrades" when a video moves from preview to watch, (3) expanding title fetch logic to include the `preview` context, and (4) protecting session metadata from `null` overwrites during asynchronous merging.
 - **Ad Detection False Positives**: Fixed a loop where the script incorrectly identified videos as being inside an ad container (`within_ad_container`). This was caused by overly broad masthead selectors and a generic container check (`.ytp-ad-module`, `.video-ads`) that only looked for children presence without verifying their visibility. The script now removes broad wildcard selectors and verifies that at least one child is actually visible before flagging an ad container.
 - **Miniplayer Transition Failure**: Fixed a race condition during SPA navigation where the miniplayer failed to initialize when transitioning from a video page. The `bootstrap` logic was skipping miniplayer detection if the page type was still reported as `watch` by YouTube's internal state. Miniplayer detection now runs independently of the reported page type to ensure immediate session handover.
@@ -20,6 +24,8 @@
 
 ### Changed
 
+- **High-Frequency Caching (LRU)**: Replaced standard `Map` caches with `SimpleLRUCache` for metadata, ad detection, and playlist resolution to ensure bounded memory usage.
+- **Bundle Optimization**: Pruned `FALLBACK_TRANSLATIONS` to focus exclusively on `en-US` base to reduce script weight.
 - **Video Processing Router**: Consolidated the duplicated Watch, Shorts, Miniplayer, and Inline Preview processing entry points into `processMediaVideo()` with per-context configuration hooks. This keeps the shared session-start pipeline in one place while preserving context-specific safeguards for SPA ID mismatches, miniplayer priority, preview debounce, and ad blocking.
 - **Operation Flow**: Added `docs/operation-flow.md` documenting the runtime path from YouTube page load/navigation through video observation, context resolution, session orchestration, resume, interval checks, and final playback progress persistence.
 - **Playback Display Manager**: Centralized player button group state, playback notifications, fixed-time UI sync, manual-save button targeting, display timeouts, and play-listener cleanup behind `PlaybackDisplayManager`, and removed legacy per-context message wrappers so new paths call the manager directly.

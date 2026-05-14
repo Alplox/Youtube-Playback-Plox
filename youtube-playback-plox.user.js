@@ -1665,6 +1665,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-font-size-md: 1rem;
     --ypp-font-size-lg: 1.125rem;
     --ypp-font-size-xl: 1.25rem;
+    --ypp-font-size-2xl: 1.4rem;
 
     /*
      * Tokens semánticos para texto
@@ -3712,6 +3713,10 @@ regular-item.ypp-fill-none {
 
     color: var(--btn-color, var(--ypp-white));
     /* min-height: 36px; */
+
+    svg {
+        flex-shrink: 0;
+    }
 
     &::before {
         content: "";
@@ -6590,71 +6595,204 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     // MARK: 🔧 setInnerHTML
     /**
-    * Sets the innerHTML of an element safely for Trusted Types (Chrome) compatibility
+    * Sets the innerHTML of an element safely for Trusted Types (Chrome) compatibility.
     *
     * @param {HTMLElement} element - HTML element to assign HTML to.
     * @param {string} html - HTML to assign to its innerHTML.
     */
+
+    /**
+     * Whitelist de etiquetas permitidas para la UI del script.
+     * STYLE NOT ALLOWED: permite CSS injection (overlays, clickjacking visual).
+     */
+    const _SANITIZE_ALLOWED_TAGS = new Set([
+        // HTML genéricos
+        'DIV', 'SPAN', 'B', 'I', 'STRONG', 'EM', 'H1', 'H2', 'H3', 'H4', 'A', 'SVG', 'PATH',
+        'FOOTER', 'BR', 'HEADER', 'HR', 'UL', 'LI', 'KBD', 'CODE', 'PRE', 'NAV', 'TEXTAREA',
+        // SVG estructura
+        'CIRCLE', 'RECT', 'G', 'DEFS', 'USE', 'SYMBOL', 'LINE', 'POLYGON', 'POLYLINE',
+        'ELLIPSE', 'CLIPPATH', 'LINEARGRADIENT', 'RADIALGRADIENT', 'STOP', 'IMG',
+        // Controles
+        'BUTTON', 'INPUT', 'LABEL', 'SECTION'
+    ]);
+
+    /**
+     * Whitelist de atributos permitidos.
+     * IMPORTANTE: todos los nombres en minuscula para coincidir con attr.name.toLowerCase().
+     */
+    const _SANITIZE_ALLOWED_ATTRS = new Set([
+        // HTML genéricos
+        'class', 'id', 'href', 'target', 'src', 'rel', 'type', 'value', 'checked',
+        'placeholder', 'title', 'aria-label', 'role', 'style',
+        'data-action', 'data-id', 'data-type', 'name',
+        // SVG estructura
+        'xmlns', 'viewbox', 'width', 'height', 'preserveaspectratio',
+        // SVG geometría
+        'd', 'points', 'x', 'y', 'x1', 'y1', 'x2', 'y2',
+        'cx', 'cy', 'r', 'rx', 'ry', 'fx', 'fy',
+        // SVG presentación
+        'fill', 'fill-rule', 'fill-opacity',
+        'stroke', 'stroke-width', 'stroke-linecap', 'stroke-linejoin',
+        'stroke-dasharray', 'stroke-dashoffset', 'stroke-opacity',
+        'clip-rule', 'clip-path',
+        'transform', 'opacity',
+        // Gradientes
+        'offset', 'stop-color', 'stop-opacity',
+        'gradientunits', 'gradienttransform'
+    ]);
+
+    /**
+     * Propiedades CSS peligrosas bloqueadas en atributos `style`.
+     * Las demás se permiten (layout, colores, fuentes).
+     * Detectamos valores javascript: y expression() para prevenir inyección en valores.
+     */
+    const _UNSAFE_CSS_PROPS = new Set([
+        'position',      // position:fixed/absolute → clickjacking/overlay
+        'z-index',       // z-index alto → bloquear UI
+        'pointer-events' // pointer-events:none → hijack clicks
+    ]);
+
+    /**
+     * Sanitiza el atributo `style` eliminando propiedades peligrosas y valores con javascript:.
+     * @param {string} styleValue
+     * @returns {string} Valor de style saneado
+     */
+    function sanitizeStyle(styleValue) {
+        if (!styleValue) return '';
+        // Bloquear valores con javascript:, expression(), y comportamiento similar
+        const dangerousValue = /javascript:|expression\s*\(|vbscript:|url\s*\(\s*["']?javascript/i;
+        return styleValue
+            .split(';')
+            .filter(decl => {
+                const colonIdx = decl.indexOf(':');
+                if (colonIdx === -1) return false;
+                const prop = decl.slice(0, colonIdx).trim().toLowerCase();
+                const val = decl.slice(colonIdx + 1).trim();
+                if (_UNSAFE_CSS_PROPS.has(prop)) return false;
+                if (dangerousValue.test(val)) return false;
+                return true;
+            })
+            .join('; ');
+    }
+
+    /**
+     * Valida que una URL sea segura (http:, https:, mailto:).
+     * Usa URL constructor para prevenir bypass vía unicode/espacios/tabs.
+     * @param {string} url
+     * @returns {boolean}
+     */
+    function isSafeUrl(url) {
+        try {
+            const u = new URL(url.trim(), location.origin);
+            return ['http:', 'https:', 'mailto:'].includes(u.protocol);
+        } catch {
+            return false;
+        }
+    }
+
+    /** Caché de disponibilidad de DOMParser en este entorno. null = aún no comprobado. */
+    let _domParserAvailable = null;
+
+    /**
+     * Sanitiza un string HTML eliminando etiquetas/atributos no permitidos y
+     * eventos inline.
+     *
+     * Si DOMParser está bloqueado por el entorno (Firefox + Tampermonkey + TT sandbox),
+     * devuelve el string original. Esto es deliberado e invariante para este script:
+     * TODO el HTML que pasa por esta función es código autoreado (SVGs hardcoded,
+     * template literals con escapeHTML() en los valores dinámicos). Nunca es input
+     * de usuarios sin sanitizar. Devolver vacío o texto escapado rompería la UI
+     * completamente (SVGs, modales, dropdowns) sin ningún beneficio de seguridad real.
+     *
+     * @param {string} string - HTML a sanitizar (siempre código autoreado del script)
+     * @returns {string} HTML saneado, o el string original si DOMParser no está disponible
+     */
+    function sanitizeHTML(string) {
+        // Si ya comprobamos que DOMParser está bloqueado en este entorno, devolvemos el
+        // string original directamente. Ver JSDoc para la justificación de esta decisión.
+        if (_domParserAvailable === false) return string;
+
+        try {
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(string, 'text/html');
+            _domParserAvailable = true; // Confirmado disponible
+            const walk = (node) => {
+                let i = node.childNodes.length;
+                while (i--) {
+                    const child = node.childNodes[i];
+                    if (child.nodeType === 1) { // Element node
+                        // SVG elements en HTML parsing context tienen tagName en minúsculas ('svg', 'path'),
+                        // mientras que HTML elements lo tienen en mayúsculas ('DIV', 'SPAN').
+                        // Normalizamos a mayúsculas para que coincida con el Set.
+                        if (!_SANITIZE_ALLOWED_TAGS.has(child.tagName.toUpperCase())) {
+                            child.remove();
+                            continue;
+                        }
+                        // Limpiar atributos
+                        let j = child.attributes.length;
+                        while (j--) {
+                            const attr = child.attributes[j];
+                            const attrName = attr.name.toLowerCase();
+
+                            // 1. Bloquear event handlers inline (on*) SIEMPRE, antes de cualquier whitelist
+                            if (attrName.startsWith('on')) {
+                                child.removeAttribute(attr.name);
+                                continue;
+                            }
+
+                            // 2. Eliminar atributos no whitelisted (data-* propios permitidos)
+                            if (!_SANITIZE_ALLOWED_ATTRS.has(attrName) && !attrName.startsWith('data-')) {
+                                child.removeAttribute(attr.name);
+                                continue;
+                            }
+
+                            // 3. Sanitizar atributo `style` — permitido pero con propiedades peligrosas bloqueadas
+                            if (attrName === 'style') {
+                                const sanitized = sanitizeStyle(attr.value);
+                                if (sanitized) {
+                                    child.setAttribute('style', sanitized);
+                                } else {
+                                    child.removeAttribute('style');
+                                }
+                                continue;
+                            }
+
+                            // 4. Validar URLs con URL constructor (cubre data:, vbscript:, unicode obfuscation)
+                            //    Excepción: referencias SVG internas (#id) son seguras por definición.
+                            if (attrName === 'href' || attrName === 'src') {
+                                if (!attr.value.startsWith('#') && !isSafeUrl(attr.value)) {
+                                    child.setAttribute(attr.name, '#');
+                                }
+                            }
+                        }
+                        walk(child);
+                    }
+                }
+            };
+            walk(doc.body);
+            return doc.body.innerHTML;
+        } catch (e) {
+            // DOMParser bloqueado por el sandbox de Tampermonkey+TT. Loggear solo una vez.
+            if (_domParserAvailable !== false) {
+                _domParserAvailable = false;
+                logWarn('sanitizeHTML', 'DOMParser blocked by CSP sandbox. HTML will be passed through unsanitized. (This message will not repeat.)', e);
+            }
+            return string;
+        }
+    }
+
+
     let _ttPolicy = null;
     function getTrustedTypesPolicy() {
         if (_ttPolicy) return _ttPolicy;
         if (window.trustedTypes && window.trustedTypes.createPolicy) {
+            // Nombre con versión para evitar colisiones en hot-reload o doble inyección del script
+            const policyName = `youtube-playback-plox-${(GM_info?.script?.version ?? 'x').replace(/\./g, '-')}`;
             try {
-                _ttPolicy = window.trustedTypes.createPolicy('youtube-playback-plox', {
-                    createHTML: (string) => {
-                        // Whitelist de etiquetas permitidas para la UI del script
-                        const allowedTags = [
-                            'DIV', 'SPAN', 'B', 'I', 'STRONG', 'EM', 'H1', 'H2', 'H3', 'H4', 'A', 'SVG', 'PATH',
-                            'CIRCLE', 'RECT', 'G', 'STYLE', 'BUTTON', 'INPUT', 'LABEL', 'SECTION', 'HEADER',
-                            'FOOTER', 'BR', 'HR', 'UL', 'LI', 'KBD', 'CODE', 'PRE', 'NAV'
-                        ];
-                        // Whitelist de atributos permitidos
-                        const allowedAttrs = [
-                            'class', 'id', 'style', 'href', 'target', 'rel', 'd', 'viewbox', 'fill',
-                            'stroke', 'type', 'value', 'checked', 'placeholder', 'title', 'aria-label',
-                            'role', 'data-action', 'data-id', 'data-type', 'width', 'height', 'xmlns', 'points'
-                        ];
-
-                        try {
-                            const parser = new DOMParser();
-                            // En entornos con CSP extremadamente estricta (ej. Firefox con TT), parseFromString puede fallar
-                            // si se considera un sink. Si esto ocurre, devolvemos el string original para que el navegador
-                            // lo envuelva como TrustedHTML, permitiendo que la UI funcione aunque sin saneamiento dinámico.
-                            const doc = parser.parseFromString(string, 'text/html');
-                            const walk = (node) => {
-                                let i = node.childNodes.length;
-                                while (i--) {
-                                    const child = node.childNodes[i];
-                                    if (child.nodeType === 1) { // Element node
-                                        if (!allowedTags.includes(child.tagName)) {
-                                            child.remove();
-                                            continue;
-                                        }
-                                        // Limpiar atributos
-                                        let j = child.attributes.length;
-                                        while (j--) {
-                                            const attr = child.attributes[j];
-                                            const attrName = attr.name.toLowerCase();
-                                            if (!allowedAttrs.includes(attrName) && !attrName.startsWith('data-')) {
-                                                child.removeAttribute(attr.name);
-                                            }
-                                            // Protección adicional contra javascript: en href
-                                            if (attrName === 'href' && attr.value.trim().toLowerCase().startsWith('javascript:')) {
-                                                child.setAttribute(attr.name, '#');
-                                            }
-                                        }
-                                        walk(child);
-                                    }
-                                }
-                            };
-                            walk(doc.body);
-                            return doc.body.innerHTML;
-                        } catch (e) {
-                            return string;
-                        }
-                    }
+                _ttPolicy = window.trustedTypes.createPolicy(policyName, {
+                    createHTML: sanitizeHTML
                 });
-                logInfo('getTrustedTypesPolicy', 'Trusted Types policy "youtube-playback-plox" created with sanitization.');
+                logInfo('getTrustedTypesPolicy', `Trusted Types policy "${policyName}" created with sanitization.`);
             } catch (e) {
                 logError('getTrustedTypesPolicy', 'Failed to create policy (possibly already exists).', e);
             }
@@ -6665,14 +6803,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     function setInnerHTML(element, html) {
         if (!(element instanceof Element)) return;
 
-        // Base case: If it's just text, use textContent (the safest and fastest sink)
+        // Caso vacío: limpiar todos los hijos directamente, sin pasar por ningún sink.
+        if (html === '') {
+            while (element.firstChild) element.removeChild(element.firstChild);
+            return;
+        }
+
+        // Caso base: texto plano sin HTML - textContent es el sink más seguro y rápido.
         if (typeof html === 'string' && !html.includes('<')) {
             element.textContent = html;
             return;
         }
 
-        // Try using Trusted Types (recommended by YouTube)
-        // This allows compliance with the official security policy if the browser/environment supports it.
+        // 1. Trusted Types (recomendado por YouTube)
+        // Permite cumplir con la política de seguridad oficial si el entorno la soporta.
         const policy = getTrustedTypesPolicy();
         if (policy) {
             try {
@@ -6683,47 +6827,49 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
         }
 
-        // Privileged fallback (GM_addElement): Bypasses CSP and Trusted Types of the page.
-        // GM_addElement is a function of Tampermonkey/Greasemonkey that allows inserting elements
-        // and HTML securely from a privileged context.
+        // 2. Primer Fallback: GM_addElement (Bypass privilegiado de Tampermonkey)
+        // GM_addElement opera desde el contexto privilegiado del userscript y puede
+        // saltarse el CSP de la página. Va antes de DOMParser porque DOMParser
+        // está sujeto a las mismas restricciones que la página anfitriona.
         if (typeof GM_addElement === 'function') {
             try {
-                // Clear current content
+                // GM_addElement opera en contexto privilegiado de Tampermonkey: no necesita
+                // sanitización adicional (y llamarla fallaría si DOMParser está bloqueado).
                 while (element.firstChild) {
                     element.removeChild(element.firstChild);
                 }
-                // Insert a transparent container that carries the HTML
                 GM_addElement(element, 'span', {
                     innerHTML: html,
-                    style: 'display: contents;' // Avoid altering the layout of the original element
+                    style: 'display: contents;'
                 });
                 return;
             } catch (e) {
-                logError('setInnerHTML', 'GM_addElement failed, trying last resort DOMParser.', e);
+                logError('setInnerHTML', 'GM_addElement failed, trying DOMParser fallback.', e);
             }
         }
 
-        // Last resort: DOMParser (if the privilege fails or GM_addElement does not exist)
+        // 3. Segundo Fallback: DOMParser + appendChild
+        // appendChild sobre nodos reales NO es un sink de Trusted Types, a diferencia de innerHTML.
+        // No llama a sanitizeHTML aquí: si DOMParser está bloqueado a nivel de entorno,
+        // sanitizeHTML fallaría antes de que pudiéramos parsear el resultado.
         try {
             const parser = new DOMParser();
-            // Note: In extremely strict documents (like YouTube), parseFromString may fail.
             const doc = parser.parseFromString(html, 'text/html');
-
             while (element.firstChild) {
                 element.removeChild(element.firstChild);
             }
-
             const fragment = document.createDocumentFragment();
             while (doc.body.firstChild) {
                 fragment.appendChild(doc.body.firstChild);
             }
             element.appendChild(fragment);
         } catch (e) {
-            logError('setInnerHTML', 'Failed to bypass Trusted Types:', e);
-            // Final fallback: show as plain text to avoid completely losing the information
-            element.textContent = typeof html === 'string' ? html : String(html);
+            // Si los tres métodos fallan, mostrar como texto causaría que SVGs se rendericen
+            // como strings crudos ocupando todo el espacio disponible - es peor que no-op.
+            logError('setInnerHTML', 'All HTML injection methods failed. Element left empty.', e);
         }
     }
+
 
     // MARK: 🔧 Crear Elemento
     /**

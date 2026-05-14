@@ -1486,7 +1486,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     function replaceParams(text, params) {
         if (!text || typeof text !== 'string') return text;
         return text.replace(/{(\w+)}/g, (match, param) => {
-            return params[param] !== undefined ? params[param] : match;
+            const val = params[param];
+            if (val === undefined) return match;
+            // Sanitización automática de parámetros para evitar XSS al interpolar en HTML
+            return typeof val === 'string' ? escapeHTML(val) : val;
         });
     }
 
@@ -1656,6 +1659,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-text: #1b1b1bff;
     --ypp-text-secondary: #393939;
     --ypp-font-base: system-ui, -apple-system, BlinkMacSystemFont, "Roboto", "Segoe UI", "Helvetica Neue", sans-serif;
+
+    --ypp-font-size-xs: 0.75rem;
+    --ypp-font-size-sm: 0.875rem;
+    --ypp-font-size-md: 1rem;
+    --ypp-font-size-lg: 1.125rem;
+    --ypp-font-size-xl: 1.25rem;
 
     /*
      * Tokens semánticos para texto
@@ -1855,6 +1864,21 @@ regular-item.ypp-fill-none {
 
 .ypp-bg-danger {
     background: var(--ypp-danger) !important;
+}
+
+.ypp-text-secondary-italic {
+    font-size: var(--ypp-font-size-lg) !important;
+    color: var(--ypp-text-secondary) !important;
+    display: flex;
+    gap: var(--ypp-spacing-sm);
+    align-items: center;
+    justify-content: flex-start;
+    font-style: italic !important;
+
+    svg {
+        flex-shrink: 0;
+         margin-top: 2px;
+    }
 }
 
 /* =========================
@@ -4417,15 +4441,6 @@ regular-item.ypp-fill-none {
     }
 }
 
-.ypp-label-small {
-    font-size: 1.2rem;
-    color: var(--ypp-muted);
-    -webkit-user-select: none;
-       -moz-user-select: none;
-        -ms-user-select: none;
-            user-select: none;
-}
-
 .ypp-label-language {
     gap: 12px;
 }
@@ -4553,7 +4568,6 @@ regular-item.ypp-fill-none {
 .ypp-alert-preview-box {
     padding: 8px 14px;
     background: var(--ypp-bg);
-    border: 1px solid var(--ypp-border-color);
     border-radius: 8px;
     min-height: 34px;
     display: flex;
@@ -6340,6 +6354,47 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             .replace(/'/g, '&#039;');
     };
 
+    /**
+     * Valida y sanea una URL antes de insertarla en un atributo href.
+     * Previene XSS vía javascript: y asegura esquemas permitidos.
+     * @param {string} url - URL a validar.
+     * @param {string[]} [allowedPrefixes=['https://']] - Prefijos permitidos.
+     * @returns {string} - URL segura o '#' si es inválida.
+     */
+    function getSafeUrl(url, allowedPrefixes = ['https://']) {
+        if (!url || typeof url !== 'string') return '#';
+        const trimmed = url.trim();
+        const lower = trimmed.toLowerCase();
+
+        // Denegar explícitamente protocolos "peligrosos"
+        if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:')) {
+            return '#';
+        }
+
+        // Verificar si empieza con algún prefijo permitido
+        const isAllowed = allowedPrefixes.some(prefix => lower.startsWith(prefix.toLowerCase()));
+        return isAllowed ? trimmed : '#';
+    }
+
+    /**
+     * Elimina o máscara información sensible (tokens, IDs de Gist, etc.) de un texto.
+     * @param {string} text - Texto a procesar.
+     * @returns {string} - Texto saneado.
+     */
+    function scrubSensitiveData(text) {
+        if (!text || typeof text !== 'string') return text;
+        return text
+            // GitHub Tokens (ghp_, gho_, ghu_, ghs_, ghr_)
+            .replace(/gh[pousr]_[a-zA-Z0-9]{36,255}/g, '[REDACTED_TOKEN]')
+            // Otros tokens genéricos en JSON
+            .replace(/"token"\s*:\s*"[^"]+"/g, '"token": "[REDACTED]"')
+            // Gist IDs (32 hex chars) - Saneamiento conservador
+            .replace(/\b[a-f0-9]{20,40}\b/g, (match) => {
+                // Redactar solo si es una cadena de hex larga (IDs de GitHub)
+                return match.length >= 20 ? '[REDACTED_ID]' : match;
+            });
+    }
+
     // MARK: 🔧 Is Visibly Displayed
     /**
      * Determine if the element is displayed
@@ -6546,13 +6601,62 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (window.trustedTypes && window.trustedTypes.createPolicy) {
             try {
                 _ttPolicy = window.trustedTypes.createPolicy('youtube-playback-plox', {
-                    createHTML: (string) => String(string)
+                    createHTML: (string) => {
+                        // Whitelist de etiquetas permitidas para la UI del script
+                        const allowedTags = [
+                            'DIV', 'SPAN', 'B', 'I', 'STRONG', 'EM', 'H1', 'H2', 'H3', 'H4', 'A', 'SVG', 'PATH',
+                            'CIRCLE', 'RECT', 'G', 'STYLE', 'BUTTON', 'INPUT', 'LABEL', 'SECTION', 'HEADER',
+                            'FOOTER', 'BR', 'HR', 'UL', 'LI', 'KBD', 'CODE', 'PRE', 'NAV'
+                        ];
+                        // Whitelist de atributos permitidos
+                        const allowedAttrs = [
+                            'class', 'id', 'style', 'href', 'target', 'rel', 'd', 'viewbox', 'fill',
+                            'stroke', 'type', 'value', 'checked', 'placeholder', 'title', 'aria-label',
+                            'role', 'data-action', 'data-id', 'data-type', 'width', 'height', 'xmlns', 'points'
+                        ];
+
+                        try {
+                            const parser = new DOMParser();
+                            // En entornos con CSP extremadamente estricta (ej. Firefox con TT), parseFromString puede fallar
+                            // si se considera un sink. Si esto ocurre, devolvemos el string original para que el navegador
+                            // lo envuelva como TrustedHTML, permitiendo que la UI funcione aunque sin saneamiento dinámico.
+                            const doc = parser.parseFromString(string, 'text/html');
+                            const walk = (node) => {
+                                let i = node.childNodes.length;
+                                while (i--) {
+                                    const child = node.childNodes[i];
+                                    if (child.nodeType === 1) { // Element node
+                                        if (!allowedTags.includes(child.tagName)) {
+                                            child.remove();
+                                            continue;
+                                        }
+                                        // Limpiar atributos
+                                        let j = child.attributes.length;
+                                        while (j--) {
+                                            const attr = child.attributes[j];
+                                            const attrName = attr.name.toLowerCase();
+                                            if (!allowedAttrs.includes(attrName) && !attrName.startsWith('data-')) {
+                                                child.removeAttribute(attr.name);
+                                            }
+                                            // Protección adicional contra javascript: en href
+                                            if (attrName === 'href' && attr.value.trim().toLowerCase().startsWith('javascript:')) {
+                                                child.setAttribute(attr.name, '#');
+                                            }
+                                        }
+                                        walk(child);
+                                    }
+                                }
+                            };
+                            walk(doc.body);
+                            return doc.body.innerHTML;
+                        } catch (e) {
+                            return string;
+                        }
+                    }
                 });
-                logInfo('getTrustedTypesPolicy', 'Trusted Types policy "youtube-playback-plox" created.');
+                logInfo('getTrustedTypesPolicy', 'Trusted Types policy "youtube-playback-plox" created with sanitization.');
             } catch (e) {
-                logError('getTrustedTypesPolicy', 'Failed to create policy (possibly already exists).');
-                // In some browsers, you can't retrieve a policy that was already created,
-                // but if 'default' exists, the browser will use it automatically.
+                logError('getTrustedTypesPolicy', 'Failed to create policy (possibly already exists).', e);
             }
         }
         return _ttPolicy;
@@ -6919,6 +7023,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Cache de posiciones Y acumuladas
             this.itemOffsets = [];
             this.totalHeight = 0;
+            this.measuredHeights = new Map(); // Cache de alturas reales del DOM para evitar gaps
 
             this._init();
         }
@@ -6972,7 +7077,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 this.itemOffsets[i] = offset;
                 // Prefer actual rendered height over the estimate to avoid gaps
                 const renderedEl = this.renderedItems.get(i);
-                const h = renderedEl ? renderedEl.offsetHeight : this.getItemHeight(this.items[i], i);
+                const h = renderedEl
+                    ? renderedEl.offsetHeight
+                    : (this.measuredHeights.get(i) || this.getItemHeight(this.items[i], i));
+
+                // Si está renderizado, actualizar el caché
+                if (renderedEl && renderedEl.offsetHeight > 0) {
+                    this.measuredHeights.set(i, renderedEl.offsetHeight);
+                }
+
                 offset += h;
             }
             this.totalHeight = offset;
@@ -7039,6 +7152,47 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         /**
+         * Reposiciona los elementos visibles según los offsets actuales
+         * @private
+         */
+        _repositionVisibleItems() {
+            for (const [idx, el] of this.renderedItems) {
+                const targetTop = this.itemOffsets[idx];
+                if (el.style.top !== `${targetTop}px`) {
+                    el.style.top = `${targetTop}px`;
+                }
+            }
+            // Actualizar altura total del spacer
+            const totalHeight = this.itemOffsets[this.items.length - 1] + this.getItemHeight(this.items[this.items.length - 1], this.items.length - 1);
+            if (this.spacer) this.spacer.style.height = `${totalHeight}px`;
+        }
+
+        /**
+         * Verifica si las alturas reales de los elementos renderizados han cambiado
+         * y ajusta los offsets si es necesario.
+         * @private
+         */
+        _checkHeights() {
+            let needsRecalculate = false;
+            for (const [idx, el] of this.renderedItems) {
+                const realH = el.offsetHeight;
+                if (realH > 0) {
+                    const cachedH = this.measuredHeights.get(idx);
+                    // Tolerancia de 2px para estabilidad
+                    if (realH !== cachedH && Math.abs(realH - (cachedH || 0)) > 2) {
+                        this.measuredHeights.set(idx, realH);
+                        needsRecalculate = true;
+                    }
+                }
+            }
+
+            if (needsRecalculate) {
+                this._calculateOffsets();
+                this._repositionVisibleItems();
+            }
+        }
+
+        /**
          * Renderiza los items visibles
          * @private
          */
@@ -7067,6 +7221,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (renderPromises.length > 0) {
                 await Promise.all(renderPromises);
             }
+
+            // Tras renderizar nuevos, verificar alturas para corregir gaps/overlaps
+            this._checkHeights();
 
             if (this.onRender) {
                 this.onRender({
@@ -7105,6 +7262,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 this.spacer.appendChild(el);
                 this.renderedItems.set(index, el);
+
+                // Capturar altura real y verificar si necesitamos re-calcular offsets
+                const realHeight = el.offsetHeight;
+                if (realHeight > 0) {
+                    const cachedHeight = this.measuredHeights.get(index);
+                    const estimatedHeight = this.getItemHeight(item, index);
+
+                    // Si es la primera vez que lo medimos o si cambió significativamente (>5px)
+                    if (!cachedHeight || Math.abs(realHeight - (cachedHeight || estimatedHeight)) > 5) {
+                        this.measuredHeights.set(index, realHeight);
+                        // No re-calculamos todo el scroller en cada render para evitar lag,
+                        // pero marcamos que las posiciones subsiguientes podrían estar mal.
+                        // El próximo _calculateOffsets() arreglará todo.
+                    }
+                }
             } catch (err) {
                 logError('[VirtualScroller] Error rendering item:', index, err);
             } finally {
@@ -7128,6 +7300,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             this.renderedItems.clear();
             this.renderingItems.clear();
+            if (this.measuredHeights) this.measuredHeights.clear();
 
             // Actualizar altura y re-renderizar
             this._calculateOffsets();
@@ -7397,8 +7570,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             };
 
-            const gistId = modeSettings.id;
-
+            const gistId = (modeSettings.id || '').trim().replace(/[^a-f0-9]/gi, '').slice(0, 40);
             const cleanToken = (modeSettings.token || '').trim().replace(/[^\x00-\xFF]/g, '');
             const isValidToken = /^[a-zA-Z0-9_]+$/.test(cleanToken);
             if (!isValidToken) {
@@ -7472,6 +7644,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubBackupError')}`);
                 return resolve(false);
             }
+            const cleanOwner = (repoOwner || '').trim().replace(/[^a-z0-9-]/gi, '');
+            const cleanName = (repoName || '').trim().replace(/[^a-z0-9-_.]/gi, '');
+            const cleanToken = (token || '').trim().replace(/[^\x00-\xFF]/g, '');
 
             const jsonString = JSON.stringify(data, null, 2);
             const fileSizeMB = jsonString.length / (1024 * 1024);
@@ -7488,9 +7663,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             const fileName = 'youtube-playback-plox-backup.json';
-            const baseUrl = `https://api.github.com/repos/${repoOwner}/${repoName}`;
+            const baseUrl = `https://api.github.com/repos/${cleanOwner}/${cleanName}`;
             const headers = {
-                'Authorization': `token ${token}`,
+                'Authorization': `token ${cleanToken}`,
                 'Accept': 'application/vnd.github.v3+json',
                 'Content-Type': 'application/json'
             };
@@ -8153,7 +8328,30 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             logLog('parseFreeTubeDB', `Procesados ${jsonObjects.length} posibles videos`);
-            return jsonObjects;
+
+            // Sanitización: Solo extraer campos conocidos para evitar inyecciones de flags internos (isProtected, etc)
+            return jsonObjects.map(obj => {
+                if (!obj || typeof obj !== 'object' || !obj.videoId) return null;
+
+                return {
+                    videoId: String(obj.videoId),
+                    title: obj.title ? String(obj.title) : '',
+                    author: String(obj.author || obj.channelName || ''),
+                    authorId: String(obj.authorId || obj.channelId || ''),
+                    published: Number(obj.published) || 0,
+                    description: obj.description ? String(obj.description) : '',
+                    // watchProgress en FreeTube es el tiempo actual en segundos
+                    watchProgress: Number(obj.watchProgress ?? obj.currentTime ?? 0),
+                    lengthSeconds: Number(obj.lengthSeconds) || 0,
+                    timeWatched: Number(obj.timeWatched) || Date.now(),
+                    viewCount: Number(obj.viewCount) || 0,
+                    type: String(obj.type || 'video'),
+                    isLive: Boolean(obj.isLive),
+                    isCompleted: Boolean(obj.isCompleted),
+                    // Conservar el _id de FreeTube para evitar duplicados en re-importaciones
+                    ...(obj._id ? { _id: String(obj._id) } : {})
+                };
+            }).filter(v => v !== null);
         } catch (error) {
             logError('parseFreeTubeDB', 'Error fatal parseando DB:', error);
             return [];
@@ -10615,7 +10813,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
              <label class="ypp-label">
                 <span>${t('minSecondsBetweenSaves')}: </span>
                  <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small" name="minSecondsBetweenSaves" value="${settings.minSecondsBetweenSaves}" min="1" max="9999">
-                 <span class="ypp-label-small">${SVG_ICONS.info} ${t('maxLimit')}: 3600</span>
+                 <span class="ypp-text-secondary-italic">${SVG_ICONS.info} ${t('maxLimit')}: 3600</span>
             </label>
         </div>
     </div>
@@ -10657,14 +10855,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         <input type="checkbox" name="countOncePerSession" ${settings.countOncePerSession ? 'checked' : ''}>
                         <span>${t('countOncePerSession')}</span>
                     </div>
-                    <i class="ypp-tooltip">${SVG_ICONS.info} ${t('countOncePerSessionTooltip')}</i>
+                    <span class="ypp-text-secondary-italic">${SVG_ICONS.info} ${t('countOncePerSessionTooltip')}</span>
                 </div>
                 <div class="ypp-settings-third-level-section" style="margin-top: 10px;">
                     <div class="ypp-d-flex">
                         <input type="checkbox" name="resumeCompletedFromStart" ${settings.resumeCompletedFromStart ? 'checked' : ''}>
                         <span>${t('resumeCompletedFromStart')}</span>
                     </div>
-                    <i class="ypp-tooltip">${SVG_ICONS.info} ${t('resumeCompletedFromStartTooltip')}</i>
+                    <span class="ypp-text-secondary-italic">${SVG_ICONS.info} ${t('resumeCompletedFromStartTooltip')}</span>
                 </div>
             </div>
     `;
@@ -10708,7 +10906,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                         <button type="button" class="ypp-btn ypp-btn-circle ypp-btn-outline-info ypp-gist-id-toggle" title="${t('show')}" style="padding: 4px 8px; flex-shrink: 0;">${SVG_ICONS.eye}</button>
                                     </div>
                                 </label>
-                                <div style="font-size: 0.85em; color: var(--ypp-text-secondary); margin-top: 2px;">${t('githubGistIdExample')}</div>
+                                <span class="ypp-text-secondary-italic">
+                                ${SVG_ICONS.info} ${t('githubGistIdExample')}</span>
                             </div>
                         ` : `
                             <div>
@@ -10721,16 +10920,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                     <input type="text" class="ypp-input" name="repo_name" value="${s.name || ''}" placeholder="${t('githubRepoNamePlaceholder')}">
                                 </label>
                             </div>
-                            <div style="font-size: 0.85em; color: var(--ypp-text-secondary); margin-top: 5px;">
+                            <span class="ypp-text-secondary-italic">
                                 ${SVG_ICONS.info} ${t('saveAs')}: <code>youtube-playback-plox-backup.json</code>
-                            </div>
+                            </span>
                         `}
                     </div>
 
-                    <div style="display: flex; flex-direction: column; gap: 8px; border-top: 1px solid var(--ypp-border-color); padding-top: 12px;">
-                        <div style="font-size: 0.85em; color: var(--ypp-text-secondary); line-height: 1.4;">
+                    <div style="display: flex; flex-direction: column; gap: 8px">
+                        <span class="ypp-text-secondary-italic">
+                            ${SVG_ICONS.info}
                             ${isGist ? t('githubBackupNowInfo') : t('githubRepoBackupNowInfo')}
-                        </div>
+                        </span>
                         <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
                             <button type="button" class="ypp-btn ypp-btn-primary ypp-github-backup-btn" data-type="${type}" style="width: fit-content; padding: 6px 15px;">
                                 ${SVG_ICONS.cloudUpload} ${t('githubBackupNow')}
@@ -10775,7 +10975,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         <div>${t('githubHelpStep4Repo')}</div>
                     </div>
 
-                    <div style="margin-top: 10px; padding-top: 5px; border-top: 1px solid var(--ypp-border-color); font-size: 0.9em;">
+                    <div style="margin-top: 10px; padding-top: 5px; font-size: 0.9em;">
                         <strong>${t('githubCleanupGuide')}:</strong><br>
                         - ${t('githubCleanupStep1')}<br>
                         - ${t('githubCleanupStep2')}
@@ -10821,7 +11021,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     <span>${t('autoCleanupDays')}: </span>
                     <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small" name="autoCleanupDays" value="${settings.autoCleanupDays || 30}" min="1" max="3650">
                 </label>
-                <i class="ypp-tooltip" style="margin-top: 4px;">${SVG_ICONS.info} ${t('autoCleanupDaysDescription')}</i>
+                <span class="ypp-text-secondary-italic" style="margin-top: 4px;">${SVG_ICONS.info} ${t('autoCleanupDaysDescription')}</dfn>
             </div>
         </div>
     `;
@@ -10995,7 +11195,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             className: 'ypp-btn ypp-btn-dark ypp-shadow-md',
             // html: `${SVG_ICONS.github} ${t('youtubePlaybackPlox')} ${SVG_ICONS.linkExternal}`,
             html: `${SVG_ICONS.github} ${SVG_ICONS.linkExternal}`,
-            onClickEvent: () => { window.open('https://github.com/Alplox/Youtube-Playback-Plox/', '_blank'); }
+            onClickEvent: () => { window.open(getSafeUrl('https://github.com/Alplox/Youtube-Playback-Plox/'), '_blank'); }
         });
 
         const viewBtn = createElement('button', {
@@ -11136,8 +11336,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     `----------------------------------`,
                     (window.MyScriptLogger._errorLogs || []).join('\n') || t('noLogs')
                 ].join('\n');
+
                 try {
-                    await navigator.clipboard.writeText(logData);
+                    // Scrubbing de datos sensibles antes de copiar al portapapeles
+                    const safeLogData = scrubSensitiveData(logData);
+                    await navigator.clipboard.writeText(safeLogData);
                     showFloatingToast(`${SVG_ICONS.check} ${t('logsCopied')}`);
                 } catch (e) {
                     showFloatingToast(`${SVG_ICONS.error} Error: ${e.message}`);
@@ -11149,7 +11352,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const createIssueBtn = bodyModalSettings.querySelector('.ypp-create-issue-btn');
         if (createIssueBtn) {
             createIssueBtn.addEventListener('click', () => {
-                window.open('https://github.com/Alplox/Youtube-Playback-Plox/issues/new', '_blank');
+                window.open(getSafeUrl('https://github.com/Alplox/Youtube-Playback-Plox/issues/new'), '_blank');
             });
         }
 
@@ -11717,7 +11920,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         alert(t('selectAtLeastOne'));
                         return;
                     }
-                    if (playlistTextarea.value) window.open(playlistTextarea.value, '_blank');
+                    if (playlistTextarea.value) window.open(getSafeUrl(playlistTextarea.value), '_blank');
                 }
             });
 
@@ -15830,11 +16033,27 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const containerWidth = scrollerContainer.getBoundingClientRect().width || scrollerContainer.clientWidth || window.innerWidth || 800;
                     const padding = 32; // var(--ypp-spacing-md) * 2
                     const gap = 16 * (cols - 1);
-                    const itemWidth = (containerWidth - padding - gap) / cols;
+                    // Compensar bordes: cada item tiene 1px solid (2px total por item)
+                    const borderCompensation = 2 * cols;
+                    const itemWidth = (containerWidth - padding - gap - borderCompensation) / cols;
                     const thumbHeight = itemWidth * 9 / 16;
 
-                    let h = thumbHeight + 42; // thumb height + borders + 32px chevron + 8px margin safety
-                    if (item.expandedItemIds?.size > 0) h += 400; // Extra space for dropdown content
+                    // Estructura base: thumb + chevron (32px) + bordes/padding (4px)
+                    let h = thumbHeight + 36;
+
+                    if (item.expandedItemIds?.size > 0) {
+                        // El info dropdown mide ~200px sin playlist, y ~230px con playlist.
+                        // Usamos una base de 240px para evitar recorte.
+                        let expansionH = 240;
+
+                        // Si alguno de los items expandidos es de playlist, añadir espacio extra
+                        const anyExpandedIsPlaylist = item.items.some(v =>
+                            v.playlistKey && item.expandedItemIds.has(v.info.videoId || v.videoId)
+                        );
+                        if (anyExpandedIsPlaylist) expansionH += 30;
+
+                        h += expansionH;
+                    }
                     return Math.max(h, 120);
                 }
                 if (item.playlistKey) return 140; // Optimizado a 140px
@@ -15847,10 +16066,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         className: 'ypp-playlist-header'
                     });
 
-                    let playlistUrl = `https://www.youtube.com/playlist?list=${item.playlistKey}`;
+                    let playlistUrl = getSafeUrl(`https://www.youtube.com/playlist?list=${item.playlistKey}`);
                     // Para Mixes (RD...), YouTube requiere un v=ID válido.
                     if (item.playlistKey.startsWith('RD') && item.firstVideoId) {
-                        playlistUrl = `https://www.youtube.com/watch?v=${item.firstVideoId}&list=${item.playlistKey}`;
+                        playlistUrl = getSafeUrl(`https://www.youtube.com/watch?v=${item.firstVideoId}&list=${item.playlistKey}`);
                     }
 
                     setInnerHTML(header, `
@@ -16627,12 +16846,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Collapses extra whitespace and trims the result
             .replace(/\s+/g, ' ')
             .trim();
+
         const q = c.match(/"([^"]+)"/);
         if (q && q[1]) {
-            const a = c.split('"')[0].trim().replace(/[-–]+$/, '').trim();
+            const a = c
+                .split('"')[0]
+                .trim()
+                .replace(/[-–]+$/, '')
+                .trim();
+
             return a ? `${a} - ${q[1]}` : q[1];
         }
-        const p = c.split(/[-–—]+/).map((x) => x.trim()).filter(Boolean);
+
+        // SOLO separa por " - "
+        const p = c
+            .split(/\s+[-–—]\s+/)
+            .map((x) => x.trim())
+            .filter(Boolean);
+
         return p.length >= 2 ? `${p[0]} - ${p[1]}` : c;
     };
 
@@ -16803,6 +17034,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             },
             async run(ctx) {
                 if (ctx.event) ctx.event.preventDefault();
+                // Usar la URL original. El protocolo freetube:// espera una URL de YouTube válida.
+                // La codificación excesiva (ej. encodeURIComponent del query string) rompe el mapeo en el reproductor externo.
                 window.location.assign(`freetube://${ctx.videoUrl}`);
             }
         },
@@ -16828,7 +17061,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const cleanedTitle = cleanTitleForSpotifySearch(ctx.rawTitle || ctx.title || '');
                 const query = encodeURIComponent(cleanedTitle);
                 const spotifyApp = `spotify:search:${query}`;
-                const spotifyWeb = `https://open.spotify.com/search/${query}`;
+                const spotifyWeb = getSafeUrl(`https://open.spotify.com/search/${query}`);
                 const opened = window.open(spotifyApp, '_blank', 'noopener,noreferrer');
                 setTimeout(() => {
                     if (!opened || opened.closed || opened.location.href === 'about:blank') {
@@ -17633,6 +17866,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             ? `https://www.youtube.com/watch?v=${videoId}&list=${playlistKey}`
             : `https://www.youtube.com/playlist?list=${playlistKey}`;
 
+        const channelUrl = authorId
+            ? `https://www.youtube.com/channel/${authorId}`
+            : '';
+
         const hasFixedTime = forceResumeTime > 0;
         const isProtected = info.isProtected || false;
         const fixedTimeStr =
@@ -17711,7 +17948,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         infoChildren.push(createElement('a', {
             className: 'ypp-titleLink',
             html: `${escapeHTML(title)} ${SVG_ICONS.linkExternal}`,
-            attributes: { title, href: videoUrl, target: linkTarget, rel: 'noopener noreferrer' }
+            attributes: { title, href: getSafeUrl(videoUrl), target: linkTarget, rel: 'noopener noreferrer' }
         }));
 
         if (isPlaylistItem && finalPlaylistTitle) {
@@ -17723,7 +17960,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     createElement('a', {
                         className: 'ypp-playlist-link',
                         html: `${SVG_ICONS.playlist} ${finalPlaylistTitle}  ${SVG_ICONS.linkExternal}`,
-                        attributes: { title: `${t('openPlaylist')}: ${finalPlaylistTitle}`, href: playlistUrl, target: linkTarget, rel: 'noopener noreferrer' }
+                        attributes: { title: `${t('openPlaylist')}: ${finalPlaylistTitle}`, href: getSafeUrl(playlistUrl), target: linkTarget, rel: 'noopener noreferrer' }
                     })
                 ]
             }));
@@ -17733,7 +17970,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             infoChildren.push(createElement('a', {
                 className: 'ypp-author ypp-link',
                 html: `${escapeHTML(author)} ${SVG_ICONS.linkExternal}`,
-                attributes: { title: `${t('openChannel')}: ${author}`, href: `https://www.youtube.com/channel/${authorId}`, target: linkTarget, rel: 'noopener noreferrer' }
+                attributes: { title: `${t('openChannel')}: ${author}`, href: getSafeUrl(channelUrl), target: linkTarget, rel: 'noopener noreferrer' }
             }));
         } else {
             infoChildren.push(createElement('div', { className: 'ypp-author', text: author }));

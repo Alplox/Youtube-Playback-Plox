@@ -2,6 +2,14 @@
 
 ### Added
 
+- **Trusted Types Enforcement**: Hardened the script's Trusted Types policy by replacing the passthrough with a strict whitelist-based sanitizer for all dynamic HTML insertions.
+- **XSS Prevention**: 
+  - Implemented automatic HTML escaping for translation parameters to prevent injection via dynamic metadata (titles, views, etc.).
+  - Added `getSafeUrl` helper to validate and sanitize all dynamic `href` attributes, blocking `javascript:` and other dangerous schemes.
+- **Input & Import Validation**: 
+  - Added regex-based sanitization for GitHub Gist and Repository IDs to prevent URL manipulation.
+  - Implemented field whitelisting for FreeTube database imports to prevent malicious files from injecting internal script flags.
+- **Privacy Protection**: Implemented a log scrubbing utility that automatically redacts GitHub tokens and sensitive IDs before copying logs to the clipboard.
 - **Auto-cleanup**: Added auto-cleanup for old videos that reach past a configurable amount of days. The success notification includes "Download Backup" and "Undo" buttons allowing users to immediately backup or revert the cleanup. #44
 - **Multi-Action Toasts**: Enhanced `showFloatingToast` to support multiple action buttons simultaneously.
 - **Saved videos modal - display options toolbar**: 

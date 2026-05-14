@@ -122,7 +122,6 @@
 // @grant        GM_listValues
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
-// @grant        GM_addElement
 // @grant        GM_addStyle
 // @run-at       document-end
 // @namespace    youtube-playback-plox
@@ -1665,6 +1664,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-font-size-md: 1rem;
     --ypp-font-size-lg: 1.125rem;
     --ypp-font-size-xl: 1.25rem;
+    --ypp-font-size-2xl: 1.4rem;
 
     /*
      * Tokens semánticos para texto
@@ -3712,6 +3712,10 @@ regular-item.ypp-fill-none {
 
     color: var(--btn-color, var(--ypp-white));
     /* min-height: 36px; */
+
+    svg {
+        flex-shrink: 0;
+    }
 
     &::before {
         content: "";
@@ -6590,71 +6594,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     // MARK: 🔧 setInnerHTML
     /**
-    * Sets the innerHTML of an element safely for Trusted Types (Chrome) compatibility
+    * Sets the innerHTML of an element safely for Trusted Types (Chrome) compatibility.
     *
     * @param {HTMLElement} element - HTML element to assign HTML to.
     * @param {string} html - HTML to assign to its innerHTML.
     */
+
     let _ttPolicy = null;
     function getTrustedTypesPolicy() {
         if (_ttPolicy) return _ttPolicy;
         if (window.trustedTypes && window.trustedTypes.createPolicy) {
+            // Nombre con versión para evitar colisiones en hot-reload o doble inyección del script
+            const policyName = `youtube-playback-plox-${(GM_info?.script?.version ?? 'x').replace(/\./g, '-')}`;
             try {
-                _ttPolicy = window.trustedTypes.createPolicy('youtube-playback-plox', {
-                    createHTML: (string) => {
-                        // Whitelist de etiquetas permitidas para la UI del script
-                        const allowedTags = [
-                            'DIV', 'SPAN', 'B', 'I', 'STRONG', 'EM', 'H1', 'H2', 'H3', 'H4', 'A', 'SVG', 'PATH',
-                            'CIRCLE', 'RECT', 'G', 'STYLE', 'BUTTON', 'INPUT', 'LABEL', 'SECTION', 'HEADER',
-                            'FOOTER', 'BR', 'HR', 'UL', 'LI', 'KBD', 'CODE', 'PRE', 'NAV'
-                        ];
-                        // Whitelist de atributos permitidos
-                        const allowedAttrs = [
-                            'class', 'id', 'style', 'href', 'target', 'rel', 'd', 'viewbox', 'fill',
-                            'stroke', 'type', 'value', 'checked', 'placeholder', 'title', 'aria-label',
-                            'role', 'data-action', 'data-id', 'data-type', 'width', 'height', 'xmlns', 'points'
-                        ];
-
-                        try {
-                            const parser = new DOMParser();
-                            // En entornos con CSP extremadamente estricta (ej. Firefox con TT), parseFromString puede fallar
-                            // si se considera un sink. Si esto ocurre, devolvemos el string original para que el navegador
-                            // lo envuelva como TrustedHTML, permitiendo que la UI funcione aunque sin saneamiento dinámico.
-                            const doc = parser.parseFromString(string, 'text/html');
-                            const walk = (node) => {
-                                let i = node.childNodes.length;
-                                while (i--) {
-                                    const child = node.childNodes[i];
-                                    if (child.nodeType === 1) { // Element node
-                                        if (!allowedTags.includes(child.tagName)) {
-                                            child.remove();
-                                            continue;
-                                        }
-                                        // Limpiar atributos
-                                        let j = child.attributes.length;
-                                        while (j--) {
-                                            const attr = child.attributes[j];
-                                            const attrName = attr.name.toLowerCase();
-                                            if (!allowedAttrs.includes(attrName) && !attrName.startsWith('data-')) {
-                                                child.removeAttribute(attr.name);
-                                            }
-                                            // Protección adicional contra javascript: en href
-                                            if (attrName === 'href' && attr.value.trim().toLowerCase().startsWith('javascript:')) {
-                                                child.setAttribute(attr.name, '#');
-                                            }
-                                        }
-                                        walk(child);
-                                    }
-                                }
-                            };
-                            walk(doc.body);
-                            return doc.body.innerHTML;
-                        } catch (e) {
-                            return string;
-                        }
-                    }
+                _ttPolicy = window.trustedTypes.createPolicy(policyName, {
+                    createHTML: (html) => html // Pass-through sin sanitización: el script solo usa HTML autogenerado
                 });
-                logInfo('getTrustedTypesPolicy', 'Trusted Types policy "youtube-playback-plox" created with sanitization.');
+                logInfo('getTrustedTypesPolicy', `Trusted Types policy "${policyName}" created.`);
             } catch (e) {
                 logError('getTrustedTypesPolicy', 'Failed to create policy (possibly already exists).', e);
             }
@@ -6665,65 +6621,36 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     function setInnerHTML(element, html) {
         if (!(element instanceof Element)) return;
 
-        // Base case: If it's just text, use textContent (the safest and fastest sink)
+        // Caso vacío: limpiar todos los hijos directamente
+        if (html === '') {
+            while (element.firstChild) element.removeChild(element.firstChild);
+            return;
+        }
+
+        // Caso base: texto plano sin HTML - textContent es el sink más seguro y rápido
         if (typeof html === 'string' && !html.includes('<')) {
             element.textContent = html;
             return;
         }
 
-        // Try using Trusted Types (recommended by YouTube)
-        // This allows compliance with the official security policy if the browser/environment supports it.
+        // Trusted Types (recomendado por YouTube)
+        // Permite cumplir con la política de seguridad oficial si el entorno la soporta
         const policy = getTrustedTypesPolicy();
         if (policy) {
             try {
                 element.innerHTML = policy.createHTML(html);
                 return;
             } catch (e) {
-                logError('setInnerHTML', 'Trusted Types policy failed, trying GM_addElement fallback.', e);
+                logError('setInnerHTML', 'Trusted Types policy failed, using direct assignment.', e);
             }
         }
 
-        // Privileged fallback (GM_addElement): Bypasses CSP and Trusted Types of the page.
-        // GM_addElement is a function of Tampermonkey/Greasemonkey that allows inserting elements
-        // and HTML securely from a privileged context.
-        if (typeof GM_addElement === 'function') {
-            try {
-                // Clear current content
-                while (element.firstChild) {
-                    element.removeChild(element.firstChild);
-                }
-                // Insert a transparent container that carries the HTML
-                GM_addElement(element, 'span', {
-                    innerHTML: html,
-                    style: 'display: contents;' // Avoid altering the layout of the original element
-                });
-                return;
-            } catch (e) {
-                logError('setInnerHTML', 'GM_addElement failed, trying last resort DOMParser.', e);
-            }
-        }
-
-        // Last resort: DOMParser (if the privilege fails or GM_addElement does not exist)
-        try {
-            const parser = new DOMParser();
-            // Note: In extremely strict documents (like YouTube), parseFromString may fail.
-            const doc = parser.parseFromString(html, 'text/html');
-
-            while (element.firstChild) {
-                element.removeChild(element.firstChild);
-            }
-
-            const fragment = document.createDocumentFragment();
-            while (doc.body.firstChild) {
-                fragment.appendChild(doc.body.firstChild);
-            }
-            element.appendChild(fragment);
-        } catch (e) {
-            logError('setInnerHTML', 'Failed to bypass Trusted Types:', e);
-            // Final fallback: show as plain text to avoid completely losing the information
-            element.textContent = typeof html === 'string' ? html : String(html);
-        }
+        // Fallback: asignación directa
+        // El script solo usa HTML autogenerado (SVGs hardcoded, template literals con escapeHTML())
+        // por lo que no se necesita sanitización adicional
+        element.innerHTML = html;
     }
+
 
     // MARK: 🔧 Crear Elemento
     /**

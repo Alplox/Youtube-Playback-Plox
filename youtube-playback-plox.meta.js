@@ -122,7 +122,6 @@
 // @grant        GM_listValues
 // @grant        GM_registerMenuCommand
 // @grant        GM_xmlhttpRequest
-// @grant        GM_addElement
 // @grant        GM_addStyle
 // @run-at       document-end
 // @namespace    youtube-playback-plox

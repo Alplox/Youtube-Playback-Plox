@@ -401,6 +401,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "countOncePerSessionTooltip": "If enabled, once the completion threshold is reached, replays or auto-looping will not be counted multiple times within the same session.",
             "resumeCompletedFromStart": "Resume completed videos from the start",
             "resumeCompletedFromStartTooltip": "If enabled, videos marked as completed will always start from 00:00. If disabled, they will stay at the end to allow YouTube's auto-advance to continue.",
+            "autoCleanupEnabled": "Enable automatic history cleanup",
+            "autoCleanupDays": "Cleanup videos older than (days)",
+            "autoCleanupDaysDescription": "Videos that haven't been watched in X days will be deleted. Protected videos are excluded.",
+            "autoCleanupStarted": "Starting automatic history cleanup...",
+            "autoCleanupNoVideosFound": "No videos older than {days} days found to delete.",
+            "autoCleanupFinished": "Automatic cleanup complete: {count} videos removed.",
+            "downloadBackup": "Download backup",
             "searchByTitleOrAuthor": "Search by title or author...",
             "advancedFilters": "Advanced Filters",
             "activeFilters": "{count} active filters",
@@ -665,6 +672,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "countOncePerSessionTooltip": "Si está activado, una vez alcanzado el umbral de finalización, las repeticiones o la reproducción automática no se contarán varias veces dentro de la misma sesión.",
             "resumeCompletedFromStart": "Reanudar vídeos completados desde el inicio",
             "resumeCompletedFromStartTooltip": "Si está activado, los vídeos marcados como completados siempre comenzarán desde 00:00. Si está desactivado, permanecerán al final para permitir que el avance automático de YouTube continúe.",
+            "autoCleanupEnabled": "Activar limpieza automática del historial",
+            "autoCleanupDays": "Limpiar videos con más de (días)",
+            "autoCleanupDaysDescription": "Los videos que no hayan sido vistos en X días serán eliminados. Los videos protegidos están excluidos.",
+            "autoCleanupStarted": "Iniciando limpieza automática del historial...",
+            "autoCleanupNoVideosFound": "No se encontraron videos más antiguos de {days} días para eliminar.",
+            "autoCleanupFinished": "Limpieza automática completada: {count} videos eliminados.",
+            "downloadBackup": "Descargar respaldo",
             "searchByTitleOrAuthor": "Buscar por título o autor...",
             "advancedFilters": "Filtros avanzados",
             "activeFilters": "{count} filtros activos",
@@ -1220,6 +1234,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             staticFinishPercent: 95,         // Percentage from the end to consider video as completed (95% = 5% before the end)
             countOncePerSession: false,      // Count only once per session
             resumeCompletedFromStart: false, // Resume completed videos from the beginning
+            autoCleanupEnabled: false,       // Automatically cleanup old history entries
+            autoCleanupDays: 30,             // Number of days to keep non-protected videos
         },
 
         /* Default values for GitHub settings */
@@ -2325,6 +2341,10 @@ regular-item.ypp-fill-none {
 
 .ypp-d-none {
     display: none !important;
+}
+
+.ypp-bg-danger {
+    background: var(--ypp-danger) !important;
 }
 
 /* =========================
@@ -11277,6 +11297,22 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         `;
     };
 
+    const renderAutoCleanupSection = (settings) => `
+        <div class="ypp-settings-second-level-section">
+            <label class="ypp-label">
+                <input type="checkbox" name="autoCleanupEnabled" ${settings.autoCleanupEnabled ? 'checked' : ''}>
+                <span style="font-weight: bold;">${t('autoCleanupEnabled')} ${SVG_ICONS.trash}</span>
+            </label>
+            <div class="ypp-settings-third-level-section" style=" ${settings.autoCleanupEnabled ? '' : 'display: none;'} opacity: ${settings.autoCleanupEnabled ? '1' : '0.5'};">
+                <label class="ypp-label">
+                    <span>${t('autoCleanupDays')}: </span>
+                    <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small" name="autoCleanupDays" value="${settings.autoCleanupDays || 30}" min="1" max="3650">
+                </label>
+                <i class="ypp-tooltip" style="margin-top: 4px;">${SVG_ICONS.info} ${t('autoCleanupDaysDescription')}</i>
+            </div>
+        </div>
+    `;
+
     // ============================================================================================================
     // MARK: ⚙️ Settings UI
     // ============================================================================================================
@@ -11338,6 +11374,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     ${renderManualSavingOptionsSection(settings)}
                     ${renderAutomaticSavingOptionsSection(settings)}
                     ${renderNotificationSettingsSection(settings)}
+                    ${renderAutoCleanupSection(settings)}
                 </div>
                 <div class="ypp-settings-main-section">
                     ${renderGitHubBackupSection(githubSettings)}
@@ -11414,9 +11451,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
         }
 
+        // Toggle visibilidad de sub-opción limpieza automática
+        const autoCleanupCheckbox = bodyModalSettings.querySelector('[name="autoCleanupEnabled"]');
+        const autoCleanupSection = autoCleanupCheckbox?.closest('.ypp-settings-second-level-section')?.querySelector('.ypp-settings-third-level-section');
+        if (autoCleanupCheckbox && autoCleanupSection) {
+            autoCleanupCheckbox.addEventListener('change', (e) => {
+                const isChecked = e.target.checked;
+                autoCleanupSection.style.display = isChecked ? 'block' : 'none';
+                autoCleanupSection.style.opacity = isChecked ? '1' : '0.5';
+                const daysInput = autoCleanupSection.querySelector('input');
+                if (daysInput) daysInput.disabled = !isChecked;
+            });
+        }
+
         // Aplicar clamping numérico a inputs específicos de settings
         applyNumericClamping(bodyModalSettings.querySelector('[name="minSecondsBetweenSaves"]'), { min: 1, max: 3600 });
         applyNumericClamping(bodyModalSettings.querySelector('[name="staticFinishPercent"]'), { min: 1, max: 99 });
+        applyNumericClamping(bodyModalSettings.querySelector('[name="autoCleanupDays"]'), { min: 1, max: 3650 });
         bodyModalSettings.querySelectorAll('.ypp-interval-input').forEach(input => {
             applyNumericClamping(input, { min: 1, max: 24 });
         });
@@ -11465,6 +11516,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     showAlertIcon: isChecked('showAlertIcon'),
                     showAlertText: isChecked('showAlertText'),
                     showAlertTime: isChecked('showAlertTime'),
+                    autoCleanupEnabled: isChecked('autoCleanupEnabled'),
+                    autoCleanupDays: Math.max(1, Math.min(3650, parseInt(getVal('autoCleanupDays'), 10) || 30)),
                 };
 
                 const rawGistToken = getVal('gist_token') || '';
@@ -18668,6 +18721,119 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
     }
 
+    /**
+     * Realiza una limpieza automática de entradas antiguas del historial basándose en la configuración del usuario.
+     * Solo elimina videos que NO estén protegidos.
+     * @returns {Promise<void>}
+     */
+    async function runAutoCleanup() {
+        if (!cachedSettings?.autoCleanupEnabled) return;
+
+        const daysThreshold = parseInt(cachedSettings.autoCleanupDays, 10) || 30;
+        if (daysThreshold <= 0) return;
+
+        const now = Date.now();
+        const thresholdMs = daysThreshold * 24 * 60 * 60 * 1000;
+        const cutoffTimestamp = now - thresholdMs;
+
+        logInfo('runAutoCleanup', `🧹 Iniciando limpieza automática (Días: ${daysThreshold}, Umbral: ${new Date(cutoffTimestamp).toLocaleString()})`);
+
+        // Informar al usuario que la limpieza ha comenzado
+        showFloatingToast(`${SVG_ICONS.spinner} ${t('autoCleanupStarted')}`, 2000);
+
+        try {
+            const allKeys = await StorageAsync.keys();
+            let deletedCount = 0;
+            let protectedCount = 0;
+
+            const videoKeys = allKeys.filter(k => !isNonVideoStorageKey(k));
+            const CHUNK_SIZE = 50; // Procesamiento en lotes para no saturar IndexedDB
+            const exportedDeletedData = {
+                __metadata__: {
+                    version: SCRIPT_VERSION,
+                    exportedAt: new Date().toISOString(),
+                    type: "auto-cleanup-backup"
+                }
+            };
+
+            for (let i = 0; i < videoKeys.length; i += CHUNK_SIZE) {
+                const chunk = videoKeys.slice(i, i + CHUNK_SIZE);
+
+                // Fetch datos en paralelo por cada lote
+                const itemsData = await Promise.all(
+                    chunk.map(key => StorageAsync.get(key).then(data => ({ key, data })))
+                );
+
+                const keysToDelete = [];
+
+                for (const { key, data } of itemsData) {
+                    if (!data) continue;
+
+                    // Omitir si el video está protegido
+                    if (data.isProtected) {
+                        protectedCount++;
+                        continue;
+                    }
+
+                    // Usar timeWatched (momento en que se guardó el progreso) como referencia principal.
+                    // Si no existe, lastUpdated es el fallback.
+                    const lastWatched = data.timeWatched || data.lastUpdated || 0;
+
+                    if (lastWatched > 0 && lastWatched < cutoffTimestamp) {
+                        keysToDelete.push({ key, title: data.title, lastWatched, data });
+                    }
+                }
+
+                // Eliminar en paralelo dentro de este lote
+                if (keysToDelete.length > 0) {
+                    await Promise.all(keysToDelete.map(({ key }) => StorageAsync.del(key)));
+                    for (const { key, title, lastWatched, data } of keysToDelete) {
+                        exportedDeletedData[key] = data;
+                        deletedCount++;
+                        logLog('runAutoCleanup', `🗑️ Video eliminado por antigüedad: ${key} (${title}) - Visto el: ${new Date(lastWatched).toLocaleString()}`);
+                    }
+                }
+
+                // Pequeño respiro al hilo principal entre lotes si hay muchos datos
+                if (videoKeys.length > CHUNK_SIZE) {
+                    await new Promise(r => setTimeout(r, 0));
+                }
+            }
+
+            if (deletedCount > 0) {
+                logInfo('runAutoCleanup', `✅ Limpieza completada: ${deletedCount} videos eliminados, ${protectedCount} protegidos omitidos.`);
+
+                const downloadAction = {
+                    label: t('downloadBackup'),
+                    callback: () => {
+                        try {
+                            const jsonString = JSON.stringify(exportedDeletedData, null, 2);
+                            const blob = new Blob([jsonString], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            const timestamp = new Date().toISOString().split('T')[0];
+                            a.download = `youtube-playback-plox-v${SCRIPT_VERSION}-auto-cleanup-${timestamp}.json`;
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            URL.revokeObjectURL(url);
+                        } catch (e) {
+                            logError('runAutoCleanup', 'Error al descargar backup de limpieza:', e);
+                        }
+                    }
+                };
+
+                showFloatingToast(`${SVG_ICONS.trash} ${t('autoCleanupFinished', { count: deletedCount })}`, 15000, { action: downloadAction });
+            } else {
+                logLog('runAutoCleanup', `✨ ${t('autoCleanupNoVideosFound', { days: daysThreshold })}`);
+                showFloatingToast(`${SVG_ICONS.info} ${t('autoCleanupNoVideosFound', { days: daysThreshold })}`, 5000);
+            }
+        } catch (err) {
+            logError('runAutoCleanup', '❌ Error durante la limpieza automática:', err);
+        }
+    }
+
 
     // ============================================================================================================
     // MARK: 🚀 Init
@@ -18917,8 +19083,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // --- Limpieza de metadatos en IndexedDB (Migración a GM_setValue y purga legacy) ---
             try {
                 await cleanupNonVideoData();
+                // Ejecutar limpieza automática tras el saneamiento
+                await runAutoCleanup();
             } catch (err) {
-                logError('initializeGlobal', '❌ Error durante cleanupNonVideoData:', err);
+                logError('initializeGlobal', '❌ Error durante cleanup/autoCleanup:', err);
             }
 
             // --- Registrar comandos e inyectar estilos ---

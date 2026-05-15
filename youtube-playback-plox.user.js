@@ -493,20 +493,27 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "savedVideosToolbarEntryOpacityHidden": "Hidden until hover",
             "savedVideosToolbarMaxSlotsReached": "You can pin at most 5 actions per row.",
             "savedVideosMoreActions": "More actions",
-            "savedVideosToolbarSectionTitle": "Row actions and visibility",
+            "savedVideosToolbarSectionTitle": "Saved videos toolbar",
             "savedVideosToolbarSectionToggleTitle": "Expand or collapse row action settings",
             "savedVideosToolbarShowOverflowButton": "More actions (⋯) button",
             "savedVideosToolbarShowOverflowHint": "When off, the ⋯ button is hidden on each row. Pinned actions remain controlled by the toggles above.",
-            "colouredLabelsStyle": "Labels Style",
-            "colouredLabelsVisibility": "Labels Visibility",
+            "savedVideosToolbarRowActionsGroup": "Row actions",
+            "savedVideosToolbarLabelsGroup": "Label appearance",
+            "savedVideosToolbarItemDisplayGroup": "Item display",
+            "savedVideosToolbarGeneralGroup": "General view",
+            "savedVideosToolbarViewMode": "View mode",
+            "savedVideosToolbarGridOptions": "Grid options",
+            "savedVideosToolbarLinkBehavior": "Link behavior",
+            "colouredLabelsStyle": "Label color",
+            "colouredLabelsVisibility": "Labels",
             "colouredLabelsStyleColor": "Color",
             "colouredLabelsStyleGrayscale": "Grayscale",
             "colouredLabelsStyleColorOnHover": "Color on hover",
             "colouredLabelsStyleGrayscaleOnHover": "Gray on hover",
-            "colouredLabelsVisibilityFull": "Always",
+            "colouredLabelsVisibilityFull": "Always visible",
             "colouredLabelsVisibilityDim": "Dim until hover",
             "colouredLabelsVisibilityHiddenUntilHover": "Hidden until hover",
-            "colouredLabelsVisibilityHidden": "Remove",
+            "colouredLabelsVisibilityHidden": "Hide",
             "openInNewTab": "Open links in new tab",
             "importingFromFreeTube": "Importing from FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importing from FreeTube as SQLite...",
@@ -2484,7 +2491,8 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-saved-videos-actions-toolbar-body.expanded {
-    max-height: 480px;
+    max-height: 240px;
+    overflow: auto;
     opacity: 1;
     padding: var(--ypp-spacing-sm) var(--ypp-spacing-lg) var(--ypp-spacing-md);
     pointer-events: auto;
@@ -2493,7 +2501,29 @@ regular-item.ypp-fill-none {
 .ypp-saved-videos-actions-toolbar-inner {
     display: flex;
     flex-direction: column;
+    gap: 10px;
+}
+
+.ypp-saved-videos-toolbar-group {
+    display: flex;
+    flex-direction: column;
     gap: 8px;
+    padding: 10px;
+    border: 1px solid var(--ypp-border);
+    border-radius: 8px;
+    background: color-mix(in srgb, var(--ypp-bg-secondary) 56%, transparent);
+}
+
+.ypp-saved-videos-toolbar-action-group {
+    background: color-mix(in srgb, var(--ypp-primary) 8%, var(--ypp-bg-secondary));
+}
+
+.ypp-saved-videos-toolbar-group-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--ypp-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
 }
 
 .ypp-saved-videos-toolbar-row {
@@ -2510,6 +2540,12 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-saved-videos-toolbar-toggles {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.ypp-toolbar-grid-options {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
@@ -5980,6 +6016,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         merged.dimColouredLabels = typeof merged.dimColouredLabels === 'boolean'
             ? merged.dimColouredLabels
             : d.dimColouredLabels;
+        if (src.colouredLabelsStyle === undefined && src.dimColouredLabels === 'grayscale') {
+            merged.colouredLabelsStyle = 'grayscale';
+        }
+        if (src.colouredLabelsVisibility === undefined && src.dimColouredLabels === 'hidden') {
+            merged.colouredLabelsVisibility = 'hiddenUntilHover';
+        }
+        if (merged.colouredLabelsStyle !== 'color' && merged.colouredLabelsStyle !== 'grayscale') {
+            merged.colouredLabelsStyle = merged.colouredLabelsStyle === 'grayscaleOnHover' ? 'grayscale' : d.colouredLabelsStyle;
+        }
+        if (merged.colouredLabelsVisibility === 'hidden') {
+            merged.colouredLabelsVisibility = 'hiddenUntilHover';
+        }
+        if (merged.colouredLabelsVisibility !== 'full' && merged.colouredLabelsVisibility !== 'dim' && merged.colouredLabelsVisibility !== 'hiddenUntilHover') {
+            merged.colouredLabelsVisibility = d.colouredLabelsVisibility;
+        }
 
         merged.displayOptions = typeof merged.displayOptions === 'object' && merged.displayOptions !== null
             ? { ...d.displayOptions, ...merged.displayOptions }
@@ -17237,8 +17288,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return row;
         };
 
-        inner.appendChild(makeToggleRow('savedVideosToolbarQuickAccess', settings.quickAccess, 'quickAccess'));
-        inner.appendChild(makeToggleRow('savedVideosToolbarActions', settings.actions, 'actions'));
+        /**
+         * Creates a visual group inside the saved-videos toolbar while preserving row/button controls.
+         * @param {string} titleKey - Translation key for the group title.
+         * @param {string} [extraClassName=''] - Optional extra class for group-specific styling.
+         * @returns {HTMLElement}
+         */
+        const makeToolbarGroup = (titleKey, extraClassName = '') => {
+            const group = createElement('div', {
+                className: `ypp-saved-videos-toolbar-group ${extraClassName}`.trim()
+            });
+            group.appendChild(createElement('div', {
+                className: 'ypp-saved-videos-toolbar-group-title',
+                text: t(titleKey)
+            }));
+            return group;
+        };
+
+        const rowActionsGroup = makeToolbarGroup('savedVideosToolbarRowActionsGroup', 'ypp-saved-videos-toolbar-action-group');
+        rowActionsGroup.appendChild(makeToggleRow('savedVideosToolbarQuickAccess', settings.quickAccess, 'quickAccess'));
+        rowActionsGroup.appendChild(makeToggleRow('savedVideosToolbarActions', settings.actions, 'actions'));
 
         const opacityRow = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-row' });
         opacityRow.appendChild(createElement('span', {
@@ -17276,7 +17345,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
         syncOpacityActive();
         opacityRow.appendChild(opacityBtns);
-        inner.appendChild(opacityRow);
+        rowActionsGroup.appendChild(opacityRow);
 
         const overflowRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
         overflowRow.appendChild(createElement('span', {
@@ -17307,7 +17376,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }, {}, ModalDisposables);
         overflowChips.appendChild(overflowBtn);
         overflowRow.appendChild(overflowChips);
-        inner.appendChild(overflowRow);
+        rowActionsGroup.appendChild(overflowRow);
+        inner.appendChild(rowActionsGroup);
+
+        const labelsGroup = makeToolbarGroup('savedVideosToolbarLabelsGroup');
 
         const styleRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
         styleRow.appendChild(createElement('span', {
@@ -17317,9 +17389,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const styleBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
         const styleModes = [
             { key: 'color', label: t('colouredLabelsStyleColor') },
-            { key: 'grayscale', label: t('colouredLabelsStyleGrayscale') },
             { key: 'colorOnHover', label: t('colouredLabelsStyleColorOnHover') },
-            { key: 'grayscaleOnHover', label: t('colouredLabelsStyleGrayscaleOnHover') }
+            { key: 'grayscaleOnHover', label: t('colouredLabelsStyleGrayscaleOnHover') },
+            { key: 'grayscale', label: t('colouredLabelsStyleGrayscale') }
         ];
         const syncStyleActive = () => {
             const cur = cachedSavedVideosModalSettings.colouredLabelsStyle || 'color';
@@ -17347,7 +17419,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
         syncStyleActive();
         styleRow.appendChild(styleBtns);
-        inner.appendChild(styleRow);
+        labelsGroup.appendChild(styleRow);
 
         const visRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
         visRow.appendChild(createElement('span', {
@@ -17358,8 +17430,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const visModes = [
             { key: 'full', label: t('colouredLabelsVisibilityFull') },
             { key: 'dim', label: t('colouredLabelsVisibilityDim') },
-            { key: 'hiddenUntilHover', label: t('colouredLabelsVisibilityHiddenUntilHover') },
-            { key: 'hidden', label: t('colouredLabelsVisibilityHidden') }
+            { key: 'hiddenUntilHover', label: t('colouredLabelsVisibilityHiddenUntilHover') }/* ,
+            { key: 'hidden', label: t('colouredLabelsVisibilityHidden') } */
         ];
         const syncVisActive = () => {
             const cur = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'full';
@@ -17377,7 +17449,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
             addDisposableListener(b, 'click', (ev) => {
                 ev.stopPropagation();
-                cachedSavedVideosModalSettings.colouredLabelsVisibility = key;
+                const currentMode = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'full';
+                cachedSavedVideosModalSettings.colouredLabelsVisibility = currentMode === key ? 'full' : key;
                 applySavedVideoActionDatasetToVideosContainer(container);
                 void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
                 syncVisActive();
@@ -17387,7 +17460,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
         syncVisActive();
         visRow.appendChild(visBtns);
-        inner.appendChild(visRow);
+        labelsGroup.appendChild(visRow);
+        inner.appendChild(labelsGroup);
+
+        const itemDisplayGroup = makeToolbarGroup('savedVideosToolbarItemDisplayGroup');
 
         const displayRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row ypp-saved-videos-toolbar-display-row' });
         displayRow.appendChild(createElement('span', {
@@ -17428,16 +17504,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         displayChips.appendChild(makeDisplayToggle('showViews', SVG_ICONS.people, 'showViews'));
         displayChips.appendChild(makeDisplayToggle('showStats', SVG_ICONS.graph, 'showStats'));
         displayChips.appendChild(makeDisplayToggle('showButtons', SVG_ICONS.settings, 'showButtons', true));
-        displayChips.appendChild(makeDisplayToggle('openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab'));
+        displayRow.appendChild(displayChips);
+        itemDisplayGroup.appendChild(displayRow);
+        inner.appendChild(itemDisplayGroup);
 
-        // Grid/List toggle separator
-        const sep = createElement('div', { className: 'ypp-toolbar-separator' });
-        displayChips.appendChild(sep);
+        const generalGroup = makeToolbarGroup('savedVideosToolbarGeneralGroup');
+        const viewModeRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        viewModeRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('savedVideosToolbarViewMode')
+        }));
+        const viewModeChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
 
         // Grid-only options group
         const gridOptionsGroup = createElement('div', {
             className: 'ypp-toolbar-grid-options',
-            styles: { display: 'flex', gap: '8px' }
+            attributes: {
+                title: t('savedVideosToolbarGridOptions'),
+                'aria-label': t('savedVideosToolbarGridOptions')
+            }
         });
 
         const syncGridOptionsVisibility = () => {
@@ -17469,7 +17554,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             void updateVideoList(); // Re-render grid/list layout
         }, {}, ModalDisposables);
 
-        displayChips.appendChild(viewModeToggle);
+        viewModeChips.appendChild(viewModeToggle);
         syncGridOptionsVisibility();
 
         // Always Expand Toggle
@@ -17500,10 +17585,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }, {}, ModalDisposables);
 
         gridOptionsGroup.appendChild(expModeToggle);
-        displayChips.appendChild(gridOptionsGroup);
+        viewModeChips.appendChild(gridOptionsGroup);
+        viewModeRow.appendChild(viewModeChips);
+        generalGroup.appendChild(viewModeRow);
 
-        displayRow.appendChild(displayChips);
-        inner.appendChild(displayRow);
+        const generalRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        generalRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('savedVideosToolbarLinkBehavior')
+        }));
+        const generalChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
+        generalChips.appendChild(makeDisplayToggle('openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab'));
+        generalRow.appendChild(generalChips);
+        generalGroup.appendChild(generalRow);
+        inner.appendChild(generalGroup);
 
         body.appendChild(inner);
         wrap.appendChild(sectionToggle);
@@ -18791,7 +18886,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // --- Registrar comandos e inyectar estilos ---
             try {
                 registerMenuCommands();
-                /*  injectStyles(); */
                 injectProgressBarCSS();
                 logInfo('initializeGlobal', '✅ Comandos y estilos registrados');
 

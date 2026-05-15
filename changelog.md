@@ -18,8 +18,11 @@
   - Added an option to dim the coloured percentage labels in the list. #48
   - Added toggles to independently show/hide: thumbnails, view counts, progress stats, and the action buttons area.
 - **Manual Save Hybrid Mode**: Added a new sub-option to "Manual Save Mode" that allows automatic saving to resume after a video is manually saved or if it was previously saved in the database. #49
+- **Time Display Refactor**: Modularized the playback notification system by separating message construction, notification kind determination, and visual surface resolution into semantic helpers. This ensures consistent UI behavior across Watch, Shorts, Miniplayer, and Inline Previews regardless of media type.
 
 ### Fixed
+
+- **Persistence Rescue Confusion**: Fixed a bug where returning to a completed video would incorrectly display "Fixed Start Time" icons and text. The script now correctly distinguishes between technical re-seeks and user-defined fixed start times.
 
 - **Saved videos grid spacing**: Fixed uneven gaps and playlist-card overlap in Grid View by making `VirtualScroller` use measured DOM heights as the primary source, adding an explicit virtual row gap, and clearing stale height measurements after grid resize recalculations.
 - **DisposableStore Lifecycle**: Resolved a memory leak issue by splitting `DisposableStore` into `clear()` (for resource reset without disposal) and `dispose()` (final cleanup).

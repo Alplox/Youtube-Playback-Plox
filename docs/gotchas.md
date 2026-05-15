@@ -312,3 +312,13 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 - **Visibility without list rebuild**: Primary row buttons are toggled via `data-ypp-act-*` on `.ypp-videosContainer` and CSS; changing a toggle does not call `updateVideoList()`. The ⋯ button is hidden with `data-ypp-overflow-menu="off"` when the user disables **More actions (⋯) button** in the collapsible panel.
 - **Collapsible panel**: The slot/opacity/overflow controls live in a section that starts collapsed (`toolbarSectionExpanded: false` by default) so the search row stays compact during normal browsing.
 - **Grid row spacing**: Vertical spacing in Grid View is owned by `VirtualScroller.itemGap`, not by hidden margins/padding on `.ypp-grid-row`. Row heights should use rendered DOM measurements when available and estimated heights only before a row has been rendered.
+
+## Time Display Visual Context (v0.0.10)
+
+### What Changed
+- **Surface vs Media Type**: The script now distinguishes between the **visual surface** (`watch`, `shorts`, `miniplayer`, `preview`) and the **media type** (`live`, `video`, `shorts`). 
+- **Context Handling**: The script uses the surface context provided by the session (Watch, Shorts, Miniplayer, Preview) to determine where to show notifications. This avoids redundant DOM lookups during save ticks and ensures consistent UI feedback regardless of the media type (video or livestream).
+
+### Technical Distinction
+- **Notification Kinds**: Notifications are now semantically categorized as `fixed` (user-defined), `seek` (automatic resume), `manual` (user-triggered save), or `progress` (periodic auto-save).
+- **Persistence Rescue Bugfix**: `forceResumeTime` is now strictly reserved for user-defined fixed start times. Technical re-seeks (like the rescue mechanism that recovers from 0s stalls) no longer "manufacture" a `forceResumeTime`, preventing the UI from incorrectly showing stopwatch/pin icons for videos that were simply completed.

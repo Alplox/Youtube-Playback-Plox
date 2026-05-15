@@ -9922,6 +9922,48 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
+     * Determina el tipo semántico de notificación.
+     * @param {{ isSeek: boolean, isForced: boolean, saveResult: any }} params
+     * @returns {'fixed'|'seek'|'manual'|'progress'}
+     */
+    function getPlaybackNotificationKind({ isSeek, isForced, saveResult }) {
+        if (isForced) return 'fixed';
+        if (isSeek) return 'seek';
+        if (saveResult?.isManual) return 'manual';
+        return 'progress';
+    }
+
+    /**
+     * Construye el mensaje de notificación de playback.
+     * @param {{ kind: string, time: number, showAlertIcon: boolean, showAlertText: boolean, showAlertTime: boolean, canShowTime: boolean }} params
+     * @returns {string}
+     */
+    function buildPlaybackNotificationMessage({ kind, time, showAlertIcon, showAlertText, showAlertTime, canShowTime }) {
+        const isFixed = kind === 'fixed';
+        const isSeek = kind === 'seek';
+        const isManual = kind === 'manual';
+
+        const icon = (isSeek || isFixed)
+            ? (isFixed ? `${SVG_ICONS.stopWatch}${SVG_ICONS.pin}` : SVG_ICONS.playerEnd)
+            : SVG_ICONS.saveFill;
+
+        const baseText = (isSeek || isFixed)
+            ? t(isFixed ? 'alwaysStartFrom' : 'resumedAt')
+            : (kind === 'progress' || isManual ? t('progressSaved') : t('errorSaving'));
+
+        const timeStr = formatTime(normalizeSeconds(time));
+
+        let message = "";
+        if (showAlertIcon) message += icon + " ";
+        if (showAlertText) message += baseText;
+        if (showAlertTime && canShowTime) {
+            if (showAlertText) message += ": " + timeStr;
+            else message += timeStr;
+        }
+        return message.trim();
+    }
+
+    /**
      * Configura y añade el botón de guardado manual a un display de tiempo.
      * Centraliza la lógica de guardado manual evitando callbacks redundantes.
      *
@@ -11419,15 +11461,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
     // MARK: 📢 Notify Seek or Progress
     // ============================================================================================================
-    const displayContextByVideoType = {
-        watch: 'watch',
-        embed: 'watch',
-        live: 'watch',
-        shorts: 'shorts',
-        miniplayer: 'miniplayer',
-        preview: 'preview'
-    };
-
     async function notifySeekOrProgress(time, context = 'progress', options = {}) {
         const {
             showAlertIcon = CONFIG.defaultSettings.showAlertIcon,
@@ -11437,16 +11470,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         if (!showAlertIcon && !showAlertText && !showAlertTime) return;
 
-        const { videoType, isForced = false, videoEl, saveResult = {} } = options;
+        const { videoType: surface = 'watch', isForced = false, videoEl, saveResult = {} } = options;
         const isSeek = context === 'seek';
 
         if (context === 'progress') {
             if (!saveResult.success && !saveResult.isManual) return;
             // Permitir miniplayer incluso en Shorts
-            if (currentPageType === 'shorts' && videoType !== 'shorts' && videoType !== 'miniplayer') return;
+            if (currentPageType === 'shorts' && surface !== 'shorts' && surface !== 'miniplayer') return;
 
             // Seleccionar display correcto para validación de pausa
-            let display = PlaybackDisplayManager.getDisplay(videoType || 'watch');
+            let display = PlaybackDisplayManager.getDisplay(surface);
 
             logLog('notifySeekOrProgress', `
                 video en pausa: ${videoEl?.paused} - 
@@ -11457,41 +11490,27 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (videoEl?.paused && display?.querySelector('#svg-player-end') && !saveResult.isManual) return;
         }
 
-        const timeStr = formatTime(normalizeSeconds(time));
         const canShowTime = isSeek || saveResult.success;
+        const kind = getPlaybackNotificationKind({ isSeek, isForced, saveResult });
 
-        const icon = isSeek
-            ? (isForced ? `${SVG_ICONS.stopWatch}${SVG_ICONS.pin}` : SVG_ICONS.playerEnd)
-            : SVG_ICONS.saveFill;
-
-        const baseText = isSeek
-            ? t(isForced ? 'alwaysStartFrom' : 'resumedAt')
-            : (saveResult.success ? t('progressSaved') : t('errorSaving'));
-
-        let message = "";
-        if (showAlertIcon) message += icon + " ";
-        if (showAlertText) message += baseText;
-        if (showAlertTime && canShowTime) {
-            if (showAlertText) message += ": " + timeStr;
-            else message += timeStr;
-        }
-        message = message.trim();
-
-        // logLog('notifySeekOrProgress', `Mensaje construido: "${message}" - showAlertIcon: ${showAlertIcon}, showAlertText: ${showAlertText}, showAlertTime: ${showAlertTime}, canShowTime: ${canShowTime}, timeStr: ${timeStr}`)
+        const message = buildPlaybackNotificationMessage({
+            kind,
+            time,
+            showAlertIcon,
+            showAlertText,
+            showAlertTime,
+            canShowTime
+        });
 
         if (!message) return;
 
-        const isFixedTime = !!isForced;
-        const displayContext = displayContextByVideoType[videoType];
-        if (!displayContext) return;
-
         PlaybackDisplayManager.show({
-            context: displayContext,
+            context: surface,
             videoEl,
             videoId: saveResult.videoId,
-            kind: isFixedTime ? 'fixed' : isSeek ? 'seek' : saveResult.isManual ? 'manual' : 'progress',
+            kind,
             message,
-            persistent: isFixedTime,
+            persistent: kind === 'fixed',
             isManual: !!saveResult.isManual
         });
     }
@@ -13729,7 +13748,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
                 if (tickCount === 6 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > 10 && !isCurrentlyAd) {
                     logWarn('startProcessingSession', '🆘 Persistence Rescue: El video sigue en 0s tras 6s. Forzando re-seek...');
-                    PlaybackController.resume(player, videoId, videoEl, { ...sessionSavedData, forceResumeTime: sessionSavedData.watchProgress }, type, sessionRef);
+                    PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef);
                 }
                 // REVISAR AQUI PORQUE USA FORCERESUMETIME
 
@@ -17347,7 +17366,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
 
-         const generalGroup = makeToolbarGroup('savedVideosToolbarGeneralGroup');
+        const generalGroup = makeToolbarGroup('savedVideosToolbarGeneralGroup');
         const viewModeRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
         viewModeRow.appendChild(createElement('span', {
             className: 'ypp-saved-videos-toolbar-row-label',
@@ -17440,7 +17459,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         inner.appendChild(generalGroup);
 
 
-        
+
 
 
         const itemDisplayGroup = makeToolbarGroup('savedVideosToolbarItemDisplayGroup');
@@ -17452,7 +17471,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }));
         const displayChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles ypp-display-options-toggles' });
 
-        
+
 
         displayChips.appendChild(makeDisplayToggle('showThumbnails', SVG_ICONS.video, 'showThumbnails'));
         displayChips.appendChild(makeDisplayToggle('showViews', SVG_ICONS.people, 'showViews'));
@@ -17463,7 +17482,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         inner.appendChild(itemDisplayGroup);
 
 
-       
+
 
 
 
@@ -18815,10 +18834,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
                         debouncedNavigation();
                     });
-                     
-                    YTHelper.debug.enabled = true;
-                    YTHelper.debug.level = 3;
-                    
+
+                    // YTHelper.debug.enabled = true;
+                    // YTHelper.debug.level = 3;
+
                     logInfo('YTHelper', 'Registrado listener persistente para yt-helper-api-ready');
                 } else {
                     logError('YTHelper', 'Referencia a YouTube Helper API no obtenida');

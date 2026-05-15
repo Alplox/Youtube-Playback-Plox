@@ -21,6 +21,7 @@
 
 ### Fixed
 
+- **Saved videos grid spacing**: Fixed uneven gaps and playlist-card overlap in Grid View by making `VirtualScroller` use measured DOM heights as the primary source, adding an explicit virtual row gap, and clearing stale height measurements after grid resize recalculations.
 - **DisposableStore Lifecycle**: Resolved a memory leak issue by splitting `DisposableStore` into `clear()` (for resource reset without disposal) and `dispose()` (final cleanup).
 - **ytcfg Runtime Safety**: Added guard clauses for the global `ytcfg` variable to prevent `ReferenceError` crashes during rapid YouTube SPA transitions.
 - **CSS Standard Compatibility**: Replaced non-standard `GM_addStyle` tagged template usage with standard function calls for improved cross-manager compatibility.

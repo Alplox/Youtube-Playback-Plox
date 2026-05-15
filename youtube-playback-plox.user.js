@@ -6968,6 +6968,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      *     container: listContainer,
      *     items: videoItems,
      *     itemHeight: 120,
+     *     itemGap: 12,
      *     renderItem: async (item) => createVideoEntry(item),
      *     bufferSize: 5
      * });
@@ -6978,6 +6979,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          * @param {HTMLElement} options.container - Contenedor scrollable
          * @param {Array} options.items - Array de items a renderizar
          * @param {number} options.itemHeight - Altura estimada de cada item en px
+         * @param {number} [options.itemGap=0] - Separacion vertical virtual entre items en px
          * @param {Function} options.renderItem - Función async que renderiza un item
          * @param {number} [options.bufferSize=5] - Número de items extra a renderizar arriba/abajo
          * @param {Function} [options.onRender] - Callback cuando se completa un render
@@ -6987,6 +6989,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             this.items = options.items || [];
             // Función para obtener altura de un item específico, fallback a itemHeight fijo
             this.getItemHeight = options.getItemHeight || (() => options.itemHeight || 120);
+            const itemGap = Number(options.itemGap);
+            this.itemGap = Number.isFinite(itemGap) && itemGap > 0 ? itemGap : 0;
             this.renderItem = options.renderItem;
             this.bufferSize = options.bufferSize ?? 5;
             this.onRender = options.onRender || null;
@@ -7044,8 +7048,45 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         /**
-         * Pre-calcula la posición Y (offset) de cada item sumando las alturas anteriores.
-         * Cuando un item ya está renderizado, usa su altura real del DOM en lugar de la estimada.
+         * Obtiene la altura mas confiable para un item: DOM visible, cache medida o estimacion.
+         * @param {number} index - Indice del item virtual.
+         * @returns {number}
+         * @private
+         */
+        _getKnownItemHeight(index) {
+            if (index < 0 || index >= this.items.length) return 0;
+
+            const renderedEl = this.renderedItems.get(index);
+            if (renderedEl) {
+                const renderedHeight = renderedEl.offsetHeight;
+                if (renderedHeight > 0) {
+                    this.measuredHeights.set(index, renderedHeight);
+                    return renderedHeight;
+                }
+            }
+
+            const measuredHeight = this.measuredHeights.get(index);
+            if (Number.isFinite(measuredHeight) && measuredHeight > 0) {
+                return measuredHeight;
+            }
+
+            const estimatedHeight = Number(this.getItemHeight(this.items[index], index));
+            return Number.isFinite(estimatedHeight) && estimatedHeight > 0 ? estimatedHeight : 0;
+        }
+
+        /**
+         * Devuelve la altura ocupada por un item dentro del scroller, incluyendo gap salvo al final.
+         * @param {number} index - Indice del item virtual.
+         * @returns {number}
+         * @private
+         */
+        _getItemExtent(index) {
+            const height = this._getKnownItemHeight(index);
+            return height + (index < this.items.length - 1 ? this.itemGap : 0);
+        }
+
+        /**
+         * Pre-calcula la posicion Y de cada item usando altura medida y gap virtual.
          * @private
          */
         _calculateOffsets() {
@@ -7053,16 +7094,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let offset = 0;
             for (let i = 0; i < this.items.length; i++) {
                 this.itemOffsets[i] = offset;
-                // Prefer actual rendered height over the estimate to avoid gaps
-                const renderedEl = this.renderedItems.get(i);
-                const h = renderedEl
-                    ? renderedEl.offsetHeight
-                    : (this.measuredHeights.get(i) || this.getItemHeight(this.items[i], i));
-
-                // Si está renderizado, actualizar el caché
-                if (renderedEl && renderedEl.offsetHeight > 0) {
-                    this.measuredHeights.set(i, renderedEl.offsetHeight);
-                }
+                const h = this._getItemExtent(i);
 
                 offset += h;
             }
@@ -7093,9 +7125,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             while (low <= high) {
                 const mid = Math.floor((low + high) / 2);
                 const offset = this.itemOffsets[mid];
-                const height = this.getItemHeight(this.items[mid], mid);
+                const height = this._getItemExtent(mid);
 
-                if (offset + height < scrollTop) {
+                if (offset + height <= scrollTop) {
                     low = mid + 1;
                 } else if (offset > scrollTop) {
                     high = mid - 1;
@@ -7141,8 +7173,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             }
             // Actualizar altura total del spacer
-            const totalHeight = this.itemOffsets[this.items.length - 1] + this.getItemHeight(this.items[this.items.length - 1], this.items.length - 1);
-            if (this.spacer) this.spacer.style.height = `${totalHeight}px`;
+            if (this.spacer) this.spacer.style.height = `${this.totalHeight}px`;
         }
 
         /**
@@ -7241,20 +7272,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 this.spacer.appendChild(el);
                 this.renderedItems.set(index, el);
 
-                // Capturar altura real y verificar si necesitamos re-calcular offsets
-                const realHeight = el.offsetHeight;
-                if (realHeight > 0) {
-                    const cachedHeight = this.measuredHeights.get(index);
-                    const estimatedHeight = this.getItemHeight(item, index);
-
-                    // Si es la primera vez que lo medimos o si cambió significativamente (>5px)
-                    if (!cachedHeight || Math.abs(realHeight - (cachedHeight || estimatedHeight)) > 5) {
-                        this.measuredHeights.set(index, realHeight);
-                        // No re-calculamos todo el scroller en cada render para evitar lag,
-                        // pero marcamos que las posiciones subsiguientes podrían estar mal.
-                        // El próximo _calculateOffsets() arreglará todo.
-                    }
-                }
             } catch (err) {
                 logError('[VirtualScroller] Error rendering item:', index, err);
             } finally {
@@ -7305,6 +7322,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          */
         updateHeights(forceFullRefresh = false) {
             if (forceFullRefresh) {
+                if (this.measuredHeights) this.measuredHeights.clear();
                 this._calculateOffsets();
                 this.refresh();
                 return;
@@ -7312,9 +7330,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Recalculate using actual rendered heights where possible
             this._calculateOffsets();
             // Reposition all currently-rendered items with corrected offsets
-            for (const [idx, el] of this.renderedItems) {
-                el.style.top = `${this.itemOffsets[idx]}px`;
-            }
+            this._repositionVisibleItems();
         }
 
         /**
@@ -7326,10 +7342,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (index < 0 || index >= this.items.length) return;
             let targetOffset = this.itemOffsets[index];
             if (position === 'center') {
-                const h = this.getItemHeight(this.items[index], index);
+                const h = this._getKnownItemHeight(index);
                 targetOffset -= (this.container.clientHeight / 2) - (h / 2);
             } else if (position === 'end') {
-                const h = this.getItemHeight(this.items[index], index);
+                const h = this._getKnownItemHeight(index);
                 targetOffset -= this.container.clientHeight - h;
             }
             this.container.scrollTop = Math.max(0, targetOffset);
@@ -15909,11 +15925,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Manejar estado vacío (sin resultados) para evitar que se quede la lista previa
         const scrollerEl = document.getElementById('ypp-virtual-scroller-container');
         let emptyMsg = listContainer.querySelector('.ypp-empty-state-composed');
+        const virtualItemGap = isGridMode ? 12 : 0;
 
         if (filteredItems.length === 0) {
             if (loadingIndicator) loadingIndicator.style.display = 'none';
             if (scrollerEl) scrollerEl.style.display = 'none';
-            if (virtualScroller) virtualScroller.updateItems([]);
+            if (virtualScroller) {
+                virtualScroller.itemGap = virtualItemGap;
+                virtualScroller.updateItems([]);
+            }
 
             if (!emptyMsg) {
                 emptyMsg = createElement('div', {
@@ -15958,6 +15978,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Ocultar overlay
             if (loadingIndicator) loadingIndicator.style.display = 'none';
 
+            virtualScroller.itemGap = virtualItemGap;
             virtualScroller.updateItems(virtualItems);
 
             // Restaurar scroll de forma segura tras el ciclo de renderizado
@@ -16002,6 +16023,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             container: scrollerContainer,
             items: virtualItems,
             itemHeight: VIDEO_ITEM_HEIGHT, // Fallback por si acaso
+            itemGap: virtualItemGap,
             getItemHeight: (item) => {
                 if (item.type === 'playlist-header') return 40;
                 if (item.type === 'grid-row') {
@@ -16020,17 +16042,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     let h = thumbHeight + 36;
 
                     if (item.expandedItemIds?.size > 0) {
-                        // El info dropdown mide ~200px sin playlist, y ~230px con playlist.
-                        // Usamos una base de 240px para evitar recorte.
-                        let expansionH = 240;
-
-                        // Si alguno de los items expandidos es de playlist, añadir espacio extra
-                        const anyExpandedIsPlaylist = item.items.some(v =>
-                            v.playlistKey && item.expandedItemIds.has(v.info.videoId || v.videoId)
-                        );
-                        if (anyExpandedIsPlaylist) expansionH += 30;
-
-                        h += expansionH;
+                        // Fallback inicial; la altura real renderizada queda cacheada por VirtualScroller.
+                        h += 240;
                     }
                     return Math.max(h, 120);
                 }
@@ -17305,6 +17318,159 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return group;
         };
 
+        const makeDisplayToggle = (key, icon, labelKey, isButtonsToggle = false) => {
+            const on = cachedSavedVideosModalSettings.displayOptions[key] !== false;
+            const btn = createElement('button', {
+                className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'} ${isButtonsToggle ? 'ypp-display-toggle-buttons' : ''}`,
+                html: icon,
+                attributes: {
+                    type: 'button',
+                    title: t(labelKey),
+                    'aria-pressed': on ? 'true' : 'false'
+                }
+            });
+
+            addDisposableListener(btn, 'click', (ev) => {
+                ev.stopPropagation();
+                cachedSavedVideosModalSettings.displayOptions[key] = !cachedSavedVideosModalSettings.displayOptions[key];
+                const nextOn = cachedSavedVideosModalSettings.displayOptions[key];
+                btn.classList.toggle('ypp-btn-primary', nextOn);
+                btn.classList.toggle('is-active', nextOn);
+                btn.classList.toggle('ypp-btn-outline-primary', !nextOn);
+                btn.classList.toggle('is-inactive', !nextOn);
+                btn.setAttribute('aria-pressed', nextOn ? 'true' : 'false');
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                void updateVideoList();
+            }, {}, ModalDisposables);
+            return btn;
+        };
+
+
+         const generalGroup = makeToolbarGroup('savedVideosToolbarGeneralGroup');
+        const viewModeRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        viewModeRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('savedVideosToolbarViewMode')
+        }));
+        const viewModeChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
+
+        // Grid-only options group
+        const gridOptionsGroup = createElement('div', {
+            className: 'ypp-toolbar-grid-options',
+            attributes: {
+                title: t('savedVideosToolbarGridOptions'),
+                'aria-label': t('savedVideosToolbarGridOptions')
+            }
+        });
+
+        const syncGridOptionsVisibility = () => {
+            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
+            gridOptionsGroup.style.setProperty('display', isGrid ? 'flex' : 'none', 'important');
+        };
+
+        const viewModeToggle = createElement('button', {
+            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ypp-view-mode-toggle ypp-btn-outline-primary`,
+            attributes: { type: 'button' }
+        });
+
+        const syncViewModeBtn = () => {
+            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
+            setInnerHTML(viewModeToggle, isGrid ? SVG_ICONS.list : SVG_ICONS.grid);
+            viewModeToggle.setAttribute('title', t(isGrid ? 'viewModeList' : 'viewModeGrid'));
+            viewModeToggle.classList.toggle('is-grid', isGrid);
+        };
+        syncViewModeBtn();
+
+        addDisposableListener(viewModeToggle, 'click', (ev) => {
+            ev.stopPropagation();
+            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
+            cachedSavedVideosModalSettings.displayOptions.viewMode = isGrid ? 'list' : 'grid';
+            syncViewModeBtn();
+            syncGridOptionsVisibility();
+            applySavedVideoActionDatasetToVideosContainer(container);
+            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+            void updateVideoList(); // Re-render grid/list layout
+        }, {}, ModalDisposables);
+
+        viewModeChips.appendChild(viewModeToggle);
+        syncGridOptionsVisibility();
+
+        // Always Expand Toggle
+        gridOptionsGroup.appendChild(makeDisplayToggle('gridAlwaysExpanded', SVG_ICONS.unfoldMore, 'gridAlwaysExpanded'));
+
+        // Expansion Mode Toggle (Single vs Row)
+        const expModeToggle = createElement('button', {
+            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ypp-btn-outline-primary`,
+            attributes: { type: 'button' }
+        });
+
+        const syncExpModeBtn = () => {
+            const mode = cachedSavedVideosModalSettings.displayOptions.gridExpansionMode || 'single';
+            setInnerHTML(expModeToggle, mode === 'row' ? SVG_ICONS.stack : SVG_ICONS.shield);
+            expModeToggle.setAttribute('title', `${t('gridExpansionMode')}: ${t(mode === 'row' ? 'gridExpansionModeRow' : 'gridExpansionModeSingle')}`);
+            expModeToggle.classList.toggle('ypp-btn-primary', mode === 'row');
+            expModeToggle.classList.toggle('ypp-btn-outline-primary', mode !== 'row');
+        };
+        syncExpModeBtn();
+
+        addDisposableListener(expModeToggle, 'click', (ev) => {
+            ev.stopPropagation();
+            const current = cachedSavedVideosModalSettings.displayOptions.gridExpansionMode || 'single';
+            cachedSavedVideosModalSettings.displayOptions.gridExpansionMode = current === 'single' ? 'row' : 'single';
+            syncExpModeBtn();
+            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+            void updateVideoList();
+        }, {}, ModalDisposables);
+
+        gridOptionsGroup.appendChild(expModeToggle);
+        viewModeChips.appendChild(gridOptionsGroup);
+        viewModeRow.appendChild(viewModeChips);
+        generalGroup.appendChild(viewModeRow);
+
+        const generalRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        generalRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('savedVideosToolbarLinkBehavior')
+        }));
+        const generalChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
+        generalChips.appendChild(makeDisplayToggle('openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab'));
+        generalRow.appendChild(generalChips);
+        generalGroup.appendChild(generalRow);
+        inner.appendChild(generalGroup);
+
+
+        
+
+
+        const itemDisplayGroup = makeToolbarGroup('savedVideosToolbarItemDisplayGroup');
+
+        const displayRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row ypp-saved-videos-toolbar-display-row' });
+        displayRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('displayOptions')
+        }));
+        const displayChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles ypp-display-options-toggles' });
+
+        
+
+        displayChips.appendChild(makeDisplayToggle('showThumbnails', SVG_ICONS.video, 'showThumbnails'));
+        displayChips.appendChild(makeDisplayToggle('showViews', SVG_ICONS.people, 'showViews'));
+        displayChips.appendChild(makeDisplayToggle('showStats', SVG_ICONS.graph, 'showStats'));
+        displayChips.appendChild(makeDisplayToggle('showButtons', SVG_ICONS.settings, 'showButtons', true));
+        displayRow.appendChild(displayChips);
+        itemDisplayGroup.appendChild(displayRow);
+        inner.appendChild(itemDisplayGroup);
+
+
+       
+
+
+
+
+
+
+
         const rowActionsGroup = makeToolbarGroup('savedVideosToolbarRowActionsGroup', 'ypp-saved-videos-toolbar-action-group');
         rowActionsGroup.appendChild(makeToggleRow('savedVideosToolbarQuickAccess', settings.quickAccess, 'quickAccess'));
         rowActionsGroup.appendChild(makeToggleRow('savedVideosToolbarActions', settings.actions, 'actions'));
@@ -17463,142 +17629,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         labelsGroup.appendChild(visRow);
         inner.appendChild(labelsGroup);
 
-        const itemDisplayGroup = makeToolbarGroup('savedVideosToolbarItemDisplayGroup');
 
-        const displayRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row ypp-saved-videos-toolbar-display-row' });
-        displayRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('displayOptions')
-        }));
-        const displayChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles ypp-display-options-toggles' });
 
-        const makeDisplayToggle = (key, icon, labelKey, isButtonsToggle = false) => {
-            const on = cachedSavedVideosModalSettings.displayOptions[key] !== false;
-            const btn = createElement('button', {
-                className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'} ${isButtonsToggle ? 'ypp-display-toggle-buttons' : ''}`,
-                html: icon,
-                attributes: {
-                    type: 'button',
-                    title: t(labelKey),
-                    'aria-pressed': on ? 'true' : 'false'
-                }
-            });
 
-            addDisposableListener(btn, 'click', (ev) => {
-                ev.stopPropagation();
-                cachedSavedVideosModalSettings.displayOptions[key] = !cachedSavedVideosModalSettings.displayOptions[key];
-                const nextOn = cachedSavedVideosModalSettings.displayOptions[key];
-                btn.classList.toggle('ypp-btn-primary', nextOn);
-                btn.classList.toggle('is-active', nextOn);
-                btn.classList.toggle('ypp-btn-outline-primary', !nextOn);
-                btn.classList.toggle('is-inactive', !nextOn);
-                btn.setAttribute('aria-pressed', nextOn ? 'true' : 'false');
-                applySavedVideoActionDatasetToVideosContainer(container);
-                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                void updateVideoList();
-            }, {}, ModalDisposables);
-            return btn;
-        };
-
-        displayChips.appendChild(makeDisplayToggle('showThumbnails', SVG_ICONS.video, 'showThumbnails'));
-        displayChips.appendChild(makeDisplayToggle('showViews', SVG_ICONS.people, 'showViews'));
-        displayChips.appendChild(makeDisplayToggle('showStats', SVG_ICONS.graph, 'showStats'));
-        displayChips.appendChild(makeDisplayToggle('showButtons', SVG_ICONS.settings, 'showButtons', true));
-        displayRow.appendChild(displayChips);
-        itemDisplayGroup.appendChild(displayRow);
-        inner.appendChild(itemDisplayGroup);
-
-        const generalGroup = makeToolbarGroup('savedVideosToolbarGeneralGroup');
-        const viewModeRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-        viewModeRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('savedVideosToolbarViewMode')
-        }));
-        const viewModeChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
-
-        // Grid-only options group
-        const gridOptionsGroup = createElement('div', {
-            className: 'ypp-toolbar-grid-options',
-            attributes: {
-                title: t('savedVideosToolbarGridOptions'),
-                'aria-label': t('savedVideosToolbarGridOptions')
-            }
-        });
-
-        const syncGridOptionsVisibility = () => {
-            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
-            gridOptionsGroup.style.setProperty('display', isGrid ? 'flex' : 'none', 'important');
-        };
-
-        const viewModeToggle = createElement('button', {
-            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ypp-view-mode-toggle ypp-btn-outline-primary`,
-            attributes: { type: 'button' }
-        });
-
-        const syncViewModeBtn = () => {
-            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
-            setInnerHTML(viewModeToggle, isGrid ? SVG_ICONS.list : SVG_ICONS.grid);
-            viewModeToggle.setAttribute('title', t(isGrid ? 'viewModeList' : 'viewModeGrid'));
-            viewModeToggle.classList.toggle('is-grid', isGrid);
-        };
-        syncViewModeBtn();
-
-        addDisposableListener(viewModeToggle, 'click', (ev) => {
-            ev.stopPropagation();
-            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
-            cachedSavedVideosModalSettings.displayOptions.viewMode = isGrid ? 'list' : 'grid';
-            syncViewModeBtn();
-            syncGridOptionsVisibility();
-            applySavedVideoActionDatasetToVideosContainer(container);
-            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-            void updateVideoList(); // Re-render grid/list layout
-        }, {}, ModalDisposables);
-
-        viewModeChips.appendChild(viewModeToggle);
-        syncGridOptionsVisibility();
-
-        // Always Expand Toggle
-        gridOptionsGroup.appendChild(makeDisplayToggle('gridAlwaysExpanded', SVG_ICONS.unfoldMore, 'gridAlwaysExpanded'));
-
-        // Expansion Mode Toggle (Single vs Row)
-        const expModeToggle = createElement('button', {
-            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ypp-btn-outline-primary`,
-            attributes: { type: 'button' }
-        });
-
-        const syncExpModeBtn = () => {
-            const mode = cachedSavedVideosModalSettings.displayOptions.gridExpansionMode || 'single';
-            setInnerHTML(expModeToggle, mode === 'row' ? SVG_ICONS.stack : SVG_ICONS.shield);
-            expModeToggle.setAttribute('title', `${t('gridExpansionMode')}: ${t(mode === 'row' ? 'gridExpansionModeRow' : 'gridExpansionModeSingle')}`);
-            expModeToggle.classList.toggle('ypp-btn-primary', mode === 'row');
-            expModeToggle.classList.toggle('ypp-btn-outline-primary', mode !== 'row');
-        };
-        syncExpModeBtn();
-
-        addDisposableListener(expModeToggle, 'click', (ev) => {
-            ev.stopPropagation();
-            const current = cachedSavedVideosModalSettings.displayOptions.gridExpansionMode || 'single';
-            cachedSavedVideosModalSettings.displayOptions.gridExpansionMode = current === 'single' ? 'row' : 'single';
-            syncExpModeBtn();
-            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-            void updateVideoList();
-        }, {}, ModalDisposables);
-
-        gridOptionsGroup.appendChild(expModeToggle);
-        viewModeChips.appendChild(gridOptionsGroup);
-        viewModeRow.appendChild(viewModeChips);
-        generalGroup.appendChild(viewModeRow);
-
-        const generalRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-        generalRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('savedVideosToolbarLinkBehavior')
-        }));
-        const generalChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
-        generalChips.appendChild(makeDisplayToggle('openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab'));
-        generalRow.appendChild(generalChips);
-        generalGroup.appendChild(generalRow);
-        inner.appendChild(generalGroup);
 
         body.appendChild(inner);
         wrap.appendChild(sectionToggle);
@@ -18782,6 +18815,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
                         debouncedNavigation();
                     });
+                     
+                    YTHelper.debug.enabled = true;
+                    YTHelper.debug.level = 3;
+                    
                     logInfo('YTHelper', 'Registrado listener persistente para yt-helper-api-ready');
                 } else {
                     logError('YTHelper', 'Referencia a YouTube Helper API no obtenida');

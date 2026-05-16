@@ -10441,7 +10441,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             if (isFixedTime) display.dataset.isFixedTime = 'true';
 
-            if (payload.persistent || isFixedTime) return;
+            if (payload.persistent || isFixedTime) {
+                // Permitir que el estado de 'loading' tenga un timeout de seguridad aunque sea persistente
+                if (kind !== 'loading') return;
+            }
 
             if (isSeek && isVideoPaused) {
                 addPlayClearListener(context, videoEl);
@@ -11518,7 +11521,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             kind,
             message,
             persistent: kind === 'fixed' || kind === 'loading',
-            isManual: !!saveResult.isManual
+            isManual: !!saveResult.isManual,
+            ttlMs: kind === 'loading' ? 15000 : undefined // Timeout de seguridad para evitar estados infinitos
         });
     }
 
@@ -13745,7 +13749,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     logWarn('startProcessingSession', '🆘 Persistence Rescue: El video sigue en 0s tras 6s. Forzando re-seek...');
                     PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef);
                 }
-                // REVISAR AQUI PORQUE USA FORCERESUMETIME
 
                 if (sessionRef.isResumePending) {
                     // Evitar guardar 0s (falso progreso) mientras el resume original aún está en bucle de espera
@@ -13843,7 +13846,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // si la sesión se termina antes de completar el Object.assign final.
             sessionRef.intervalId = intervalId;
         } else {
-            logLog('process', `Intervalo omitido para [${type}] - ${videoId} (Guardado automático desactivado)`);
+            logLog('process', `ℹ️ Guardado automático desactivado para [${type}] - ${videoId}`);
+            // Si el guardado está desactivado, el intervalo no limpiará el estado de "Loading".
+            // Lo limpiamos tras un breve delay para permitir que el resume termine.
+            setTimeout(() => {
+                const stillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
+                if (stillValid) {
+                    PlaybackDisplayManager.clear(type, { videoEl, videoId });
+                }
+            }, 2500);
         }
 
         Object.assign(sessionRef, {
@@ -14114,6 +14125,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
         if (isAd) {
             logWarn(config.logScope, `🚫 Anuncio detectado en ${type}, omitiendo procesamiento.`);
+            // Aseguramos que el display se limpie si había un mensaje de "loading" previo colgado
+            PlaybackDisplayManager.clear(type, { videoEl });
             if (type === 'preview') {
                 SessionOrchestrator.finalizeSession(videoEl, 'previewAdDetected');
             }

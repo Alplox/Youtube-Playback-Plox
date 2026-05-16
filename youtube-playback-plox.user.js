@@ -6116,10 +6116,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         playerAdClasses: ['ad-showing', 'ad-interrupting'],
 
         // --- Clases de Previews / Grid ---
-        previewAdClasses: ['ad-showing', 'ad-interrupting', 'ad-created'],
+        previewAdClasses: ['ad-showing', 'ad-interrupting'],
 
         // --- Clases de Shorts ---
-        shortsAdClasses: ['ad-created', 'ad-showing', 'ad-interrupting'],
+        shortsAdClasses: ['ad-showing', 'ad-interrupting'],
 
         // --- Contenedores y Layouts ---
         inPlayerAdContainers: [
@@ -12670,9 +12670,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 logLog('VideoObserverManager', `🧹 Ad recovery cleaned up for [${type}] video`);
             };
             const onAdWait = () => {
-                // Throttling: Solo comprobar anuncios cada 2000ms para reducir carga sin perder reactividad
+                // Throttling: Solo comprobar anuncios cada 1000ms para reducir carga sin perder reactividad
                 const now = Date.now();
-                if (now - lastCheck < 2000) return;
+                if (now - lastCheck < 1000) return;
                 lastCheck = now;
 
                 if (!document.contains(videoElement)) {
@@ -12694,8 +12694,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             videoElement.addEventListener('timeupdate', onAdWait);
             videoElement.addEventListener('play', onAdWait);
             // Fallback: cubrir casos donde no hay eventos (ej. pausa/buffering tras falso positivo)
-            intervalId = setInterval(onAdWait, 2000);
+            intervalId = setInterval(onAdWait, 1000);
             logInfo('VideoObserverManager', `⏰ Ad recovery started for [${type}] with events and interval`);
+
+            // Ejecutar una comprobación inmediata
+            onAdWait();
         };
 
         /**
@@ -12707,18 +12710,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const enqueueVideo = (videoElement, type, triggerSource = 'observer') => {
             if (!videoElement) return;
             if (EventPreFilter.shouldDrop(videoElement)) return;
-            const canProcess = RouteContextResolver.canProcessContext(videoElement, type);
-            if (!canProcess) {
-                const reason = RouteContextResolver.getIneligibilityReason(videoElement, type);
-                logWarn('VideoObserverManager', `🚫 enqueueVideo: rejected [${type}]. Reason: ${reason}`);
-                return;
-            }
-            // Protección: No encolar videos que son detectados como anuncios
+
+            // 1. Detección de anuncios (Prioridad máxima para permitir recuperación)
             if (AdDetector.isNodeWithinAdContainer(videoElement)) {
                 // Log explícito y estandarizado para facilitar búsqueda en logs ("Anuncio detectado").
                 logWarn('process', `⚠️ Anuncio detectado [${type}] antes de iniciar sesión. Activando espera de recuperación.`);
                 logInfo('VideoObserverManager', `🚫 Omitiendo video [${type}] detectado como anuncio por AdDetector`);
                 scheduleAdRecovery(videoElement, type);
+                return;
+            }
+
+            // 2. Validación de contexto
+            const canProcess = RouteContextResolver.canProcessContext(videoElement, type);
+            if (!canProcess) {
+                const reason = RouteContextResolver.getIneligibilityReason(videoElement, type);
+                logWarn('VideoObserverManager', `🚫 enqueueVideo: rejected [${type}]. Reason: ${reason}`);
                 return;
             }
 
@@ -13615,7 +13621,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // 1. Intentar reanudar lo más pronto posible (Fast-Path)
         // No bloqueamos el inicio de la reanudación esperando el waterfall completo de metadatos.
         // Extraemos un playlistId rápido (URL o API sincrónica) para la consulta inicial.
-        notifySeekOrProgress(0, 'progress', { videoType: type, videoEl, isLoading: true });
+        if (!cachedSettings?.manualSaveMode) {
+            notifySeekOrProgress(0, 'progress', { videoType: type, videoEl, isLoading: true });
+        }
 
         const fastPlaylistId = (typeof player?.getPlaylistId === 'function' ? player.getPlaylistId() : null) ||
             (type === 'watch' ? extractYouTubePlaylistIdFromUrl(window.location.href) : null);
@@ -14309,8 +14317,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (!isReady()) {
                 logLog('PlaybackController', '⏳ Esperando condiciones óptimas para seek...');
 
-                // Notificar al usuario que estamos esperando datos
-                notifySeekOrProgress(0, 'seek', { videoType: type, videoEl, isLoading: true });
+                // Notificar al usuario que estamos esperando datos (solo en modo automático)
+                if (!cachedSettings?.manualSaveMode) {
+                    notifySeekOrProgress(0, 'seek', { videoType: type, videoEl, isLoading: true });
+                }
 
                 let attempts = 0;
                 while (!isReady() && attempts < 20) {

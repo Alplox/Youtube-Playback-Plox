@@ -22,6 +22,7 @@
 
 ### Fixed
 
+- **Initialization Race Condition**: Fixed a bug where `handleNavigation` was triggered by `yt-helper-api-ready` before `initializeGlobal` finished loading user settings. This caused video sessions (like Shorts) to start with auto-save disabled (`isAutoSaveEnabled = false`), preventing playback from being tracked and the UI from being injected.
 - **Persistence Rescue Confusion**: Fixed a bug where returning to a completed video would incorrectly display "Fixed Start Time" icons and text. The script now correctly distinguishes between technical re-seeks and user-defined fixed start times.
 
 - **Saved videos grid spacing**: Fixed uneven gaps and playlist-card overlap in Grid View by making `VirtualScroller` use measured DOM heights as the primary source, adding an explicit virtual row gap, and clearing stale height measurements after grid resize recalculations.
@@ -36,6 +37,16 @@
 
 ### Changed
 
+- **Selector Infrastructure Refactor**: Replaced scattered selector constants (`ELEMENTS`, `CLASSES`, `IDs`, `ATTRIBUTES`) with a centralized `SELECTOR_DEFINITIONS` architecture and automatic selector compilation system.
+  - **Semantic Selector API**: Added hierarchical selector accessors such as `SELECTORS.player.movie` and `SELECTORS.shorts.container` to improve readability and reduce direct dependency on raw selector groups.
+  - **Automatic Selector Compilation**: Implemented automatic generation of CSS selectors for classes (`.`), IDs (`#`), attributes (`[]`), and player state classes from raw definitions.
+  - **Raw vs Compiled Selector Separation**: Added explicit `RAW` selector access to safely distinguish between CSS selector APIs and raw DOM APIs (`MutationObserver`, `hasAttribute`, `getAttribute`, etc.).
+  - **Immutable Selector System**: Added robust recursive `deepFreeze()` protection to prevent accidental runtime mutation of selector infrastructure.
+  - **Selector Utilities**: Added reusable selector composition helpers (`join`, `within`) and dynamic selector generators (`byData`, `attrEquals`, `hasClass`).
+  - **DOM Attribute Helpers**: Added DOM-aware attribute utilities (`hasAttr`, `getAttr`, `setAttr`, `removeAttr`) using raw attribute definitions internally.
+  - **Player State Separation**: Moved inline player state classes (`playing-mode`, `buffering-mode`, `unstarted-mode`) into dedicated `playerStates` definitions for improved conceptual separation.
+  - **Selector Query Helpers**: Added lightweight DOM query utilities (`$`, `$$`) for consistent selector usage across the codebase.
+  - **Naming Standardization**: Standardized selector naming conventions and semantic grouping across Shorts, Miniplayer, Inline Preview, and main player systems.
 - **High-Frequency Caching (LRU)**: Replaced standard `Map` caches with `SimpleLRUCache` for metadata, ad detection, and playlist resolution to ensure bounded memory usage.
 - **Bundle Optimization**: Pruned `FALLBACK_TRANSLATIONS` to focus exclusively on `en-US` base to reduce script weight.
 - **Video Processing Router**: Consolidated the duplicated Watch, Shorts, Miniplayer, and Inline Preview processing entry points into `processMediaVideo()` with per-context configuration hooks. This keeps the shared session-start pipeline in one place while preserving context-specific safeguards for SPA ID mismatches, miniplayer priority, preview debounce, and ad blocking.
@@ -282,8 +293,8 @@
 - **Asynchronous Thumbnail Validation**: Implemented a pre-rendering validation system for video thumbnails in the Saved Videos modal. It sequentially checks for the best quality available (WebP MaxRes, JPG MaxRes, HQ720, HQ) and filters out YouTube's low-quality placeholders before rendering, utilizing an in-memory cache to ensure zero performance impact during scrolling.
 - **Obsidian Conversion Tool**: Created a new standalone tool (`tools/playback-to-obsidian.html`) that allows users to convert their JSON or FreeTube backups into Markdown. It features a specialized **ZIP mode** that generates individual `.md` files for each video, compatible with **Obsidian Bases** database view.
 - **Dependency-free ZIP Builder**: Replaced external JSZip CDN with a custom, pure-JS inline ZIP generator (MiniZip) to ensure the conversion tool works perfectly when opened as a local file (`file://`), bypassing CORS and network restrictions.
-* **CSS Cleanup**: Added vendor prefixes and removed redundant code.
-* Updated video existence indicator behavior: instead of changing the icon, it now changes color on hover when the video exists in the database. (#23)
+- **CSS Cleanup**: Added vendor prefixes and removed redundant code.
+- **Updated video existence indicator behavior**: instead of changing the icon, it now changes color on hover when the video exists in the database. (#23)
 
 ### Fixed
 

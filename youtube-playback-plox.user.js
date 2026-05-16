@@ -356,6 +356,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "errors": "errors",
             "rendered": "Rendered",
             "configurationSaved": "Configuration saved",
+            "obtainingVideoData": "Obtaining video data...",
             "noSavedVideos": "No saved videos.",
             "emptyStateSubtitle": "Try clearing your filters or exploring more videos.",
             "progressSaved": "Progress saved",
@@ -9032,8 +9033,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const now = Date.now();
         const cached = playerVideoIdCache.get(player);
 
-        // TTL of 500ms to avoid stale data on fast SPA navigations (less than the 1s interval)
-        if (cached && now - cached.timestamp < 500) {
+        // TTL of 2000ms to avoid stale data on fast SPA navigations while covering watchdog intervals
+        if (cached && now - cached.timestamp < 2000) {
             logLog('getPlayerVideoId', `ID detected (Cache Hit): ${cached.id}`);
             return cached.id;
         }
@@ -9926,7 +9927,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {{ isSeek: boolean, isForced: boolean, saveResult: any }} params
      * @returns {'fixed'|'seek'|'manual'|'progress'}
      */
-    function getPlaybackNotificationKind({ isSeek, isForced, saveResult }) {
+    function getPlaybackNotificationKind({ isSeek, isForced, saveResult, isLoading }) {
+        if (isLoading) return 'loading';
         if (isForced) return 'fixed';
         if (isSeek) return 'seek';
         if (saveResult?.isManual) return 'manual';
@@ -9942,21 +9944,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const isFixed = kind === 'fixed';
         const isSeek = kind === 'seek';
         const isManual = kind === 'manual';
+        const isLoading = kind === 'loading';
 
-        const icon = (isSeek || isFixed)
-            ? (isFixed ? `${SVG_ICONS.stopWatch}${SVG_ICONS.pin}` : SVG_ICONS.playerEnd)
-            : SVG_ICONS.saveFill;
+        const icon = isLoading
+            ? SVG_ICONS.spinner
+            : (isSeek || isFixed)
+                ? (isFixed ? `${SVG_ICONS.stopWatch}${SVG_ICONS.pin}` : SVG_ICONS.playerEnd)
+                : SVG_ICONS.saveFill;
 
-        const baseText = (isSeek || isFixed)
-            ? t(isFixed ? 'alwaysStartFrom' : 'resumedAt')
-            : (kind === 'progress' || isManual ? t('progressSaved') : t('errorSaving'));
+        const baseText = isLoading
+            ? t('obtainingVideoData')
+            : (isSeek || isFixed)
+                ? t(isFixed ? 'alwaysStartFrom' : 'resumedAt')
+                : (kind === 'progress' || isManual ? t('progressSaved') : t('errorSaving'));
 
         const timeStr = formatTime(normalizeSeconds(time));
 
         let message = "";
         if (showAlertIcon) message += icon + " ";
         if (showAlertText) message += baseText;
-        if (showAlertTime && canShowTime) {
+        if (showAlertTime && canShowTime && !isLoading) {
             if (showAlertText) message += ": " + timeStr;
             else message += timeStr;
         }
@@ -11470,11 +11477,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         if (!showAlertIcon && !showAlertText && !showAlertTime) return;
 
-        const { videoType: surface = 'watch', isForced = false, videoEl, saveResult = {} } = options;
+        const { videoType: surface = 'watch', isForced = false, videoEl, saveResult = {}, isLoading = false } = options;
         const isSeek = context === 'seek';
 
         if (context === 'progress') {
-            if (!saveResult.success && !saveResult.isManual) return;
+            if (!saveResult.success && !saveResult.isManual && !isLoading) return;
             // Permitir miniplayer incluso en Shorts
             if (currentPageType === 'shorts' && surface !== 'shorts' && surface !== 'miniplayer') return;
 
@@ -11487,11 +11494,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 saveResult.isManual: ${saveResult.isManual} - 
                 saveResult.success: ${saveResult.success}
             `)
-            if (videoEl?.paused && display?.querySelector('#svg-player-end') && !saveResult.isManual) return;
+            if (videoEl?.paused && display?.querySelector('#svg-player-end') && !saveResult.isManual && !isLoading) return;
         }
 
         const canShowTime = isSeek || saveResult.success;
-        const kind = getPlaybackNotificationKind({ isSeek, isForced, saveResult });
+        const kind = getPlaybackNotificationKind({ isSeek, isForced, saveResult, isLoading });
 
         const message = buildPlaybackNotificationMessage({
             kind,
@@ -11510,7 +11517,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             videoId: saveResult.videoId,
             kind,
             message,
-            persistent: kind === 'fixed',
+            persistent: kind === 'fixed' || kind === 'loading',
             isManual: !!saveResult.isManual
         });
     }
@@ -13596,6 +13603,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // 1. Intentar reanudar lo más pronto posible (Fast-Path)
         // No bloqueamos el inicio de la reanudación esperando el waterfall completo de metadatos.
         // Extraemos un playlistId rápido (URL o API sincrónica) para la consulta inicial.
+        notifySeekOrProgress(0, 'progress', { videoType: type, videoEl, isLoading: true });
+
         const fastPlaylistId = (typeof player?.getPlaylistId === 'function' ? player.getPlaylistId() : null) ||
             (type === 'watch' ? extractYouTubePlaylistIdFromUrl(window.location.href) : null);
 
@@ -13656,45 +13665,31 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             sessionRef.isResumePending = false;
         });
 
-        // 2. Obtener metadatos base completos (Waterfall asíncrono pesado)
-        // Esto puede tardar segundos si requiere retries de miniplayer o fetches de títulos de playlist.
-        // Lo ejecutamos en paralelo para no bloquear el resume, pero lo awaitamos antes de iniciar el intervalo.
-        try {
-            const freshInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+        // 2. Iniciar Waterfall de metadatos pesados en segundo plano
+        // No bloqueamos el inicio del intervalo de guardado esperando por metadatos (Waterfall de Nivel 3 puede tardar segundos)
+        (async () => {
+            try {
+                const freshInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
 
-            // Protección crítica post-await: Si hubo navegación o finalización durante el waterfall, abortar.
-            const sessionStillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
+                // Protección crítica post-await: Si hubo navegación o finalización durante el waterfall, abortar.
+                const sessionStillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
+                if (!sessionStillValid) return;
 
-            if (!sessionStillValid || (navIdAtStart !== globalNavigationId && type !== 'miniplayer')) {
-                logWarn('process', `🛑 Sesión [${type}] invalidada durante fetch de metadatos, abortando inicio de intervalo.`);
-                if (sessionRef.intervalId) clearInterval(sessionRef.intervalId);
-                return;
-            }
-
-            // Fusionar metadatos frescos en la sesión, preservando el playlistId y playlistTitle del fast-path si el nuevo es inválido.
-            if (freshInfo) {
-                // Preservar playlistId del fast-path si el nuevo es inválido
-                /*    if (!freshInfo.lastViewedPlaylistId && sessionRef.videoInfo.lastViewedPlaylistId) {
-                       freshInfo.lastViewedPlaylistId = sessionRef.videoInfo.lastViewedPlaylistId;
-                   }
-   
-                   // Preservar playlistTitle existente si el nuevo es null/vacío
-                   if ((!freshInfo.playlistTitle || freshInfo.playlistTitle === '') && sessionRef.videoInfo.playlistTitle) {
-                       freshInfo.playlistTitle = sessionRef.videoInfo.playlistTitle;
-                   } */
-
-                // Fusionar sobrescribiendo valores existentes con datos frescos
-                for (const [key, value] of Object.entries(freshInfo)) {
-                    if (value !== undefined) {
-                        sessionRef.videoInfo[key] = value;
+                // Fusionar metadatos frescos en la sesión, preservando el playlistId y playlistTitle del fast-path si el nuevo es inválido.
+                if (freshInfo) {
+                    // Fusionar sobrescribiendo valores existentes con datos frescos
+                    for (const [key, value] of Object.entries(freshInfo)) {
+                        if (value !== undefined) {
+                            sessionRef.videoInfo[key] = value;
+                        }
                     }
                 }
-            }
 
-            logInfo('process', `💾 Metadatos cacheados para seguimiento de [${type}] - ${videoId}`);
-        } catch (e) {
-            logWarn('process', `⚠️ Error obteniendo metadatos completos, se delegará la resolución al primer tick:`, e);
-        }
+                logInfo('process', `💾 Metadatos cacheados en segundo plano para [${type}] - ${videoId}`);
+            } catch (e) {
+                logWarn('process', `⚠️ Error obteniendo metadatos completos en segundo plano para ${videoId}:`, e);
+            }
+        })();
 
         // 3. Configurar intervalo de guardado
         let intervalId = null;
@@ -14292,6 +14287,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             if (!isReady()) {
                 logLog('PlaybackController', '⏳ Esperando condiciones óptimas para seek...');
+
+                // Notificar al usuario que estamos esperando datos
+                notifySeekOrProgress(0, 'seek', { videoType: type, videoEl, isLoading: true });
+
                 let attempts = 0;
                 while (!isReady() && attempts < 20) {
                     await new Promise(r => setTimeout(r, 500));

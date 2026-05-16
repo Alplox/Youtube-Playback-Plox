@@ -1004,6 +1004,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         YTD_SHORTS: 'ytd-shorts',
         REEL_VIDEO_RENDERER: 'ytd-reel-video-renderer', // Elemento que contiene el video de Shorts Activo
         REEL_PLAYER_OVERLAY_RENDERER: 'ytd-reel-player-overlay-renderer',  // Elemento que contiene el overlay de Shorts, suele tener #metapanel dentro
+        REEL_METAPANEL_VIEW_MODEL: 'yt-reel-metapanel-view-model',
+        REEL_PLAYER_OVERLAY_VIEW_MODEL: 'yt-reel-player-overlay-view-model',
+        REEL_CHANNEL_BAR_VIEW_MODEL: 'yt-reel-channel-bar-view-model',
+        SHORTS_VIDEO_TITLE_VIEW_MODEL: 'yt-shorts-video-title-view-model',
 
         // === MINIPLAYER ===
         MINIPLAYER_ELEMENT: 'ytd-miniplayer',
@@ -1029,6 +1033,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         //    └─ <div#overlay.style-scope.ytd-reel-player-overlay-renderer>
         //       └─ <div#metapanel.style-scope.ytd-reel-player-overlay-renderer>
         METADATA_CONTAINER: 'metadata-container',
+        REEL_METAPANEL_CONTAINER: 'ytReelPlayerOverlayViewModelMetadataContainerMetapanel',
 
 
         // === MINIPLAYER ===
@@ -10070,8 +10075,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             `${S.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER} ${S.IDS.METAPANEL}`,
             `#experiment-overlay ${S.IDS.METAPANEL}`,
             `#reel-overlay-container ${S.IDS.METAPANEL}`,
-            `${S.ELEMENTS.YTD_SHORTS} ${S.IDS.METAPANEL}`
-
+            `${S.ELEMENTS.YTD_SHORTS} ${S.IDS.METAPANEL}`,
+            // Fallbacks para nuevas estructuras de ViewModels
+            S.ELEMENTS.REEL_METAPANEL_VIEW_MODEL,
+            S.CLASSES.REEL_METAPANEL_CONTAINER,
+            S.ELEMENTS.REEL_PLAYER_OVERLAY_VIEW_MODEL
         ];
 
         for (const selector of selectors) {
@@ -14823,6 +14831,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (metapanel) {
                     if (info.title === null) {
                         const titleEl =
+                            metapanel.querySelector(S.ELEMENTS.SHORTS_VIDEO_TITLE_VIEW_MODEL) ||
                             metapanel.querySelector('yt-shorts-video-title-view-model') ||
                             metapanel.querySelector('h2') ||
                             // De sidebar
@@ -14836,6 +14845,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     if (info.author === null || info.author === t('unknown')) {
                         const authorEl =
+                            metapanel.querySelector(S.ELEMENTS.REEL_CHANNEL_BAR_VIEW_MODEL + ' a') ||
                             metapanel.querySelector('#channel-name a') ||
                             metapanel.querySelector('a[href*="/@"]');
 

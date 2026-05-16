@@ -47,6 +47,7 @@
   - **Player State Separation**: Moved inline player state classes (`playing-mode`, `buffering-mode`, `unstarted-mode`) into dedicated `playerStates` definitions for improved conceptual separation.
   - **Selector Query Helpers**: Added lightweight DOM query utilities (`$`, `$$`) for consistent selector usage across the codebase.
   - **Naming Standardization**: Standardized selector naming conventions and semantic grouping across Shorts, Miniplayer, Inline Preview, and main player systems.
+  - **Ad Detection Selectors**: Refined ad-detection selectors to reduce false positives.
 - **High-Frequency Caching (LRU)**: Replaced standard `Map` caches with `SimpleLRUCache` for metadata, ad detection, and playlist resolution to ensure bounded memory usage.
 - **Bundle Optimization**: Pruned `FALLBACK_TRANSLATIONS` to focus exclusively on `en-US` base to reduce script weight.
 - **Video Processing Router**: Consolidated the duplicated Watch, Shorts, Miniplayer, and Inline Preview processing entry points into `processMediaVideo()` with per-context configuration hooks. This keeps the shared session-start pipeline in one place while preserving context-specific safeguards for SPA ID mismatches, miniplayer priority, preview debounce, and ad blocking.

@@ -408,7 +408,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     };
 
     // ============================================================================================================
-    // MARK: 📊 Global variables
+    // MARK: 📊 Global Constants
+    // ============================================================================================================
+    /** @type {string} Default language */
+    const DEFAULT_LANGUAGE = CONFIG.defaultSettings.language;
+
+    // ============================================================================================================
+    // MARK: 📊 Global Variables
     // ============================================================================================================
     /** @type {Object|null} YouTube Helper API */
     let YTHelper = null;
@@ -934,6 +940,37 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     }
 
     /**
+    * Global store for script-wide listeners.
+    */
+    const GlobalDisposables = new DisposableStore();
+
+    /**
+     * Modal-specific store for listeners that should only exist while the Saved Videos modal is open.
+     */
+    const ModalDisposables = new DisposableStore();
+
+    /**
+     * Registers a listener to a target and returns a disposable that removes it.
+     * Automatically registers with the provided store (GlobalDisposables by default).
+     * @param {EventTarget} target
+     * @param {string} type
+     * @param {EventListenerOrEventListenerObject} handler
+     * @param {boolean | AddEventListenerOptions} [options]
+     * @param {DisposableStore|null} [store]
+     * @returns {() => void}
+     */
+    function addDisposableListener(target, type, handler, options, store = GlobalDisposables) {
+        if (!target) return () => { };
+        target.addEventListener(type, handler, options);
+        const dispose = () => target.removeEventListener(type, handler, options);
+        if (store) store.add(dispose);
+        return dispose;
+    }
+
+    // ============================================================================================================
+    // MARK: 📝 SELECTOR SYSTEM
+    // ============================================================================================================
+    /**
      * SELECTOR INFRASTRUCTURE LAYER
      * 
      * Naming conventions:
@@ -991,6 +1028,16 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         }
     };
 
+    /**
+     * Prefix for selector types.
+     * @constant
+     * @type {Object}
+     * @property {string} elements - Elements prefix
+     * @property {string} classes - Classes prefix
+     * @property {string} ids - IDs prefix
+     * @property {string[]} attrs - Attributes prefix
+     * @property {string} playerStates - Player states prefix
+     */
     const PREFIX = Object.freeze({
         elements: '',
         classes: '.',
@@ -1000,7 +1047,20 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     });
 
     /**
-     * Robust deepFreeze that handles circular references and non-object types.
+     * Robust deep freeze that handles circular references and non-object types.
+     * @param {any} obj - Object to freeze
+     * @param {WeakSet<any>} seen - WeakSet to track seen objects
+     * @returns {any} Frozen object
+     * @example
+     * // Deep freeze an object
+     * const obj = {
+     *   a: 1,
+     *   b: {
+     *     c: 2
+     *   }
+     * };
+     * const frozenObj = deepFreeze(obj);
+     * // Expected output: Frozen object
      */
     const deepFreeze = (obj, seen = new WeakSet()) => {
         if (!obj || typeof obj !== 'object' || seen.has(obj)) {
@@ -1016,10 +1076,22 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         return Object.freeze(obj);
     };
 
+    /**
+     * Converts a string to constant case.
+     * @param {string} str - String to convert
+     * @returns {string} String in constant case
+     * @example
+     * // Convert a string to constant case
+     * const str = 'helloWorld';
+     * const constCaseStr = toConstCase(str);
+     * // Expected output: 'HELLO_WORLD'
+     */
     const toConstCase = str => str.replace(/[A-Z]/g, m => `_${m}`).toUpperCase();
 
     /**
      * Builds the final selector system from definitions.
+     * @param {Object} definitions - Selector definitions
+     * @returns {Object} Compiled and semantic selectors
      */
     const createSelectorSystem = (definitions) => {
         // 1) Compile flat groups
@@ -1078,6 +1150,85 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                 hasClass: (el, key) => el?.classList.contains(definitions.classes[key]),
                 addClass: (el, key) => el?.classList.add(definitions.classes[key]),
                 removeClass: (el, key) => el?.classList.remove(definitions.classes[key])
+            },
+            // Ad definitions
+            ads: {
+                classes: {
+                    // Avoid 'ad-created' to prevent false positives
+                    player: ['ad-showing', 'ad-interrupting'],
+                    preview: ['ad-showing', 'ad-interrupting'],
+                    shorts: ['ad-showing', 'ad-interrupting']
+                },
+                elements: {
+                    inPlayer: [
+                        '.ytp-ad-module',
+                        '.ytp-ad-player-overlay',
+                        '.video-ads',
+                        '#player-ads',
+                        '.ytp-ad-player-overlay-layout',
+                        '.ytp-ad-player-overlay-layout__player-card-container',
+                        '.ytp-ad-player-overlay-layout__ad-info-container',
+                        '.ytp-ad-player-overlay-layout__skip-or-preview-container',
+                        '.ytp-ad-player-overlay-layout__ad-disclosure-banner-container',
+                        'ytd-player-legacy-desktop-watch-ads-renderer',
+                        'ytd-ad-selection-preview-renderer'
+                    ],
+                    inFeed: [
+                        'ytd-in-feed-ad-layout-renderer',
+                        'ytd-display-ad-renderer',
+                        'ytd-ad-slot-renderer',
+                        'ytd-promoted-sparkles-web-renderer',
+                        'ytd-page-top-ad-layout-renderer',
+                        'video-display-full-layout-view-model',
+                        'feed-ad-metadata-view-model',
+                        'ytd-engagement-panel-section-list-renderer[target-id="engagement-panel-ads"]',
+                        '.yt-mealbar-promo-renderer',
+                        'ytmusic-mealbar-promo-renderer'
+                    ],
+                    masthead: [
+                        '#masthead-ad',
+                        '#masthead-player',
+                        '[id*="masthead"]',
+                        '[class*="masthead"]',
+                        'ytd-video-masthead-ad-primary-video-overlay-renderer',
+                        'ytd-video-masthead-ad-primary-video-renderer',
+                        'ytd-video-masthead-ad-advertiser-info-renderer',
+                        'ytd-video-masthead-ad-v3-renderer'
+                    ]
+                },
+                ui: {
+                    activePlayer: [
+                        '.ytp-ad-player-overlay:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-module:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-player-overlay-layout:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-text:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-preview:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-skip-button-container:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-skip-button-modern:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-skip-button-slot:not([hidden]):not([style*="display: none"])',
+                        '.ytp-skip-ad-button:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-preview-container:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-image-overlay:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-overlay-container:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-message-container:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-avatar:not([hidden]):not([style*="display: none"])',
+                        '.ytp-ad-button-vm:not([hidden]):not([style*="display: none"])',
+                        '.video-ads:not([hidden]):not([style*="display: none"])',
+                        'ytd-enforcement-message-view-model:not([hidden]):not([style*="display: none"])'
+                    ],
+                    badges: [
+                        '.yt-badge-shape--ad',
+                        '.ytp-ad-badge__text--clean-player',
+                        '[aria-label*="Ad"]',
+                        '[aria-label*="Patrocinado"]',
+                        '[aria-label*="Sponsored"]',
+                        '[aria-label="Patrocinado"]',
+                        '[aria-label*="Mi centro de anuncios"]',
+                        '[aria-label*="My Ad Center"]',
+                        'ad-badge-view-model',
+                        '[role="link"][class*="ad"]'
+                    ]
+                }
             }
         };
 
@@ -1088,20 +1239,60 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         });
     };
 
+    /**
+     * Create selector system.
+     * @param {Object} definitions - Selector definitions
+     * @returns {Object} Compiled and semantic selectors
+     */
     const SELECTORS = createSelectorSystem(SELECTOR_DEFINITIONS);
 
     // Selector helpers
+    /**
+     * Queries for a single element.
+     * @param {string} s - Selector
+     * @param {Element} root - Root element
+     * @returns {Element|null} Found element or null
+     * @example
+     * // Select the first button
+     * const button = $('button');
+     *
+     * // Select the first button in a specific container
+     * const container = document.getElementById('my-container');
+     * const buttonInContainer = $('button', container);
+     */
     const $ = (s, root = document) => root.querySelector(s);
+    /**
+     * Queries for multiple elements.
+     * @param {string} s - Selector
+     * @param {Element} root - Root element
+     * @returns {NodeListOf<Element>} Found elements
+     * @example
+     * // Select all buttons
+     * const buttons = $$('button');
+     *
+     * // Select all buttons in a specific container
+     * const container = document.getElementById('my-container');
+     * const buttonsInContainer = $$('button', container);
+     */
     const $$ = (s, root = document) => root.querySelectorAll(s);
 
+    // ============================================================================================================
+    // MARK: 💾 Simple LRU Cache
+    // ============================================================================================================
     /**
-     * Cache simple con límite de tamaño (LRU-ish: elimina el más antiguo).
+     *  Simple LRU cache with size limit (LRU-ish: evicts the oldest).
      */
     class SimpleLRUCache {
         constructor(maxSize = 100) {
             this.maxSize = maxSize;
             this.cache = new Map();
         }
+
+        /**
+         * Get a value from the cache.
+         * @param {string} key 
+         * @returns {*} The value or undefined
+         */
         get(key) {
             if (!this.cache.has(key)) return undefined;
             const value = this.cache.get(key);
@@ -1109,6 +1300,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             this.cache.set(key, value);
             return value;
         }
+
+        /**
+         * Set a value in the cache.
+         * @param {string} key 
+         * @param {*} value 
+         */
         set(key, value) {
             if (this.cache.has(key)) this.cache.delete(key);
             else if (this.cache.size >= this.maxSize) {
@@ -1117,101 +1314,94 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             }
             this.cache.set(key, value);
         }
+
+        /**
+         * Check if a value exists in the cache.
+         * @param {string} key 
+         * @returns {boolean}
+         */
         has(key) { return this.cache.has(key); }
+
+        /**
+         * Delete a value from the cache.
+         * @param {string} key 
+         */
         delete(key) { this.cache.delete(key); }
+
+        /**
+         * Clear the cache.
+         */
         clear() { this.cache.clear(); }
     }
-
-    /**
-     * Global store for script-wide listeners.
-     */
-    const GlobalDisposables = new DisposableStore();
-
-    /**
-     * Modal-specific store for listeners that should only exist while the Saved Videos modal is open.
-     */
-    const ModalDisposables = new DisposableStore();
-
-    /**
-     * Registers a listener to a target and returns a disposable that removes it.
-     * Automatically registers with the provided store (GlobalDisposables by default).
-     * @param {EventTarget} target
-     * @param {string} type
-     * @param {EventListenerOrEventListenerObject} handler
-     * @param {boolean | AddEventListenerOptions} [options]
-     * @param {DisposableStore|null} [store]
-     * @returns {() => void}
-     */
-    function addDisposableListener(target, type, handler, options, store = GlobalDisposables) {
-        if (!target) return () => { };
-        target.addEventListener(type, handler, options);
-        const dispose = () => target.removeEventListener(type, handler, options);
-        if (store) store.add(dispose);
-        return dispose;
-    }
-
-    // ============================================================================================================
-
-
 
     // ============================================================================================================
     // MARK: ⚙️ DOM Cache System
     // ============================================================================================================
+
     /**
-    * ============================================================
-    * CENTRALIZED QUERYSELECTOR HELPERS
-    * ============================================================
-    * Utilidades para obtener elementos del DOM usando:
-    *  - Selectores centralizados (IDs y ATTRIBUTES)
-    *  - Sistema de caché en memoria con TTL (Time To Live)
-    *
-    * Objetivo:
-    * Reducir llamadas repetidas a document.querySelector y
-    * mejorar rendimiento en accesos frecuentes.
-    */
+     * DOM query selectors with caching system.
+     * @returns {Object} DOM helpers
+     * @function get - Get a cached element
+     * @function clear - Clear the cache
+     * @example
+     * // Get a cached element
+     * const button = DOMHelpers.get(SELECTORS.BUTTONS.SKIP);
+     * 
+     * // Clear all cache elements (prefix = undefined)
+     * DOMHelpers.clear();
+     * 
+     * // Clear cache elements with a specific prefix
+     * DOMHelpers.clear('miniplayer:video');
+     */
     const DOMHelpers = (() => {
 
         /**
-         * Caché interna de elementos DOM.
+         * Internal cache of DOM elements.
          * @type {Map<string, { ts: number, value: any }>}
          *
-         * value → elemento encontrado
-         * ts → timestamp en milisegundos de cuando fue cacheado
+         * value → element found
+         * ts → timestamp in milliseconds of when it was cached
          */
         const cache = new Map();
 
         /**
-         * Tiempo de vida por defecto del caché (ms)
+         * Default cache TTL (ms).
          * @type {number}
          */
         const DEFAULT_TTL_MS = 125;
 
         /**
-         * Obtiene un valor cacheado o lo recalcula si expiró.
-         *
+         * Get a cached value or recalculate it if expired.
          * @template T
-         * @param {string} key Clave única de caché.
-         * @param {() => T} getter Función que obtiene el valor si no existe o expiró.
-         * @param {number} [ttlMs=DEFAULT_TTL_MS] Tiempo de vida en milisegundos.
-         * @returns {T} Valor cacheado o recién calculado.
+         * @param {string} key - Unique cache key.
+         * @param {() => T} getter - Function that gets the value if it doesn't exist or has expired.
+         * @param {number} [ttlMs=DEFAULT_TTL_MS] - Time to live in milliseconds.
+         * @returns {T} - Cached or newly calculated value.
          */
         const get = (key, getter, ttlMs = DEFAULT_TTL_MS) => {
             const now = Date.now();
             const entry = cache.get(key);
 
             if (entry && (now - entry.ts) <= ttlMs) {
-                // Verificar que el nodo siga conectado
+                // Check that the node is still connected
                 if (!(entry.value instanceof Element) || entry.value.isConnected) {
                     return entry.value;
                 }
             }
 
+            // Calculate the value
             const value = getter();
+
+            // Store it in the cache
             cache.set(key, { ts: now, value });
+
             return value;
         };
 
-        /** @param {string} [prefix] */
+        /**
+         * Clear cached elements by prefix.
+         * @param {string} [prefix] - Prefix to clear (or undefined to clear all).
+         */
         const clear = (prefix) => {
             if (!prefix) { cache.clear(); return; }
             for (const k of cache.keys()) { if (k.startsWith(prefix)) cache.delete(k); }
@@ -1219,14 +1409,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 
         return {
             /**
-             * Obtiene uno de los contenedores principales del reproductor normal.
-             * @returns {Element|null} Contenedor #primary-inner (o null si no existe).
+             * Get the main container of the regular player.
+             * @returns {Element|null} #primary-inner container (or null if it doesn't exist).
              */
             getWatchPrimaryInner: () => get('primaryInner', () => document.querySelector(SELECTORS.IDS.PRIMARY_INNER) ?? null),
 
             /**
-             * Obtiene el contenedor principal del reproductor normal.
-             * @returns {Element|null} Contenedor #movie_player (o null si no existe).
+             * Get the main container of the regular player.
+             * @returns {Element|null} #movie_player container (or null if it doesn't exist).
              */
             getWatchPlayer: () =>
                 get('watchPlayer', () => {
@@ -1240,10 +1430,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                         const moviePlayerInsideFlexy = watchContainer?.querySelector(SELECTORS.player.movie);
                         if (typeof moviePlayerInsideFlexy?.getPlayerState === 'function') {
                             if (isVisiblyDisplayed(moviePlayerInsideFlexy)) {
-                                logInfo('DOMHelpers', `✅ Player encontrado en 1er nivel es visible.`);
-                                player = moviePlayerInsideFlexy
+                                logInfo('DOMHelpers', `✅ Player found in 1st level and is visible.`);
+                                player = moviePlayerInsideFlexy;
                             } else {
-                                logInfo('DOMHelpers', `❌ Player encontrado en 1er nivel pero no es visible.`);
+                                logInfo('DOMHelpers', `❌ Player found in 1st level but is not visible.`);
                             }
                         }
                     }
@@ -1256,11 +1446,11 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                                 (!miniPlayer || !miniPlayer.contains(el))
                             ) {
                                 if (isVisiblyDisplayed(el)) {
-                                    logInfo('DOMHelpers', `✅ Player encontrado en 2do nivel es visible.`);
+                                    logInfo('DOMHelpers', `✅ Player found in 2nd level and is visible.`);
                                     player = el;
                                     break;
                                 } else {
-                                    logInfo('DOMHelpers', `❌ Player encontrado en 2do nivel pero no es visible.`);
+                                    logInfo('DOMHelpers', `❌ Player found in 2nd level but is not visible.`);
                                 }
                             }
                         }
@@ -1273,10 +1463,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                             (!miniPlayer || !miniPlayer.contains(html5VideoPlayer))
                         ) {
                             if (isVisiblyDisplayed(html5VideoPlayer)) {
-                                logInfo('DOMHelpers', `✅ Player encontrado en 3er nivel es visible.`);
-                                player = html5VideoPlayer
+                                logInfo('DOMHelpers', `✅ Player found in 3rd level and is visible.`);
+                                player = html5VideoPlayer;
                             } else {
-                                logInfo('DOMHelpers', `❌ Player encontrado en 3er nivel pero no es visible.`);
+                                logInfo('DOMHelpers', `❌ Player found in 3rd level but is not visible.`);
                             }
                         }
                     }
@@ -1289,12 +1479,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 
                     // Doble check a player detectado
                     if (!(player instanceof HTMLElement)) {
-                        logWarn('DOMHelpers', '⚠️ Player no es un HTMLElement:', player);
+                        logWarn('DOMHelpers', '⚠️ Player is not an HTMLElement:', player);
                         return null;
                     }
 
                     if (miniPlayer && miniPlayer.contains(player)) {
-                        logWarn('DOMHelpers', '⚠️ Player está dentro del miniplayer.');
+                        logWarn('DOMHelpers', '⚠️ Player is inside the miniplayer.');
                         return null;
                     }
 
@@ -1310,8 +1500,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                     return player;
                 }),
             /**
-             * Obtiene el elemento de video del reproductor principal.
-             * @returns {HTMLVideoElement|null} Etiqueta <video> principal de YouTube.
+             * Get the video element of the regular player.
+             * @returns {HTMLVideoElement|null} <video> tag of the main YouTube player.
              */
             getWatchPlayerVideo: () =>
                 get('watchPlayerVideo', () =>
@@ -1320,16 +1510,16 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 
 
             /**
-             * Obtiene el contenedor del reproductor de Shorts.
-             * @returns {Element|null} Contenedor de Shorts (o null si no existe).
+             * Get the container of the Shorts player.
+             * @returns {Element|null} Shorts player container (or null if it doesn't exist).
              */
             getShortsPlayer: () =>
                 get('shortsPlayer', () =>
                     document.querySelector(SELECTORS.shorts.player) ?? null
                 ),
             /**
-             * Obtiene el elemento de video del reproductor de Shorts.
-             * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor de Shorts.
+             * Get the video element of the Shorts player.
+             * @returns {HTMLVideoElement|null} <video> tag of the Shorts player.
              */
             getShortsPlayerVideo: () =>
                 get('shortsPlayerVideo', () =>
@@ -1339,36 +1529,36 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 
 
             /**
-             * Obtiene el elemento contenedor del Miniplayer.
-             * @returns {Element|null} Elemento <ytd-miniplayer> (o null si no existe).
+             * Get the container element of the Miniplayer.
+             * @returns {Element|null} <ytd-miniplayer> element (or null if it doesn't exist).
              */
             getMiniplayerElement: () =>
                 get('miniplayerElement', () =>
                     document.querySelector(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT) ?? null
                 ),
             /**
-             * Comprueba o devuelve la instancia de Miniplayer especificando si esta posee sus componentes visuales activos
-             * que validan que el Miniplayer está funcionalmente abierto.
-             * @returns {Element|null} Elemento validado con atributos en activo, o null de no encontrarse.
+             * Check or return the Miniplayer instance specifying if it has its active visual components
+             * that validate that the Miniplayer is functionally open.
+             * @returns {Element|null} Element validated with active attributes, or null if not found.
              */
             getMiniplayerElementActive: () =>
                 get('miniplayerElementActive', () => {
                     const miniContainer = document.querySelector(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT);
                     if (!miniContainer) return null;
-                    // Usamos .matches() porque SELECTORS.CLASSES.MINIPLAYER_VISIBLE y SELECTORS.miniplayer.activeAttr
-                    // contienen selectores CSS (. y []) que no son compatibles con classList.contains() o hasAttribute().
+                    // We use .matches() because SELECTORS.CLASSES.MINIPLAYER_VISIBLE and SELECTORS.miniplayer.activeAttr
+                    // contain CSS selectors (. and []) that are not compatible with classList.contains() or hasAttribute().
                     const isVisible = miniContainer.matches(SELECTORS.CLASSES.MINIPLAYER_VISIBLE) ||
                         DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100)?.matches(SELECTORS.miniplayer.activeAttr) ||
                         isVisiblyDisplayed(miniContainer);
 
                     if (isVisible) {
-                        logInfo('DOMHelpers', '📱 Miniplayer detectado como ACTIVO');
+                        logInfo('DOMHelpers', '📱 Miniplayer detected as VISIBLE');
                     }
                     return isVisible ? miniContainer : null;
                 }),
             /**
-             * Obtiene el elemento reproductor interno alojado en el Miniplayer.
-             * @returns {Element|null} Player en el miniplayer.
+             * Get the internal player element hosted in the Miniplayer.
+             * @returns {Element|null} Player in the miniplayer.
              */
             getMiniplayerPlayer: () =>
                 get('miniplayerPlayer', () =>
@@ -1376,8 +1566,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                         ?.querySelector(SELECTORS.player.movie) ?? null
                 ),
             /**
-             * Obtiene el elemento de video del reproductor interno alojado en el Miniplayer.
-             * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor interno del Miniplayer.
+             * Get the video element of the internal player hosted in the Miniplayer.
+             * @returns {HTMLVideoElement|null} <video> tag of the internal Miniplayer player.
              */
             getMiniplayerPlayerVideo: () =>
                 get('miniplayerPlayerVideo', () =>
@@ -1392,24 +1582,24 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 
 
             /**
-             * Obtiene el contenedor principal para videos inline preview <ytd-video-preview>.
-             * @returns {Element|null} Contenedor para videos inline preview.
+             * Get the main container for inline preview videos <ytd-video-preview>.
+             * @returns {Element|null} Container for inline preview videos.
              */
             getInlinePreviewMainContainer: () =>
                 get('inlinePreviewMainContainer', () =>
                     document.querySelector(SELECTORS.IDS.VIDEO_PREVIEW_CONTAINER) ?? null
                 ),
             /**
-             * Obtiene el elemento reproductor interno alojado en el Inline Preview.
-             * @returns {Element|null} Player en el inline preview.
+             * Get the internal player element hosted in the Inline Preview.
+             * @returns {Element|null} Player in the inline preview.
              */
             getInlinePreviewPlayer: () =>
                 get('inlinePreviewPlayer', () =>
                     document.querySelector(SELECTORS.inlinePreview.player) ?? null
                 ),
             /**
-             * Obtiene el elemento de video del reproductor interno alojado en el Inline Preview.
-             * @returns {HTMLVideoElement|null} Etiqueta <video> del reproductor interno del Inline Preview.
+             * Get the video element of the internal player hosted in the Inline Preview.
+             * @returns {HTMLVideoElement|null} <video> tag of the internal Inline Preview player.
              */
             getInlinePreviewPlayerVideo: () =>
                 get('inlinePreviewPlayerVideo', () =>
@@ -1417,67 +1607,67 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                 ),
 
             /**
-             * Metodo para poder realizar consultas libres desde el exterior aprovechando el cache (Ej: Anuncios).
-             * Garantiza eficiencia sin volver el objeto gigantesco.
+             * Method to perform free queries from the outside, taking advantage of the cache (e.g.: Ads).
+             * Guarantees efficiency without making the object gigantic.
              *
              * @template T
-             * @param {string} key Nombre unico para la llave en la memoria Map interna.
-             * @param {() => T} getter Metodo que devolvera un valor si el TTL se ha rebasado o llave no existe.
-             * @param {number} ttlMs Cantidad en MS de retencion para este guardado especifico (Sobrescribe defecto: 125ms).
-             * @returns {T} Resultado evaluado al instante o guardado.
+             * @param {string} key Unique name for the key in the internal Map memory.
+             * @param {() => T} getter Method that will return a value if the TTL has expired or the key does not exist.
+             * @param {number} ttlMs Retention time in MS for this specific save (Overrides default: 125ms).
+             * @returns {T} Result evaluated instantly or saved.
              *
              * @example
-             * // Buscar si el botón de "Saltar anuncio" existe en el DOM (caché válido por 300ms)
+             * // Search if the "Skip ad" button exists in the DOM (cache valid for 300ms)
              * const skipButton = DOMHelpers.get('ad:SkipButton', () => document.querySelector('.ytp-ad-skip-button'), 300);
              *
              * @example
-             * // Buscar una propiedad de video compleja sin afectar el rendimiento si se llama muchas veces seguidas
+             * // Search for a complex video property without affecting performance if called many times in a row
              * const movieTitle = DOMHelpers.get('movie:title', () => document.querySelector('h1.title')?.textContent?.trim(), 500);
              */
             get,
 
             /**
-             * Elimina manualmente un elemento específico del caché por su clave exacta.
-             * Utilícese cuando se está seguro de qué nodo actualizar de forma individual (Por defecto: 125ms de vida).
+             * Eliminates a specific element from the cache manually by its exact key.
+             * Use it when you are sure of which node to update individually (Default: 125ms life).
              *
-             * @param {string} key - Clave exacta usada al llamar `.get()`.
+             * @param {string} key - Exact key used when calling `.get()`.
              *
              * @example
-             * // Fuerza la actualización del registro de la caja de anuncios
+             * // Forces the update of the ad box record
              * DOMHelpers.removeExact('ad:skipButton');
-             * // Si en la memoria tienes guardado "ad:skipButton", "ad:banner" y "ad:video",
-             * // la función solo borrará "ad:skipButton", y dejará el resto intacto.
+             * // If you have "ad:skipButton", "ad:banner", and "ad:video" saved in memory,
+             * // the function will only delete "ad:skipButton", leaving the rest intact.
              */
             removeExact: (key) => cache.delete(key),
 
             /**
-             * Elimina en masa elementos del caché que compartan la misma agrupación (prefijo).
-             * Ideal cuando ocurre un cambio rotundo de estado, como un cambio de video.
+             * Eliminates elements in bulk from the cache that share the same grouping (prefix).
+             * Ideal when a radical change of state occurs, such as a change of video.
              *
-             * @param {string} prefix - Prefijo en común de los elementos guardados.
+             * @param {string} prefix - Common prefix of the saved elements.
              *
              * @example
-             * // Cuando pasamos al siguiente video, borramos todos los identificadores viejos relacionados con anuncios
+             * // When we move to the next video, we delete all the old identifiers related to ads
              * DOMHelpers.removeByCategory('ad:');
-             * // Si en la memoria tienes guardado "ad:skipButton", "ad:banner" y "ad:video",
-             * // al ejecutar este código en masa, como todos empiezan por "ad:", borrará los tres de un solo golpe.
+             * // If you have "ad:skipButton", "ad:banner", and "ad:video" saved in memory,
+             * // when executing this code in bulk, as they all start with "ad:", it will delete all three at once.
              */
             removeByCategory: (prefix) => clear(prefix),
 
             /**
-             * Formatea por completo el registro en memoria del caché perdiendo toda referencia existente.
+             * Completely formats the cache memory record losing all existing reference.
              *
              * @example
-             * // Al ocurrir la desinstalación en vivo del UserScript, vaciamos la memoria caché
+             * // When the UserScript unloads, we empty the cache memory
              * DOMHelpers.clearAll();
              */
             clearAll: () => clear(),
 
             /**
-             * Encuentra el ancestro más cercano que coincida con el selector, atravesando fronteras de Shadow DOM.
-             * @param {Element|null|undefined} node Elemento desde el cual empezar la búsqueda.
-             * @param {string} selector Selector CSS a buscar.
-             * @returns {Element|null} Ancestros coincidente o null.
+             * Finds the nearest ancestor that matches the selector, crossing Shadow DOM boundaries.
+             * @param {Element|null|undefined} node Element to start the search from.
+             * @param {string} selector CSS selector to search.
+             * @returns {Element|null} Matching ancestor or null.
              */
             closestComposed: (node, selector) => {
                 if (!node || !selector) return null;
@@ -1500,22 +1690,22 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     // MARK: 🌐 Translation Functions
     // ============================================================================================================
 
-    let currentLanguage = CONFIG.defaultSettings.language; // Idioma predeterminado
+    let currentLanguage = DEFAULT_LANGUAGE;
 
-    // Función para obtener el texto traducido
+    // Function to get the translated text
     /**
-     * Obtiene el texto traducido para una clave específica.
-     * Implementa una cascada de búsqueda: Traducción remota (actual) -> Traducción remota (default) -> Local (actual) -> Local (default).
-     * @param {string} key - Clave de traducción.
-     * @param {Object|string} [params={}] - Parámetros para reemplazo o texto por defecto si es string.
-     * @param {string} [defaultText=null] - Texto por defecto si no se encuentra la traducción.
-     * @returns {string} Texto traducido y sanitizado.
+     * Gets the translated text for a specific key.
+     * Implements a search cascade: Remote translation (current) -> Remote translation (default) -> Local (current) -> Local (default).
+     * @param {string} key - Translation key.
+     * @param {Object|string} [params={}] - Parameters for replacement or default text if it is a string.
+     * @param {string} [defaultText=null] - Default text if the translation is not found.
+     * @returns {string} Translated and sanitized text.
      */
     function t(key, params = {}, defaultText = null) {
         let actualDefaultText = defaultText;
         let actualParams = params;
 
-        // Soporte para valor por defecto como segundo argumento: t('key', 'Default Text')
+        // Support for default value as the second argument: t('key', 'Default Text')
         if (typeof params === 'string') {
             actualDefaultText = params;
             actualParams = {};
@@ -1525,61 +1715,60 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         const fallbackMsg = actualDefaultText ?? key;
 
         const lang = currentLanguage;
-        const defaultLang = CONFIG.defaultSettings.language;
 
-        // Cascada de resolución de texto
+        // Text resolution cascade
         const text =
-            TRANSLATIONS?.[lang]?.[key] ??           // 1. Remoto/Caché (Actual)
-            TRANSLATIONS?.[defaultLang]?.[key] ??    // 2. Remoto/Caché (Default)
-            FALLBACK_TRANSLATIONS?.[lang]?.[key] ??  // 3. Local Inmutable (Actual)
-            FALLBACK_TRANSLATIONS?.[defaultLang]?.[key] // 4. Local Inmutable (Default)
+            TRANSLATIONS?.[lang]?.[key] ??           // 1. Remote/Cache (Current)
+            TRANSLATIONS?.[DEFAULT_LANGUAGE]?.[key] ??    // 2. Remote/Cache (Default)
+            FALLBACK_TRANSLATIONS?.[lang]?.[key] ??  // 3. Immutable Local (Current)
+            FALLBACK_TRANSLATIONS?.[DEFAULT_LANGUAGE]?.[key] // 4. Immutable Local (Default)
             ?? fallbackMsg;                            // 5. Hardcoded Fallback
 
         return replaceParams(text, normParams);
         // return escapeHTML(replaceParams(text, normParams));
     }
 
-    // Función para reemplazar parámetros en las traducciones
+    // Function to replace parameters in translations
     function replaceParams(text, params) {
         if (!text || typeof text !== 'string') return text;
         return text.replace(/{(\w+)}/g, (match, param) => {
             const val = params[param];
             if (val === undefined) return match;
-            // Sanitización automática de parámetros para evitar XSS al interpolar en HTML
+            // Automatic parameter sanitization to avoid XSS when interpolating in HTML
             return typeof val === 'string' ? escapeHTML(val) : val;
         });
     }
 
     /**
-     * Establece el idioma del script y opcionalmente lo persiste en la configuración.
-     * @param {string} lang - Código de idioma (ej. 'es-ES', 'en').
-     * @param {Object} [options={ persist: true }] - Opciones de persistencia.
+     * Sets the script language and optionally persists it in the configuration.
+     * @param {string} lang - Language code (e.g., 'es-ES', 'en').
+     * @param {Object} [options={ persist: true }] - Persistence options.
      * @returns {Promise<boolean>}
      */
     async function setLanguage(lang, options = { persist: true }) {
         if (!lang) return false;
 
-        // 1. Normalización rápida: Si ya es el idioma actual, no hacemos nada
+        // 1. Quick normalization: If it's already the current language, we do nothing
         if (lang === currentLanguage && !options?.force) return true;
 
         let validLang = lang;
 
-        // 2. Búsqueda inteligente de fallback
+        // 2. Intelligent fallback search
         if (!TRANSLATIONS[validLang]) {
             const [primary] = lang.split('-');
-            // Intentamos coincidencia exacta de la raíz (ej. 'es') o la primera subvariante que empiece por la raíz
+            // Try exact match of the root (e.g., 'es') or the first subvariant starting with the root
             validLang = TRANSLATIONS[primary]
                 ? primary
                 : Object.keys(TRANSLATIONS).find(k => k.startsWith(`${primary}-`))
-                ?? CONFIG.defaultSettings.language;
+                ?? DEFAULT_LANGUAGE;
         }
 
-        // Si después de la búsqueda sigue siendo el mismo, salimos temprano
+        // If after the search it is still the same, we exit early
         if (validLang === currentLanguage && !options?.force) return true;
 
         currentLanguage = validLang;
 
-        // 3. Persistencia optimizada
+        // 3. Optimized persistence
         if (options?.persist) {
             try {
                 // Use direct storage access during initialization to avoid recursion
@@ -1598,21 +1787,27 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                     settings = { ...CONFIG.defaultSettings, ...parsed };
                 }
 
-                // Solo guardamos si realmente hay un cambio en el objeto de configuración
+                // We only save if there is really a change in the configuration object
                 if (settings.language !== validLang) {
                     settings.language = validLang;
                     await setSettings(settings);
-                    logInfo('setLanguage', `Idioma persistido: ${validLang}`);
+                    logInfo('setLanguage', `Language persisted: ${validLang}`);
                 }
             } catch (e) {
-                logError('setLanguage', 'Error persistiendo idioma', e);
+                logError('setLanguage', 'Error persisting language', e);
             }
         }
 
-        logInfo('setLanguage', `Idioma establecido en: ${validLang}`);
+        logInfo('setLanguage', `Language set to: ${validLang}`);
         return true;
     }
 
+    // Function to detect the browser's preferred language
+    /**
+     * Detects the browser's preferred language from navigator.languages.
+     * Iterates through all available translation keys (remote + local) and returns the first match.
+     * @returns {string} Detected language or DEFAULT_LANGUAGE if no match is found.
+     */
     function detectBrowserLanguage() {
         const primaryLang = navigator.language || navigator.userLanguage || '';
         const candidates = (Array.isArray(navigator.languages) && navigator.languages.length)
@@ -1653,8 +1848,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             }
         }
 
-        logWarn('detectBrowserLanguage', `Language '${primaryLang}' not suported, going with default: ${CONFIG.defaultSettings.language}`);
-        return CONFIG.defaultSettings.language;
+        logWarn('detectBrowserLanguage', `Language '${primaryLang}' not suported, going with default: ${DEFAULT_LANGUAGE}`);
+        return DEFAULT_LANGUAGE;
     }
 
     // ============================================================================================================
@@ -6152,95 +6347,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     // ============================================================================================================
-    // MARK: 📢 Ad Selectors
+    // MARK: 📢 Ad Caches
     // ============================================================================================================
-    const AdSelectors = Object.freeze({
-        // Estas clases se aplican al elemento <video> o a su contenedor directo cuando hay un anuncio reproduciéndose.
-        // --- Clases del Player (Watch / Miniplayer) ---
-        // 'ad-created' NO es confiable en estos player porque se mantiene en el DOM incluso cuando no hay anuncio.
-        playerAdClasses: ['ad-showing', 'ad-interrupting'],
-
-        // --- Clases de Previews / Grid ---
-        previewAdClasses: ['ad-showing', 'ad-interrupting'],
-
-        // --- Clases de Shorts ---
-        shortsAdClasses: ['ad-showing', 'ad-interrupting'],
-
-        // --- Contenedores y Layouts ---
-        inPlayerAdContainers: [
-            '.ytp-ad-module', // Módulo de anuncio dentro del player
-            '.ytp-ad-player-overlay', // Overlay del anuncio (video/imagen) sobre el player
-            '.video-ads', // Contenedor de ads del reproductor (estructura legacy / stale en miniplayer)
-            '#player-ads', // Contenedor externo de ads del player (YouTube layout)
-            '.ytp-ad-player-overlay-layout', // Layout moderno del overlay del anuncio (se elimina al terminar)
-            '.ytp-ad-player-overlay-layout__player-card-container', // Contenedor de tarjeta en layout moderno
-            '.ytp-ad-player-overlay-layout__ad-info-container', // Contenedor de info en layout moderno
-            '.ytp-ad-player-overlay-layout__skip-or-preview-container', // Contenedor de skip/preview en layout moderno
-            '.ytp-ad-player-overlay-layout__ad-disclosure-banner-container', // Banner de divulgación en layout moderno
-        ],
-        inFeedAdContainers: [
-            '#masthead-ad', // Contenedor de anuncio masthead (homepage)
-            '#masthead-player', // Player de anuncio masthead (homepage)
-            '[id*="masthead"]', // Selectores comodín para masthead
-            '[class*="masthead"]', // Clases comodín para masthead
-            'ytd-video-masthead-ad-primary-video-overlay-renderer', // Masthead ad (homepage autoplay)
-            'ytd-video-masthead-ad-primary-video-renderer', // Masthead ad (homepage autoplay)
-            'ytd-video-masthead-ad-advertiser-info-renderer', // Masthead ad (homepage autoplay)
-            'ytd-in-feed-ad-layout-renderer', // Ads dentro del feed (Home/Search)
-            'ytd-ad-slot-renderer', // Slot genérico de anuncio (Home/feed/sidebar)
-            'ytd-display-ad-renderer', // Display ad (paneles laterales / feed)
-            'ytd-promoted-sparkles-web-renderer', // Promoted / "sparkles" (cards patrocinadas)
-            'ytd-video-masthead-ad-v3-renderer', // Masthead ad (homepage autoplay)
-            'ytd-page-top-ad-layout-renderer', // Ad superior de página (homepage/top)
-            'video-display-full-layout-view-model', // Anuncio en el grid (homepage)
-            'feed-ad-metadata-view-model', // Metadatos de anuncio en grid (homepage)
-        ],
-
-        // --- Elementos Específicos del Anuncio ---
-        clickableAdBadgesWithinRichItem: [
-            '.yt-badge-shape--ad', // Badge "Ad" moderno
-            '[aria-label*="Ad"]', // Badge accesible (inglés)
-            '[aria-label*="Patrocinado"]', // Badge accesible (español)
-            '[aria-label*="Sponsored"]', // Badge accesible (inglés alternativo)
-            '[aria-label="Patrocinado"]', // Coincidencia exacta para badge
-            '[aria-label*="Mi centro de anuncios"]', // Atributo para botón de info (ES)
-            '[aria-label*="My Ad Center"]', // Atributo para botón de info (EN)
-            'ad-badge-view-model', // Badge de anuncio moderno
-            '[role="link"][class*="ad"]', // Links con clase ad
-        ],
-        // --- UI Activa (Detección rápida, solo elementos internos del player) ---
-        activeAdUi: [
-            '.ytp-ad-player-overlay:not([hidden]):not([style*="display: none"])', // Overlay visible de anuncio
-            '.ytp-ad-module:not([hidden]):not([style*="display: none"])', // Módulo visible de anuncio
-            '.ytp-ad-player-overlay-layout:not([hidden]):not([style*="display: none"])', // Layout moderno visible
-            '.ytp-ad-text:not([hidden]):not([style*="display: none"])', // Texto "Ad" visible
-            '.ytp-ad-preview:not([hidden]):not([style*="display: none"])', // Preview de anuncio visible
-            '.ytp-ad-skip-button-container:not([hidden]):not([style*="display: none"])', // Botón "Skip" contenedor visible
-            '.ytp-skip-ad-button:not([hidden]):not([style*="display: none"])', // Botón "Skip" visible
-            '.ytp-ad-preview-container:not([hidden]):not([style*="display: none"])', // Contenedor de preview visible
-            '.ytp-ad-image-overlay:not([hidden]):not([style*="display: none"])', // Overlay de imagen visible
-            '.ytp-ad-overlay-container:not([hidden]):not([style*="display: none"])', // Contenedor overlay visible
-            '.video-ads:not([hidden]):not([style*="display: none"])', // Contenedor legacy visible
-            // ytd-in-feed-ad-layout-renderer - eliminado: es un elemento de página, .ytd-in-feed-ad-layout-renderer tambien. Ambos pueden existir en DOM sin presencia de anuncios activos
-        ],
-        shortDurationAdUi: [
-            '.ytp-ad-text', // Señales rápidas: texto/badge de ad
-            '.ytp-ad-skip-button-container:not([hidden]):not([style*="display: none"])', // Botón "Skip" contenedor visible
-            '.ytp-skip-ad-button:not([hidden]):not([style*="display: none"])', // Botón "Skip" visible
-            '.ytp-ad-preview-container:not([hidden]):not([style*="display: none"])', // Contenedor de preview visible
-            '.ytp-ad-image-overlay:not([hidden]):not([style*="display: none"])', // Overlay de imagen visible
-            '.ytp-ad-overlay-container:not([hidden]):not([style*="display: none"])', // Contenedor overlay visible
-            '.video-ads:not([hidden]):not([style*="display: none"])', // Contenedor legacy visible
-            '.ytp-ad-badge__text--clean-player', // Badge "Patrocinado" detectable rápido
-        ]
-    });
-
-    const AdSelectorText = Object.freeze({
-        inPlayerAdContainers: AdSelectors.inPlayerAdContainers.join(', '),
-        inFeedAdContainers: AdSelectors.inFeedAdContainers.join(', '),
-        activeAdUi: AdSelectors.activeAdUi.join(','),
-        clickableAdBadgesWithinRichItem: AdSelectors.clickableAdBadgesWithinRichItem.join(', '),
-    });
 
     // Caches globales para reducir impacto en el hilo principal
     /** @type {WeakMap<Element, { val: boolean, ts: number }>} Cache para deteccion de anuncios por nodo */
@@ -6283,16 +6391,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Reproductor Principal (Watch / Miniplayer)
                 const moviePlayer = DOMHelpers.closestComposed(node, SELECTORS.player.movie);
                 if (moviePlayer?.classList) {
-                    if (AdSelectors.playerAdClasses.some(c => moviePlayer.classList.contains(c))) return true;
+                    if (SELECTORS.ads.classes.player.some(c => moviePlayer.classList.contains(c))) return true;
                     if (this.findVisibleAdUi(moviePlayer)) return true;
                 }
 
                 // Reproductor de Shorts
                 const shortsPlayer = DOMHelpers.closestComposed(node, SELECTORS.shorts.player);
                 if (shortsPlayer?.classList) {
-                    if (AdSelectors.shortsAdClasses.some(c => shortsPlayer.classList.contains(c))) return true;
+                    if (SELECTORS.ads.classes.shorts.some(c => shortsPlayer.classList.contains(c))) return true;
                     // Refuerzo para Shorts: Revisar el contenedor principal
-                    const reelRenderer = DOMHelpers.closestComposed(shortsPlayer, 'ytd-reel-video-renderer');
+                    const reelRenderer = DOMHelpers.closestComposed(shortsPlayer, SELECTORS.shorts.renderer);
                     if (reelRenderer) {
                         if (reelRenderer.hasAttribute('is-ads-overlay')) return true;
                         if (reelRenderer.querySelector('ytd-ad-slot-renderer')) return true;
@@ -6303,7 +6411,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Reproductor de Previews / Grid (Detección de anuncios en thumbnails que se autoreproducen)
                 const inlinePlayer = DOMHelpers.closestComposed(node, SELECTORS.inlinePreview.player);
                 if (inlinePlayer?.classList) {
-                    if (AdSelectors.previewAdClasses.some(c => inlinePlayer.classList.contains(c))) return true;
+                    if (SELECTORS.ads.classes.preview.some(c => inlinePlayer.classList.contains(c))) return true;
                     if (this.findVisibleAdUi(inlinePlayer)) return true;
                     try {
                         const videoId = getPlayerVideoId(inlinePlayer);
@@ -6318,13 +6426,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 const check = () => {
                     // Contenedores de Anuncios In-Feed / Layouts / Homes
-                    // Solo usamos inFeedAdContainers (no inAnyAdContainers).
                     // inPlayerAdContainers (.ytp-ad-module, .video-ads, #player-ads) son nodos PERMANENTES
                     // en el DOM del player - están presentes aunque no haya ningún anuncio activo.
                     // Usarlos en closestComposed causa FALSE POSITIVES para cualquier <video> dentro del player.
-                    if (AdSelectorText.inFeedAdContainers) {
-                        if (DOMHelpers.closestComposed(node, AdSelectorText.inFeedAdContainers)) return true;
-                    }
+                    const inFeedSelector = SELECTORS.ads.elements.inFeed.concat(SELECTORS.ads.elements.masthead).join(', ');
+                    if (DOMHelpers.closestComposed(node, inFeedSelector)) return true;
+
                     return false;
                 };
 
@@ -6347,10 +6454,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Si está dentro de un renderizador de video estándar sin badges de anuncio
                 try {
                     const videoItem = DOMHelpers.closestComposed(node, 'ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, .video-renderer');
-                    if (videoItem && !DOMHelpers.closestComposed(videoItem, AdSelectorText.inFeedAdContainers)) {
-                        const hasAdBadge = !!videoItem.querySelector?.(AdSelectorText.clickableAdBadgesWithinRichItem);
-                        if (hasAdBadge) return true; // Es un anuncio con badge
-                        return false; // Es contenido legítimo
+                    if (videoItem) {
+                        const inFeedSelector = SELECTORS.ads.elements.inFeed.concat(SELECTORS.ads.elements.masthead).join(', ');
+                        if (!DOMHelpers.closestComposed(videoItem, inFeedSelector)) {
+                            const badgeSelector = SELECTORS.ads.ui.badges.join(', ');
+                            const hasAdBadge = !!videoItem.querySelector?.(badgeSelector);
+                            if (hasAdBadge) return true; // Es un anuncio con badge
+                            return false; // Es contenido legítimo
+                        }
                     }
                 } catch (_) { }
 
@@ -6376,7 +6487,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 _lastAdRootFrame = _adDetectorFrameId;
 
                 // Consulta nativa múltiple agrupada + post-validación en layout
-                const els = root.querySelectorAll(AdSelectorText.activeAdUi);
+                const activeUiSelector = SELECTORS.ads.ui.activePlayer.join(', ');
+                const els = root.querySelectorAll(activeUiSelector);
                 for (const el of els) {
                     if (isVisiblyDisplayed(el)) {
                         // Validación de contenido para contenedores genéricos de módulos de anuncios
@@ -14478,11 +14590,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             const session = activeProcessingSessions.get(videoEl);
-            if (!session || session.isFinalized) return { success: false, reason: 'invalid_session' };
+
+            // Si no hay sesión activa o fue finalizada, abortamos, EXCEPTO si el usuario pidió guardado manual explícito
+            if ((!session || session.isFinalized) && !options.isManual) {
+                return { success: false, reason: 'invalid_session' };
+            }
 
             // Evitar ejecuciones concurrentes para la misma sesión (bloqueo mutuo)
-            if (session.isSaving && !options.isManual) return { success: false, reason: 'already_saving' };
-            session.isSaving = true;
+            if (session) {
+                if (session.isSaving && !options.isManual) return { success: false, reason: 'already_saving' };
+                session.isSaving = true;
+            }
 
             try {
                 const currentTime = videoEl.currentTime || (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
@@ -18985,7 +19103,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 } else {
                     // Primera carga o idioma no configurado, usar navegador si existe
                     const browserLang = detectBrowserLanguage();
-                    langToUse = TRANSLATIONS[browserLang] ? browserLang : CONFIG.defaultSettings.language;
+                    langToUse = TRANSLATIONS[browserLang] ? browserLang : DEFAULT_LANGUAGE;
                     logInfo('initializeGlobal', `Idioma detectado o fallback: ${langToUse}`);
                 }
 

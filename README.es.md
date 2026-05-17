@@ -34,7 +34,7 @@
 
 - **Privacidad Absoluta** - Para quienes no quieren depender del historial de YouTube. No se requiere cuenta de Google.
 - **Memoria Persistente** - Para quienes usen navegadores con bloqueadores o sin historial persistente.
-    - ⚠️ **Advertencia:** Borrar "Cookies y datos del sitio" en tu navegador eliminará permanentemente todo el progreso de los videos guardados localmente. ¡Siempre exporta tus datos primero cuando uses esta opción!
+  - ⚠️ **Advertencia:** Borrar "Cookies y datos del sitio" en tu navegador eliminará permanentemente todo el progreso de los videos guardados localmente. ¡Siempre exporta tus datos primero cuando uses esta opción!
 - **Capacidades de Sincronización en la Nube** - Sincronización entre dispositivos a través de GitHub usando Repositorios Privados o Gists Secretos.
 
 ---
@@ -47,13 +47,12 @@
 
 1- **Instalar un Gestor de Scripts**
 
-   - [Violentmonkey](https://violentmonkey.github.io/) - [GitHub](https://github.com/violentmonkey/violentmonkey)
-   - [ScriptCat](https://scriptcat.org/en) - [GitHub](https://github.com/scriptscat/scriptcat)
-   - [Firemonkey](https://addons.mozilla.org/en-US/firefox/addon/firemonkey/) - [GitHub](https://github.com/erosman/firemonkey).
+- [Violentmonkey](https://violentmonkey.github.io/) - [GitHub](https://github.com/violentmonkey/violentmonkey)
+- [ScriptCat](https://scriptcat.org/en) - [GitHub](https://github.com/scriptscat/scriptcat)
 
 2- **Instalar el Script**
 
-   📥 **[Haz clic aquí para instalar](https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js)** o descárgalo directamente desde [GreasyFork](https://greasyfork.org/es/scripts/553387-youtube-playback-plox).
+📥 **[Haz clic aquí para instalar](https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js)** o descárgalo directamente desde [GreasyFork](https://greasyfork.org/es/scripts/553387-youtube-playback-plox).
 
 Luego de la instalación, tus videos comenzarán a rastrearse correctamente. Accede al modal de videos guardados directamente dentro de la barra de progreso de YouTube.
 
@@ -65,22 +64,22 @@ Luego de la instalación, tus videos comenzarán a rastrearse correctamente. Acc
 
 - 🔐 **100% Privado y Local:** Funciona sin cuenta de Google; todo se almacena localmente usando `IndexedDB` en tu navegador.
 - 🕒 **Auto-Guardado Inteligente:** Guarda el tiempo y reanuda automáticamente desde ese punto cuando regresas, gracias a detectores aislados por contexto. Activa el seguimiento individualmente en la configuración para:
-    - `Regular Videos`
-    - `Miniplayer`
-    - `Shorts` (desactivado por defecto)
-    - `Live streams` (desactivado por defecto)
-    - `Previews on home` (desactivado por defecto)
+  - `Regular Videos`
+  - `Miniplayer`
+  - `Shorts` (desactivado por defecto)
+  - `Live streams` (desactivado por defecto)
+  - `Previews on home` (desactivado por defecto)
 - 🔖 **Opción de Guardado Manual:** Guardar el tiempo de reproducción actual presionando un botón cuando quieras.
 - 🛑 **Anti-Ads:** Previene el guardado de tiempos y reproducciones falsas durante los anuncios. (El script no bloquea anuncios. Usa [uBlock Origin](https://github.com/gorhill/uBlock) para bloquear anuncios).
 - ⚡ **Rendimiento Rápido:** Emplea "Virtual Scrolling" en el modal de videos guardados para manejar instantáneamente listas de miles de videos sin consumir memoria adicional.
 - 🔔 **Notificaciones UI:** Mensajes nativos y discretos en la barra del reproductor que muestran cuándo se está reanudando o guardando un video.
 - **Gestor de Videos Avanzado:** Modal completo con playlists, miniaturas precargadas, autores, porcentajes vistos y tiempo restante.
-    - ⏱ Establece un "tiempo de inicio fijo" por video para comenzar siempre desde un punto predecible (ideal para saltar intros).
-    - 📦 Exporta/Importa tu respaldo a bases de datos JSON o SQLite (100% compatible con FreeTube).
-    - 🔍 **Filtros Avanzados:** Filtra videos por: `título`, `autor`, `tipo`, `duración`, `fecha`, `porcentaje visto`, `tiempo restante`, y más.
-    - 🔀 Crea `playlists` públicas de YouTube sobre la marcha a partir de tus videos vistos.
-    - 🔗 Desvincula videos de listas de reproducción arbitrarias en solo 1 click.
-    - 🛡 Establece un estado de "protegido" para evitar que los videos se eliminen accidentalmente.
+  - ⏱ Establece un "tiempo de inicio fijo" por video para comenzar siempre desde un punto predecible (ideal para saltar intros).
+  - 📦 Exporta/Importa tu respaldo a bases de datos JSON o SQLite (100% compatible con FreeTube).
+  - 🔍 **Filtros Avanzados:** Filtra videos por: `título`, `autor`, `tipo`, `duración`, `fecha`, `porcentaje visto`, `tiempo restante`, y más.
+  - 🔀 Crea `playlists` públicas de YouTube sobre la marcha a partir de tus videos vistos.
+  - 🔗 Desvincula videos de listas de reproducción arbitrarias en solo 1 click.
+  - 🛡 Establece un estado de "protegido" para evitar que los videos se eliminen accidentalmente.
 - ☁️ **Opción de Sincronización en la Nube:** Sincroniza tus videos guardados con tu cuenta de GitHub, ya sea a través de Gist (Secreto) o Repositorio (Privado). (Se puede habilitar en la configuración, deshabilitado por defecto)
 
 ---
@@ -90,19 +89,19 @@ Luego de la instalación, tus videos comenzarán a rastrearse correctamente. Acc
 ## Capturas de Pantalla
 
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-alerta-guardado-automatico.png" alt="Ejemplo de alerta de tiempo guardado" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.10_example-alert-time-saved.png" alt="Ejemplo de alerta de tiempo guardado" width="750">
 </div>
 <br>
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-modal-videos.png" alt="Ejemplo de modal para ver videos guardados" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.10_example-modal-videos.png" alt="Ejemplo de modal para ver videos guardados" width="750">
 </div>
 <br>
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-modal-configuraciones.png" alt="Ejemplo de modal de configuración" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.10_example-modal-settings.png" alt="Ejemplo de modal de configuración" width="750">
 </div>
 <br>
 <div align="center">
-  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.9-9_ejemplo-crear-playlist.png" alt="Ejemplo de creación de playlist" width="750">
+  <img src="https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/images/v0.0.10_example-create-playlist.png" alt="Ejemplo de creación de playlist" width="750">
 </div>
 
 ---
@@ -111,37 +110,37 @@ Luego de la instalación, tus videos comenzarán a rastrearse correctamente. Acc
 
 ## Traducciones Globales
 
-La configuración y la interfaz de usuario están completamente traducidas a más de 50 idiomas nativos. 
+La configuración y la interfaz de usuario están completamente traducidas a más de 50 idiomas nativos.
 
 ¿Quieres ayudar, colaborar o corregir la traducción del script? Puedes hacerlo desde [aquí](https://github.com/Alplox/Youtube-Playback-Plox/blob/main/translations.json).
 
-| Language | Code | | Language | Code |
-|:----------|:-----|---|:----------|:-----|
-| 🇬🇧 English (UK) | `en-GB` | | 🇺🇸 English (US) | `en-US` |
-| 🇪🇸 Español | `es-ES` | | 🇪🇸 Español (Latam) | `es-419` |
-| 🇪🇸 Català | `ca` | | 🇫🇷 Français | `fr` |
-| 🇩🇪 Deutsch | `de` | | 🇮🇹 Italiano | `it` |
-| 🇵🇹 Português | `pt` | | 🇳🇱 Nederlands | `nl` |
-| 🇵🇱 Polski | `pl` | | 🇸🇪 Svenska | `sv` |
-| 🇩🇰 Dansk | `da` | | 🇳🇴 Norsk | `no` |
-| 🇫🇮 Suomi | `fi` | | 🇨🇿 Čeština | `cs` |
-| 🇸🇰 Slovenčina | `sk` | | 🇭🇺 Magyar | `hu` |
-| 🇷🇴 Română | `ro` | | 🇧🇬 Български| `bg` |
-| 🇬🇷 Ελληνικά | `el` | | 🇷🇸 Српски| `sr` |
-| 🇭🇷 Hrvatski | `hr` | | 🇸🇮 Slovenščina | `sl` |
-| 🇱🇹 Lietuvių | `lt` | | 🇱🇻 Latviešu | `lv` |
-| 🇺🇦 Українська | `uk` | | 🇷🇺 Русский | `ru` |
-| 🇹🇷 Türkçe | `tr` | | 🇸🇦 العربية | `ar` |
-| 🇮🇷 فارسی | `fa` | | 🇮🇱 עברית | `he` |
-| 🇮🇳 हिन्दी | `hi` | | 🇧🇩 বাংলা | `bn` |
-| 🇮🇳 తెలుగు | `te` | | 🇱🇰 தமிழ் | `ta` |
-| 🇮🇳 मराठी | `mr` | | 🇨🇳 简体中文 | `zh` |
-| 🇹🇼 繁體中文 | `zh-TW` | | 🇭🇰 粵語 | `yue` |
-| 🇭🇰 繁體中文 (HK) | `zh-HK` | | 🇯🇵 日本語 | `ja` |
-| 🇰🇷 한국어 | `ko` | | 🇹🇭 ไทย | `th` |
-| 🇻🇳 Tiếng Việt | `vi` | | 🇮🇩 Indonesia | `id` |
-| 🇲🇾 Melayu | `ms` | | 🇵🇭 Filipino | `tl` |
-| 🇲🇲 မြန်မာ | `my` | | 🇰🇪 Kiswahili | `sw` |
+| Language         | Code    |     | Language           | Code     |
+| :--------------- | :------ | --- | :----------------- | :------- |
+| 🇬🇧 English (UK)  | `en-GB` |     | 🇺🇸 English (US)    | `en-US`  |
+| 🇪🇸 Español       | `es-ES` |     | 🇪🇸 Español (Latam) | `es-419` |
+| 🇪🇸 Català        | `ca`    |     | 🇫🇷 Français        | `fr`     |
+| 🇩🇪 Deutsch       | `de`    |     | 🇮🇹 Italiano        | `it`     |
+| 🇵🇹 Português     | `pt`    |     | 🇳🇱 Nederlands      | `nl`     |
+| 🇵🇱 Polski        | `pl`    |     | 🇸🇪 Svenska         | `sv`     |
+| 🇩🇰 Dansk         | `da`    |     | 🇳🇴 Norsk           | `no`     |
+| 🇫🇮 Suomi         | `fi`    |     | 🇨🇿 Čeština         | `cs`     |
+| 🇸🇰 Slovenčina    | `sk`    |     | 🇭🇺 Magyar          | `hu`     |
+| 🇷🇴 Română        | `ro`    |     | 🇧🇬 Български       | `bg`     |
+| 🇬🇷 Ελληνικά      | `el`    |     | 🇷🇸 Српски          | `sr`     |
+| 🇭🇷 Hrvatski      | `hr`    |     | 🇸🇮 Slovenščina     | `sl`     |
+| 🇱🇹 Lietuvių      | `lt`    |     | 🇱🇻 Latviešu        | `lv`     |
+| 🇺🇦 Українська    | `uk`    |     | 🇷🇺 Русский         | `ru`     |
+| 🇹🇷 Türkçe        | `tr`    |     | 🇸🇦 العربية         | `ar`     |
+| 🇮🇷 فارسی         | `fa`    |     | 🇮🇱 עברית           | `he`     |
+| 🇮🇳 हिन्दी        | `hi`    |     | 🇧🇩 বাংলা           | `bn`     |
+| 🇮🇳 తెలుగు        | `te`    |     | 🇱🇰 தமிழ்           | `ta`     |
+| 🇮🇳 मराठी         | `mr`    |     | 🇨🇳 简体中文        | `zh`     |
+| 🇹🇼 繁體中文      | `zh-TW` |     | 🇭🇰 粵語            | `yue`    |
+| 🇭🇰 繁體中文 (HK) | `zh-HK` |     | 🇯🇵 日本語          | `ja`     |
+| 🇰🇷 한국어        | `ko`    |     | 🇹🇭 ไทย             | `th`     |
+| 🇻🇳 Tiếng Việt    | `vi`    |     | 🇮🇩 Indonesia       | `id`     |
+| 🇲🇾 Melayu        | `ms`    |     | 🇵🇭 Filipino        | `tl`     |
+| 🇲🇲 မြန်မာ        | `my`    |     | 🇰🇪 Kiswahili       | `sw`     |
 
 ---
 
@@ -167,6 +166,7 @@ Este proyecto está licenciado bajo la **Licencia MIT** - ver el archivo [LICENS
 - [SVG REPO (489146/smartphone-01)](https://www.svgrepo.com/svg/489146/smartphone-01) - [PD License](https://creativecommons.org/publicdomain/zero/1.0/)
 - [SVG REPO (345233/translate)](https://www.svgrepo.com/svg/345233/translate) - [MIT](https://spdx.org/licenses/MIT.html)
 - [SVG REPO (512899/spotify-162)](https://www.svgrepo.com/svg/512899/spotify-162) - [PD License](https://creativecommons.org/publicdomain/zero/1.0/)
+- [SVG REPO (522978/pallete-2)](https://www.svgrepo.com/svg/522978/pallete-2) - [CC Attribution License](https://creativecommons.org/licenses/by/4.0/)
 - [SVG Icons (285913/freetube)](https://svgicons.com/icon/285913/freetube) - [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/)
 - [Iconify (svg-spinners/blocks-wave)](https://icon-sets.iconify.design/svg-spinners/blocks-wave/) - [MIT](https://spdx.org/licenses/MIT.html)
 

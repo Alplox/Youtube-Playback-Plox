@@ -92,6 +92,16 @@ If something goes wrong during migration:
 
 ## Common Issues
 
+### Unified video processing router
+- `processMediaVideo(videoEl, type)` is now the single entry point for Watch, Shorts, Miniplayer, and Inline Preview processing.
+- Context-specific behavior lives in `PROCESS_MEDIA_VIDEO_CONFIG`. Keep SPA URL/player ID validation for Watch and Shorts, local-player ID priority for Miniplayer, and debounce/miniplayer-conflict/ad-ID checks for Preview inside those hooks.
+- Do not reintroduce separate `processWatchVideo`, `processShortsVideo`, `processMiniplayerVideo`, or `processPreviewVideo` functions unless a context needs a genuinely separate lifecycle.
+
+### Playback display manager
+- `PlaybackDisplayManager` owns player button-group identity, message priority, timeout cleanup, fixed-time display state, manual-save button targeting, and seek `play` listeners for Watch, Shorts, Miniplayer, and Preview.
+- Legacy per-context message wrappers were removed; notification and cleanup paths should call `PlaybackDisplayManager.show()`, `PlaybackDisplayManager.clear()`, `PlaybackDisplayManager.destroy()`, or the existing `notifySeekOrProgress()` facade directly.
+- Fixed-time and saved-state UI sync should target active sessions by `videoId` instead of scanning every display/player pair. If no active session exists, the next session will rebuild the UI from saved data.
+
 ### Live Content Visibility
 - On Live streams, the script now forces both the "Live" badge and the original YouTube time current/duration to be visible alongside the script's injected button.
 - **Why**: YouTube often hides these elements when it detects custom modifications in the time display area; forcing them back ensures a complete UI experience.
@@ -147,8 +157,8 @@ console.log(`Migrated: ${info.migrated}`);
 ```
 ### FreeTube Integration
 
-- **Deduplicación en Importación**: FreeTube v0.23.15 Beta permite múltiples entradas para un mismo video en su historial (usando `_id`). El script colapsa estas entradas para mantener su modelo de entrada única por videoId, conservando siempre la que tiene el `timeWatched` más reciente.
-- **Formato JSON-L**: Los archivos `.db` exportados por FreeTube ahora son NDJSON (una línea de JSON por objeto). El script maneja esto automáticamente tanto en importación como en exportación.
+- **Deduplication on Import**: FreeTube v0.23.15 Beta allows multiple entries for the same video in its history (using `_id`). The script collapses these entries to maintain its single-entry-per-videoId model, always keeping the one with the most recent `timeWatched`.
+- **JSON-L Format**: The `.db` files exported by FreeTube are now NDJSON (one JSON line per object). The script handles this automatically in both import and export.
 
 ## Obsidian Integration Tool
 
@@ -292,6 +302,23 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
  - **Fix (Persistence Check)**: The script now performs a **verification seek 800ms after resume**. If it detects a backwards jump of >5s, it re-applies the correct seek once more.
  - **Fix (Anti-Overwrite)**: `saveStatus` now blocks any save attempt that detects a significant backwards jump within the first 10 seconds of a session. This prevents YouTube's "stale" progress from overwriting the script's more accurate local history.
  
- ### Structural Layout Shifts (Watch/Miniplayer)
- - **Issue**: The progress bar gradient or the history button might fail to appear in some account types.
- - **Solution**: Expanded container lookups to include `.ytp-left-controls` as a fallback for `.ytp-time-wrapper`. This ensures the UI is injected correctly regardless of YouTube's experimental layout variations.
+### Structural Layout Shifts (Watch/Miniplayer)
+- **Issue**: The progress bar gradient or the history button might fail to appear in some account types.
+- **Solution**: Expanded container lookups to include `.ytp-left-controls` as a fallback for `.ytp-time-wrapper`. This ensures the UI is injected correctly regardless of YouTube's experimental layout variations.
+
+## Saved videos modal UI (toolbar / overflow) (v0.0.10)
+
+- **Separate storage key**: Toolbar toggles, row-button opacity mode, slot lists, `toolbarSectionExpanded`, and `showOverflowMenu` are stored under `CONFIG.STORAGE_KEYS.buttonsSavedVideosEntries` (`YT_PLAYBACK_PLOX_buttonsSavedVideosEntries`), not under main user settings (`userSettings`). Clearing or exporting only script settings may leave this object intact until you reset it explicitly.
+- **Visibility without list rebuild**: Primary row buttons are toggled via `data-ypp-act-*` on `.ypp-videosContainer` and CSS; changing a toggle does not call `updateVideoList()`. The ⋯ button is hidden with `data-ypp-overflow-menu="off"` when the user disables **More actions (⋯) button** in the collapsible panel.
+- **Collapsible panel**: The slot/opacity/overflow controls live in a section that starts collapsed (`toolbarSectionExpanded: false` by default) so the search row stays compact during normal browsing.
+- **Grid row spacing**: Vertical spacing in Grid View is owned by `VirtualScroller.itemGap`, not by hidden margins/padding on `.ypp-grid-row`. Row heights should use rendered DOM measurements when available and estimated heights only before a row has been rendered.
+
+## Time Display Visual Context (v0.0.10)
+
+### What Changed
+- **Surface vs Media Type**: The script now distinguishes between the **visual surface** (`watch`, `shorts`, `miniplayer`, `preview`) and the **media type** (`live`, `video`, `shorts`). 
+- **Context Handling**: The script uses the surface context provided by the session (Watch, Shorts, Miniplayer, Preview) to determine where to show notifications. This avoids redundant DOM lookups during save ticks and ensures consistent UI feedback regardless of the media type (video or livestream).
+
+### Technical Distinction
+- **Notification Kinds**: Notifications are now semantically categorized as `fixed` (user-defined), `seek` (automatic resume), `manual` (user-triggered save), or `progress` (periodic auto-save).
+- **Persistence Rescue Bugfix**: `forceResumeTime` is now strictly reserved for user-defined fixed start times. Technical re-seeks (like the rescue mechanism that recovers from 0s stalls) no longer "manufacture" a `forceResumeTime`, preventing the UI from incorrectly showing stopwatch/pin icons for videos that were simply completed.

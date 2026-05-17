@@ -807,14 +807,41 @@
          * @param {string} str
          * @returns {string}
          */
-        const escYaml = (str) => (str ?? '').replace(/"/g, '\\"').replace(/\n/g, ' ');
+        const escYaml = (str) =>
+            String(str ?? '')
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"')
+                .replace(/\n/g, ' ');
 
         /**
          * Escapes characters that can break Markdown inline text.
          * @param {string} str
          * @returns {string}
          */
-        const escMd = (str) => (str ?? '').replace(/[|`[\]]/g, '\\$&');
+        const escMd = (str) => String(str ?? '').replace(/([\\`*_[\]<>|])/g, '\\$1');
+
+        /**
+         * Flattens multi-line strings into a single line for table cells.
+         */
+        const oneLine = (str) => String(str ?? '').replace(/\n/g, ' ');
+
+        /**
+         * Formats a relative date string safely.
+         */
+        const formatRelativeDate = (ts) => {
+            if (!ts || ts <= 0) return 'Unknown';
+            const diff = Math.max(0, Date.now() - ts);
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 1) return `${days} days ago`;
+            if (days === 1) return 'Yesterday';
+            if (hours > 0) return `${hours} hours ago`;
+            if (minutes > 0) return `${minutes} minutes ago`;
+            return 'Just now';
+        };
 
         /**
          * Sanitizes a string to be safe as a filename.
@@ -1021,6 +1048,16 @@
             const { videoId, title, author, authorId, watchProgress, lengthSeconds,
                 timeWatched, type, playlistTitle, viewCount, description, completionHistory, isProtected, forceResumeTime } = video;
 
+            // 1) Guard early against absent or invalid videoId
+            if (!videoId || videoId === 'undefined') {
+                return '# Invalid Video Metadata\n\nUnable to generate Markdown export: Video ID is missing or undefined.';
+            }
+
+            // 3) Sanitize inputs once early to prevent repeated coerces
+            const safeWatchProgress = Math.max(0, Number(watchProgress) || 0);
+            const safeLengthSeconds = Math.max(0, Number(lengthSeconds) || 0);
+            const safeViewCount = Math.max(0, Number(viewCount) || 0);
+
             const ytUrl = type === 'shorts'
                 ? `https://www.youtube.com/shorts/${videoId}`
                 : `https://www.youtube.com/watch?v=${videoId}`;
@@ -1028,10 +1065,11 @@
                 ? `https://www.youtube.com/channel/${authorId}`
                 : `https://www.youtube.com/results?search_query=${encodeURIComponent(author)}`;
             const thumbUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-            const percent = watchPercent(watchProgress, lengthSeconds, video.isCompleted);
-            const duration = formatDuration(lengthSeconds);
-            const watched = formatDuration(watchProgress);
+            const percent = watchPercent(safeWatchProgress, safeLengthSeconds, video.isCompleted);
+            const duration = formatDuration(safeLengthSeconds);
+            const watched = formatDuration(safeWatchProgress);
             const dateStr = formatDate(timeWatched);
+            const relativeDateStr = formatRelativeDate(timeWatched);
 
             let block = '';
 
@@ -1042,19 +1080,25 @@
             if (authorId) block += `channelId: "${authorId}"\n`;
             block += `videoId: "${videoId}"\n`;
             block += `type: ${type}\n`;
-            block += `watchProgress: ${Math.round(watchProgress)}\n`;
-            block += `lengthSeconds: ${Math.round(lengthSeconds)}\n`;
+            block += `watchProgress: ${Math.round(safeWatchProgress)}\n`;
+            block += `lengthSeconds: ${Math.round(safeLengthSeconds)}\n`;
             block += `percentWatched: ${percent}\n`;
             block += `dateWatched: ${dateStr}\n`;
+            block += `dateWatchedRelative: "${relativeDateStr}"\n`;
             if (timeWatched > 0) block += `dateWatchedTimestamp: ${timeWatched}\n`;
             if (playlistTitle) block += `playlist: "${escYaml(playlistTitle)}"\n`;
-            if (viewCount > 0) block += `viewCount: ${viewCount}\n`;
+            if (safeViewCount > 0) block += `viewCount: ${safeViewCount}\n`;
 
-            const watchedCount = completionHistory?.total || completionHistory?.events?.length || 0;
+            // 7) Validate completion history timestamps to filter out non-finite or negative values
+            const validEvents = (completionHistory?.events || [])
+                .map(Number)
+                .filter(ts => Number.isFinite(ts) && ts > 0);
+
+            const watchedCount = completionHistory?.total || validEvents.length || 0;
             block += `watchedCount: ${watchedCount}\n`;
-            if (watchedCount > 0) {
+            if (watchedCount > 0 && validEvents.length > 0) {
                 block += `completionHistory:\n`;
-                (completionHistory?.events || []).forEach(ts => {
+                validEvents.forEach(ts => {
                     block += `  - ${formatDate(ts)}\n`;
                 });
             }
@@ -1082,44 +1126,54 @@
                 block += `> [!info]- Video Information\n`;
                 block += `> | Field       | Value |\n`;
                 block += `> |------------|-------|\n`;
-                block += `> | **Channel**   | [${escMd(author)}](${channelUrl}) |\n`;
+                block += `> | **Channel**   | [${escMd(oneLine(author))}](${channelUrl}) |\n`;
                 block += `> | **Type**    | ${type} |\n`;
                 block += `> | **Duration**| ${duration} |\n`;
                 block += `> | **Watched**   | ${watched} / ${duration} → **${percent}%** |\n`;
                 block += `> | **Progress**| \`${progressBar(percent)}\` |\n`;
-                block += `> | **Date**   | ${dateStr} |\n`;
+                block += `> | **Date**   | ${dateStr} (${relativeDateStr}) |\n`;
 
-                const watchedCount = completionHistory?.total || completionHistory?.events?.length || 0;
                 if (watchedCount > 0) {
                     block += `> | **Times completed** | ${watchedCount} |\n`;
                 }
 
-                if (playlistTitle) block += `> | **Playlist**| ${escMd(playlistTitle)} |\n`;
-                if (viewCount > 0) block += `> | **Views**  | ${viewCount.toLocaleString()} |\n`;
+                if (playlistTitle) block += `> | **Playlist**| ${escMd(oneLine(playlistTitle))} |\n`;
+                if (safeViewCount > 0) block += `> | **Views**  | ${safeViewCount.toLocaleString()} |\n`;
                 block += `> \n`;
-                block += `> 🔗 [Watch on YouTube](${ytUrl})\n`;
+                block += `> 🔗 [Watch on YouTube](${ytUrl})\n\n`;
             } else {
-                block += `- **Channel:** [${escMd(author)}](${channelUrl})\n`;
+                block += `- **Channel:** [${escMd(oneLine(author))}](${channelUrl})\n`;
                 block += `- **Type:** ${type}\n`;
                 block += `- **Progress:** ${watched} / ${duration} → ${percent}% \`${progressBar(percent)}\`\n`;
-                block += `- **Date watched:** ${dateStr}\n`;
+                block += `- **Date watched:** ${dateStr} (${relativeDateStr})\n`;
                 if (watchedCount > 0) {
                     block += `- **Times completed:** ${watchedCount}\n`;
                 }
-                if (playlistTitle) block += `- **Playlist:** ${escMd(playlistTitle)}\n`;
-                block += `- 🔗 [Watch on YouTube](${ytUrl})\n`;
+                if (playlistTitle) block += `- **Playlist:** ${escMd(oneLine(playlistTitle))}\n`;
+                block += `- 🔗 [Watch on YouTube](${ytUrl})\n\n`;
             }
+
+            // 6) YouTube media embed fallback format
+            block += `![](https://www.youtube.com/watch?v=${videoId})\n\n`;
 
             block += `\n#${opts.tagPrefix} #${opts.tagPrefix}/${type}\n`;
 
             // ── Description ──────────────────────────────────────
             if (description && description.trim()) {
                 block += `\n---\n`;
+                
+                // 8) Truncate extremely long descriptions to protect vault note payloads
+                const MAX_DESCRIPTION_LENGTH = 10000;
+                let truncatedDesc = description.trim();
+                if (truncatedDesc.length > MAX_DESCRIPTION_LENGTH) {
+                    truncatedDesc = truncatedDesc.substring(0, MAX_DESCRIPTION_LENGTH) + '\n\n[Description truncated for length...]';
+                }
+
                 if (opts.callout) {
                     block += `> [!quote]- Description\n`;
-                    block += `> ${description.trim().replace(/\n/g, '\n> ')}\n`;
+                    block += `> ${truncatedDesc.replace(/\n/g, '\n> ')}\n`;
                 } else {
-                    block += `### Description\n\n${description.trim()}\n`;
+                    block += `### Description\n\n${truncatedDesc}\n`;
                 }
             }
 

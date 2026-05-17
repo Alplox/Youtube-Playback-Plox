@@ -138,7 +138,7 @@
     // MARK: 🔍 Logger System
     // ============================================================================================================
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.debug; // Set to 'debug' to see all, or 'warn'/'error' for less.
+    const level = L.silent; // Set to 'debug' to see all, or 'warn'/'error' for less.
 
     const LOG_STYLES = {
         debug: 'color:#6a9955;',
@@ -378,27 +378,37 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
          *   quickAccess: string[],
          *   actions: string[],
          *   actionVisibility: Record<string, boolean>,
-         *   entryButtonOpacityMode: 'full'|'dimUntilHover'|'hiddenUntilHover',
-         *   inactiveToolbarOpacity: number,
+         *   entryButtonVisibility: 'alwaysVisible'|'dimUntilHover'|'hiddenUntilHover'|'hidden',
          *   toolbarSectionExpanded: boolean,
-         *   showOverflowMenu: boolean
+         *   showOverflowMenu: boolean,
+         *   colouredLabelsStyle: 'color'|'colorOnHover'|'grayscaleOnHover'|'grayscale',
+         *   colouredLabelsVisibility: 'alwaysVisible'|'dimUntilHover'|'hiddenUntilHover'|'hidden',
+         *   displayOptions: {
+         *     showThumbnails: boolean,
+         *     showViews: boolean,
+         *     showStats: boolean,
+         *     showButtons: boolean,
+         *     viewMode: 'list' | 'grid',
+         *     gridAlwaysExpanded: boolean,
+         *     gridExpansionMode: 'single' | 'multiple',
+         *     openInNewTab: boolean
+         *   }
          * }}
          */
         defaultSavedVideosModalSettings: {
-            quickAccess: ['qa-freetube', 'qa-spotify'],
+            quickAccess: ['qa-freetube', 'qa-spotify', 'qa-markdown'],
             actions: ['force-time', 'unlink-playlist', 'toggle-protection', 'delete-entry'],
             actionVisibility: {},
-            entryButtonOpacityMode: 'full',
-            inactiveToolbarOpacity: 0.7,
+            entryButtonVisibility: 'alwaysVisible',
             toolbarSectionExpanded: false,
             showOverflowMenu: true,
             colouredLabelsStyle: 'color',
-            colouredLabelsVisibility: 'full',
+            colouredLabelsVisibility: 'alwaysVisible',
             displayOptions: {
                 showThumbnails: true,
                 showViews: true,
-                showStats: true,
-                showButtons: true,
+                /* showStats: true,
+                showButtons: true, */
                 viewMode: 'list', // 'list' | 'grid'
                 gridAlwaysExpanded: false,
                 gridExpansionMode: 'single',
@@ -412,6 +422,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     // ============================================================================================================
     /** @type {string} Default language */
     const DEFAULT_LANGUAGE = CONFIG.defaultSettings.language;
+
+    /** @type {number} Default static finish percent */
+    const DEFAULT_STATIC_FINISH_PERCENT = CONFIG.defaultSettings.staticFinishPercent;
 
     // ============================================================================================================
     // MARK: 📊 Global Variables
@@ -542,7 +555,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "resumeCompletedFromStartTooltip": "If enabled, videos marked as completed will always start from 00:00. If disabled, they will stay at the end to allow YouTube's auto-advance to continue.",
             "autoCleanupEnabled": "Enable automatic history cleanup",
             "autoCleanupDays": "Cleanup videos older than (days)",
-            "autoCleanupDaysDescription": "Videos that haven't been watched in X days will be deleted. Protected videos are excluded.",
+            "autoCleanupDaysDescription": "Videos that haven't been watched for more than X days (since their last watch date) will be deleted. Protected videos are excluded.",
             "autoCleanupStarted": "Starting automatic history cleanup...",
             "autoCleanupNoVideosFound": "No videos older than {days} days found to delete.",
             "autoCleanupFinished": "Automatic cleanup complete: {count} videos removed.",
@@ -639,11 +652,11 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "searchInSpotify": "Search in Spotify",
             "savedVideosToolbarQuickAccess": "Quick access",
             "savedVideosToolbarActions": "Actions",
-            "savedVideosToolbarEntryOpacity": "Row button visibility",
-            "savedVideosToolbarEntryOpacityFull": "Always visible",
-            "savedVideosToolbarEntryOpacityDim": "Dim until hover",
-            "savedVideosToolbarEntryOpacityHidden": "Hidden until hover",
-            "savedVideosToolbarMaxSlotsReached": "You can pin at most 5 actions per row.",
+            "savedVideosToolbarEntryVisibility": "Row button visibility",
+            "AlwaysVisible": "Always visible",
+            "DimUntilHover": "Dim until hover",
+            "HiddenUntilHover": "Hidden until hover",
+            "Hidden": "Hidden",
             "savedVideosMoreActions": "More actions",
             "savedVideosToolbarSectionTitle": "Saved videos toolbar",
             "savedVideosToolbarSectionToggleTitle": "Expand or collapse row action settings",
@@ -662,11 +675,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "colouredLabelsStyleGrayscale": "Grayscale",
             "colouredLabelsStyleColorOnHover": "Color on hover",
             "colouredLabelsStyleGrayscaleOnHover": "Gray on hover",
-            "colouredLabelsVisibilityFull": "Always visible",
-            "colouredLabelsVisibilityDim": "Dim until hover",
-            "colouredLabelsVisibilityHiddenUntilHover": "Hidden until hover",
-            "colouredLabelsVisibilityHidden": "Hide",
             "openInNewTab": "Open links in new tab",
+            "copyMarkdown": "Copy to Markdown",
+            "markdownCopied": "Markdown copied to clipboard!",
             "importingFromFreeTube": "Importing from FreeTube...",
             "importingFromFreeTubeAsSQLite": "Importing from FreeTube as SQLite...",
             "videosImported": "videos imported",
@@ -772,7 +783,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                         try {
                             const cached = JSON.parse(raw);
                             const isFresh = cached?.ts && (Date.now() - cached.ts) < TTL_MS;
-                            const cachedVersion = cached?.version ?? cached?.data?.VERSION;
+                            const cachedVersion = cached?.version ?? cached?.data?.VERSION ?? cached?.data?.__metadata__?.VERSION;
                             const versionMatches = !TRANSLATIONS_EXPECTED_VERSION || cachedVersion === TRANSLATIONS_EXPECTED_VERSION;
 
                             if (isFresh && cached?.data && versionMatches) {
@@ -860,7 +871,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                         // Cache payload asynchronously
                         const cachePayload = JSON.stringify({
                             ts: Date.now(),
-                            version: candidate.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null,
+                            version: candidate.VERSION ?? candidate.__metadata__?.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null,
                             data: candidate
                         });
                         try {
@@ -968,10 +979,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     }
 
     // ============================================================================================================
-    // MARK: 📝 SELECTOR SYSTEM
+    // MARK: 📝 Selector System
     // ============================================================================================================
     /**
-     * SELECTOR INFRASTRUCTURE LAYER
+     * Selector Infrastructure Layer
      * 
      * Naming conventions:
      * - elements => raw tag selectors (e.g. 'ytd-shorts')
@@ -1337,7 +1348,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     // ============================================================================================================
     // MARK: ⚙️ DOM Cache System
     // ============================================================================================================
-
     /**
      * DOM query selectors with caching system.
      * @returns {Object} DOM helpers
@@ -2568,8 +2578,7 @@ regular-item.ypp-fill-none {
     text-shadow: none !important;
 
     /*  max-width: 180px; */
-    font-size: var(--ypp-font-size-sm);
-    font-weight: var(--ypp-font-weight-medium);
+    font-size: var(--ypp-font-size-md);
     color: var(--ypp-white);
     border-left: 2px solid var(--ypp-bg);
 }
@@ -2797,9 +2806,6 @@ regular-item.ypp-fill-none {
     flex-wrap: wrap;
 }
 
-.ypp-saved-videos-toolbar-toggle.is-inactive {
-    opacity: var(--ypp-toolbar-inactive-opacity, 0.7);
-}
 
 .ypp-saved-videos-toolbar-opacity-row {
     display: flex;
@@ -2825,6 +2831,13 @@ regular-item.ypp-fill-none {
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
     padding: 4px;
+
+    position: fixed;
+    z-index: 100002;
+    max-height: min(70vh, 420px);
+    overflow-y: auto;
+    min-width: 200px;
+    max-width: 300px;
 }
 
 .ypp-videosContainer[data-ypp-act-force_time="off"] .ypp-video-item [data-action-id="force-time"] {
@@ -2851,20 +2864,33 @@ regular-item.ypp-fill-none {
     display: none !important;
 }
 
-.ypp-videosContainer[data-entry-action-opacity="dim"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
+.ypp-videosContainer[data-ypp-act-qa_markdown="off"] .ypp-video-item [data-action-id="qa-markdown"] {
+    display: none !important;
+}
+
+.ypp-videosContainer[data-entry-action-opacity="dimUntilHover"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action,
+.ypp-videosContainer[data-entry-action-opacity="hiddenUntilHover"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
+    transition: opacity 0.2s ease;
+}
+
+.ypp-videosContainer[data-entry-action-opacity="dimUntilHover"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
     opacity: 0.7;
 }
 
-.ypp-videosContainer[data-entry-action-opacity="dim"] .ypp-containerButtonsTime:hover .ypp-btn-circle.ypp-saved-video-entry-action {
+.ypp-videosContainer[data-entry-action-opacity="dimUntilHover"] .ypp-containerButtonsTime:hover .ypp-btn-circle.ypp-saved-video-entry-action {
+    opacity: 1;
+}
+
+.ypp-videosContainer[data-entry-action-opacity="hiddenUntilHover"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
+    opacity: 0;
+}
+
+.ypp-videosContainer[data-entry-action-opacity="hiddenUntilHover"] .ypp-containerButtonsTime:hover .ypp-btn-circle.ypp-saved-video-entry-action {
     opacity: 1;
 }
 
 .ypp-videosContainer[data-entry-action-opacity="hidden"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
-    opacity: 0;
-}
-
-.ypp-videosContainer[data-entry-action-opacity="hidden"] .ypp-containerButtonsTime:hover .ypp-btn-circle.ypp-saved-video-entry-action {
-    opacity: 1;
+    display: none !important;
 }
 
 .ypp-videosContainer[data-ypp-overflow-menu="off"] .ypp-saved-video-overflow-trigger {
@@ -2906,10 +2932,10 @@ regular-item.ypp-fill-none {
 }
 
 /* Label Visibility */
-.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-progressInfo,
-.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-timestamp.forced,
-/* .ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-playlist-indicator, */
+.ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-timestamp.forced,
+/* .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-playlist-indicator, */
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.completed,
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.forced
@@ -2918,11 +2944,11 @@ regular-item.ypp-fill-none {
     transition: all 0.2s ease;
 }
 
-.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
-.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
-/* .ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator,
-.ypp-videosContainer[data-ypp-label-visibility="dim"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator *  */{
+.ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
+.ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
+.ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
+/* .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator,
+.ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator *  */{
     opacity: 0.5;
 }
 
@@ -3888,7 +3914,6 @@ regular-item.ypp-fill-none {
         -ms-flex-positive: 1;
             flex-grow: 1;
     min-width: 0;
-    /* Permite que el contenedor se encoja correctamente */
 }
 
 .ypp-containerButtonsTime {
@@ -5197,12 +5222,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // MARK: 🎨 Theme
     // ============================================================================================================
 
+    /**
+     * Detects if YouTube is in dark mode
+     * @returns {boolean} True if YouTube is in dark mode
+     */
     function isYouTubeDarkTheme() {
-        // Detectar si YouTube está en modo oscuro
         const htmlElement = document.documentElement;
         const computedStyle = getComputedStyle(htmlElement);
 
-        // Verificar tema oscuro
         return (
             htmlElement.getAttribute('dark') === 'true' ||
             htmlElement.hasAttribute('dark') ||
@@ -5214,24 +5241,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
-     * Aplica el atributo data-theme basado en el tema de YouTube.
-     * Esta función debe llamarse durante la inicialización y cuando cambie el tema.
+     * Applies the data-theme attribute based on the YouTube theme.
+     * This function must be called during initialization and when the theme changes.
      */
     function applyTheme() {
         const htmlElement = document.documentElement;
         const isDark = isYouTubeDarkTheme();
 
-        if (isDark) {
-            htmlElement.setAttribute('data-theme', 'dark');
-        } else {
-            htmlElement.removeAttribute('data-theme');
-        }
+        if (isDark) htmlElement.setAttribute('data-theme', 'dark');
+        else htmlElement.removeAttribute('data-theme');
 
-        logLog('applyTheme', `Tema aplicado: ${isDark ? 'dark' : 'light'}`);
+        logLog('applyTheme', `Theme applied: ${isDark ? 'dark' : 'light'}`);
     }
 
     /**
-     * Observa cambios en el atributo 'dark' de YouTube y actualiza data-theme.
+     * Observes changes in the 'dark' attribute of YouTube and updates data-theme.
      */
     function observeThemeChanges() {
         const htmlElement = document.documentElement;
@@ -5250,32 +5274,31 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             attributeFilter: ['dark']
         });
 
-        logLog('observeThemeChanges', 'Observer de tema iniciado');
+        logLog('observeThemeChanges', 'Theme observer started');
     }
 
     /**
-     * Desconecta el observer de tema para prevenir memory leaks.
+     * Disconnects the theme observer.
      */
     function cleanupThemeObserver() {
         if (themeObserver) {
             themeObserver.disconnect();
             themeObserver = null;
-            logLog('cleanupThemeObserver', 'Observer de tema desconectado');
+            logLog('cleanupThemeObserver', 'Theme observer disconnected');
         }
     }
 
     /**
-     * Limpia todos los listeners globales registrados para evitar memory leaks.
+     * Disconnects all globally registered listeners.
      */
     function cleanupGlobalListeners() {
         GlobalDisposables.dispose();
-        logLog('cleanupGlobalListeners', 'Recursos globales liberados');
+        logLog('cleanupGlobalListeners', 'Global resources released');
     }
 
     // ============================================================================================================
     // MARK: 🎨 SVG Icons
     // ============================================================================================================
-
     // Use SVG's over emojis for better cross-browser consistency
     const SVG_ICONS = {
         /* iconamoon - CC BY 4.0 ------------------------------------ */
@@ -5331,8 +5354,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         chevronDown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7 9a1 1 0 0 0-.707 1.707l5 5a1 1 0 0 0 1.414 0l5-5A1 1 0 0 0 17 9z" clip-rule="evenodd"/></svg>',
         // https://icon-sets.iconify.design/iconamoon/restart/
         restart: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3a9 9 0 1 1-5.657 2"/><path d="M3 4.5h4v4"/></g></svg>',
-        unfoldMore: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="m7 15l5 5l5-5M7 9l5-5l5 5"/></svg>',
-        stack: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="2"><path d="m12 6l-8 4l8 4l8-4z"/><path d="m4 14l8 4l8-4m-16-4l8 4l8-4"/></g></svg>',
+        // https://icon-sets.iconify.design/octicon/markdown-16/
+        markdown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M14.85 3c.63 0 1.15.52 1.14 1.15v7.7c0 .63-.51 1.15-1.15 1.15H1.15C.52 13 0 12.48 0 11.84V4.15C0 3.52.52 3 1.15 3ZM9 11V5H7L5.5 7L4 5H2v6h2V8l1.5 1.92L7 8v3Zm2.99.5L14.5 8H13V5h-2v3H9.5Z"/></svg>',
 
 
         /* octicon - MIT ------------------------------------ */
@@ -5370,8 +5393,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         people: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M2 5.5a3.5 3.5 0 1 1 5.898 2.549a5.51 5.51 0 0 1 3.034 4.084a.75.75 0 1 1-1.482.235a4 4 0 0 0-7.9 0a.75.75 0 0 1-1.482-.236A5.5 5.5 0 0 1 3.102 8.05A3.5 3.5 0 0 1 2 5.5M11 4a3.001 3.001 0 0 1 2.22 5.018a5 5 0 0 1 2.56 3.012a.749.749 0 0 1-.885.954a.75.75 0 0 1-.549-.514a3.51 3.51 0 0 0-2.522-2.372a.75.75 0 0 1-.574-.73v-.352a.75.75 0 0 1 .416-.672A1.5 1.5 0 0 0 11 5.5A.75.75 0 0 1 11 4m-5.5-.5a2 2 0 1 0-.001 3.999A2 2 0 0 0 5.5 3.5"/></svg>',
         // https://icon-sets.iconify.design/octicon/bug-16/
         bug: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M4.72.22a.75.75 0 0 1 1.06 0l1 .999a3.5 3.5 0 0 1 2.441 0l.999-1a.748.748 0 0 1 1.265.332a.75.75 0 0 1-.205.729l-.775.776c.616.63.995 1.493.995 2.444v.327q0 .15-.025.292c.408.14.764.392 1.029.722l1.968-.787a.75.75 0 0 1 .556 1.392L13 7.258V9h2.25a.75.75 0 0 1 0 1.5H13v.5q-.002.615-.141 1.186l2.17.868a.75.75 0 0 1-.557 1.392l-2.184-.873A5 5 0 0 1 8 16a5 5 0 0 1-4.288-2.427l-2.183.873a.75.75 0 0 1-.558-1.392l2.17-.868A5 5 0 0 1 3 11v-.5H.75a.75.75 0 0 1 0-1.5H3V7.258L.971 6.446a.75.75 0 0 1 .558-1.392l1.967.787c.265-.33.62-.583 1.03-.722a2 2 0 0 1-.026-.292V4.5c0-.951.38-1.814.995-2.444L4.72 1.28a.75.75 0 0 1 0-1.06m.53 6.28a.75.75 0 0 0-.75.75V11a3.5 3.5 0 1 0 7 0V7.25a.75.75 0 0 0-.75-.75ZM6.173 5h3.654A.17.17 0 0 0 10 4.827V4.5a2 2 0 1 0-4 0v.327c0 .096.077.173.173.173"/></svg>',
-
-
+        // https://icon-sets.iconify.design/octicon/fold-down-16/
+        foldDown: '<svg class="ypp-svg-reset ypp-fill-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="m8.177 14.323l2.896-2.896a.25.25 0 0 0-.177-.427H8.75V7.764a.75.75 0 1 0-1.5 0V11H5.104a.25.25 0 0 0-.177.427l2.896 2.896a.25.25 0 0 0 .354 0M2.25 5a.75.75 0 0 0 0-1.5h-.5a.75.75 0 0 0 0 1.5zM6 4.25a.75.75 0 0 1-.75.75h-.5a.75.75 0 0 1 0-1.5h.5a.75.75 0 0 1 .75.75M8.25 5a.75.75 0 0 0 0-1.5h-.5a.75.75 0 0 0 0 1.5zM12 4.25a.75.75 0 0 1-.75.75h-.5a.75.75 0 0 1 0-1.5h.5a.75.75 0 0 1 .75.75m2.25.75a.75.75 0 0 0 0-1.5h-.5a.75.75 0 0 0 0 1.5z"/></svg>',
+        // https://icon-sets.iconify.design/octicon/arrow-both-16/
+        arrowBoth: '<svg class="ypp-svg-reset" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M3.72 3.72a.75.75 0 0 1 1.042.018a.75.75 0 0 1 .018 1.042L2.56 7h10.88l-2.22-2.22a.75.75 0 0 1 .018-1.042a.75.75 0 0 1 1.042-.018l3.5 3.5a.75.75 0 0 1 0 1.06l-3.5 3.5a.749.749 0 0 1-1.275-.326a.75.75 0 0 1 .215-.734l2.22-2.22H2.56l2.22 2.22a.749.749 0 0 1-.326 1.275a.75.75 0 0 1-.734-.215l-3.5-3.5a.75.75 0 0 1 0-1.06Z"/></svg>',
+        // https://icon-sets.iconify.design/octicon/crosshairs-16/
+        crosshair: '<svg class="ypp-svg-reset" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M14 8A6 6 0 1 1 2 8a6 6 0 0 1 12 0m-1.5 0a4.5 4.5 0 1 0-9 0a4.5 4.5 0 0 0 9 0"/><path fill="currentColor" d="M5 7.25a.75.75 0 0 1 0 1.5H1a.75.75 0 0 1 0-1.5Zm3-7a.75.75 0 0 1 .75.75v4a.75.75 0 0 1-1.5 0V1A.75.75 0 0 1 8 .25m7 7a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1 0-1.5Zm-7 3a.75.75 0 0 1 .75.75v4a.75.75 0 0 1-1.5 0v-4a.75.75 0 0 1 .75-.75"/></svg>',
+        // https://icon-sets.iconify.design/octicon/image-16/
+        image: '<svg class="ypp-svg-reset" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M16 13.25A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75ZM1.75 2.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h.94l.03-.03l6.077-6.078a1.75 1.75 0 0 1 2.412-.06L14.5 10.31V2.75a.25.25 0 0 0-.25-.25Zm12.5 11a.25.25 0 0 0 .25-.25v-.917l-4.298-3.889a.25.25 0 0 0-.344.009L4.81 13.5ZM7 6a2 2 0 1 1-3.999.001A2 2 0 0 1 7 6M5.5 6a.5.5 0 1 0-1 0a.5.5 0 0 0 1 0"/></svg>',
 
         /* SVG REPO  ------------------------------------ */
         // https://www.svgrepo.com/svg/154204/world-grid - CC0 License
@@ -6238,21 +6267,30 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const d = CONFIG.defaultSavedVideosModalSettings;
         const src = raw && typeof raw === 'object' ? raw : {};
         const merged = { ...d, ...src };
-        merged.quickAccess = Array.isArray(merged.quickAccess)
-            ? [...merged.quickAccess]
-            : [...d.quickAccess];
-        merged.actions = Array.isArray(merged.actions)
-            ? [...merged.actions]
-            : [...d.actions];
+        const cleanQA = Array.isArray(merged.quickAccess) ? merged.quickAccess : [];
+        const uniqueQA = [...cleanQA];
+        for (const qaId of d.quickAccess) {
+            if (!uniqueQA.includes(qaId)) {
+                uniqueQA.push(qaId);
+            }
+        }
+        merged.quickAccess = uniqueQA;
+
+        const cleanAct = Array.isArray(merged.actions) ? merged.actions : [];
+        const uniqueAct = [...cleanAct];
+        for (const actId of d.actions) {
+            if (!uniqueAct.includes(actId)) {
+                uniqueAct.push(actId);
+            }
+        }
+        merged.actions = uniqueAct;
         merged.actionVisibility = typeof merged.actionVisibility === 'object' && merged.actionVisibility !== null
             ? { ...merged.actionVisibility }
             : {};
-        const mode = merged.entryButtonOpacityMode;
-        merged.entryButtonOpacityMode = (mode === 'full' || mode === 'dimUntilHover' || mode === 'hiddenUntilHover')
+        const mode = merged.entryButtonVisibility;
+        merged.entryButtonVisibility = (mode === 'alwaysVisible' || mode === 'dimUntilHover' || mode === 'hiddenUntilHover' || mode === 'hidden')
             ? mode
-            : d.entryButtonOpacityMode;
-        const op = Number(merged.inactiveToolbarOpacity);
-        merged.inactiveToolbarOpacity = Number.isFinite(op) && op >= 0 && op <= 1 ? op : d.inactiveToolbarOpacity;
+            : d.entryButtonVisibility;
         merged.toolbarSectionExpanded = typeof merged.toolbarSectionExpanded === 'boolean'
             ? merged.toolbarSectionExpanded
             : d.toolbarSectionExpanded;
@@ -6274,7 +6312,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (merged.colouredLabelsVisibility === 'hidden') {
             merged.colouredLabelsVisibility = 'hiddenUntilHover';
         }
-        if (merged.colouredLabelsVisibility !== 'full' && merged.colouredLabelsVisibility !== 'dim' && merged.colouredLabelsVisibility !== 'hiddenUntilHover') {
+        if (merged.colouredLabelsVisibility !== 'alwaysVisible' && merged.colouredLabelsVisibility !== 'dimUntilHover' && merged.colouredLabelsVisibility !== 'hiddenUntilHover') {
             merged.colouredLabelsVisibility = d.colouredLabelsVisibility;
         }
 
@@ -8536,7 +8574,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Considerar completado si el progreso es >= 95% o si quedan menos de 30 segundos
             const progressPercent = (watchProgress / lengthSeconds) * 100;
             const remainingSeconds = lengthSeconds - watchProgress;
-            isCompleted = progressPercent >= (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent) || remainingSeconds <= 30;
+            isCompleted = progressPercent >= (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) || remainingSeconds <= 30;
         }
 
         return {
@@ -8716,7 +8754,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
         const progress = duration > 0 ? (currentTime / duration) : 0;
-        const defaultPercent = (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent) / 100;
+        const defaultPercent = (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) / 100;
         const isFinished = duration > 0 && (
             progress >= defaultPercent ||
             (duration <= 60 && currentTime >= duration - 0.75)
@@ -8860,7 +8898,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
         const progress = duration > 0 ? (currentTime / duration) : 0;
-        const defaultPercent = (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent) / 100;
+        const defaultPercent = (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) / 100;
         const isFinished = duration > 0 && (
             progress >= defaultPercent ||
             (duration <= 60 && currentTime >= duration - 0.75)
@@ -8976,7 +9014,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
         const progress = duration > 0 ? (currentTime / duration) : 0;
-        const defaultPercent = (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent) / 100;
+        const defaultPercent = (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) / 100;
         const isFinished = duration > 0 && (
             progress >= defaultPercent ||
             (duration <= 60 && currentTime >= duration - 0.75)
@@ -11225,7 +11263,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         <div class="ypp-settings-second-level-section">
             <label class="ypp-label">
                 <input type="checkbox" name="autoCleanupEnabled" ${settings.autoCleanupEnabled ? 'checked' : ''}>
-                <span style="font-weight: bold;">${t('autoCleanupEnabled')} ${SVG_ICONS.trash}</span>
+                <span>${t('autoCleanupEnabled')} ${SVG_ICONS.trash}</span>
             </label>
             <div class="ypp-settings-third-level-section" style=" ${settings.autoCleanupEnabled ? '' : 'display: none;'} opacity: ${settings.autoCleanupEnabled ? '1' : '0.5'};">
                 <label class="ypp-label">
@@ -11739,7 +11777,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
 
             // Añadir botones de gestión masiva
-            const items = virtualScroller && virtualScroller.items ? virtualScroller.items.filter(i => i.info) : [];
+            const items = getVirtualScrollerVideoItems();
             const allSelected = items.length > 0 && items.every(v => selectedVideos.has(v.info.videoId));
 
             const selectionInfo = createElement('span', {
@@ -11794,7 +11832,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 id: 'ypp-select-all-btn',
                 html: allSelected ? `${SVG_ICONS.close} ${t('deselectAllResults')}` : `${SVG_ICONS.check} ${t('selectAllResults')}`,
                 onClickEvent: async () => {
-                    const currentItems = virtualScroller && virtualScroller.items ? virtualScroller.items.filter(i => i.info) : [];
+                    const currentItems = getVirtualScrollerVideoItems();
                     if (currentItems.length === 0) return;
 
                     const currentAllSelected = currentItems.every(v => selectedVideos.has(v.info.videoId));
@@ -12007,7 +12045,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             const playlistActions = createElement('div', { className: 'ypp-playlist-actions' });
 
-            const items = virtualScroller && virtualScroller.items ? virtualScroller.items.filter(i => i.info) : [];
+            const items = getVirtualScrollerVideoItems();
             const allSelected = items.length > 0 && items.every(v => selectedVideos.has(v.info.videoId));
 
             const btnSelectAll = createElement('button', {
@@ -12015,7 +12053,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 id: 'ypp-playlist-select-all-btn',
                 html: allSelected ? `${SVG_ICONS.close} ${t('deselectAllResults')}` : `${SVG_ICONS.check} ${t('selectAllResults')}`,
                 onClickEvent: async () => {
-                    const currentItems = virtualScroller && virtualScroller.items ? virtualScroller.items.filter(i => i.info) : [];
+                    const currentItems = getVirtualScrollerVideoItems();
                     if (currentItems.length === 0) return;
 
                     const currentAllSelected = currentItems.every(v => selectedVideos.has(v.info.videoId));
@@ -12061,7 +12099,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             const refreshPlaylistState = () => {
                 const size = selectedVideos.size;
-                const items = virtualScroller && virtualScroller.items ? virtualScroller.items.filter(i => i.info) : [];
+                const items = getVirtualScrollerVideoItems();
                 const allSelected = items.length > 0 && items.every(v => selectedVideos.has(v.info.videoId));
 
                 playlistInfo.textContent = `${t('selectedVideos')}: ${size} / 50 ${t('maxLimit')}`;
@@ -12151,7 +12189,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     function updateManagementFooterState() {
         if (!isManagementMode) return;
         const selectedCount = selectedVideos.size;
-        const currentItems = virtualScroller && virtualScroller.items ? virtualScroller.items.filter(i => i.info) : [];
+        const currentItems = getVirtualScrollerVideoItems();
         const selectedInCurrentResults = currentItems.reduce((count, item) => (
             count + (selectedVideos.has(item.info.videoId) ? 1 : 0)
         ), 0);
@@ -13682,7 +13720,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const duration = Number(cachedVideoInfo?.lengthSeconds || 0);
         if (!isFinite(target) || !isFinite(duration) || target <= 0 || duration <= 0) return false;
 
-        const finishPercent = (cachedSettings?.staticFinishPercent || CONFIG.defaultSettings.staticFinishPercent) / 100;
+        const finishPercent = (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) / 100;
         const thresholdByPercent = duration * finishPercent;
         const thresholdByShortVideo = duration <= 60 ? (duration - 0.75) : Number.POSITIVE_INFINITY;
         const completionThreshold = Math.min(thresholdByPercent, thresholdByShortVideo);
@@ -15821,6 +15859,30 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     /** @type {((ev: Event) => void)|null} */
     let savedVideoOverflowDocHandler = null;
 
+    /**
+     * Obtiene todos los elementos de video reales del virtualScroller.items,
+     * aplanándolos si están envueltos en estructuras de tipo 'grid-row'.
+     * @returns {Array<Object>}
+     */
+    function getVirtualScrollerVideoItems() {
+        if (!virtualScroller || !virtualScroller.items) return [];
+        const result = [];
+        for (const item of virtualScroller.items) {
+            if (item.type === 'grid-row') {
+                if (Array.isArray(item.items)) {
+                    for (const subItem of item.items) {
+                        if (subItem && subItem.info) {
+                            result.push(subItem);
+                        }
+                    }
+                }
+            } else if (item && item.info) {
+                result.push(item);
+            }
+        }
+        return result;
+    }
+
     /** @constant {number} Altura estimada de cada item de video en px. Se usa para calcular posiciones en el virtual scroller. */
     const VIDEO_ITEM_HEIGHT = 120;
 
@@ -17142,7 +17204,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             attributes: { role: 'menu' }
         });
 
-        const menuOrder = ['qa-freetube', 'qa-spotify', 'force-time', 'unlink-playlist', 'toggle-protection', 'delete-entry'];
+        const menuOrder = ['qa-freetube', 'qa-spotify', 'qa-markdown', 'force-time', 'unlink-playlist', 'toggle-protection', 'delete-entry'];
         for (const id of menuOrder) {
             const def = SAVED_VIDEO_ACTIONS_BY_ID[id];
             if (!def || !def.isAvailable(ctx)) continue;
@@ -17163,13 +17225,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         document.body.appendChild(menu);
         savedVideoOverflowMenuEl = menu;
         const rect = triggerBtn.getBoundingClientRect();
-        menu.style.position = 'fixed';
-        menu.style.zIndex = '100002';
         menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 228))}px`;
         menu.style.top = `${rect.bottom + 6}px`;
-        menu.style.maxHeight = 'min(70vh, 420px)';
-        menu.style.overflowY = 'auto';
-        menu.style.minWidth = '200px';
 
         savedVideoOverflowDocHandler = (ev) => {
             if (menu.contains(ev.target) || triggerBtn.contains(ev.target)) return;
@@ -17190,9 +17247,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const vis = settings.actionVisibility[id] !== false;
             container.setAttribute(`data-ypp-act-${savedVideoActionIdToAttrSuffix(id)}`, vis ? 'on' : 'off');
         }
-        const mode = settings.entryButtonOpacityMode || 'full';
-        const map = { full: 'full', dimUntilHover: 'dim', hiddenUntilHover: 'hidden' };
-        container.setAttribute('data-entry-action-opacity', map[mode] || 'full');
+        const mode = settings.entryButtonVisibility || 'alwaysVisible';
+        const map = { alwaysVisible: 'alwaysVisible', dimUntilHover: 'dimUntilHover', hiddenUntilHover: 'hiddenUntilHover', hidden: 'hidden' };
+        container.setAttribute('data-entry-action-opacity', map[mode] || 'alwaysVisible');
         container.setAttribute('data-ypp-overflow-menu', settings.showOverflowMenu !== false ? 'on' : 'off');
         // Legacy migration for labels
         if (settings.colouredLabelsStyle === undefined) {
@@ -17200,26 +17257,258 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
         if (settings.colouredLabelsVisibility === undefined) {
             let oldDim = settings.dimColouredLabels;
-            if (oldDim === true || oldDim === 'dim') settings.colouredLabelsVisibility = 'dim';
+            if (oldDim === true || oldDim === 'dimUntilHover') settings.colouredLabelsVisibility = 'dimUntilHover';
             else if (oldDim === 'hidden' || oldDim === 'hiddenUntilHover') settings.colouredLabelsVisibility = oldDim;
             else if (oldDim === 'grayscale') {
-                settings.colouredLabelsVisibility = 'full';
+                settings.colouredLabelsVisibility = 'alwaysVisible';
                 settings.colouredLabelsStyle = 'grayscale';
             }
-            else settings.colouredLabelsVisibility = 'full';
+            else settings.colouredLabelsVisibility = 'alwaysVisible';
         }
 
         container.setAttribute('data-ypp-label-style', settings.colouredLabelsStyle || 'color');
-        container.setAttribute('data-ypp-label-visibility', settings.colouredLabelsVisibility || 'full');
+        container.setAttribute('data-ypp-label-visibility', settings.colouredLabelsVisibility || 'alwaysVisible');
 
         if (settings.displayOptions) {
             container.setAttribute('data-ypp-show-thumbs', settings.displayOptions.showThumbnails !== false ? 'true' : 'false');
             container.setAttribute('data-ypp-show-views', settings.displayOptions.showViews !== false ? 'true' : 'false');
-            container.setAttribute('data-ypp-show-stats', settings.displayOptions.showStats !== false ? 'true' : 'false');
-            container.setAttribute('data-ypp-show-buttons', settings.displayOptions.showButtons !== false ? 'true' : 'false');
+            /*  container.setAttribute('data-ypp-show-stats', settings.displayOptions.showStats !== false ? 'true' : 'false');
+             container.setAttribute('data-ypp-show-buttons', settings.displayOptions.showButtons !== false ? 'true' : 'false'); */
             container.setAttribute('data-ypp-view-mode', settings.displayOptions.viewMode || 'list');
         }
     };
+
+    /**
+     * Generates a high-fidelity Obsidian-compatible Markdown note for a video record.
+     * Includes YAML frontmatter, embedded thumbnail, Obsidian callouts, and safety escapes.
+     * @param {object} info - Raw database or resolved video metadata.
+     * @param {object} ctx - Action context.
+     * @returns {string} Fully formatted Markdown content.
+     */
+    function generateVideoObsidianMarkdown(info, ctx) {
+        const videoId = info.videoId || ctx.videoId || (ctx.item?.info?.videoId);
+
+        // 1) Guard early against absent or invalid videoId
+        if (!videoId || videoId === 'undefined') {
+            return '# Invalid Video Metadata\n\nUnable to generate Markdown export: Video ID is missing or undefined.';
+        }
+
+        const {
+            title = 'Unknown Video',
+            author = 'Unknown channel',
+            authorId = '',
+            description = '',
+            watchProgress = 0,
+            lengthSeconds = 0,
+            timeWatched = 0,
+            type = 'video',
+            viewCount = 0,
+            isLive = false,
+            isCompleted = false,
+            forceResumeTime = 0,
+            completionHistory = null
+        } = info;
+
+        let playlistTitle = ctx.item?.playlistTitle || info.playlistTitle || null;
+        const isProtected = ctx.isProtected || info.isProtected || false;
+
+        // 3) Sanitize inputs once early to prevent repeated coerces
+        const safeWatchProgress = Math.max(0, Number(watchProgress) || 0);
+        const safeLengthSeconds = Math.max(0, Number(lengthSeconds) || 0);
+        const safeViewCount = Math.max(0, Number(viewCount) || 0);
+
+        // Helpers
+        const formatDate = (ts) => {
+            if (!ts || ts <= 0) return 'Unknown';
+            try { return new Date(ts).toISOString().split('T')[0]; }
+            catch { return 'Unknown'; }
+        };
+
+        const formatRelativeDate = (ts) => {
+            if (!ts || ts <= 0) return 'Unknown';
+            // 2) Safeguard against future timezone/corrupted timestamps
+            const diff = Math.max(0, Date.now() - ts);
+            const seconds = Math.floor(diff / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            const days = Math.floor(hours / 24);
+
+            if (days > 1) return `${days} days ago`;
+            if (days === 1) return 'Yesterday';
+            if (hours > 0) return `${hours} hours ago`;
+            if (minutes > 0) return `${minutes} minutes ago`;
+            return 'Just now';
+        };
+
+        const formatDuration = (seconds) => {
+            if (!seconds || seconds <= 0) return '?:??';
+            const s = Math.floor(seconds);
+            const h = Math.floor(s / 3600);
+            const m = Math.floor((s % 3600) / 60);
+            const sec = s % 60;
+            if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(sec).padStart(2, '0')}`;
+            return `${m}:${String(sec).padStart(2, '0')}`;
+        };
+
+        const watchPercent = (progress, total, isCompleted) => {
+            if (total <= 0) return 0;
+            const secondsEpsilon = 0.75;
+            const isNearEnd = progress >= (total - secondsEpsilon);
+            if (isCompleted || isNearEnd) return 100;
+            return Math.max(0, Math.min(100, Math.round((progress / total) * 100)));
+        };
+
+        const progressBar = (percent) => {
+            const filled = percent >= 100 ? 10 : Math.floor(percent / 10);
+            return '█'.repeat(filled) + '░'.repeat(10 - filled);
+        };
+
+        const escYaml = (str) =>
+            String(str ?? '')
+                .replace(/\\/g, '\\\\')
+                .replace(/"/g, '\\"')
+                .replace(/\n/g, ' ');
+
+        // 4) Thorough GFM markdown escaping
+        const escMd = (str) => String(str ?? '').replace(/([\\`*_[\]<>|])/g, '\\$1');
+
+        // 5) Flatten newlines in table fields to prevent table layout corruption
+        const oneLine = (s) => String(s ?? '').replace(/\n/g, ' ');
+
+        // 8) Truncate extremely long descriptions to protect clipboard payloads
+        const MAX_DESCRIPTION_LENGTH = 10000;
+        const formatDescription = (text) => {
+            let truncated = String(text ?? '').trim();
+            if (truncated.length > MAX_DESCRIPTION_LENGTH) {
+                truncated = truncated.substring(0, MAX_DESCRIPTION_LENGTH) + '\n\n[Description truncated for length...]';
+            }
+            if (!truncated) return '';
+            return truncated
+                .split('\n')
+                .map(line => `> ${line}`)
+                .join('\n');
+        };
+
+        const ytUrl = type === 'shorts'
+            ? `https://www.youtube.com/shorts/${videoId}`
+            : `https://www.youtube.com/watch?v=${videoId}`;
+
+        const channelUrl = authorId
+            ? `https://www.youtube.com/channel/${authorId}`
+            : `https://www.youtube.com/results?search_query=${encodeURIComponent(author)}`;
+
+        const thumbUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+
+        const percent = watchPercent(safeWatchProgress, safeLengthSeconds, isCompleted);
+        const duration = formatDuration(safeLengthSeconds);
+        const watched = formatDuration(safeWatchProgress);
+        const dateStr = formatDate(timeWatched);
+        const relativeDateStr = formatRelativeDate(timeWatched);
+
+        const lines = [];
+
+        // YAML Frontmatter
+        lines.push('---');
+        lines.push(`title: "${escYaml(title)}"`);
+        lines.push(`channel: "${escYaml(author)}"`);
+        if (authorId) lines.push(`channelId: "${authorId}"`);
+        lines.push(`videoId: "${videoId}"`);
+        lines.push(`type: ${type}`);
+        lines.push(`watchProgress: ${Math.round(safeWatchProgress)}`);
+        lines.push(`lengthSeconds: ${Math.round(safeLengthSeconds)}`);
+        lines.push(`percentWatched: ${percent}`);
+        lines.push(`dateWatched: ${dateStr}`);
+        lines.push(`dateWatchedRelative: "${relativeDateStr}"`);
+        if (timeWatched > 0) lines.push(`dateWatchedTimestamp: ${timeWatched}`);
+        if (playlistTitle) lines.push(`playlist: "${escYaml(playlistTitle)}"`);
+        if (safeViewCount > 0) lines.push(`viewCount: ${safeViewCount}`);
+
+        const normHistory = (() => {
+            if (completionHistory && typeof completionHistory === 'object' && !Array.isArray(completionHistory) && Array.isArray(completionHistory.events)) {
+                return completionHistory;
+            }
+            if (Array.isArray(completionHistory) && completionHistory.length > 0) {
+                return { events: completionHistory, total: completionHistory.length };
+            }
+            if (isCompleted && Number.isFinite(timeWatched) && timeWatched > 0) {
+                return { events: [timeWatched], total: 1 };
+            }
+            return null;
+        })();
+
+        // 7) Validate completion history timestamps to filter out non-finite or negative values
+        const validEvents = (normHistory?.events || [])
+            .map(Number)
+            .filter(ts => Number.isFinite(ts) && ts > 0);
+
+        const watchedCount = normHistory?.total || validEvents.length || 0;
+        lines.push(`watchedCount: ${watchedCount}`);
+        if (watchedCount > 0 && validEvents.length > 0) {
+            lines.push('completionHistory:');
+            validEvents.forEach(ts => {
+                lines.push(`  - ${formatDate(ts)}`);
+            });
+        }
+
+        lines.push(`isCompleted: ${isCompleted}`);
+        lines.push(`isLive: ${isLive}`);
+        if (isProtected) lines.push('isProtected: true');
+        if (Number(forceResumeTime) > 0) lines.push(`forceResumeTime: ${Math.round(forceResumeTime)}`);
+        lines.push(`cover: "${thumbUrl}"`);
+        lines.push('tags:');
+        lines.push('  - youtube');
+        lines.push(`  - youtube/${type}`);
+        lines.push(`url: "${ytUrl}"`);
+        lines.push('---');
+        lines.push('');
+
+        // Heading & Media Embeds
+        lines.push(`# [${escMd(title)}](${ytUrl})`);
+        lines.push('');
+        lines.push(`[![thumbnail](${thumbUrl})](${ytUrl})`);
+        lines.push('');
+
+        // Info Callout Box
+        lines.push('> [!info]- Video Information');
+        lines.push('> | Field       | Value |');
+        lines.push('> |------------|-------|');
+        lines.push(`> | **Channel**   | [${escMd(oneLine(author))}](${channelUrl}) |`);
+        lines.push(`> | **Type**    | ${type} |`);
+        lines.push(`> | **Duration**| ${duration} |`);
+        lines.push(`> | **Watched**   | ${watched} / ${duration} → **${percent}%** |`);
+        lines.push('> | **Progress**| `' + progressBar(percent) + '` |');
+        lines.push(`> | **Date**   | ${dateStr} (${relativeDateStr}) |`);
+
+        if (watchedCount > 0) {
+            lines.push(`> | **Times completed** | ${watchedCount} |`);
+        }
+        if (playlistTitle) {
+            lines.push(`> | **Playlist**| ${escMd(oneLine(playlistTitle))} |`);
+        }
+        if (safeViewCount > 0) {
+            lines.push(`> | **Views**  | ${safeViewCount.toLocaleString()} |`);
+        }
+        lines.push('> ');
+        lines.push(`> 🔗 [Watch on YouTube](${ytUrl})`);
+        lines.push('');
+
+        // 6) YouTube media embed fallback format
+        lines.push(`![](https://www.youtube.com/watch?v=${videoId})`);
+        lines.push('');
+
+        lines.push(`#youtube #youtube/${type}`);
+
+        // Description Callout Box
+        const formattedDesc = formatDescription(description);
+        if (formattedDesc) {
+            lines.push('');
+            lines.push('---');
+            lines.push('> [!quote]- Description');
+            lines.push(formattedDesc);
+        }
+
+        return lines.join('\n');
+    }
 
     /** @type {Record<string, { id: string, group: string, dataAction: string, labelKey: string, toolbarIconHtml: () => string, isAvailable: (ctx: object) => boolean, buildPrimaryButton: (ctx: object) => object|null, run: (ctx: object) => Promise<void> }>} */
     const SAVED_VIDEO_ACTIONS_BY_ID = {
@@ -17273,6 +17562,54 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         window.open(spotifyWeb, '_blank', 'noopener,noreferrer');
                     }
                 }, 500);
+            }
+        },
+        'qa-markdown': {
+            id: 'qa-markdown',
+            group: 'quickAccess',
+            dataAction: 'qa-markdown',
+            labelKey: 'copyMarkdown',
+            toolbarIconHtml: () => SVG_ICONS.markdown,
+            isAvailable: () => true,
+            buildPrimaryButton() {
+                return {
+                    className: 'ypp-btn ypp-btn-circle ypp-btn-outline-secondary ypp-shadow-md',
+                    html: SVG_ICONS.markdown,
+                    attributes: { type: 'button', title: t('copyMarkdown') }
+                };
+            },
+            async run(ctx) {
+                if (ctx.event) {
+                    ctx.event.preventDefault();
+                    ctx.event.stopPropagation();
+                }
+
+                let info = ctx.info || {};
+                const videoId = ctx.videoId || info.videoId || (ctx.item?.info?.videoId);
+
+                // 1) Robustly retrieve the full database record from Storage to get all high-fidelity metadata (author, views, duration, etc.)
+                if (videoId) {
+                    const dbInfo = await Storage.get(videoId);
+                    if (dbInfo) {
+                        // Safe merge: filter out undefined/null/'undefined' values from partial runtime context to prevent accidental data loss in dbInfo
+                        const cleanRuntimeInfo = Object.fromEntries(
+                            Object.entries(info).filter(([_, v]) => v !== undefined && v !== null && v !== 'undefined')
+                        );
+                        info = { ...dbInfo, ...cleanRuntimeInfo };
+                    }
+                    if (!info.videoId) {
+                        info.videoId = videoId;
+                    }
+                }
+
+                const md = generateVideoObsidianMarkdown(info, ctx);
+
+                try {
+                    await navigator.clipboard.writeText(md);
+                    showFloatingToast(`${SVG_ICONS.check} ${t('markdownCopied')}`);
+                } catch (err) {
+                    showFloatingToast(`${SVG_ICONS.error} Error copying: ${err.message}`);
+                }
             }
         },
         'force-time': {
@@ -17375,7 +17712,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (!settings) return createElement('div', { className: 'ypp-saved-videos-toolbar-wrap' });
 
         const wrap = createElement('div', { className: 'ypp-saved-videos-toolbar-wrap' });
-        wrap.style.setProperty('--ypp-toolbar-inactive-opacity', String(settings.inactiveToolbarOpacity));
 
         const sectionToggle = createElement('button', {
             className: 'ypp-saved-videos-toolbar-section-toggle',
@@ -17532,11 +17868,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return group;
         };
 
-        const makeDisplayToggle = (key, icon, labelKey, isButtonsToggle = false) => {
+        const makeDisplayToggle = (key, icon, labelKey, showText = false) => {
             const on = cachedSavedVideosModalSettings.displayOptions[key] !== false;
             const btn = createElement('button', {
-                className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'} ${isButtonsToggle ? 'ypp-display-toggle-buttons' : ''}`,
-                html: icon,
+                className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'}`,
+                html: showText ? `${icon}<span>${t(labelKey)}</span>` : icon,
                 attributes: {
                     type: 'button',
                     title: t(labelKey),
@@ -17561,7 +17897,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
 
-        const generalGroup = makeToolbarGroup('savedVideosToolbarGeneralGroup');
+        const generalGroup = makeToolbarGroup('savedVideosToolbarGeneralGroup', 'ypp-saved-videos-toolbar-action-group');
         const viewModeRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
         viewModeRow.appendChild(createElement('span', {
             className: 'ypp-saved-videos-toolbar-row-label',
@@ -17583,23 +17919,45 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             gridOptionsGroup.style.setProperty('display', isGrid ? 'flex' : 'none', 'important');
         };
 
-        const viewModeToggle = createElement('button', {
-            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ypp-view-mode-toggle ypp-btn-outline-primary`,
-            attributes: { type: 'button' }
+        const listViewBtn = createElement('button', {
+            className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle`,
+            html: `${SVG_ICONS.list}<span>${t('viewModeList')}</span>`,
+            attributes: {
+                type: 'button',
+                title: t('viewModeList')
+            }
+        });
+
+        const gridViewBtn = createElement('button', {
+            className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle`,
+            html: `${SVG_ICONS.grid}<span>${t('viewModeGrid')}</span>`,
+            attributes: {
+                type: 'button',
+                title: t('viewModeGrid')
+            }
         });
 
         const syncViewModeBtn = () => {
             const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
-            setInnerHTML(viewModeToggle, isGrid ? SVG_ICONS.list : SVG_ICONS.grid);
-            viewModeToggle.setAttribute('title', t(isGrid ? 'viewModeList' : 'viewModeGrid'));
-            viewModeToggle.classList.toggle('is-grid', isGrid);
+
+            listViewBtn.classList.toggle('ypp-btn-primary', !isGrid);
+            listViewBtn.classList.toggle('is-active', !isGrid);
+            listViewBtn.classList.toggle('ypp-btn-outline-primary', isGrid);
+            listViewBtn.classList.toggle('is-inactive', isGrid);
+            listViewBtn.setAttribute('aria-pressed', !isGrid ? 'true' : 'false');
+
+            gridViewBtn.classList.toggle('ypp-btn-primary', isGrid);
+            gridViewBtn.classList.toggle('is-active', isGrid);
+            gridViewBtn.classList.toggle('ypp-btn-outline-primary', !isGrid);
+            gridViewBtn.classList.toggle('is-inactive', !isGrid);
+            gridViewBtn.setAttribute('aria-pressed', isGrid ? 'true' : 'false');
         };
         syncViewModeBtn();
 
-        addDisposableListener(viewModeToggle, 'click', (ev) => {
+        addDisposableListener(listViewBtn, 'click', (ev) => {
             ev.stopPropagation();
-            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
-            cachedSavedVideosModalSettings.displayOptions.viewMode = isGrid ? 'list' : 'grid';
+            if (cachedSavedVideosModalSettings.displayOptions.viewMode === 'list') return;
+            cachedSavedVideosModalSettings.displayOptions.viewMode = 'list';
             syncViewModeBtn();
             syncGridOptionsVisibility();
             applySavedVideoActionDatasetToVideosContainer(container);
@@ -17607,11 +17965,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             void updateVideoList(); // Re-render grid/list layout
         }, {}, ModalDisposables);
 
-        viewModeChips.appendChild(viewModeToggle);
+        addDisposableListener(gridViewBtn, 'click', (ev) => {
+            ev.stopPropagation();
+            if (cachedSavedVideosModalSettings.displayOptions.viewMode === 'grid') return;
+            cachedSavedVideosModalSettings.displayOptions.viewMode = 'grid';
+            syncViewModeBtn();
+            syncGridOptionsVisibility();
+            applySavedVideoActionDatasetToVideosContainer(container);
+            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+            void updateVideoList(); // Re-render grid/list layout
+        }, {}, ModalDisposables);
+
+        viewModeChips.appendChild(listViewBtn);
+        viewModeChips.appendChild(gridViewBtn);
         syncGridOptionsVisibility();
 
         // Always Expand Toggle
-        gridOptionsGroup.appendChild(makeDisplayToggle('gridAlwaysExpanded', SVG_ICONS.unfoldMore, 'gridAlwaysExpanded'));
+        gridOptionsGroup.appendChild(makeDisplayToggle('gridAlwaysExpanded', SVG_ICONS.foldDown, 'gridAlwaysExpanded'));
 
         // Expansion Mode Toggle (Single vs Row)
         const expModeToggle = createElement('button', {
@@ -17621,7 +17991,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const syncExpModeBtn = () => {
             const mode = cachedSavedVideosModalSettings.displayOptions.gridExpansionMode || 'single';
-            setInnerHTML(expModeToggle, mode === 'row' ? SVG_ICONS.stack : SVG_ICONS.shield);
+            setInnerHTML(expModeToggle, mode === 'row' ? SVG_ICONS.arrowBoth : SVG_ICONS.crosshair);
             expModeToggle.setAttribute('title', `${t('gridExpansionMode')}: ${t(mode === 'row' ? 'gridExpansionModeRow' : 'gridExpansionModeSingle')}`);
             expModeToggle.classList.toggle('ypp-btn-primary', mode === 'row');
             expModeToggle.classList.toggle('ypp-btn-outline-primary', mode !== 'row');
@@ -17648,7 +18018,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             text: t('savedVideosToolbarLinkBehavior')
         }));
         const generalChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
-        generalChips.appendChild(makeDisplayToggle('openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab'));
+        generalChips.appendChild(makeDisplayToggle('openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab', true));
         generalRow.appendChild(generalChips);
         generalGroup.appendChild(generalRow);
         inner.appendChild(generalGroup);
@@ -17668,10 +18038,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
 
 
-        displayChips.appendChild(makeDisplayToggle('showThumbnails', SVG_ICONS.video, 'showThumbnails'));
+        displayChips.appendChild(makeDisplayToggle('showThumbnails', SVG_ICONS.image, 'showThumbnails'));
         displayChips.appendChild(makeDisplayToggle('showViews', SVG_ICONS.people, 'showViews'));
-        displayChips.appendChild(makeDisplayToggle('showStats', SVG_ICONS.graph, 'showStats'));
-        displayChips.appendChild(makeDisplayToggle('showButtons', SVG_ICONS.settings, 'showButtons', true));
+        /* displayChips.appendChild(makeDisplayToggle('showStats', SVG_ICONS.graph, 'showStats'));
+        displayChips.appendChild(makeDisplayToggle('showButtons', SVG_ICONS.settings, 'showButtons')); */
         displayRow.appendChild(displayChips);
         itemDisplayGroup.appendChild(displayRow);
         inner.appendChild(itemDisplayGroup);
@@ -17692,16 +18062,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const opacityRow = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-row' });
         opacityRow.appendChild(createElement('span', {
             className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('savedVideosToolbarEntryOpacity')
+            text: t('savedVideosToolbarEntryVisibility')
         }));
         const opacityBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
         const modes = [
-            { key: 'full', label: t('savedVideosToolbarEntryOpacityFull') },
-            { key: 'dimUntilHover', label: t('savedVideosToolbarEntryOpacityDim') },
-            { key: 'hiddenUntilHover', label: t('savedVideosToolbarEntryOpacityHidden') }
+            { key: 'alwaysVisible', label: t('AlwaysVisible') },
+            { key: 'dimUntilHover', label: t('DimUntilHover') },
+            { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
+            { key: 'hidden', label: t('Hidden') }
         ];
         const syncOpacityActive = () => {
-            const cur = cachedSavedVideosModalSettings.entryButtonOpacityMode || 'full';
+            const cur = cachedSavedVideosModalSettings.entryButtonVisibility || 'alwaysVisible';
             opacityBtns.querySelectorAll('button[data-opacity-mode]').forEach((b) => {
                 const active = b.dataset.opacityMode === cur;
                 b.classList.toggle('ypp-btn-primary', active);
@@ -17716,7 +18087,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
             addDisposableListener(b, 'click', (ev) => {
                 ev.stopPropagation();
-                cachedSavedVideosModalSettings.entryButtonOpacityMode = key;
+                cachedSavedVideosModalSettings.entryButtonVisibility = key;
                 applySavedVideoActionDatasetToVideosContainer(container);
                 void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
                 syncOpacityActive();
@@ -17808,13 +18179,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }));
         const visBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
         const visModes = [
-            { key: 'full', label: t('colouredLabelsVisibilityFull') },
-            { key: 'dim', label: t('colouredLabelsVisibilityDim') },
-            { key: 'hiddenUntilHover', label: t('colouredLabelsVisibilityHiddenUntilHover') }/* ,
-            { key: 'hidden', label: t('colouredLabelsVisibilityHidden') } */
+            { key: 'alwaysVisible', label: t('AlwaysVisible') },
+            { key: 'dimUntilHover', label: t('DimUntilHover') },
+            { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
+            { key: 'hidden', label: t('Hidden') }
         ];
         const syncVisActive = () => {
-            const cur = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'full';
+            const cur = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible';
             visBtns.querySelectorAll('button[data-vis-mode]').forEach((b) => {
                 const active = b.dataset.visMode === cur;
                 b.classList.toggle('ypp-btn-primary', active);
@@ -17829,8 +18200,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
             addDisposableListener(b, 'click', (ev) => {
                 ev.stopPropagation();
-                const currentMode = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'full';
-                cachedSavedVideosModalSettings.colouredLabelsVisibility = currentMode === key ? 'full' : key;
+                const currentMode = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible';
+                cachedSavedVideosModalSettings.colouredLabelsVisibility = currentMode === key ? 'alwaysVisible' : key;
                 applySavedVideoActionDatasetToVideosContainer(container);
                 void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
                 syncVisActive();
@@ -18212,11 +18583,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const openInNewTab = cachedSavedVideosModalSettings?.displayOptions?.openInNewTab !== false;
         const linkTarget = openInNewTab ? '_blank' : '_self';
+        const linkIcon = openInNewTab ? SVG_ICONS.linkExternal : '';
 
         const infoChildren = [];
         infoChildren.push(createElement('a', {
             className: 'ypp-titleLink',
-            html: `${escapeHTML(title)} ${SVG_ICONS.linkExternal}`,
+            html: `${escapeHTML(title)} ${linkIcon}`,
             attributes: { title, href: getSafeUrl(videoUrl), target: linkTarget, rel: 'noopener noreferrer' }
         }));
 
@@ -18228,7 +18600,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 children: [
                     createElement('a', {
                         className: 'ypp-playlist-link',
-                        html: `${SVG_ICONS.playlist} ${finalPlaylistTitle}  ${SVG_ICONS.linkExternal}`,
+                        html: `${SVG_ICONS.playlist} ${finalPlaylistTitle}  ${linkIcon}`,
                         attributes: { title: `${t('openPlaylist')}: ${finalPlaylistTitle}`, href: getSafeUrl(playlistUrl), target: linkTarget, rel: 'noopener noreferrer' }
                     })
                 ]
@@ -18238,7 +18610,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (authorId) {
             infoChildren.push(createElement('a', {
                 className: 'ypp-author ypp-link',
-                html: `${escapeHTML(author)} ${SVG_ICONS.linkExternal}`,
+                html: `${escapeHTML(author)} ${linkIcon}`,
                 attributes: { title: `${t('openChannel')}: ${author}`, href: getSafeUrl(channelUrl), target: linkTarget, rel: 'noopener noreferrer' }
             }));
         } else {

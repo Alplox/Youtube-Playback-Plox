@@ -2,17 +2,18 @@
 
 ### Added
 
+- **Quick Access Markdown Export**: Added a new `"qa-markdown"` action button to Quick Access slots. This action formats and copies the specific video's metadata and progress to the clipboard as Obsidian-compatible Markdown.
 - **Trusted Types Enforcement**: Hardened the script's Trusted Types policy by replacing the passthrough with a strict whitelist-based sanitizer for all dynamic HTML insertions.
-- **XSS Prevention**: 
+- **XSS Prevention**:
   - Implemented automatic HTML escaping for translation parameters to prevent injection via dynamic metadata (titles, views, etc.).
   - Added `getSafeUrl` helper to validate and sanitize all dynamic `href` attributes, blocking `javascript:` and other dangerous schemes.
-- **Input & Import Validation**: 
+- **Input & Import Validation**:
   - Added regex-based sanitization for GitHub Gist and Repository IDs to prevent URL manipulation.
   - Implemented field whitelisting for FreeTube database imports to prevent malicious files from injecting internal script flags.
 - **Privacy Protection**: Implemented a log scrubbing utility that automatically redacts GitHub tokens and sensitive IDs before copying logs to the clipboard.
 - **Auto-cleanup**: Added auto-cleanup for old videos that reach past a configurable amount of days. The success notification includes "Download Backup" and "Undo" buttons allowing users to immediately backup or revert the cleanup. #44
 - **Multi-Action Toasts**: Enhanced `showFloatingToast` to support multiple action buttons simultaneously.
-- **Saved videos modal - display options toolbar**: 
+- **Saved videos modal - display options toolbar**:
   - Added a toolbar under the searchbar with Quick access and Actions toggles, row-level opacity modes (full / dim until hover / hidden until hover), a per-row overflow menu (⋯) listing all actions available for that entry. #48
   - Added an alternate Grid View layout accessible via a toggle in the toolbar. In Grid View, videos are displayed as thumbnail cards in a responsive multi-column grid (2 columns on narrow screens, 3 default, 4 on wide screens). Each card shows a thumbnail with a chevron trigger at the bottom, clicking it opens a metadata dropdown with title, views, stats, and action buttons for that video.
   - Added an option to dim the coloured percentage labels in the list. #48
@@ -57,6 +58,7 @@
 - **Language Detection System**: Upgraded `detectBrowserLanguage` with a two-pass matching strategy (exact match then prefix match) and performance optimizations. The new implementation uses a `Map` for O(1) exact-match lookups and pre-calculates normalized keys to reduce overhead during prefix scanning, ensuring robust and efficient detection of the user's preferred language across different browser implementations.
 - **Storage Architecture Refactor**: Eliminated redundant storage access patterns by refactoring `Settings` and `Filters` objects to use the centralized `Storage` API instead of direct GM_getValue/GM_setValue calls. This removes duplicate logic for key prefixing, error handling, and storage backend routing, centralizing all persistence operations through the unified Storage abstraction layer.
 - **Lifecycle Memory Management (`DisposableStore`)**: Implemented a centralized `DisposableStore` class with two instances: `GlobalDisposables` (script-wide, cleared on unload) and `ModalDisposables` (cleared every time the Saved Videos modal closes). Replaced all manual `addEventListener`/`removeEventListener` tracking arrays (`globalNavigationListeners`, `floatingButtonListeners`, `modalVisibilityListeners`, `YTHelperListener`) with a unified `addDisposableListener(target, event, handler, options, store)` helper that automatically registers cleanup in the appropriate store. Migrated all modal toolbar interactions (drag-and-drop reordering, visibility toggles, opacity modes, overflow menu, event delegation) and all script-wide listeners (navigation, YTHelper, floating button) to this system. `cleanupGlobalListeners` and `closeModalVideos` now call `.dispose()` on their respective stores, with `ModalDisposables` auto-resetting after disposal so it can be reused across repeated open/close cycles. `createElement`'s `onClickEvent` option now also accepts a `store` parameter for automatic registration.
+- **Translation Utility Logs**: Upgraded the `apply_translations.mjs` script output to include a detailed, styled execution summary showing exactly which languages had translations added or updated, and listing all unmodified languages in the console.
 
 # 0.0.9-15
 
@@ -170,12 +172,12 @@
 - **FreeTube Quick Access** - Added support for opening saved videos directly to FreeTube. #39
 - **resumeCompletedFromStart**: Added a new setting: "Resume completed videos from the start". When enabled, videos that were previously completed will no longer resume at the final timestamp. Instead, they will start from 00:00. This prevents the player from seeking to the end on load, which would immediately trigger autoplay to the next video, and gives users a chance to watch the video again without it being skipped.
 - **AGENTS.md** - Documentation for LLM's Agents that help maintain and improve the script.
-    - **Gotchas.md** - Documentation about the particular issues and gotchas when maintaining and improving the script.
-- **Functionality Scripts** - Scripts tools to make life easier. 
-    - `generate-structure.mjs` - Scans the main userscript file `youtube-playback-plox.user.js` for MARK comments, functions, classes, and modules to generate a technical map of the code.
-    - `sort-translations.mjs` - Sorts the translations in `translations.json` to a standardized order.
-    - `validate-translations.mjs` - Checks `translations.json` for consistency across all locales.
-    - `apply_translations.mjs` - Helper script to add new translations to the translations file `translations.json`.
+  - **Gotchas.md** - Documentation about the particular issues and gotchas when maintaining and improving the script.
+- **Functionality Scripts** - Scripts tools to make life easier.
+  - `generate-structure.mjs` - Scans the main userscript file `youtube-playback-plox.user.js` for MARK comments, functions, classes, and modules to generate a technical map of the code.
+  - `sort-translations.mjs` - Sorts the translations in `translations.json` to a standardized order.
+  - `validate-translations.mjs` - Checks `translations.json` for consistency across all locales.
+  - `apply_translations.mjs` - Helper script to add new translations to the translations file `translations.json`.
 
 # 0.0.9-10
 
@@ -193,9 +195,9 @@
 - **Fixed Time Completion**: Resolved a bug where video completion was not registered in the watch history when a video had a fixed start time. Additionally, fixed an issue where clicking "Replay" would reset the video to 0:00 instead of the fixed start time; the script now correctly detects replays and re-applies the saved fixed position. #32
 - **Fixed Time ReferenceError**: Fixed a `ReferenceError ('alertStyles' is not defined)` in `syncFixedTimeUI` that occurred when assigning a new fixed start time, migrating the alert style purely to dynamic configurations.
 - **Range Input Synchronization**: Improved the behavior of Views and Percentage range filters.
-    - **Sanitization**: Fixed a bug where non-numeric characters (like "e", ".", or "-") were allowed by switching inputs to `type="text"` with `inputmode="numeric"`.
-    - **Auto-Preset Detection**: Added real-time synchronization so that if manual inputs match a standard preset (e.g., 0-0 for All, or 1M+), the dropdown automatically selects that preset instead of remaining as "Custom".
-    - **Dynamic Icons**: The percentage range filter now updates its icon (0%, 33%, 66%, 100%) in real-time based on the minimum value selected, consistent with the video list design.
+  - **Sanitization**: Fixed a bug where non-numeric characters (like "e", ".", or "-") were allowed by switching inputs to `type="text"` with `inputmode="numeric"`.
+  - **Auto-Preset Detection**: Added real-time synchronization so that if manual inputs match a standard preset (e.g., 0-0 for All, or 1M+), the dropdown automatically selects that preset instead of remaining as "Custom".
+  - **Dynamic Icons**: The percentage range filter now updates its icon (0%, 33%, 66%, 100%) in real-time based on the minimum value selected, consistent with the video list design.
 - **Seek Message Persistence**: Fixed an issue where the "Resumed at X:XX" (seek) message would disappear even if the video remained paused. Now, the message persists while the video is paused and only clears after playback begins.
 - **Redundant Cleanup Loop**: Fixed an issue where `loadTranslations` would re-add the translation cache to `localStorage` on every load, causing `cleanupNonVideoData` to repeatedly perform migration logic and logs.
 - **Management Mode Selection Reset**: Fixed an issue where the selected videos count and button states remained active after deleting selected videos in Management Mode. Now calls `updateManagementFooterState()` after clearing selection to properly reset the UI state.
@@ -509,7 +511,7 @@
 - Fixed Mix (RD...) playlist headers/titles in the saved videos modal to remain stable by using the Mix seed video (RD{videoId}) title when available.
 - Throttled playlist title HTTP fetches when titles are generic to reduce repeated network requests and improve load performance.
 
-- **QuotaExceededError prevention**: 
+- **QuotaExceededError prevention**:
   - No more automatic data deletions
   - IndexedDB provides orders of magnitude more storage than localStorage
   - Existing user data is preserved during migration
@@ -537,7 +539,7 @@
   - Progress saving now correctly resumes after video navigation
 
 - Fixed FreeTube export format #15
-  - Now uses `type: "video"` for ALL formats (Videos & Shorts), matching standard FreeTube database format 
+  - Now uses `type: "video"` for ALL formats (Videos & Shorts), matching standard FreeTube database format
 
 - Added storage error handling for quota exceeded errors:
   - Storage.set() now returns success/failure status
@@ -618,7 +620,6 @@
   - Centralizes configuration validation (saveShorts, saveRegularVideos, etc.)
   - Provides context validation to prevent miniplayer/shorts data contamination
   - Supports VIDEO, SHORTS, PREVIEW, and LIVE content types
-  
 - **VideoInfoFacade module**: Unified interface for video metadata extraction
   - Automatic context detection (shorts, miniplayer, watch, preview)
   - Context-aware extraction strategies to prevent data contamination
@@ -671,6 +672,7 @@ perf: reduce verbose debug logging in progress and status handlers
 # 0.0.7
 
 ## Added
+
 - Option to set a percentage to consider a video as "completed".
 - Compatibility with FreeTube history importing and exporting.
 - Migration function for the new format and compatibility with FreeTube from now on.
@@ -687,6 +689,7 @@ perf: reduce verbose debug logging in progress and status handlers
 - New user setting `saveInlinePreviews` (default: off).
 
 ## Changed
+
 - The message that displays the saving status on the player progress bar now also serves as a button to open a modal showing saved videos - in both regular and Shorts modes.
 - Emojis have been replaced with SVGs in the UI.
 - Saving progress in Shorts is now displayed below the video information, so when comments are toggled, it remains inside the player itself.
@@ -695,6 +698,7 @@ perf: reduce verbose debug logging in progress and status handlers
 - Message for saving progress now doubles as a button to open the config modal.
 
 ## Deprecated
+
 - `createAdMonitor`
 - `observerTasks`
 - `ObservePlayer`
@@ -704,10 +708,12 @@ perf: reduce verbose debug logging in progress and status handlers
 - `showInitRetryToast`
 
 ## Removed
+
 - “Locked” emoji on translations, now replaced with an SVG.
 - Emojis from the UI (in most places) to use SVGs.
 
 ## Fixed
+
 - Livestream detection. Lives with URLs of the type `/watch` now correctly get flagged as "live" using the YouTube Helper API or by detecting its metadata to determine whether the content is a regular video or a live stream.
 - If an ad was playing during miniplayer viewing, it could stop saving
 
@@ -731,18 +737,21 @@ Supposedly greasyfork cannot read and translate with the blank spaces there...
 # 0.0.6-2
 
 ## Added
+
 - Translations for:
-	- en-US
-	- es-419
-	- zh-TW
-	- zh-HK
+  - en-US
+  - es-419
+  - zh-TW
+  - zh-HK
 
 ## Change
+
 - Improve language detection for format ISO 639-1 + ISO 3166
 - Ensure initialization logic uses saved language if valid, otherwise fallback to detected browser language or default.
 - Order of @name and @description tag in metadata to match order in translations.json
 
 ## Remove
+
 - Unused updatePlaylistVideo function
 
 # 0.0.6-1
@@ -752,6 +761,7 @@ fix: missing country codes in metadata
 # 0.0.6
 
 ## Code Optimization & Refactoring
+
 - Add helper functions to eliminate code redundancy:
   - [getSavedVideoData()]: unified video data retrieval (playlist/individual)
   - [updatePlaylistVideo()]: centralized playlist video updates
@@ -760,21 +770,25 @@ fix: missing country codes in metadata
 - Bumped version to 0.0.6 in metadata files.
 
 ## Bug Fixes
+
 - **Force time persistence**: Videos with `forceResumeTime` now retain their fixed start time even after completion
 - Fixed issue where fixed time configuration was deleted when video reached the end
 - Modal now displays both "fixed time" and "completed" states simultaneously with gradient styling
 
 ## Playlist Improvements
+
 - Playlist headers in modal now link to last watched video instead of playlist page
 - Fixes broken links for Mix playlists (e.g., RDTAECb8D3EjE)
 - Pass `lastWatchedVideoId` to playlist items for proper URL construction
 
 ### Completed Videos Filter
+
 - Add "Completed" filter option in modal to view only finished videos
 - Allows users to quickly access their watch history of completed content
 - Complements existing "All", "Videos", and "Playlist" filters
 
 ## New Feature: Clear All
+
 - Add "Clear All" button to modal footer with danger styling
 - Includes confirmation dialog before deletion
 - 10-second undo toast notification with action button
@@ -782,11 +796,13 @@ fix: missing country codes in metadata
 - Preserve user settings during clear operation
 
 ## Translations
+
 - Add translations for clear all feature in 48 languages:
   - `clearAll`, `clearAllConfirm`, `allItemsCleared`, `undoClearAll`
 - Update translations.json metadata (version, author, links)
 
 ## Styling
+
 - Add `.ypp-btn-danger` CSS class for destructive actions
 - Add `.ypp-timestamp.forced.completed` gradient style for dual-state videos
 - Improve visual hierarchy with hover effects on danger buttons

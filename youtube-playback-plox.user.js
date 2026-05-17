@@ -2578,7 +2578,7 @@ regular-item.ypp-fill-none {
     text-shadow: none !important;
 
     /*  max-width: 180px; */
-    font-size: var(--ypp-font-size-md);
+    font-size: var(--ypp-font-size-lg);
     color: var(--ypp-white);
     border-left: 2px solid var(--ypp-bg);
 }
@@ -3695,16 +3695,91 @@ regular-item.ypp-fill-none {
     }
 }
 
-@media (max-width: 500px) {
+@media (max-width: 600px) {
+    /* Contenedor del Modal */
+    .ypp-videosContainer {
+        width: 95% !important;
+        max-height: 90vh !important;
+    }
+
+    /* Filas principales (Lista y desplegables de Grid) */
+    .ypp-videoWrapper.regular-item,
+    .ypp-videoWrapper.playlist-item {
+        height: auto !important;
+        min-height: 100px !important;
+    }
+    
     .ypp-videoWrapper {
-        /* allow container to squeeze */
-        padding: var(--ypp-spacing-sm);
+        position: relative !important; /* Esencial para posicionar el trigger de menú de forma absoluta */
+        flex-wrap: wrap !important;
+        align-items: flex-start !important;
+        padding: var(--ypp-spacing-sm) !important;
     }
-    .ypp-thumb-wrapper {
-        width: 120px !important; /* shrink thumb on small screens */
+
+    /* Miniatura (Sólo para filas de Lista, ya que el dropdown del Grid no las renderiza) */
+    .ypp-videoWrapper .ypp-thumb-wrapper {
+        width: 96px !important;
+        height: 54px !important;
+        margin-right: var(--ypp-spacing-sm) !important;
+        flex-shrink: 0 !important;
     }
-    .ypp-containerButtonsTime {
-        padding-right: 32px; /* reduce space for overflow */
+
+    /* Contenedor de Información */
+    .ypp-videoWrapper .ypp-infoDiv {
+        width: calc(100% - 108px) !important;
+        flex-grow: 1 !important;
+        min-width: 0 !important;
+    }
+
+    /* En Grid Mode, los desplegables no tienen miniatura. Asegurar que usen todo el espacio disponible */
+    .ypp-grid-dropdown-info .ypp-infoDiv {
+        width: 100% !important;
+        padding-right: 28px !important; /* Espacio para el menú ⋯ */
+        box-sizing: border-box !important;
+    }
+    
+    .ypp-videoWrapper.selection-mode .ypp-infoDiv {
+        width: calc(100% - 148px) !important;
+    }
+
+    .ypp-playlist-indicator {
+        max-height: none !important;
+        overflow: visible !important;
+        white-space: normal !important;
+    }
+
+    /* Contenedor de Botones de Acción (Se apila verticalmente en su propia línea inferior) */
+    .ypp-videoWrapper .ypp-containerButtonsTime {
+        width: 100% !important;
+        flex: 0 0 100% !important;
+        margin-left: 0 !important;
+        margin-top: 8px !important;
+        padding-right: 44px !important; /* Espacio reservado para el botón ⋯ a la derecha */
+        box-sizing: border-box !important;
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        justify-content: flex-start !important;
+        gap: 6px !important;
+        min-height: 0 !important;
+    }
+
+    /* Filas de Botones individuales (QA y Acciones) */
+    .ypp-videoWrapper .ypp-buttons-row {
+        width: 100% !important;
+        max-width: 100% !important;
+        flex-wrap: wrap !important; /* Envolver si la pantalla es muy estrecha */
+        gap: 6px !important;
+        min-height: 0 !important;
+    }
+
+    /* Botón de Más Acciones (⋯) */
+    .ypp-videoWrapper .ypp-saved-video-overflow-trigger {
+        position: absolute !important;
+        right: 8px !important;
+        top: 10px !important;
+        transform: none !important;
+        margin: 0 !important;
+        z-index: 10 !important;
     }
 }
 
@@ -6588,21 +6663,39 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
 
     // MARK: 🔧 Escape HTML
+
     /**
-     * Sanitize strings for safe insertion into HTML.
-     * Replace HTML special characters with their corresponding HTML entities.
-     *
-     * @param {string|number|null|undefined} str
-     * @returns {string}
+     * Decode HTML entities to prevent double-escaping of metadata.
+     * @param {string} str - String to decode.
+     * @returns {string} - Decoded string.
+     */
+    const unescapeHTML = (str) => {
+        if (!str) return '';
+        return String(str)
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&#039;/g, "'")
+            .replace(/&#x27;/g, "'")
+            .replace(/&apos;/g, "'");
+    };
+
+    /**
+     * Escape HTML special characters safely.
+     * First decode common HTML entities to prevent double-escaping.
+     * @param {any} str - String to escape.
+     * @returns {string} - Sanitized and safely escaped string.
      * @example
      * escapeHTML('<script>alert("Hello World")</script>')
      * // '&lt;script&gt;alert(&quot;Hello World&quot;)&lt;/script&gt;'
      */
     const escapeHTML = (str) => {
-        // if (!str && str !== 0) return '';
-        if (str === null) return '';
+        if (str === null || str === undefined) return '';
 
-        return String(str)
+        const decoded = unescapeHTML(str);
+        return String(decoded)
             .replace(/&/g, '&amp;')
             .replace(/</g, '&lt;')
             .replace(/>/g, '&gt;')
@@ -6611,42 +6704,42 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
-     * Valida y sanea una URL antes de insertarla en un atributo href.
-     * Previene XSS vía javascript: y asegura esquemas permitidos.
-     * @param {string} url - URL a validar.
-     * @param {string[]} [allowedPrefixes=['https://']] - Prefijos permitidos.
-     * @returns {string} - URL segura o '#' si es inválida.
+     * Validate and sanitize a URL before inserting it into an href attribute.
+     * Prevents XSS via javascript: and ensures allowed schemes.
+     * @param {string} url - URL to validate.
+     * @param {string[]} [allowedPrefixes=['https://']] - Allowed prefixes.
+     * @returns {string} - Safe URL or '#' if invalid.
      */
     function getSafeUrl(url, allowedPrefixes = ['https://']) {
         if (!url || typeof url !== 'string') return '#';
         const trimmed = url.trim();
         const lower = trimmed.toLowerCase();
 
-        // Denegar explícitamente protocolos "peligrosos"
+        // Explicitly deny "dangerous" protocols
         if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:')) {
             return '#';
         }
 
-        // Verificar si empieza con algún prefijo permitido
+        // Check if it starts with an allowed prefix
         const isAllowed = allowedPrefixes.some(prefix => lower.startsWith(prefix.toLowerCase()));
         return isAllowed ? trimmed : '#';
     }
 
     /**
-     * Elimina o máscara información sensible (tokens, IDs de Gist, etc.) de un texto.
-     * @param {string} text - Texto a procesar.
-     * @returns {string} - Texto saneado.
+     * Remove or mask sensitive information (tokens, Gist IDs, etc.) from a text.
+     * @param {string} text - Text to process.
+     * @returns {string} - Scrubbed text.
      */
     function scrubSensitiveData(text) {
         if (!text || typeof text !== 'string') return text;
         return text
             // GitHub Tokens (ghp_, gho_, ghu_, ghs_, ghr_)
             .replace(/gh[pousr]_[a-zA-Z0-9]{36,255}/g, '[REDACTED_TOKEN]')
-            // Otros tokens genéricos en JSON
+            // Other generic tokens in JSON
             .replace(/"token"\s*:\s*"[^"]+"/g, '"token": "[REDACTED]"')
-            // Gist IDs (32 hex chars) - Saneamiento conservador
+            // Gist IDs (32 hex chars) - Conservative sanitization
             .replace(/\b[a-f0-9]{20,40}\b/g, (match) => {
-                // Redactar solo si es una cadena de hex larga (IDs de GitHub)
+                // Redact only if it is a long hex string (GitHub IDs)
                 return match.length >= 20 ? '[REDACTED_ID]' : match;
             });
     }
@@ -15835,6 +15928,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let virtualScroller = null;
     /** @type {ResizeObserver|null} Observer para redimensionado de VirtualScroller */
     let virtualScrollerResizeObserver = null;
+    /** @type {Array} Caché de los items filtrados y ordenados actualmente */
+    let cachedFilteredItems = [];
     /** @type {number|null} ID del intervalo de actualización del uso de almacenamiento */
     let storageUsageRefreshIntervalId = null;
     /** @type {number|null} Caché del tamaño de almacenamiento del script en bytes */
@@ -16143,6 +16238,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return valA - valB;
         });
 
+        // Guardar en caché para redimensionados rápidos en ResizeObserver
+        cachedFilteredItems = filteredItems;
+
         // Pre-procesar items para incluir headers de playlist y agrupar en filas si es Grid View
         const virtualItems = [];
         let lastPlaylistKey = null;
@@ -16390,10 +16488,75 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (typeof ResizeObserver !== 'undefined') {
             let resizeDebounceTimer = null;
             virtualScrollerResizeObserver = new ResizeObserver(() => {
-                if (!virtualScroller || cachedSavedVideosModalSettings?.displayOptions?.viewMode !== 'grid') return;
+                if (!virtualScroller) return;
                 clearTimeout(resizeDebounceTimer);
                 resizeDebounceTimer = setTimeout(() => {
-                    // Force full re-render on resize: card widths changed → thumbnail aspect ratio changed → heights stale
+                    // Check if columns count needs to change in grid mode
+                    const isGridMode = cachedSavedVideosModalSettings?.displayOptions?.viewMode === 'grid';
+                    if (isGridMode && cachedFilteredItems && cachedFilteredItems.length > 0) {
+                        const containerWidth = scrollerContainer.clientWidth || window.innerWidth;
+                        let newGridCols = 3;
+                        if (containerWidth < 600) newGridCols = 2;
+                        else if (containerWidth >= 1200) newGridCols = 4;
+
+                        const firstGridRow = virtualScroller.items.find(item => item.type === 'grid-row');
+                        const currentGridCols = firstGridRow ? (firstGridRow.gridCols || 3) : 3;
+
+                        if (newGridCols !== currentGridCols) {
+                            const newVirtualItems = [];
+                            let lastPlaylistKey = null;
+                            let currentRowChunk = [];
+
+                            // Capture manually expanded card videoIds to keep them expanded on column reflow
+                            const expandedIds = new Set();
+                            virtualScroller.items.forEach(item => {
+                                if (item.type === 'grid-row' && item.expandedItemIds) {
+                                    for (const id of item.expandedItemIds) {
+                                        expandedIds.add(id);
+                                    }
+                                }
+                            });
+
+                            const flushRowChunk = () => {
+                                if (currentRowChunk.length > 0) {
+                                    const alwaysExpanded = cachedSavedVideosModalSettings?.displayOptions?.gridAlwaysExpanded;
+                                    const rowVideoIds = currentRowChunk.map(i => i.info.videoId || i.videoId);
+                                    const rowExpandedIds = alwaysExpanded
+                                        ? new Set(rowVideoIds)
+                                        : new Set(rowVideoIds.filter(id => expandedIds.has(id)));
+
+                                    newVirtualItems.push({
+                                        type: 'grid-row',
+                                        items: currentRowChunk,
+                                        expandedItemIds: rowExpandedIds,
+                                        gridCols: newGridCols
+                                    });
+                                    currentRowChunk = [];
+                                }
+                            };
+
+                            for (const item of cachedFilteredItems) {
+                                if (item.type === 'playlist-video' && item.playlistKey && item.playlistKey !== lastPlaylistKey) {
+                                    flushRowChunk();
+                                    lastPlaylistKey = item.playlistKey;
+                                } else if (item.type !== 'playlist-video') {
+                                    if (lastPlaylistKey !== null) flushRowChunk();
+                                    lastPlaylistKey = null;
+                                }
+
+                                currentRowChunk.push(item);
+                                if (currentRowChunk.length >= newGridCols) {
+                                    flushRowChunk();
+                                }
+                            }
+                            flushRowChunk();
+
+                            virtualScroller.updateItems(newVirtualItems);
+                            return;
+                        }
+                    }
+
+                    // Force full re-render on resize: card widths changed or text wrapped differently → heights stale
                     if (virtualScroller) virtualScroller.updateHeights(true);
                 }, 120);
             });
@@ -16761,8 +16924,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         videosContainer.appendChild(topRow);
 
         cachedSavedVideosModalSettings = await getSavedVideosModalSettings();
-        videosContainer.appendChild(mountSavedVideosModalActionsToolbar(videosContainer));
-        applySavedVideoActionDatasetToVideosContainer(videosContainer);
+
 
         // Collapsible Advanced Section
         const advancedSection = createElement('div', { className: 'ypp-filters-advanced' });
@@ -16813,6 +16975,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         filtersGrid.appendChild(rangeGroup);
         videosContainer.appendChild(advancedSection);
+
+        videosContainer.appendChild(mountSavedVideosModalActionsToolbar(videosContainer));
+        applySavedVideoActionDatasetToVideosContainer(videosContainer);
 
         // Toggle logic for Advanced Filters
         let isAdvancedExpanded = false;

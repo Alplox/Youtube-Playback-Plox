@@ -15,7 +15,7 @@
 - **Multi-Action Toasts**: Enhanced `showFloatingToast` to support multiple action buttons simultaneously.
 - **Saved videos modal - display options toolbar**:
   - Added a toolbar under the searchbar with Quick access and Actions toggles, row-level opacity modes (full / dim until hover / hidden until hover), a per-row overflow menu (⋯) listing all actions available for that entry. #48
-  - Added an alternate Grid View layout accessible via a toggle in the toolbar. In Grid View, videos are displayed as thumbnail cards in a responsive multi-column grid (2 columns on narrow screens, 3 default, 4 on wide screens). Each card shows a thumbnail with a chevron trigger at the bottom, clicking it opens a metadata dropdown with title, views, stats, and action buttons for that video.
+  - Added an alternate Grid View layout accessible via a toggle in the toolbar. In Grid View, videos are displayed as thumbnail cards in a responsive multi-column grid. Each card shows a thumbnail with a chevron trigger at the bottom, clicking it opens a metadata dropdown with title, views, stats, and action buttons for that video.
   - Added an option to dim the coloured percentage labels in the list. #48
   - Added toggles to independently show/hide: thumbnails, view counts, progress stats, and the action buttons area.
 - **Manual Save Hybrid Mode**: Added a new sub-option to "Manual Save Mode" that allows automatic saving to resume after a video is manually saved or if it was previously saved in the database. #49
@@ -23,10 +23,10 @@
 
 ### Fixed
 
+- **Double-Escaping Prevention**: Fixed HTML entity double-escaping for titles, authors, and playlists in the saved videos modal. The script now transparently decodes pre-escaped YouTube data before applying safe single-escaping, resolving entity display bugs like `&amp;` or `&#39;` while maintaining maximum XSS protection.
+- **Mobile Layout & Sizing**: Implemented a responsive layout for the "Saved Videos" modal on small screens and mobile devices (max-width: 600px). #47
 - **Initialization Race Condition**: Fixed a bug where `handleNavigation` was triggered by `yt-helper-api-ready` before `initializeGlobal` finished loading user settings. This caused video sessions (like Shorts) to start with auto-save disabled (`isAutoSaveEnabled = false`), preventing playback from being tracked and the UI from being injected.
 - **Persistence Rescue Confusion**: Fixed a bug where returning to a completed video would incorrectly display "Fixed Start Time" icons and text. The script now correctly distinguishes between technical re-seeks and user-defined fixed start times.
-
-- **Saved videos grid spacing**: Fixed uneven gaps and playlist-card overlap in Grid View by making `VirtualScroller` use measured DOM heights as the primary source, adding an explicit virtual row gap, and clearing stale height measurements after grid resize recalculations.
 - **DisposableStore Lifecycle**: Resolved a memory leak issue by splitting `DisposableStore` into `clear()` (for resource reset without disposal) and `dispose()` (final cleanup).
 - **ytcfg Runtime Safety**: Added guard clauses for the global `ytcfg` variable to prevent `ReferenceError` crashes during rapid YouTube SPA transitions.
 - **CSS Standard Compatibility**: Replaced non-standard `GM_addStyle` tagged template usage with standard function calls for improved cross-manager compatibility.
@@ -396,7 +396,7 @@
 - **Playlist Title Fetch Fallback**: Added a last-resort fetch via Innertube `/next` endpoint to retrieve `playlistTitle` if DOM and cache methods fail. Only triggers on `watch`/`miniplayer` contexts when a `playlistId` is known but title is still missing.
 - Allow auto-closing of persistent toasts when explicit duration is provided and added shrinking life progress bar to floating toasts
 - Integrated `escapeHTML()` in the Settings UI refactor to ensure safe rendering of translated labels and user data.
-- **_id Persistence**: Standardized all save paths and the FreeTube export format to preserve the optional `_id` field. Enforced `normalizeVideoType` on every write to IndexedDB, preventing format drift and data loss.
+- **\_id Persistence**: Standardized all save paths and the FreeTube export format to preserve the optional `_id` field. Enforced `normalizeVideoType` on every write to IndexedDB, preventing format drift and data loss.
 - **DOM Helpers Optimization**: Created centralized DOM helper functions to eliminate repetitive element lookups throughout the codebase, improving maintainability and consistency.
 - **Extended Context Isolation**: Added specific helper contexts to eliminate repetitive queries for shorts and miniplayer elements.
 - **Centralized AdSelectors**: Updated AdSelectors to use centralized constants, eliminating string literals and improving maintainability across ad detection logic.

@@ -1,4 +1,3 @@
-
 # AGENTS.md - YouTube Playback Plox
 
 > Read this file completely before modifying any code.
@@ -8,7 +7,7 @@
 
 ## 1. What does this project do?
 
-Single file userscript (~16,000 lines) that saves and resumes YouTube playback position without login. Covers: regular videos, Shorts, Miniplayer, and Inline Previews (hover on Home).
+Single file userscript (~20,000 lines) that saves and resumes YouTube playback position without login. Covers: regular videos, Shorts, Miniplayer, and Inline Previews (hover on Home).
 
 Main file: `youtube-playback-plox.user.js`
 External dependency: `YouTube-Helper-API.js` (via `@require`)
@@ -18,38 +17,40 @@ External dependency: `YouTube-Helper-API.js` (via `@require`)
 ## 2. Absolute Rules
 
 ### 2.1 Version - Source of Truth
+
 - The `@version` field in the script header (line ~114) is the
   **only** authority. NEVER increment or invent it.
 - If there is a desynchronization between script and `changelog.md`: record changes in
   changelog under the current script version, without touching `@version`.
 
 ### 2.2 Single file - No duplicates
+
 Look before creating. Reuse what already exists:
 
-| Category | Real name in code |
-|---|---|
-| Compiled selectors | `S.IDS`, `S.CLASSES`, `S.ELEMENTS`, `S.ATTR` |
-| ID constants | `IDs` (objeto) |
-| Class constants | `CLASSES` (objeto) |
-| Attribute constants | `ATTRIBUTES` (objeto) |
-| Element constants | `ELEMENTS` (objeto) |
-| DOM cache with TTL | `DOMHelpers.get(key, getter, ttlMs)` |
-| Playback controller | `PlaybackController` |
-| Async storage | `StorageAsync` / `Storage` |
-| Context resolver | `RouteContextResolver` |
+| Category            | Real name in code                                                             |
+| ------------------- | ----------------------------------------------------------------------------- |
+| Compiled selectors  | `SELECTORS.IDS`, `SELECTORS.CLASSES`, `SELECTORS.ELEMENTS`, `SELECTORS.ATTRS` |
+| ID constants        | `IDs` (objeto)                                                                |
+| Class constants     | `CLASSES` (objeto)                                                            |
+| Attribute constants | `ATTRIBUTES` (objeto)                                                         |
+| Element constants   | `ELEMENTS` (objeto)                                                           |
+| DOM cache with TTL  | `DOMHelpers.get(key, getter, ttlMs)`                                          |
+| Playback controller | `PlaybackController`                                                          |
+| Async storage       | `StorageAsync` / `Storage`                                                    |
+| Context resolver    | `RouteContextResolver`                                                        |
 
 ### 2.3 Explicit prohibitions
 
-| Prohibited | Alternative |
-|---|---|
-| `var` | `const` / `let` |
-| Execute suggested commit in console | Only propose it in a code block |
-| Direct HTML injection | `setInnerHTML()` (TrustedTypes compliant) |
-| DOM access without cache | `DOMHelpers.get()` with TTL 100–250ms |
-| More than 1 save/second | Throttle vía `minSecondsBetweenSaves` |
-| Storing DOM elements in `Map`/`Set` | `WeakMap` |
-| `MINIPLAYER_SELECTORS` or `SHORTS_SELECTORS` | Don't exist; use `S.IDS`, `S.CLASSES`, etc. |
-| `domQueryCache` | Don't exist; use `DOMHelpers.get()` |
+| Prohibited                                   | Alternative                                                 |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| `var`                                        | `const` / `let`                                             |
+| Execute suggested commit in console          | Only propose it in a code block                             |
+| Direct HTML injection                        | `setInnerHTML()` (TrustedTypes compliant)                   |
+| DOM access without cache                     | `DOMHelpers.get()` with TTL 100–250ms                       |
+| More than 1 save/second                      | Throttle vía `minSecondsBetweenSaves`                       |
+| Storing DOM elements in `Map`/`Set`          | `WeakMap`                                                   |
+| `MINIPLAYER_SELECTORS` or `SHORTS_SELECTORS` | Don't exist; use `SELECTORS.IDS`, `SELECTORS.CLASSES`, etc. |
+| `domQueryCache`                              | Don't exist; use `DOMHelpers.get()`                         |
 
 Modifying `translations.json` is strictly prohibited under any circumstances.
 If you need to add translations, do so only in `FALLBACK_TRANSLATIONS` inside `youtube-playback-plox.user.js`.
@@ -125,12 +126,13 @@ youtube-playback-plox.user.js
 ```
 
 **Correct selector naming:**
+
 ```
-S.IDS.MOVIE_PLAYER          → '#movie_player'
-S.IDS.SHORTS_PLAYER         → '#shorts-player'
-S.ELEMENTS.MINIPLAYER_ELEMENT → 'ytd-miniplayer'
-S.CLASSES.MINIPLAYER_COMPONENT_VISIBLE → '.ytdMiniplayerComponentVisible'
-S.ATTR.MINIPLAYER_ACTIVE_ATTR → '[miniplayer-is-active]'
+SELECTORS.IDS.MOVIE_PLAYER          → '#movie_player'
+SELECTORS.IDS.SHORTS_PLAYER         → '#shorts-player'
+SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT → 'ytd-miniplayer'
+SELECTORS.CLASSES.MINIPLAYER_VISIBLE  → '.ytdMiniplayerComponentVisible'
+SELECTORS.ATTRS.MINIPLAYER_ACTIVE     → '[miniplayer-is-active]'
 ```
 
 ---
@@ -167,12 +169,14 @@ SessionOrchestrator.finalizeSession() when navigating/changing video
 FORBIDDEN: `var`
 
 **Performance:**
+
 - DOM: `DOMHelpers.get(key, getter, ttlMs)` - never access DOM in loops without caching
 - Throttle: minimum 1s between saves (configurable in settings)
 - UI: `requestAnimationFrame` for visual changes
 - I/O: `async/await` without blocking main thread
 
 **Memory safety:**
+
 - `WeakMap` for data associated with DOM elements when you DON'T need
   to iterate over them (ej: `_adContainerCache`, `playerVideoIdCache`,
   `seekPlayListeners`, `recentResumeAttempts`).
@@ -184,6 +188,9 @@ FORBIDDEN: `var`
 - NEVER use `Map` with DOM elements as keys if you don't need
   iteration - in that case always use `WeakMap`.
 - `AbortController` in sessions (field `session.abortController`)
+- `DisposableStore` for clean, grouped lifecycle tracking (e.g. `GlobalDisposables`, `ModalDisposables`). Use:
+  - `.clear()` to flush and execute registered disposables while keeping the store active (ideal for view resets/transitions).
+  - `.dispose()` to flush disposables and permanently deactivate the store (ideal for final cleanups).
 - `cleanupAll()` / `closeModalVideos()` when navigating (cleans listeners)
 
 **Safe HTML:** always `setInnerHTML(element, html)` - never `.innerHTML =`
@@ -204,26 +211,32 @@ When `startProcessingSession` does an `await` internally (ej: `getCascadedVideoI
 ## 6. Workflow
 
 ### Before modifying
+
 - [ ] Read current version in script → note it
 - [ ] Search in code if function/selector already exists (section 2.2 and 3)
 - [ ] Evaluate impact on SPA transitions (Watch ↔ Miniplayer ↔ Shorts)
 
 ### During editing
+
 - [ ] JSDoc in new or modified functions
 - [ ] Separate configuration from logic
 - [ ] Descriptive names - forbidden: `foo`, `bar`, `tmp`, `x`
 
 ### After editing
+
 - [ ] Update `changelog.md` in the section matching `@version`
 - [ ] Document edge-cases en `docs/gotchas.md`
 - [ ] Verify stability in SPA transitions
 
 ### After significant structural changes
+
 If you added/renamed/removed a MARK section, a class,
 or a relevant IIFE module:
+
 - [ ] Run `node ./scripts/generate-structure.mjs`
 
 ### Commit message (OBLIGATORY at the end)
+
 Propose in code block, **FORBIDDEN to execute:**
 
 ```
@@ -241,19 +254,23 @@ maintain `docs/estado_tarea.md` to allow handoff between AI agents:
 
 ```markdown
 ## Objective
+
 - [ ] Confirmed: ...
 - [ ] Inferred: ...
 
 ## Technical Decisions
+
 | Decision | Justification |
-|---|---|
-| ... | ... |
+| -------- | ------------- |
+| ...      | ...           |
 
 ## Progress
+
 - [x] Step completed
 - [ ] Step pending
 
 ## Risks
+
 - ...
 ```
 
@@ -261,23 +278,25 @@ maintain `docs/estado_tarea.md` to allow handoff between AI agents:
 
 ## 8. Quick Reference
 
-| I need... | Use... |
-|---|---|
-| Save video progress | `PlaybackController.saveStatus()` |
-| Resume video from saved time | `PlaybackController.resume()` |
-| Video metadata (cascaded) | `getCascadedVideoInfo()` |
-| Detect if node is ad | `AdDetector.isNodeWithinAdContainer()` |
-| Find visible ad UI | `AdDetector.findVisibleAdUi(root)` |
-| Read/write user data | `Storage.get()` / `Storage.set()` with `await` |
-| Check video context | `RouteContextResolver.isContextLocked()` |
-| Access DOM with cache | `DOMHelpers.get(key, getter, ttlMs?)` |
-| Get Watch player | `DOMHelpers.getWatchPlayer()` |
-| Get Shorts player | `DOMHelpers.getShortsPlayer()` |
-| Get Miniplayer player | `DOMHelpers.getMiniplayerPlayer()` |
-| Re-queue video in observer | `VideoObserverManager.enqueueWithResolver()` |
-| Finalize session manually | `SessionOrchestrator.finalizeSession()` |
-| Show toast to user | `showFloatingToast(message, duration?, options?)` |
-| Create DOM element | `createElement(tag, options)` |
-| Escape HTML | `escapeHTML(str)` |
-| Format time to MM:SS | `formatTime(seconds)` |
-| Parse "1:23" to seconds | `parseTimeToSeconds(timeStr)` |
+| I need...                    | Use...                                            |
+| ---------------------------- | ------------------------------------------------- |
+| Save video progress          | `PlaybackController.saveStatus()`                 |
+| Resume video from saved time | `PlaybackController.resume()`                     |
+| Video metadata (cascaded)    | `getCascadedVideoInfo()`                          |
+| Detect if node is ad         | `AdDetector.isNodeWithinAdContainer()`            |
+| Find visible ad UI           | `AdDetector.findVisibleAdUi(root)`                |
+| Read/write user data         | `Storage.get()` / `Storage.set()` with `await`    |
+| Check video context          | `RouteContextResolver.isContextLocked()`          |
+| Access DOM with cache        | `DOMHelpers.get(key, getter, ttlMs?)`             |
+| Get Watch player             | `DOMHelpers.getWatchPlayer()`                     |
+| Get Shorts player            | `DOMHelpers.getShortsPlayer()`                    |
+| Get Miniplayer player        | `DOMHelpers.getMiniplayerPlayer()`                |
+| Get Inline Preview player    | `DOMHelpers.getInlinePreviewPlayer()`             |
+| Get Inline Preview video     | `DOMHelpers.getInlinePreviewPlayerVideo()`        |
+| Re-queue video in observer   | `VideoObserverManager.enqueueWithResolver()`      |
+| Finalize session manually    | `SessionOrchestrator.finalizeSession()`           |
+| Show toast to user           | `showFloatingToast(message, duration?, options?)` |
+| Create DOM element           | `createElement(tag, options)`                     |
+| Escape HTML                  | `escapeHTML(str)`                                 |
+| Format time to MM:SS         | `formatTime(seconds)`                             |
+| Parse "1:23" to seconds      | `parseTimeToSeconds(timeStr)`                     |

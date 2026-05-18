@@ -1,3 +1,16 @@
+# 0.0.10-1
+
+### Added
+
+- **Scrollbar Customization**: Added options in the Saved Videos toolbar to customize scrollbars. #34
+
+### Changed
+
+- **CSS Optimizations**:
+  - Replaced `transition: all` with specific properties (background-color, color, transform, opacity) to prevent heavy animations and unnecessary GPU overhead.
+  - Added `tabular-nums` (`font-variant-numeric: tabular-nums`) to components rendering numbers to prevent layout shifts.
+  - Fixed advanced filters expansion animation jump by replacing `max-height: 90%` with a fixed pixel value.
+
 # 0.0.10
 
 ### Added

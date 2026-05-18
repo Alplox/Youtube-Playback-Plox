@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.10
+// @version      0.0.10-1
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -231,7 +231,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.10';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.10-1';
 
     /**
      * @typedef {Object} YPPState
@@ -391,7 +391,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
          *     viewMode: 'list' | 'grid',
          *     gridAlwaysExpanded: boolean,
          *     gridExpansionMode: 'single' | 'multiple',
-         *     openInNewTab: boolean
+         *     openInNewTab: boolean,
+         *     scrollbarVisibility: 'alwaysVisible' | 'hiddenUntilHover' | 'hidden',
+         *     scrollbarThickness: 'normal' | 'thin'
          *   }
          * }}
          */
@@ -412,7 +414,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                 viewMode: 'list', // 'list' | 'grid'
                 gridAlwaysExpanded: false,
                 gridExpansionMode: 'single',
-                openInNewTab: true
+                openInNewTab: true,
+                scrollbarVisibility: 'alwaysVisible',
+                scrollbarThickness: 'normal'
             }
         }
     };
@@ -675,6 +679,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "colouredLabelsStyleGrayscale": "Grayscale",
             "colouredLabelsStyleColorOnHover": "Color on hover",
             "colouredLabelsStyleGrayscaleOnHover": "Gray on hover",
+            "scrollbarVisibility": "Scrollbar visibility",
+            "scrollbarThickness": "Scrollbar thickness",
+            "scrollbarThicknessNormal": "Normal",
+            "scrollbarThicknessThin": "Thin",
             "openInNewTab": "Open links in new tab",
             "copyMarkdown": "Copy to Markdown",
             "markdownCopied": "Markdown copied to clipboard!",
@@ -2166,6 +2174,61 @@ regular-item.ypp-fill-none {
     height: 100vh;
     background: var(--ypp-overlay);
     z-index: var(--ypp-z-overlay);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* Custom Scrollbars for Modals */
+/* .ypp-videosContainer,
+.ypp-videosContainer * {
+    scrollbar-color: rgba(150, 150, 150, 0.4) transparent !important;
+}
+.ypp-videosContainer ::-webkit-scrollbar {
+    width: 12px !important;
+    height: 12px !important;
+    background-color: transparent !important;
+}
+.ypp-videosContainer ::-webkit-scrollbar-track {
+    background-color: transparent !important;
+}
+.ypp-videosContainer ::-webkit-scrollbar-thumb {
+    background-color: rgba(150, 150, 150, 0.4) !important;
+    border-radius: 10px !important;
+    border: 3px solid transparent !important;
+    background-clip: padding-box !important;
+}
+.ypp-videosContainer ::-webkit-scrollbar-thumb:hover {
+    background-color: rgba(150, 150, 150, 0.6) !important;
+} */
+
+/* Scrollbar Thickness */
+.ypp-videosContainer[data-ypp-scrollbar-thickness="thin"],
+.ypp-videosContainer[data-ypp-scrollbar-thickness="thin"] * {
+    scrollbar-width: thin !important;
+}
+.ypp-videosContainer[data-ypp-scrollbar-thickness="thin"] ::-webkit-scrollbar {
+    width: 6px !important;
+    height: 6px !important;
+}
+.ypp-videosContainer[data-ypp-scrollbar-thickness="thin"] ::-webkit-scrollbar-thumb {
+    border: 0px solid transparent !important;
+}
+
+/* Scrollbar Visibility */
+.ypp-videosContainer[data-ypp-scrollbar-visibility="hidden"],
+.ypp-videosContainer[data-ypp-scrollbar-visibility="hidden"] * {
+    scrollbar-width: none !important;
+}
+.ypp-videosContainer[data-ypp-scrollbar-visibility="hidden"] ::-webkit-scrollbar {
+    display: none !important;
+}
+.ypp-videosContainer[data-ypp-scrollbar-visibility="hiddenUntilHover"]:not(:hover),
+.ypp-videosContainer[data-ypp-scrollbar-visibility="hiddenUntilHover"] *:not(:hover) {
+    scrollbar-color: transparent transparent !important;
+}
+.ypp-videosContainer[data-ypp-scrollbar-visibility="hiddenUntilHover"]:not(:hover)::-webkit-scrollbar-thumb,
+.ypp-videosContainer[data-ypp-scrollbar-visibility="hiddenUntilHover"] :not(:hover)::-webkit-scrollbar-thumb {
+    background-color: transparent !important;
 }
 
 .ypp-videosContainer {
@@ -2362,9 +2425,9 @@ regular-item.ypp-fill-none {
         -ms-flex-align: center;
             align-items: center;
     /* justify-content: center; */
-    -webkit-transition: all 0.2s ease;
-    -o-transition: all 0.2s ease;
-    transition: all 0.2s ease;
+    -webkit-transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    -o-transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 
     background: var(--ypp-bg-time-display);
     border-radius: var(--ypp-spacing-lg);
@@ -2526,7 +2589,7 @@ regular-item.ypp-fill-none {
 
     &:active {
         background: var(--ypp-primary-hover);
-        transform: scale(0.94);
+        transform: scale(0.96);
         transition: transform 0.1s ease;
     }
 
@@ -2581,6 +2644,7 @@ regular-item.ypp-fill-none {
     font-size: var(--ypp-font-size-lg);
     color: var(--ypp-white);
     border-left: 2px solid var(--ypp-bg);
+    font-variant-numeric: tabular-nums;
 }
 
 /* =========================
@@ -2670,7 +2734,7 @@ regular-item.ypp-fill-none {
     background: transparent;
     color: var(--ypp-text);
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
     font-size: 1.3rem;
     white-space: nowrap;
     align-self: stretch;
@@ -2699,7 +2763,6 @@ regular-item.ypp-fill-none {
 
 .ypp-saved-videos-toolbar-wrap {
     position: relative;
-    z-index: 9;
     border-bottom: 1px solid var(--ypp-border);
 }
 
@@ -2940,8 +3003,8 @@ regular-item.ypp-fill-none {
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.completed,
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.forced
 /* .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-playlist-indicator  */{
-    -webkit-transition: all 0.2s ease;
-    transition: all 0.2s ease;
+    -webkit-transition: opacity 0.2s ease;
+    transition: opacity 0.2s ease;
 }
 
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
@@ -3045,7 +3108,7 @@ regular-item.ypp-fill-none {
 }
 
 .ypp-filters-advanced.expanded {
-    max-height: 90%;
+    max-height: 400px;
     /* max-height: 200px; */
     opacity: 1;
     padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
@@ -3123,7 +3186,7 @@ regular-item.ypp-fill-none {
     font-size: 1.25rem;
     text-align: center;
     box-sizing: border-box;
-    transition: all 0.2s ease;
+    transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
     appearance: textfield; /* Quita flechas en Firefox */
 
     /* Quita flechas en Chrome/Safari */
@@ -3453,6 +3516,7 @@ regular-item.ypp-fill-none {
     display: block;
     font-size: 1.2rem;
     font-weight: 500;
+    text-wrap: balance;
 
     &:hover {
         color: var(--ypp-primary-hover);
@@ -3473,6 +3537,7 @@ regular-item.ypp-fill-none {
     white-space: normal;
     line-height: 1.3;
     max-height: 3.6rem;
+    text-wrap: pretty;
 
     &:hover {
         text-decoration: underline;
@@ -3496,6 +3561,10 @@ regular-item.ypp-fill-none {
     color: var(--ypp-muted);
 }
 
+.ypp-views {
+    font-variant-numeric: tabular-nums;
+}
+
 .ypp-watched-count {
     display: -webkit-box;
     display: -ms-flexbox;
@@ -3517,6 +3586,7 @@ regular-item.ypp-fill-none {
         -ms-flex-align: center;
             align-items: center;
     gap: var(--ypp-spacing-sm);
+    font-variant-numeric: tabular-nums;
 }
 
 .ypp-timestamp {
@@ -3557,9 +3627,9 @@ regular-item.ypp-fill-none {
 
 .ypp-videoWrapper.playlist-item {
     border-radius: 6px;
-    -webkit-transition: all 0.2s ease;
-    -o-transition: all 0.2s ease;
-    transition: all 0.2s ease;
+    -webkit-transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+    -o-transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+    transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
     height: 140px !important;
 
     .ypp-timestamp:not(.forced):not(.completed):not(.forced.completed),
@@ -3703,13 +3773,13 @@ regular-item.ypp-fill-none {
     }
 
     /* Filas principales (Lista y desplegables de Grid) */
-    .ypp-videoWrapper.regular-item,
-    .ypp-videoWrapper.playlist-item {
+    .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper.regular-item,
+    .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper.playlist-item {
         height: auto !important;
         min-height: 100px !important;
     }
     
-    .ypp-videoWrapper {
+    .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper {
         position: relative !important; /* Esencial para posicionar el trigger de menú de forma absoluta */
         flex-wrap: wrap !important;
         align-items: flex-start !important;
@@ -3717,7 +3787,7 @@ regular-item.ypp-fill-none {
     }
 
     /* Miniatura (Sólo para filas de Lista, ya que el dropdown del Grid no las renderiza) */
-    .ypp-videoWrapper .ypp-thumb-wrapper {
+    .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-thumb-wrapper {
         width: 96px !important;
         height: 54px !important;
         margin-right: var(--ypp-spacing-sm) !important;
@@ -3725,31 +3795,33 @@ regular-item.ypp-fill-none {
     }
 
     /* Contenedor de Información */
-    .ypp-videoWrapper .ypp-infoDiv {
+    .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-infoDiv {
         width: calc(100% - 108px) !important;
         flex-grow: 1 !important;
         min-width: 0 !important;
     }
 
     /* En Grid Mode, los desplegables no tienen miniatura. Asegurar que usen todo el espacio disponible */
-    .ypp-grid-dropdown-info .ypp-infoDiv {
+    /* Mantenerlo por si acaso el list view asume algo incorrecto o como seguridad global, 
+       aunque en general el Grid View no debería necesitar estar aquí si scoped. */
+    .ypp-videosContainer[data-ypp-view-mode="grid"] .ypp-grid-dropdown-info .ypp-infoDiv {
         width: 100% !important;
         padding-right: 28px !important; /* Espacio para el menú ⋯ */
         box-sizing: border-box !important;
     }
     
-    .ypp-videoWrapper.selection-mode .ypp-infoDiv {
+    .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper.selection-mode .ypp-infoDiv {
         width: calc(100% - 148px) !important;
     }
 
-    .ypp-playlist-indicator {
+    .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-playlist-indicator {
         max-height: none !important;
         overflow: visible !important;
         white-space: normal !important;
     }
 
     /* Contenedor de Botones de Acción (Se apila verticalmente en su propia línea inferior) */
-    .ypp-videoWrapper .ypp-containerButtonsTime {
+    .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-containerButtonsTime {
         width: 100% !important;
         flex: 0 0 100% !important;
         margin-left: 0 !important;
@@ -3764,7 +3836,7 @@ regular-item.ypp-fill-none {
     }
 
     /* Filas de Botones individuales (QA y Acciones) */
-    .ypp-videoWrapper .ypp-buttons-row {
+    .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-buttons-row {
         width: 100% !important;
         max-width: 100% !important;
         flex-wrap: wrap !important; /* Envolver si la pantalla es muy estrecha */
@@ -3773,7 +3845,7 @@ regular-item.ypp-fill-none {
     }
 
     /* Botón de Más Acciones (⋯) */
-    .ypp-videoWrapper .ypp-saved-video-overflow-trigger {
+    .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-saved-video-overflow-trigger {
         position: absolute !important;
         right: 8px !important;
         top: 10px !important;
@@ -3793,9 +3865,9 @@ regular-item.ypp-fill-none {
 
 /* Estilos para modo de selección */
 .ypp-videoWrapper.selection-mode {
-    -webkit-transition: all 0.2s ease;
-    -o-transition: all 0.2s ease;
-    transition: all 0.2s ease;
+    -webkit-transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    -o-transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+    transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
 
 .ypp-video-checkbox {
@@ -3982,6 +4054,12 @@ regular-item.ypp-fill-none {
     width: 100%;
     height: 100%;
     max-width: none;
+    outline: 1px solid rgba(0, 0, 0, 0.1);
+    outline-offset: -1px;
+}
+
+:root[data-theme="dark"] .ypp-thumb {
+    outline: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .ypp-infoDiv {
@@ -4663,9 +4741,9 @@ regular-item.ypp-fill-none {
     border-radius: 6px 6px 0 0;
     font-size: 0.9em;
     font-weight: 500;
-    -webkit-transition: all 0.2s;
-    -o-transition: all 0.2s;
-    transition: all 0.2s;
+    -webkit-transition: background-color 0.2s, color 0.2s;
+    -o-transition: background-color 0.2s, color 0.2s;
+    transition: background-color 0.2s, color 0.2s;
     display: -webkit-box;
     display: -ms-flexbox;
     display: flex;
@@ -4733,6 +4811,7 @@ regular-item.ypp-fill-none {
     color: var(--ypp-text);
     font-size: 1.6rem;
     margin: 0;
+    text-wrap: balance;
     -webkit-box-flex: 1;
         -ms-flex: 1;
             flex: 1;
@@ -5498,8 +5577,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         translate: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M4.545 6.714 4.11 8H3l1.862-5h1.284L8 8H6.833l-.435-1.286zm1.634-.736L5.5 3.956h-.049l-.679 2.022z"/><path d="M0 2a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v3h3a2 2 0 0 1 2 2v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-3H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h7a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1zm7.138 9.995q.289.451.63.846c-.748.575-1.673 1.001-2.768 1.292.178.217.451.635.555.867 1.125-.359 2.08-.844 2.886-1.494.777.665 1.739 1.165 2.93 1.472.133-.254.414-.673.629-.89-1.125-.253-2.057-.694-2.82-1.284.681-.747 1.222-1.651 1.621-2.757H14V8h-3v1.047h.765c-.318.844-.74 1.546-1.272 2.13a6 6 0 0 1-.415-.492 2 2 0 0 1-.94.31"/></svg>',
         // https://www.svgrepo.com/svg/512899/spotify-162 - PD License
         spotifyIconFill: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20"><path fill="currentColor" fill-rule="evenodd" d="M15.915 8.865c-3.223-1.914-8.54-2.09-11.618-1.156a.935.935 0 0 1-.543-1.79c3.533-1.073 9.405-.866 13.116 1.337a.935.935 0 0 1-.955 1.609M15.81 11.7a.78.78 0 0 1-1.073.257c-2.687-1.652-6.785-2.13-9.964-1.165A.78.78 0 0 1 4.32 9.3c3.631-1.102 8.146-.568 11.233 1.329a.78.78 0 0 1 .257 1.071m-1.224 2.723a.623.623 0 0 1-.857.207c-2.348-1.435-5.304-1.759-8.785-.964a.622.622 0 1 1-.277-1.215c3.809-.871 7.076-.496 9.712 1.115.294.18.387.563.207.857M10 0C4.477 0 0 4.477 0 10s4.477 10 10 10 10-4.477 10-10S15.523.001 10 .001z"/></svg>',
-        // https://www.svgrepo.com/svg/522978/pallete-2
+        // https://www.svgrepo.com/svg/522978/pallete-2 - CC Attribution License
         palette: '<svg class="ypp-svg-reset ypp-fill-none" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M12 2.75c-5.107 0-9.25 4.151-9.25 9.276 0 4.762 3.579 8.685 8.183 9.215.462.053.957-.14 1.353-.537a.93.93 0 0 0 0-1.314c-.312-.312-.625-.73-.796-1.203-.175-.485-.219-1.094.137-1.66.323-.513.807-.788 1.315-.922.49-.128 1.031-.136 1.552-.104a23 23 0 0 1 1.638.179c.557.072 1.1.139 1.626.164 1.074.051 1.902-.084 2.467-.546.542-.443 1.025-1.341 1.025-3.272 0-5.125-4.143-9.276-9.25-9.276M1.25 12.026C1.25 6.076 6.061 1.25 12 1.25s10.75 4.826 10.75 10.776c0 2.145-.537 3.584-1.575 4.433-1.014.829-2.326.939-3.489.883a22 22 0 0 1-1.862-.19c-.52-.067-.99-.128-1.42-.154-.467-.028-.821-.01-1.08.058-.24.063-.356.157-.427.27-.039.062-.066.158.004.351.074.206.236.442.447.654a2.43 2.43 0 0 1 0 3.432c-.65.652-1.58 1.084-2.587.968-5.355-.616-9.511-5.175-9.511-10.705M9.585 6.25a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5M7.335 7a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0m7.165-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5M12.25 7a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0M6.5 10.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5m-2.25.75a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0m13.25-.75a.75.75 0 1 0 0 1.5.75.75 0 0 0 0-1.5m-2.25.75a2.25 2.25 0 1 1 4.5 0 2.25 2.25 0 0 1-4.5 0" clip-rule="evenodd"/></svg>',
+        // https://www.svgrepo.com/svg/389595/interface-ui-scroll-bar-scrollbar - CC Attribution License
+        scrollbar: '<svg xmlns="http://www.w3.org/2000/svg" xml:space="preserve" width="800" height="800" viewBox="0 0 32 32"><path d="M19 0h-6c-1.7 0-3 1.3-3 3v26c0 1.7 1.3 3 3 3h6c1.7 0 3-1.3 3-3V3c0-1.7-1.3-3-3-3m-5.7 6.3 2-2c.4-.4 1-.4 1.4 0l2 2c.4.4.4 1 0 1.4-.2.2-.4.3-.7.3s-.5-.1-.7-.3L16 6.4l-1.3 1.3c-.4.4-1 .4-1.4 0s-.4-1 0-1.4m5.4 19.4-2 2c-.2.2-.4.3-.7.3s-.5-.1-.7-.3l-2-2c-.4-.4-.4-1 0-1.4s1-.4 1.4 0l1.3 1.3 1.3-1.3c.4-.4 1-.4 1.4 0s.4 1 0 1.4M20 20h-8v-8h8z"/></svg>',
 
         /* OTROS */
         // https://svgicons.com/icon/285913/freetube - CC0 1.0
@@ -17440,6 +17521,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             /*  container.setAttribute('data-ypp-show-stats', settings.displayOptions.showStats !== false ? 'true' : 'false');
              container.setAttribute('data-ypp-show-buttons', settings.displayOptions.showButtons !== false ? 'true' : 'false'); */
             container.setAttribute('data-ypp-view-mode', settings.displayOptions.viewMode || 'list');
+
+            // note for future me: maybe use html document to add atribute so it work on every modal
+            container.setAttribute('data-ypp-scrollbar-visibility', settings.displayOptions.scrollbarVisibility || 'alwaysVisible');
+            container.setAttribute('data-ypp-scrollbar-thickness', settings.displayOptions.scrollbarThickness || 'normal');
         }
     };
 
@@ -18186,6 +18271,83 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         generalChips.appendChild(makeDisplayToggle('openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab', true));
         generalRow.appendChild(generalChips);
         generalGroup.appendChild(generalRow);
+
+        // Scrollbar Visibility
+        const scrollbarVisRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        scrollbarVisRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('scrollbarVisibility')
+        }));
+        const scrollbarVisBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+        const scrollbarVisModes = [
+            { key: 'alwaysVisible', label: t('AlwaysVisible') },
+            { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
+            { key: 'hidden', label: t('Hidden') }
+        ];
+        const syncScrollbarVis = () => {
+            const cur = cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility || 'alwaysVisible';
+            scrollbarVisBtns.querySelectorAll('button').forEach(b => {
+                const active = b.dataset.mode === cur;
+                b.classList.toggle('ypp-btn-primary', active);
+                b.classList.toggle('ypp-btn-outline-primary', !active);
+            });
+        };
+        for (const { key, label } of scrollbarVisModes) {
+            const b = createElement('button', {
+                className: 'ypp-btn ypp-btn-sm',
+                text: label,
+                attributes: { type: 'button', 'data-mode': key }
+            });
+            addDisposableListener(b, 'click', (ev) => {
+                ev.stopPropagation();
+                cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                syncScrollbarVis();
+            }, {}, ModalDisposables);
+            scrollbarVisBtns.appendChild(b);
+        }
+        syncScrollbarVis();
+        scrollbarVisRow.appendChild(scrollbarVisBtns);
+        generalGroup.appendChild(scrollbarVisRow);
+
+        // Scrollbar Thickness
+        const scrollbarThickRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        scrollbarThickRow.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('scrollbarThickness')
+        }));
+        const scrollbarThickBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+        const scrollbarThickModes = [
+            { key: 'normal', label: t('scrollbarThicknessNormal') },
+            { key: 'thin', label: t('scrollbarThicknessThin') }
+        ];
+        const syncScrollbarThick = () => {
+            const cur = cachedSavedVideosModalSettings.displayOptions.scrollbarThickness || 'normal';
+            scrollbarThickBtns.querySelectorAll('button').forEach(b => {
+                const active = b.dataset.mode === cur;
+                b.classList.toggle('ypp-btn-primary', active);
+                b.classList.toggle('ypp-btn-outline-primary', !active);
+            });
+        };
+        for (const { key, label } of scrollbarThickModes) {
+            const b = createElement('button', {
+                className: 'ypp-btn ypp-btn-sm',
+                text: label,
+                attributes: { type: 'button', 'data-mode': key }
+            });
+            addDisposableListener(b, 'click', (ev) => {
+                ev.stopPropagation();
+                cachedSavedVideosModalSettings.displayOptions.scrollbarThickness = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                syncScrollbarThick();
+            }, {}, ModalDisposables);
+            scrollbarThickBtns.appendChild(b);
+        }
+        syncScrollbarThick();
+        scrollbarThickRow.appendChild(scrollbarThickBtns);
+        generalGroup.appendChild(scrollbarThickRow);
         inner.appendChild(generalGroup);
 
 

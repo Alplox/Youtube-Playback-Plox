@@ -7176,6 +7176,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
+     * Elimina un elemento de forma segura, ignorando errores.
+     * @param {Element|null} element - Elemento a eliminar
+     * @returns {boolean} - True si se eliminó, false si era null o falló
+     */
+    function safeRemove(element) {
+        if (!element) return false;
+        try {
+            element.remove();
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    /**
      * Aplica validación y restricción numérica automática a un campo de entrada.
      * Sanitiza caracteres no permitidos, controla rangos y formatea ceros a la izquierda.
      *
@@ -10049,11 +10064,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {HTMLVideoElement|null}
      */
     function getDisplayContextVideo(contextType) {
-        if (contextType === 'watch') return DOMHelpers.getWatchPlayerVideo();
-        if (contextType === 'shorts') return DOMHelpers.getShortsPlayerVideo();
-        if (contextType === 'miniplayer') return DOMHelpers.getMiniplayerPlayerVideo();
-        if (contextType === 'preview') return DOMHelpers.getInlinePreviewPlayerVideo();
-        return null;
+        const videoGetters = {
+            watch: DOMHelpers.getWatchPlayerVideo,
+            shorts: DOMHelpers.getShortsPlayerVideo,
+            miniplayer: DOMHelpers.getMiniplayerPlayerVideo,
+            preview: DOMHelpers.getInlinePreviewPlayerVideo
+        };
+        return videoGetters[contextType]?.() ?? null;
     }
 
     /**
@@ -10062,11 +10079,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {Element|null}
      */
     function getDisplayContextPlayer(contextType) {
-        if (contextType === 'watch') return DOMHelpers.getWatchPlayer();
-        if (contextType === 'shorts') return DOMHelpers.getShortsPlayer();
-        if (contextType === 'miniplayer') return DOMHelpers.getMiniplayerPlayer();
-        if (contextType === 'preview') return DOMHelpers.getInlinePreviewPlayer();
-        return null;
+        const playerGetters = {
+            watch: DOMHelpers.getWatchPlayer,
+            shorts: DOMHelpers.getShortsPlayer,
+            miniplayer: DOMHelpers.getMiniplayerPlayer,
+            preview: DOMHelpers.getInlinePreviewPlayer
+        };
+        return playerGetters[contextType]?.() ?? null;
     }
 
     /**
@@ -10261,11 +10280,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
 
         const getDisplay = (context) => {
-            if (context === 'watch') return watchTimeDisplay;
-            if (context === 'shorts') return shortsTimeDisplay;
-            if (context === 'miniplayer') return miniplayerTimeDisplay;
-            if (context === 'preview') return inlinePreviewTimeDisplay;
-            return null;
+            const displayMap = {
+                watch: watchTimeDisplay,
+                shorts: shortsTimeDisplay,
+                miniplayer: miniplayerTimeDisplay,
+                preview: inlinePreviewTimeDisplay
+            };
+            return displayMap[context] ?? null;
         };
 
         const matchesIdentity = (context, videoEl, videoId) => {
@@ -10439,7 +10460,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const playerContainer = resolvedPlayer;
                     destroy('miniplayer');
                     if (watchTimeDisplay?.isConnected && watchTimeDisplay.querySelector('.ypp-time-display-message')) return getDisplay(context);
-                    if (watchTimeDisplay) { try { watchTimeDisplay.remove(); } catch (_) { } watchTimeDisplay = null; }
+                    if (watchTimeDisplay) { safeRemove(watchTimeDisplay); watchTimeDisplay = null; }
 
                     const timeWrapper = DOMHelpers.get('player:timeWrapper', () =>
                         playerContainer.querySelector('.ytp-time-wrapper')
@@ -10508,7 +10529,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (resolvedPlayer) {
                     const playerContainer = resolvedPlayer;
                     if (miniplayerTimeDisplay?.isConnected && miniplayerTimeDisplay.querySelector('.ypp-time-display-message')) return getDisplay(context);
-                    if (miniplayerTimeDisplay) { try { miniplayerTimeDisplay.remove(); } catch (_) { } miniplayerTimeDisplay = null; }
+                    if (miniplayerTimeDisplay) { safeRemove(miniplayerTimeDisplay); miniplayerTimeDisplay = null; }
 
                     const controls = playerContainer.querySelector('.ytp-time-wrapper') || playerContainer.querySelector('.ytp-left-controls') || document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper') || document.querySelector('ytd-miniplayer-player-container .ytp-left-controls');
                     if (!controls) return getDisplay(context);
@@ -10526,7 +10547,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (resolvedPlayer) {
                     const previewPlayerEl = resolvedPlayer;
                     if (inlinePreviewTimeDisplay?.isConnected && inlinePreviewTimeDisplay.querySelector('.ypp-time-display-message')) return getDisplay(context);
-                    if (inlinePreviewTimeDisplay) { try { inlinePreviewTimeDisplay.remove(); } catch (_) { } inlinePreviewTimeDisplay = null; }
+                    if (inlinePreviewTimeDisplay) { safeRemove(inlinePreviewTimeDisplay); inlinePreviewTimeDisplay = null; }
 
                     inlinePreviewTimeDisplay = createElement('div', { id: 'ypp-inline-preview-time-display', className: 'ypp-time-display ypp-inline-preview-time-display' });
                     const { listBtn, messageEl } = createSplitButtonGroup();
@@ -10646,7 +10667,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             clear(context, { reason: 'destroy' });
             const display = getDisplay(context);
             if (display) {
-                try { display.remove(); } catch (_) { }
+                safeRemove(display);
             }
             displayIdentity.delete(context);
             if (context === 'watch') watchTimeDisplay = null;
@@ -12327,11 +12348,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const getContextRoot = (videoEl, context) => {
             if (!videoEl) return null;
-            if (context === 'watch') return videoEl.closest(SELECTORS.player.movie);
-            if (context === 'shorts') return videoEl.closest(SELECTORS.shorts.player);
-            if (context === 'miniplayer') return videoEl.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT);
-            if (context === 'preview') return videoEl.closest(SELECTORS.inlinePreview.player) || videoEl.closest(SELECTORS.IDS.VIDEO_PREVIEW_CONTAINER);
-            return null;
+            const rootSelectors = {
+                watch: () => videoEl.closest(SELECTORS.player.movie),
+                shorts: () => videoEl.closest(SELECTORS.shorts.player),
+                miniplayer: () => videoEl.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT),
+                preview: () => videoEl.closest(SELECTORS.inlinePreview.player) || videoEl.closest(SELECTORS.IDS.VIDEO_PREVIEW_CONTAINER)
+            };
+            return rootSelectors[context]?.() ?? null;
         };
 
         const computeContextScore = (videoEl, context) => {

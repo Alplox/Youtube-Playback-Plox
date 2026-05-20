@@ -3,6 +3,11 @@
 ### Changed
 
 - **Unified Saving Engine**: Refactored the core saving module by consolidating six specialized, redundant functions (`internalSaveRegularVideo`, `saveRegularVideo`, `saveMiniplayer`, `saveShortsVideo`, `savePreview`, `saveLivestream`) into a single, highly flexible `internalSaveVideoGeneric` function.
+- **Code Quality Improvements**:
+  - Refactored `getDisplayContextVideo` and `getDisplayContextPlayer` to use lookup tables instead of if-else chains, reducing code duplication.
+  - Refactored `getDisplay` to use lookup table pattern for better maintainability.
+  - Refactored `getContextRoot` to use lookup table instead of if-else chains.
+  - Added `safeRemove` helper function to consolidate repeated try-catch patterns for DOM element removal.
 
 # 0.0.10-1
 

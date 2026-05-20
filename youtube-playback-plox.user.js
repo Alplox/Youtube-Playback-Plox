@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.10-1
+// @version      0.0.10-2
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -231,7 +231,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.10-1';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.10-2';
 
     /**
      * @typedef {Object} YPPState
@@ -8906,20 +8906,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         return base;
     }
 
-    // MARK: 💾 Internal Save Regular Video
+    // MARK: 💾 Save Video Generic
     /**
-     * Lógica interna compartida para guardar videos que no son Shorts ni Directos (Watch o Miniplayer).
+     * Lógica unificada para guardar el progreso y estado de reproducción de videos.
      * @private
      */
-    async function internalSaveRegularVideo(player, currentTime, videoInfo, videoEl, logContext = 'saveRegularVideo', options = {}) {
+    async function internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, logContext, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
-
-
-        // Ignorar si el modo de guardado manual está activo y no es un guardado manual
-        // EXCEPCIÓN: Si el modo híbrido está activo y la sesión ya fue autorizada (manual o pre-existente)
         const session = videoEl ? activeProcessingSessions.get(videoEl) : null;
         const isHybridAutoSave = cachedSettings.manualSaveHybridMode && session?.isAutoSaveAuthorized;
 
+        // Ignorar si el modo de guardado manual está activo y no es un guardado manual
+        // EXCEPCIÓN: Si el modo híbrido está activo y la sesión ya fue autorizada (manual o pre-existente)
         if (cachedSettings.manualSaveMode && !options.isManual && !isHybridAutoSave) {
             logLog(logContext, `No se guardó el video ${videoId} en ${currentTime}s porque el modo de guardado manual está activo`);
             return { success: false, reason: 'manual_save_mode_active' };
@@ -8927,6 +8925,33 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const sourceData = await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
+
+        // 1. Manejo de transmisiones en directo (Livestreams)
+        if (finalType === 'live') {
+            const videoData = {
+                ...sourceData,
+                ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
+                watchProgress: currentTime,
+                timeWatched: now,
+                type: 'live',
+                isLive: true,
+                isCompleted: false
+            };
+            const normalizedData = normalizeVideoData(videoData);
+            const storageResult = await Storage.set(videoId, normalizedData);
+
+            logLog(logContext, `✅ Livestream guardado:`, {
+                ...videoData,
+                description: videoData.description ? videoData.description.slice(0, 12) + (videoData.description.length > 12 ? ' (truncada para log)' : '') : ''
+            });
+
+            if (storageResult && !storageResult.success) {
+                return { success: false, reason: storageResult.reason, videoId, type: 'live' };
+            }
+            return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'live', savedData: videoData };
+        }
+
+        // 2. Lógica estándar para videos regulares, shorts y previews
         const progress = duration > 0 ? (currentTime / duration) : 0;
         const defaultPercent = (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) / 100;
         const isFinished = duration > 0 && (
@@ -8934,16 +8959,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             (duration <= 60 && currentTime >= duration - 0.75)
         );
 
-        // Si tiene tiempo fijo, no sobreescribir
+        // 3. Protección para videos con tiempo de reanudación fijo
         if (sourceData && sourceData.forceResumeTime > 0) {
             if (isFinished) {
-                logLog(logContext, `Video ${videoId} completado, manteniendo tiempo fijo`);
+                logLog(logContext, `Video/Short ${videoId} completado, manteniendo tiempo fijo`);
                 let history = sourceData.completionHistory;
 
                 if (session && !session.hasLoggedCompletion) {
                     history = insertCompletionEvent(history, now, duration);
                     session.hasLoggedCompletion = true;
-                    logInfo(logContext, `Registro de finalización añadido para video con tiempo fijo: ${videoId}`);
+                    logInfo(logContext, `Registro de finalización añadido para tiempo fijo: ${videoId}`);
                 }
 
                 // Normalizar para asegurar Format A y marcar como completado, preservando el historial
@@ -8957,10 +8982,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             } else if (currentTime < 1) {
                 // Detectar si el usuario pulsó "Replay" (el tiempo saltó a < 1s en una sesión activa tras completarse)
                 if (session && session.hasLoggedCompletion) {
-                    logLog(logContext, `Replay detectado para video con tiempo fijo (${videoId}). Re-aplicando seek a ${sourceData.forceResumeTime}s`);
-                    // Resetear bandera para permitir registrar la siguiente finalización
+                    logLog(logContext, `Replay detectado para tiempo fijo (${videoId}). Re-aplicando seek a ${sourceData.forceResumeTime}s`);
                     session.hasLoggedCompletion = false;
-                    // Re-aplicar el resume (que se encarga de re-notificar el seek)
                     PlaybackController.resume(player, videoId, videoEl, sourceData, session.type, session);
                     return { success: false, reason: 'replay_fixed_time_reapplied' };
                 }
@@ -8968,262 +8991,69 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return { success: false, reason: 'fixed_time_no_overwrite' };
         }
 
+        // 4. Escudo protector de reset automático
         let finalIsCompleted = isFinished;
         let finalWatchProgress = currentTime;
+        const shieldThreshold = finalType === 'shorts' ? 2 : 5;
+        const safeIsFinished = finalType === 'preview' ? (isFinished && currentTime > 0.8 && duration > 1) : isFinished;
 
-        // Protección contra el reset automático de YouTube al finalizar un video.
-        // Cuando YouTube termina un video, puede reiniciar el player a 0 antes de pasar al siguiente.
-        // Si el dato guardado ya dice isCompleted=true y el tiempo actual es muy bajo (<5s),
-        // es casi seguro un reset automático -> preservamos el estado completado.
-        // NOTA: Una vez que el video cruce la marca de los 5s, el escudo se desactivará automáticamente.
-        // El script entenderá que realmente estás re-viendo el video por voluntad propia y comenzará a guardar nuevo progreso (5s, 6s, 7s...),
-        // retirando la marca de "completado" hasta que vuelvas a terminarlo.
-        if (!isFinished && sourceData?.isCompleted && currentTime < 5) {
-            logLog(logContext, `🛡️ Shield auto-reset detectado para video completado (${videoId}) en ${currentTime}s. Preservando estado.`);
-            finalIsCompleted = true;
-            finalWatchProgress = sourceData.watchProgress;
-        }
-
-        const videoData = {
-            ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
-            watchProgress: finalWatchProgress,
-            timeWatched: now,
-            type: 'video',
-            isCompleted: finalIsCompleted,
-            completionHistory: sourceData?.completionHistory
-        };
-
-
-        if (isFinished && session && !session.hasLoggedCompletion) {
-            videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
-            session.hasLoggedCompletion = true;
-        } else if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
-            const prev = sourceData?.watchProgress || 0;
-            const delta = prev - currentTime;
-            const isNearStart = currentTime < Math.max(1, duration * 0.2);
-            const wasNearEnd = prev > (duration * 0.75);
-            const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
-            if (wasLoop) {
-                session.hasLoggedCompletion = false;
-            }
-        }
-
-        // Normalizar antes de guardar para asegurar Format A y limpieza de legacy
-        const normalizedData = normalizeVideoData(videoData);
-        const storageResult = await Storage.set(videoId, normalizedData);
-
-        if (storageResult && !storageResult.success) {
-            logError(logContext, `❌ Error al guardar video ${videoId} en ${currentTime}s - Razón: ${storageResult.reason}`);
-            return { success: false, reason: storageResult.reason, videoId, type: 'video' };
-        }
-
-        logLog(logContext, `✅ Video guardado (${logContext}):`, {
-            ...videoData,
-            description: videoData.description
-                ? videoData.description.slice(0, 12) +
-                (videoData.description.length > 12 ? ' (truncada para log)' : '')
-                : ''
-        });
-        return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'video', savedData: videoData };
-    }
-
-    // MARK: 💾 Save Regular Video
-    /**
-     * Guarda progreso para videos regulares (Página de Watch)
-     * @param {number} currentTime - Tiempo actual
-     * @param {Object} videoInfo - Información del video
-     * @returns {Object} Resultado
-     */
-    async function saveRegularVideo(player, currentTime, videoInfo, videoEl, options = {}) {
-        return await internalSaveRegularVideo(player, currentTime, videoInfo, videoEl, 'saveRegularVideo', options);
-    }
-
-    // MARK: 💾 Save Miniplayer
-    /**
-     * Guarda progreso para videos en el Miniplayer
-     * @param {number} currentTime - Tiempo actual
-     * @param {Object} videoInfo - Información del video
-     * @returns {Object} Resultado
-     */
-    async function saveMiniplayer(player, currentTime, videoInfo, videoEl, options = {}) {
-        return await internalSaveRegularVideo(player, currentTime, videoInfo, videoEl, 'saveMiniplayer', options);
-    }
-
-    // MARK: 💾 Save Shorts
-    /**
-     * Guarda progreso para Shorts
-     * @param {number} currentTime - Tiempo actual
-     * @param {Object} videoInfo - Información del short (videoId, title, author, duration, etc.)
-     * @returns {Object} Resultado de la operación
-     */
-    async function saveShortsVideo(player, currentTime, videoInfo, videoEl, options = {}) {
-        const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
-        logLog('saveShortsVideo', `Guardando short ${videoId} en ${currentTime}s`);
-
-        // Ignorar si el modo de guardado manual está activo y no es un guardado manual
-        const session = videoEl ? activeProcessingSessions.get(videoEl) : null;
-        const isHybridAutoSave = cachedSettings.manualSaveHybridMode && session?.isAutoSaveAuthorized;
-
-        if (cachedSettings.manualSaveMode && !options.isManual && !isHybridAutoSave) {
-            return { success: false, reason: 'manual_save_mode_active' };
-        }
-
-        const sourceData = await getSavedVideoData(videoId, playlistId);
-        const now = Date.now();
-        const progress = duration > 0 ? (currentTime / duration) : 0;
-        const defaultPercent = (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) / 100;
-        const isFinished = duration > 0 && (
-            progress >= defaultPercent ||
-            (duration <= 60 && currentTime >= duration - 0.75)
-        );
-
-        // Si tiene tiempo fijo, no sobreescribir
-        if (sourceData && sourceData.forceResumeTime > 0) {
-            if (isFinished) {
-                logLog('saveShortsVideo', `Short ${videoId} completado, manteniendo tiempo fijo`)
-                let history = sourceData.completionHistory;
-
-                if (session && !session.hasLoggedCompletion) {
-                    history = insertCompletionEvent(history, now, duration);
-                    session.hasLoggedCompletion = true;
-                    logInfo('saveShortsVideo', `Registro de finalización añadido para short con tiempo fijo: ${videoId}`);
-                }
-
-                // Normalizar para asegurar Format A y marcar como completado, preservando el historial
-                const base = normalizeVideoData({
-                    ...sourceData,
-                    isCompleted: true,
-                    watchProgress: 0,
-                    completionHistory: history
-                });
-                await Storage.set(videoId, base);
-            } else if (currentTime < 1) {
-                // Detectar si el usuario pulsó "Replay" (el tiempo saltó a < 1s en una sesión activa tras completarse)
-                if (session && session.hasLoggedCompletion) {
-                    logLog('saveShortsVideo', `Replay detectado para short con tiempo fijo (${videoId}). Re-aplicando seek a ${sourceData.forceResumeTime}s`);
-                    // Resetear bandera para permitir registrar la siguiente finalización
-                    session.hasLoggedCompletion = false;
-                    // Re-aplicar el resume
-                    PlaybackController.resume(player, videoId, videoEl, sourceData, session.type, session);
-                    return { success: false, reason: 'replay_fixed_time_reapplied' };
-                }
-            }
-            return { success: false, reason: 'fixed_time_no_overwrite' };
-        }
-
-        let finalIsCompleted = isFinished;
-        let finalWatchProgress = currentTime;
-
-        // Protección Shorts: si ya estaba completado y el tiempo actual es bajo, es un reset automático de YouTube.
-        if (!isFinished && sourceData?.isCompleted && currentTime < 2) {
-            logLog('saveShortsVideo', `🛡️ Shield auto-reset detectado para Short completado (${videoId}) en ${currentTime}s. Preservando estado.`);
-            finalIsCompleted = true;
-            finalWatchProgress = sourceData.watchProgress;
-        }
-
-        const videoData = {
-            ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
-            watchProgress: finalWatchProgress,
-            timeWatched: now,
-            type: 'shorts',
-            isCompleted: finalIsCompleted,
-            completionHistory: sourceData?.completionHistory
-        };
-
-        if (isFinished && session && !session.hasLoggedCompletion) {
-            videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
-            session.hasLoggedCompletion = true;
-        } else if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
-            const prev = sourceData?.watchProgress || 0;
-            const delta = prev - currentTime;
-            const isNearStart = currentTime < Math.max(1, duration * 0.2);
-            const wasNearEnd = prev > (duration * 0.75);
-            const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
-            if (wasLoop) {
-                session.hasLoggedCompletion = false;
-            }
-        }
-
-        const normalizedData = normalizeVideoData(videoData);
-        const storageResult = await Storage.set(videoId, normalizedData);
-        // logLog('saveShortsVideo', `✅ Short guardado:`, videoData);
-        logLog('saveShortsVideo', '✅ Short guardado:', {
-            ...videoData,
-            description: videoData.description
-                ? videoData.description.slice(0, 12) +
-                (videoData.description.length > 12 ? ' (truncada para log)' : '')
-                : ''
-        });
-
-        // Verificar si hubo error de almacenamiento
-        if (storageResult && !storageResult.success) {
-            return { success: false, reason: storageResult.reason, videoId, type: 'shorts' };
-        }
-
-        return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'shorts', savedData: videoData };
-    }
-
-    // MARK: 💾 Save Preview
-    /**
-     * Guarda progreso para previews (inline playback en home/search)
-     * @param {number} currentTime - Tiempo actual
-     * @param {Object} videoInfo - Información del video (videoId, title, author, duration, etc.)
-     * @param {string} previewType - 'preview_watch' o 'preview_shorts'
-     * @returns {Object} Resultado de la operación
-     */
-    async function savePreview(player, currentTime, videoInfo, videoEl, previewType, options = {}) {
-        const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
-
-        // Ignorar si el modo de guardado manual está activo y no es un guardado manual
-        const session = videoEl ? activeProcessingSessions.get(videoEl) : null;
-        const isHybridAutoSave = cachedSettings.manualSaveHybridMode && session?.isAutoSaveAuthorized;
-
-        if (cachedSettings.manualSaveMode && !options.isManual && !isHybridAutoSave) {
-            return { success: false, reason: 'manual_save_mode_active' };
-        }
-        logLog('savePreview', `Guardando preview ${previewType} para ${videoId} en ${currentTime}s`);
-
-        const sourceData = await getSavedVideoData(videoId, playlistId);
-        const now = Date.now();
-        const progress = duration > 0 ? (currentTime / duration) : 0;
-        const defaultPercent = (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) / 100;
-        const isFinished = duration > 0 && (
-            progress >= defaultPercent ||
-            (duration <= 60 && currentTime >= duration - 0.75)
-        );
-
-        logLog('savePreview', `Saving Preview: videoId=${videoId}, cur=${currentTime.toFixed(2)}, dur=${duration.toFixed(2)}, isFinished=${isFinished}`);
-
-        // Verificación de seguridad adicional: no marcar como completado si el tiempo es sospechosamente bajo
-        // o si la duración parece ser un placeholder (YouTube a veces pone 0.1 o similar al inicio)
-        const safeIsFinished = isFinished && currentTime > 0.8 && duration > 1;
-
-        const resolvedVideoType = (() => {
-            const previousType = sourceData?.type;
-            if (previousType === 'video' || previousType === 'shorts' || previousType === 'live') return previousType;
-            return previewType;
-        })();
-
-        // Preservar datos previos para previews
-        const videoData = {
-            ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
-            watchProgress: currentTime,
-            timeWatched: now,
-            type: resolvedVideoType,
-            isCompleted: safeIsFinished,
-            completionHistory: sourceData?.completionHistory
-        };
-
-        if (safeIsFinished) {
-            if (session && !session.hasLoggedCompletion) {
-                videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
-                session.hasLoggedCompletion = true;
+        if (finalType !== 'preview') {
+            if (!isFinished && sourceData?.isCompleted && currentTime < shieldThreshold) {
+                logLog(logContext, `🛡️ Shield auto-reset detectado para completado (${videoId}) en ${currentTime}s. Preservando estado.`);
+                finalIsCompleted = true;
+                finalWatchProgress = sourceData.watchProgress;
             }
         } else {
-            if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
+            finalIsCompleted = safeIsFinished;
+        }
+
+        // 5. Determinar el tipo final guardado en la base de datos
+        let resolvedType = finalType;
+        if (finalType === 'preview') {
+            const previousType = sourceData?.type;
+            resolvedType = (previousType === 'video' || previousType === 'shorts' || previousType === 'live')
+                ? previousType
+                : (options.previewType || 'preview_watch');
+        } else if (finalType === 'watch' || finalType === 'miniplayer') {
+            resolvedType = 'video';
+        } else if (finalType === 'shorts') {
+            resolvedType = 'shorts';
+        }
+
+        const videoData = {
+            ...sourceData,
+            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
+            watchProgress: finalWatchProgress,
+            timeWatched: now,
+            type: resolvedType,
+            isCompleted: finalIsCompleted,
+            completionHistory: sourceData?.completionHistory
+        };
+
+        // 6. Registro en el historial de completados
+        if (finalType === 'preview') {
+            if (safeIsFinished) {
+                if (session && !session.hasLoggedCompletion) {
+                    videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
+                    session.hasLoggedCompletion = true;
+                }
+            } else {
+                if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
+                    const prev = sourceData?.watchProgress || 0;
+                    const delta = prev - currentTime;
+                    const isNearStart = currentTime < Math.max(1, duration * 0.2);
+                    const wasNearEnd = prev > (duration * 0.75);
+                    const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
+                    if (wasLoop) {
+                        session.hasLoggedCompletion = false;
+                    }
+                }
+            }
+        } else {
+            if (isFinished && session && !session.hasLoggedCompletion) {
+                videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
+                session.hasLoggedCompletion = true;
+            } else if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
                 const prev = sourceData?.watchProgress || 0;
                 const delta = prev - currentTime;
                 const isNearStart = currentTime < Math.max(1, duration * 0.2);
@@ -9237,74 +9067,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const normalizedData = normalizeVideoData(videoData);
         const storageResult = await Storage.set(videoId, normalizedData);
-        // logLog('savePreview', `✅ Preview guardado:`, videoData);
-        logLog('savePreview', '✅ Preview guardado:', {
+
+        logLog(logContext, `✅ Video/Short/Preview guardado:`, {
             ...videoData,
-            description: videoData.description
-                ? videoData.description.slice(0, 12) +
-                (videoData.description.length > 12 ? ' (truncada para log)' : '')
-                : ''
+            description: videoData.description ? videoData.description.slice(0, 12) + (videoData.description.length > 12 ? ' (truncada para log)' : '') : ''
         });
 
-        // Verificar si hubo error de almacenamiento
         if (storageResult && !storageResult.success) {
-            return { success: false, reason: storageResult.reason, videoId, type: 'preview' };
+            return { success: false, reason: storageResult.reason, videoId, type: finalType };
         }
 
-        return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'preview' };
-    }
-
-    // MARK: 💾 Save Livestream
-    /**
-     * Guarda progreso para livestreams
-     * @param {number} currentTime - Tiempo actual
-     * @param {Object} videoInfo - Información del livestream
-     * @param {HTMLVideoElement} videoEl - Elemento de video
-     * @returns {Object} Resultado de la operación
-     */
-    async function saveLivestream(player, currentTime, videoInfo, videoEl, options = {}) {
-        const { videoId, lengthSeconds: duration } = videoInfo;
-        logLog('saveLivestream', `Guardando livestream ${videoId} en ${currentTime}s`);
-
-        // Ignorar si el modo de guardado manual está activo y no es un guardado manual
-        const session = videoEl ? activeProcessingSessions.get(videoEl) : null;
-        const isHybridAutoSave = cachedSettings.manualSaveHybridMode && session?.isAutoSaveAuthorized;
-
-        if (cachedSettings.manualSaveMode && !options.isManual && !isHybridAutoSave) {
-            return { success: false, reason: 'manual_save_mode_active' };
-        }
-
-        const sourceData = await getSavedVideoData(videoId);
-        const now = Date.now();
-
-        const videoData = {
-            ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
-            watchProgress: currentTime,
-            timeWatched: now,
-            type: 'live',
-            isLive: true,
-            isCompleted: false
-        };
-
-
-        const normalizedData = normalizeVideoData(videoData);
-        const storageResult = await Storage.set(videoId, normalizedData);
-        // logLog('saveLivestream', `✅ Livestream guardado:`, videoData);
-        logLog('saveLivestream', '✅ Livestream guardado:', {
-            ...videoData,
-            description: videoData.description
-                ? videoData.description.slice(0, 12) +
-                (videoData.description.length > 12 ? ' (truncada para log)' : '')
-                : ''
-        });
-
-        // Verificar si hubo error de almacenamiento
-        if (storageResult && !storageResult.success) {
-            return { success: false, reason: storageResult.reason, videoId, type: 'live' };
-        }
-
-        return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'live' };
+        return { success: true, videoId, watchProgress: videoData.watchProgress, type: finalType, savedData: videoData };
     }
 
 
@@ -10452,7 +10225,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         ];
 
         for (const selector of selectors) {
-            logLog('getActiveShortsControlsContainer', `Buscando Metapanel con fallback: ${selector}`);
             const elements = document.querySelectorAll(selector);
             for (const el of elements) {
                 if (el instanceof Element && isVisiblyDisplayed(el)) {
@@ -14956,41 +14728,31 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Delegar a la función especializada directamente
                 let result;
-                switch (finalType) {
-                    case 'live':
-                        result = await saveLivestream(player, currentTime, videoInfo, videoEl, saveOptions);
-                        break;
-                    case 'shorts':
-                        result = await saveShortsVideo(player, currentTime, videoInfo, videoEl, saveOptions);
-                        break;
-                    case 'preview':
-                        {
-                            // Cachear en dataset para evitar querySelector en cada tick del guardado.
-                            // Se resuelve una sola vez por elemento; se invalida automáticamente
-                            // cuando el video sale del DOM y el elemento es recolectado por el garbage collector.
-                            let isShortsPreview;
-                            if (videoEl.dataset.yppShortsPreview) {
-                                isShortsPreview = videoEl.dataset.yppShortsPreview === 'true';
-                            } else {
-                                const previewContainer = videoEl.closest(SELECTORS.ELEMENTS.INLINE_PREVIEW_ELEMENT);
-                                isShortsPreview = previewContainer
-                                    ? previewContainer.querySelector('a[href^="/shorts/"]') !== null
-                                    : false;
-                                videoEl.dataset.yppShortsPreview = String(isShortsPreview);
-                            }
-                            const specificPreviewType = isShortsPreview ? 'preview_shorts' : 'preview_watch';
-                            result = await savePreview(player, currentTime, videoInfo, videoEl, specificPreviewType, saveOptions);
-                        }
-                        break;
-                    case 'watch':
-                        result = await saveRegularVideo(player, currentTime, videoInfo, videoEl, saveOptions);
-                        break;
-                    case 'miniplayer':
-                        result = await saveMiniplayer(player, currentTime, videoInfo, videoEl, saveOptions);
-                        break;
-                    default:
-                        result = await saveRegularVideo(player, currentTime, videoInfo, videoEl, saveOptions);
-                        break;
+                if (finalType === 'preview') {
+                    // Cachear en dataset para evitar querySelector en cada tick del guardado.
+                    // Se resuelve una sola vez por elemento; se invalida automáticamente
+                    // cuando el video sale del DOM y el elemento es recolectado por el garbage collector.
+                    let isShortsPreview;
+                    if (videoEl.dataset.yppShortsPreview) {
+                        isShortsPreview = videoEl.dataset.yppShortsPreview === 'true';
+                    } else {
+                        const previewContainer = videoEl.closest(SELECTORS.ELEMENTS.INLINE_PREVIEW_ELEMENT);
+                        isShortsPreview = previewContainer
+                            ? previewContainer.querySelector('a[href^="/shorts/"]') !== null
+                            : false;
+                        videoEl.dataset.yppShortsPreview = String(isShortsPreview);
+                    }
+                    const specificPreviewType = isShortsPreview ? 'preview_shorts' : 'preview_watch';
+                    result = await internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, 'savePreview', { ...saveOptions, previewType: specificPreviewType });
+                } else {
+                    const logContextMap = {
+                        live: 'saveLivestream',
+                        shorts: 'saveShortsVideo',
+                        watch: 'saveRegularVideo',
+                        miniplayer: 'saveMiniplayer'
+                    };
+                    const logContext = logContextMap[finalType] || 'saveRegularVideo';
+                    result = await internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, logContext, saveOptions);
                 }
 
                 // Mostrar alerta si el almacenamiento está lleno

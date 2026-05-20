@@ -1,3 +1,9 @@
+# 0.0.10-2
+
+### Changed
+
+- **Unified Saving Engine**: Refactored the core saving module by consolidating six specialized, redundant functions (`internalSaveRegularVideo`, `saveRegularVideo`, `saveMiniplayer`, `saveShortsVideo`, `savePreview`, `saveLivestream`) into a single, highly flexible `internalSaveVideoGeneric` function.
+
 # 0.0.10-1
 
 ### Added

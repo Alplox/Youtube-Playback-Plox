@@ -97,6 +97,9 @@ If something goes wrong during migration:
 - Context-specific behavior lives in `PROCESS_MEDIA_VIDEO_CONFIG`. Keep SPA URL/player ID validation for Watch and Shorts, local-player ID priority for Miniplayer, and debounce/miniplayer-conflict/ad-ID checks for Preview inside those hooks.
 - Do not reintroduce separate `processWatchVideo`, `processShortsVideo`, `processMiniplayerVideo`, or `processPreviewVideo` functions unless a context needs a genuinely separate lifecycle.
 
+### Unified saving engine (v0.0.10-2)
+- `internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, logContext, options = {})` is the single saving interface. Do not write or restore separate `saveRegularVideo`, `saveMiniplayer`, `saveShortsVideo`, `savePreview`, or `saveLivestream` functions. All contexts are routed through `internalSaveVideoGeneric` with appropriate parameter flags.
+
 ### Playback display manager
 - `PlaybackDisplayManager` owns player button-group identity, message priority, timeout cleanup, fixed-time display state, manual-save button targeting, and seek `play` listeners for Watch, Shorts, Miniplayer, and Preview.
 - Legacy per-context message wrappers were removed; notification and cleanup paths should call `PlaybackDisplayManager.show()`, `PlaybackDisplayManager.clear()`, `PlaybackDisplayManager.destroy()`, or the existing `notifySeekOrProgress()` facade directly.

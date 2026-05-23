@@ -138,7 +138,7 @@
     // MARK: 🔍 Logger System
     // ============================================================================================================
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.silent; // Set to 'debug' to see all, or 'warn'/'error' for less.
+    const level = L.debug; // Set to 'debug' to see all, or 'warn'/'error' for less.
 
     const LOG_STYLES = {
         debug: 'color:#6a9955;',
@@ -904,6 +904,505 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     }
 
     // ============================================================================================================
+    // MARK: 🔧 Utils
+    // ============================================================================================================
+
+    // MARK: 🔧 Escape HTML
+    /**
+     * Decode HTML entities to prevent double-escaping of metadata.
+     * @param {string} str - String to decode.
+     * @returns {string} - Decoded string.
+     */
+    const unescapeHTML = (str) => {
+        if (!str) return '';
+        return String(str)
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&#039;/g, "'")
+            .replace(/&#x27;/g, "'")
+            .replace(/&apos;/g, "'");
+    };
+
+    /**
+     * Escape HTML special characters safely.
+     * First decode common HTML entities to prevent double-escaping.
+     * @param {any} str - String to escape.
+     * @returns {string} - Sanitized and safely escaped string.
+     * @example
+     * escapeHTML('<script>alert("Hello World")</script>')
+     * // '&lt;script&gt;alert(&quot;Hello World&quot;)&lt;/script&gt;'
+     */
+    const escapeHTML = (str) => {
+        if (str === null || str === undefined) return '';
+
+        const decoded = unescapeHTML(str);
+        return String(decoded)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
+    };
+
+    /**
+     * Validate and sanitize a URL before inserting it into an href attribute.
+     * Prevents XSS via javascript: and ensures allowed schemes.
+     * @param {string} url - URL to validate.
+     * @param {string[]} [allowedPrefixes=['https://']] - Allowed prefixes.
+     * @returns {string} - Safe URL or '#' if invalid.
+     */
+    function getSafeUrl(url, allowedPrefixes = ['https://']) {
+        if (!url || typeof url !== 'string') return '#';
+        const trimmed = url.trim();
+        const lower = trimmed.toLowerCase();
+
+        // Explicitly deny "dangerous" protocols
+        if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:')) {
+            return '#';
+        }
+
+        // Check if it starts with an allowed prefix
+        const isAllowed = allowedPrefixes.some(prefix => lower.startsWith(prefix.toLowerCase()));
+        return isAllowed ? trimmed : '#';
+    }
+
+    /**
+     * Remove or mask sensitive information (tokens, Gist IDs, etc.) from a text.
+     * @param {string} text - Text to process.
+     * @returns {string} - Scrubbed text.
+     */
+    function scrubSensitiveData(text) {
+        if (!text || typeof text !== 'string') return text;
+        return text
+            // GitHub Tokens (ghp_, gho_, ghu_, ghs_, ghr_)
+            .replace(/gh[pousr]_[a-zA-Z0-9]{36,255}/g, '[REDACTED_TOKEN]')
+            // Other generic tokens in JSON
+            .replace(/"token"\s*:\s*"[^"]+"/g, '"token": "[REDACTED]"')
+            // Gist IDs (32 hex chars) - Conservative sanitization
+            .replace(/\b[a-f0-9]{20,40}\b/g, (match) => {
+                // Redact only if it is a long hex string (GitHub IDs)
+                return match.length >= 20 ? '[REDACTED_ID]' : match;
+            });
+    }
+
+    // MARK: 🔧 Is Visibly Displayed
+    /**
+     * Determine if the element is displayed
+     * First check: if the element is connected 
+     * Second check: if the element has width > 0 and height > 0
+     * Third check: if the element is not display:none, visibility:hidden or opacity:0
+     * @param {HTMLElement} el
+     * @returns {boolean}
+    */
+    function isVisiblyDisplayed(el) {
+        if (!el || !el.isConnected) return false;
+        try {
+            // getBoundingClientRect() (is faster than getComputedStyle())
+            const rect = el.getBoundingClientRect();
+            if (rect.width <= 0 || rect.height <= 0) return false;
+
+            const style = window.getComputedStyle(el);
+            const visible = style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0;
+            return visible;
+        } catch (_) {
+            return !!el.offsetWidth && !!el.offsetHeight;
+        }
+    }
+
+    // MARK: 🔧 Format Time
+    /**
+     * Format a time value (in seconds or string) to "MM:SS" or "HH:MM:SS".
+     *
+     * @param {number|string} input - Time value to format.
+     * @returns {string}
+     *
+     * @example
+     * formatTime(65)
+     * // "01:05"
+     *
+     * @example
+     * formatTime("5:30")
+     * // "05:30"
+     *
+     * @example
+     * formatTime("1:05:30")
+     * // "01:05:30"
+     *
+     * @example
+     * formatTime("invalid")
+     * // "00:00"
+     */
+    const formatTime = (input) => {
+        let seconds;
+
+        // Direct number
+        if (typeof input === 'number' && !Number.isNaN(input)) {
+            seconds = input;
+        }
+
+        // String
+        else if (typeof input === 'string') {
+            if (input.includes(':')) {
+                const parts = input.split(':').map(part => Number(part));
+
+                // Validate parts
+                if (parts.some(Number.isNaN)) {
+                    logError('formatTime', 'Invalid time format:', input);
+                    return '00:00';
+                }
+
+                // MM:SS
+                if (parts.length === 2) {
+                    seconds = parts[0] * 60 + parts[1];
+                }
+
+                // HH:MM:SS
+                else if (parts.length === 3) {
+                    seconds =
+                        parts[0] * 3600 +
+                        parts[1] * 60 +
+                        parts[2];
+                }
+
+                else {
+                    logError('formatTime', 'Invalid time format:', input);
+                    return '00:00';
+                }
+            }
+
+            // Numeric string
+            else {
+                seconds = Number(input);
+            }
+        }
+
+        else {
+            logError('formatTime', 'Invalid input value:', input);
+            return '00:00';
+        }
+
+        // Final validation
+        if (
+            typeof seconds !== 'number' ||
+            Number.isNaN(seconds) ||
+            seconds < 0
+        ) {
+            logError('formatTime', 'Invalid seconds value:', input);
+            return '00:00';
+        }
+
+        const h = Math.floor(seconds / 3600);
+        const m = Math.floor((seconds % 3600) / 60);
+        const s = Math.floor(seconds % 60);
+
+        const hours = String(h).padStart(2, '0');
+        const minutes = String(m).padStart(2, '0');
+        const secs = String(s).padStart(2, '0');
+
+        return h > 0
+            ? `${hours}:${minutes}:${secs}`
+            : `${minutes}:${secs}`;
+    };
+
+    // MARK: 🔧 parseTimeToSeconds
+    /**
+     * Parses a time string in "MM:SS" or "HH:MM:SS" format to seconds.
+     *
+     * @param {string} timeStr - Time string in "MM:SS" or "HH:MM:SS" format.
+     * @returns {number} Number of seconds. Returns 0 if the format is invalid.
+     *
+     * @example
+     * parseTimeToSeconds("5:30")
+     * // 330
+     *
+     * @example
+     * parseTimeToSeconds("1:05:30")
+     * // 3930
+     *
+     * @example
+     * parseTimeToSeconds("invalid")
+     * // 0
+     *
+     * @example
+     * parseTimeToSeconds("") or parseTimeToSeconds(null)
+     * // 0
+     */
+    const parseTimeToSeconds = (timeStr) => {
+        if (typeof timeStr !== 'string' || !timeStr.includes(':')) return 0;
+
+        const parts = timeStr
+            .split(':')
+            .map(part => Number(part.trim()));
+
+        // Validate NaN and negatives
+        if (parts.some(Number.isNaN) || parts.some(part => part < 0)) return 0;
+
+        // MM:SS
+        if (parts.length === 2) return parts[0] * 60 + parts[1];
+
+        // HH:MM:SS
+        if (parts.length === 3) {
+            return (
+                parts[0] * 3600 +
+                parts[1] * 60 +
+                parts[2]
+            );
+        }
+
+        return 0;
+    };
+
+    // MARK: 🔧 normalizeSeconds
+    /**
+     * Normalizes a time value into seconds.
+     *
+     * @param {number|string|null|undefined} value
+     * @returns {number}
+     *
+     * @example
+     * normalizeSeconds(120)
+     * // 120
+     *
+     * @example
+     * normalizeSeconds("1:30")
+     * // 90
+     *
+     * @example
+     * normalizeSeconds(null)
+     * // 0
+     */
+    const normalizeSeconds = (value) => {
+        if (value == null) return 0;
+        if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+        if (typeof value === 'string') return parseTimeToSeconds(value.trim());
+        return 0;
+    };
+
+    // MARK: 🔧 setInnerHTML
+    /**
+    * Sets the innerHTML of an element safely for Trusted Types (Chrome) compatibility.
+    *
+    * @param {HTMLElement} element - HTML element to assign HTML to.
+    * @param {string} html - HTML to assign to its innerHTML.
+    */
+
+    let _ttPolicy = null;
+    function getTrustedTypesPolicy() {
+        if (_ttPolicy) return _ttPolicy;
+        if (window.trustedTypes && window.trustedTypes.createPolicy) {
+            // Nombre con versión para evitar colisiones en hot-reload o doble inyección del script
+            const policyName = `youtube-playback-plox-${(GM_info?.script?.version ?? 'x').replace(/\./g, '-')}`;
+            try {
+                _ttPolicy = window.trustedTypes.createPolicy(policyName, {
+                    createHTML: (html) => html // Pass-through sin sanitización: el script solo usa HTML autogenerado
+                });
+                logInfo('getTrustedTypesPolicy', `Trusted Types policy "${policyName}" created.`);
+            } catch (e) {
+                logError('getTrustedTypesPolicy', 'Failed to create policy (possibly already exists).', e);
+            }
+        }
+        return _ttPolicy;
+    }
+
+    function setInnerHTML(element, html) {
+        if (!(element instanceof Element)) return;
+
+        // Caso vacío: limpiar todos los hijos directamente
+        if (html === '') {
+            while (element.firstChild) element.removeChild(element.firstChild);
+            return;
+        }
+
+        // Caso base: texto plano sin HTML - textContent es el sink más seguro y rápido
+        if (typeof html === 'string' && !html.includes('<')) {
+            element.textContent = html;
+            return;
+        }
+
+        // Trusted Types (recomendado por YouTube)
+        // Permite cumplir con la política de seguridad oficial si el entorno la soporta
+        const policy = getTrustedTypesPolicy();
+        if (policy) {
+            try {
+                element.innerHTML = policy.createHTML(html);
+                return;
+            } catch (e) {
+                logError('setInnerHTML', 'Trusted Types policy failed, using direct assignment.', e);
+            }
+        }
+
+        // Fallback: asignación directa
+        // El script solo usa HTML autogenerado (SVGs hardcoded, template literals con escapeHTML())
+        // por lo que no se necesita sanitización adicional
+        element.innerHTML = html;
+    }
+
+
+    // MARK: 🔧 Crear Elemento
+    /**
+    * Crea un elemento HTML con varias opciones de configuración.
+    *
+    * @param {string} tag - Nombre del tag HTML a crear, e.g., 'div', 'span'.
+    * @param {Object} [options] - Opciones para configurar el elemento.
+    * @param {string} [options.className] - Clases CSS del elemento.
+    * @param {string} [options.id] - ID del elemento.
+    * @param {string} [options.text] - Texto interno del elemento.
+    * @param {string} [options.html] - HTML interno del elemento (usa setInnerHTML seguro).
+    * @param {Function} [options.onClickEvent] - Función legacy para el evento click.
+    * @param {Object.<string, Function>} [options.events] - Eventos a añadir, e.g., { click: fn, mouseover: fn }.
+    * @param {Object.<string, string>} [options.attributes] - Atributos HTML a añadir, e.g., { src: 'img.png' }.
+    * @param {Object.<string, any>} [options.props] - Propiedades del elemento, e.g., { value: '123' }.
+    * @param {Object.<string, string>} [options.styles] - Estilos CSS a aplicar, e.g., { color: 'red', fontSize: '14px' }.
+    * @param {Array<string|Node>} [options.children] - Hijos a añadir al elemento, strings o nodos.
+    * @returns {HTMLElement} - El elemento HTML creado y configurado.
+    */
+    function createElement(tag, {
+        className = '',
+        id = '',
+        text = '',
+        html = '',
+        onClickEvent = null,
+        events = {},
+        attributes = {},
+        props = {},
+        styles = {},
+        children = [],
+        store = null
+    } = {}) {
+
+        const el = document.createElement(tag);
+
+        if (className) el.className = className;
+        if (id) el.id = id;
+
+        // Text vs HTML (HTML wins)
+        if (html) {
+            setInnerHTML(el, html);
+        } else if (text) {
+            el.textContent = text;
+        }
+
+        // Legacy click handler - now tracked by store
+        if (typeof onClickEvent === 'function') {
+            addDisposableListener(el, 'click', onClickEvent, {}, store);
+        }
+
+        // Events
+        if (events && typeof events === 'object') {
+            for (const [event, handler] of Object.entries(events)) {
+                if (typeof handler === 'function') {
+                    el.addEventListener(event, handler);
+                }
+            }
+        }
+
+        // Attributes
+        if (attributes && typeof attributes === 'object') {
+            for (const [k, v] of Object.entries(attributes)) {
+                el.setAttribute(k, v);
+            }
+        }
+
+        // Props (safer subset)
+        if (props && typeof props === 'object') {
+            for (const [k, v] of Object.entries(props)) {
+                if (k in el && !['innerHTML', 'outerHTML'].includes(k)) {
+                    el[k] = v;
+                }
+            }
+        }
+
+        // Styles
+        if (styles && typeof styles === 'object') {
+            Object.assign(el.style, styles);
+        }
+
+        // Children (flat or nested)
+        const append = (child) => {
+            if (child == null) return;
+
+            if (Array.isArray(child)) {
+                child.forEach(append);
+            } else if (child instanceof Node) {
+                el.appendChild(child);
+            } else {
+                el.appendChild(document.createTextNode(String(child)));
+            }
+        };
+
+        append(children);
+
+        return el;
+    }
+
+    /**
+     * Aplica validación y restricción numérica automática a un campo de entrada.
+     * Sanitiza caracteres no permitidos, controla rangos y formatea ceros a la izquierda.
+     *
+     * @param {HTMLInputElement} el - Elemento input a proteger.
+     * @param {Object} [options] - Opciones de configuración.
+     * @param {number} [options.min=0] - Valor mínimo permitido.
+     * @param {number} [options.max] - Valor máximo permitido.
+     * @param {() => void} [options.onInput] - Callback opcional tras cada cambio válido.
+     */
+    function applyNumericClamping(el, { min = 0, max, onInput } = {}) {
+        if (!(el instanceof Element)) return;
+
+        const clamp = () => {
+            // Sanitizar: Solo dígitos
+            let sanitized = el.value.replace(/\D/g, '');
+
+            if (el.value !== sanitized) {
+                el.value = sanitized;
+            }
+
+            let val = parseInt(el.value, 10);
+            if (isNaN(val)) return;
+
+            // Aplicar límites
+            if (val < min) val = min;
+            if (max !== undefined && val > max) val = max;
+
+            // Formateo visual (evitar ceros a la izquierda como "020")
+            const formatted = String(val);
+            if (el.value !== formatted) {
+                el.value = formatted;
+            }
+
+            if (onInput) onInput();
+        };
+
+        el.addEventListener('input', clamp);
+    }
+
+    // MARK: 🔧 Debounce
+    /**
+    * Crea una función "debounceada" que retrasa la ejecución de la función original
+    * hasta que haya pasado un tiempo determinado sin que se vuelva a invocar.
+    *
+    * @param {Function} fn - La función que se quiere ejecutar con retraso.
+    * @param {number} delay - Tiempo de espera (en milisegundos) antes de ejecutar `fn`.
+    * @returns {Function} - Una nueva función que, al llamarse repetidamente,
+    *                       solo ejecutará `fn` una vez pasado el tiempo indicado.
+    */
+    const debounce = (fn, delay) => {
+        // Variable para almacenar el identificador del temporizador
+        let timer;
+
+        // Retorna una nueva función que "envuelve" a la original
+        return (...args) => {
+            // Si el temporizador ya estaba activo, se cancela
+            clearTimeout(timer);
+
+            // Se crea un nuevo temporizador que ejecutará la función después del delay
+            timer = setTimeout(() => fn(...args), delay);
+        };
+    };
+
+    // ============================================================================================================
     // MARK: 🗄️ Event Handlers store
     // ============================================================================================================
     /**
@@ -1402,7 +1901,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 
             if (entry && (now - entry.ts) <= ttlMs) {
                 // Check that the node is still connected
-                if (!(entry.value instanceof Element) || entry.value.isConnected) {
+                if (!(entry.value instanceof Element) || entry.value?.isConnected) {
                     return entry.value;
                 }
             }
@@ -5508,8 +6007,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         chevronDown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" fill-rule="evenodd" d="M7 9a1 1 0 0 0-.707 1.707l5 5a1 1 0 0 0 1.414 0l5-5A1 1 0 0 0 17 9z" clip-rule="evenodd"/></svg>',
         // https://icon-sets.iconify.design/iconamoon/restart/
         restart: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><g fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2"><path d="M12 3a9 9 0 1 1-5.657 2"/><path d="M3 4.5h4v4"/></g></svg>',
-        // https://icon-sets.iconify.design/octicon/markdown-16/
-        markdown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M14.85 3c.63 0 1.15.52 1.14 1.15v7.7c0 .63-.51 1.15-1.15 1.15H1.15C.52 13 0 12.48 0 11.84V4.15C0 3.52.52 3 1.15 3ZM9 11V5H7L5.5 7L4 5H2v6h2V8l1.5 1.92L7 8v3Zm2.99.5L14.5 8H13V5h-2v3H9.5Z"/></svg>',
 
 
         /* octicon - MIT ------------------------------------ */
@@ -5555,6 +6052,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         crosshair: '<svg class="ypp-svg-reset" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M14 8A6 6 0 1 1 2 8a6 6 0 0 1 12 0m-1.5 0a4.5 4.5 0 1 0-9 0a4.5 4.5 0 0 0 9 0"/><path fill="currentColor" d="M5 7.25a.75.75 0 0 1 0 1.5H1a.75.75 0 0 1 0-1.5Zm3-7a.75.75 0 0 1 .75.75v4a.75.75 0 0 1-1.5 0V1A.75.75 0 0 1 8 .25m7 7a.75.75 0 0 1 0 1.5h-4a.75.75 0 0 1 0-1.5Zm-7 3a.75.75 0 0 1 .75.75v4a.75.75 0 0 1-1.5 0v-4a.75.75 0 0 1 .75-.75"/></svg>',
         // https://icon-sets.iconify.design/octicon/image-16/
         image: '<svg class="ypp-svg-reset" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M16 13.25A1.75 1.75 0 0 1 14.25 15H1.75A1.75 1.75 0 0 1 0 13.25V2.75C0 1.784.784 1 1.75 1h12.5c.966 0 1.75.784 1.75 1.75ZM1.75 2.5a.25.25 0 0 0-.25.25v10.5c0 .138.112.25.25.25h.94l.03-.03l6.077-6.078a1.75 1.75 0 0 1 2.412-.06L14.5 10.31V2.75a.25.25 0 0 0-.25-.25Zm12.5 11a.25.25 0 0 0 .25-.25v-.917l-4.298-3.889a.25.25 0 0 0-.344.009L4.81 13.5ZM7 6a2 2 0 1 1-3.999.001A2 2 0 0 1 7 6M5.5 6a.5.5 0 1 0-1 0a.5.5 0 0 0 1 0"/></svg>',
+        // https://icon-sets.iconify.design/octicon/markdown-16/
+        markdown: '<svg class="ypp-svg-reset ypp-fill-currentColor" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path fill="currentColor" d="M14.85 3c.63 0 1.15.52 1.14 1.15v7.7c0 .63-.51 1.15-1.15 1.15H1.15C.52 13 0 12.48 0 11.84V4.15C0 3.52.52 3 1.15 3ZM9 11V5H7L5.5 7L4 5H2v6h2V8l1.5 1.92L7 8v3Zm2.99.5L14.5 8H13V5h-2v3H9.5Z"/></svg>',
+
 
         /* SVG REPO  ------------------------------------ */
         // https://www.svgrepo.com/svg/154204/world-grid - CC0 License
@@ -5880,10 +6380,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     function getProgressColor(percent) {
-        if (percent <= 0) return `rgb(${COLOR_CACHE.dark.keyPoints[0].r}, ${COLOR_CACHE.dark.keyPoints[0].g}, ${COLOR_CACHE.dark.keyPoints[0].b})`;
-        if (percent >= (cachedSettings?.staticFinishPercent ?? 100)) return 'var(--ypp-success)';
 
         const theme = isYouTubeDarkTheme() ? COLOR_CACHE.dark : COLOR_CACHE.light;
+
+        if (percent <= 0) {
+            return `rgb(${theme.keyPoints[0].r}, ${theme.keyPoints[0].g}, ${theme.keyPoints[0].b})`;
+        }
+
+        if (percent >= (cachedSettings?.staticFinishPercent ?? 100)) return 'var(--ypp-success)';
 
         // Fast path for exact key points
         for (const point of theme.keyPoints) {
@@ -6453,9 +6957,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         merged.showOverflowMenu = typeof merged.showOverflowMenu === 'boolean'
             ? merged.showOverflowMenu
             : d.showOverflowMenu;
-        merged.dimColouredLabels = typeof merged.dimColouredLabels === 'boolean'
-            ? merged.dimColouredLabels
-            : d.dimColouredLabels;
         if (src.colouredLabelsStyle === undefined && src.dimColouredLabels === 'grayscale') {
             merged.colouredLabelsStyle = 'grayscale';
         }
@@ -6738,612 +7239,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         },
 
     });
-
-    // ============================================================================================================
-    // MARK: 🔧 Utils
-    // ============================================================================================================
-
-    // MARK: 🔧 Escape HTML
-
-    /**
-     * Decode HTML entities to prevent double-escaping of metadata.
-     * @param {string} str - String to decode.
-     * @returns {string} - Decoded string.
-     */
-    const unescapeHTML = (str) => {
-        if (!str) return '';
-        return String(str)
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&quot;/g, '"')
-            .replace(/&#39;/g, "'")
-            .replace(/&#039;/g, "'")
-            .replace(/&#x27;/g, "'")
-            .replace(/&apos;/g, "'");
-    };
-
-    /**
-     * Escape HTML special characters safely.
-     * First decode common HTML entities to prevent double-escaping.
-     * @param {any} str - String to escape.
-     * @returns {string} - Sanitized and safely escaped string.
-     * @example
-     * escapeHTML('<script>alert("Hello World")</script>')
-     * // '&lt;script&gt;alert(&quot;Hello World&quot;)&lt;/script&gt;'
-     */
-    const escapeHTML = (str) => {
-        if (str === null || str === undefined) return '';
-
-        const decoded = unescapeHTML(str);
-        return String(decoded)
-            .replace(/&/g, '&amp;')
-            .replace(/</g, '&lt;')
-            .replace(/>/g, '&gt;')
-            .replace(/"/g, '&quot;')
-            .replace(/'/g, '&#039;');
-    };
-
-    /**
-     * Validate and sanitize a URL before inserting it into an href attribute.
-     * Prevents XSS via javascript: and ensures allowed schemes.
-     * @param {string} url - URL to validate.
-     * @param {string[]} [allowedPrefixes=['https://']] - Allowed prefixes.
-     * @returns {string} - Safe URL or '#' if invalid.
-     */
-    function getSafeUrl(url, allowedPrefixes = ['https://']) {
-        if (!url || typeof url !== 'string') return '#';
-        const trimmed = url.trim();
-        const lower = trimmed.toLowerCase();
-
-        // Explicitly deny "dangerous" protocols
-        if (lower.startsWith('javascript:') || lower.startsWith('data:') || lower.startsWith('vbscript:')) {
-            return '#';
-        }
-
-        // Check if it starts with an allowed prefix
-        const isAllowed = allowedPrefixes.some(prefix => lower.startsWith(prefix.toLowerCase()));
-        return isAllowed ? trimmed : '#';
-    }
-
-    /**
-     * Remove or mask sensitive information (tokens, Gist IDs, etc.) from a text.
-     * @param {string} text - Text to process.
-     * @returns {string} - Scrubbed text.
-     */
-    function scrubSensitiveData(text) {
-        if (!text || typeof text !== 'string') return text;
-        return text
-            // GitHub Tokens (ghp_, gho_, ghu_, ghs_, ghr_)
-            .replace(/gh[pousr]_[a-zA-Z0-9]{36,255}/g, '[REDACTED_TOKEN]')
-            // Other generic tokens in JSON
-            .replace(/"token"\s*:\s*"[^"]+"/g, '"token": "[REDACTED]"')
-            // Gist IDs (32 hex chars) - Conservative sanitization
-            .replace(/\b[a-f0-9]{20,40}\b/g, (match) => {
-                // Redact only if it is a long hex string (GitHub IDs)
-                return match.length >= 20 ? '[REDACTED_ID]' : match;
-            });
-    }
-
-    // MARK: 🔧 Is Visibly Displayed
-    /**
-     * Determine if the element is displayed
-     * First check: if the element is connected 
-     * Second check: if the element has width > 0 and height > 0
-     * Third check: if the element is not display:none, visibility:hidden or opacity:0
-     * @param {HTMLElement} el
-     * @returns {boolean}
-    */
-    function isVisiblyDisplayed(el) {
-        if (!el || !el.isConnected) return false;
-        try {
-            // getBoundingClientRect() (is faster than getComputedStyle())
-            const rect = el.getBoundingClientRect();
-            if (rect.width <= 0 || rect.height <= 0) return false;
-
-            const style = window.getComputedStyle(el);
-            const visible = style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0;
-            return visible;
-        } catch (_) {
-            return !!el.offsetWidth && !!el.offsetHeight;
-        }
-    }
-
-    // MARK: 🔧 Format Time
-    /**
-     * Format a time value (in seconds or string) to "MM:SS" or "HH:MM:SS".
-     *
-     * @param {number|string} input - Time value to format.
-     * @returns {string}
-     *
-     * @example
-     * formatTime(65)
-     * // "01:05"
-     *
-     * @example
-     * formatTime("5:30")
-     * // "05:30"
-     *
-     * @example
-     * formatTime("1:05:30")
-     * // "01:05:30"
-     *
-     * @example
-     * formatTime("invalid")
-     * // "00:00"
-     */
-    const formatTime = (input) => {
-        let seconds;
-
-        // Direct number
-        if (typeof input === 'number' && !Number.isNaN(input)) {
-            seconds = input;
-        }
-
-        // String
-        else if (typeof input === 'string') {
-            if (input.includes(':')) {
-                const parts = input.split(':').map(part => Number(part));
-
-                // Validate parts
-                if (parts.some(Number.isNaN)) {
-                    logError('formatTime', 'Invalid time format:', input);
-                    return '00:00';
-                }
-
-                // MM:SS
-                if (parts.length === 2) {
-                    seconds = parts[0] * 60 + parts[1];
-                }
-
-                // HH:MM:SS
-                else if (parts.length === 3) {
-                    seconds =
-                        parts[0] * 3600 +
-                        parts[1] * 60 +
-                        parts[2];
-                }
-
-                else {
-                    logError('formatTime', 'Invalid time format:', input);
-                    return '00:00';
-                }
-            }
-
-            // Numeric string
-            else {
-                seconds = Number(input);
-            }
-        }
-
-        else {
-            logError('formatTime', 'Invalid input value:', input);
-            return '00:00';
-        }
-
-        // Final validation
-        if (
-            typeof seconds !== 'number' ||
-            Number.isNaN(seconds) ||
-            seconds < 0
-        ) {
-            logError('formatTime', 'Invalid seconds value:', input);
-            return '00:00';
-        }
-
-        const h = Math.floor(seconds / 3600);
-        const m = Math.floor((seconds % 3600) / 60);
-        const s = Math.floor(seconds % 60);
-
-        const hours = String(h).padStart(2, '0');
-        const minutes = String(m).padStart(2, '0');
-        const secs = String(s).padStart(2, '0');
-
-        return h > 0
-            ? `${hours}:${minutes}:${secs}`
-            : `${minutes}:${secs}`;
-    };
-
-    // MARK: 🔧 parseTimeToSeconds
-    /**
-     * Parses a time string in "MM:SS" or "HH:MM:SS" format to seconds.
-     *
-     * @param {string} timeStr - Time string in "MM:SS" or "HH:MM:SS" format.
-     * @returns {number} Number of seconds. Returns 0 if the format is invalid.
-     *
-     * @example
-     * parseTimeToSeconds("5:30")
-     * // 330
-     *
-     * @example
-     * parseTimeToSeconds("1:05:30")
-     * // 3930
-     *
-     * @example
-     * parseTimeToSeconds("invalid")
-     * // 0
-     *
-     * @example
-     * parseTimeToSeconds("") or parseTimeToSeconds(null)
-     * // 0
-     */
-    const parseTimeToSeconds = (timeStr) => {
-        if (typeof timeStr !== 'string' || !timeStr.includes(':')) return 0;
-
-        const parts = timeStr
-            .split(':')
-            .map(part => Number(part.trim()));
-
-        // Validate NaN and negatives
-        if (parts.some(Number.isNaN) || parts.some(part => part < 0)) return 0;
-
-        // MM:SS
-        if (parts.length === 2) return parts[0] * 60 + parts[1];
-
-        // HH:MM:SS
-        if (parts.length === 3) {
-            return (
-                parts[0] * 3600 +
-                parts[1] * 60 +
-                parts[2]
-            );
-        }
-
-        return 0;
-    };
-
-    // MARK: 🔧 normalizeSeconds
-    /**
-     * Normalizes a time value into seconds.
-     *
-     * @param {number|string|null|undefined} value
-     * @returns {number}
-     *
-     * @example
-     * normalizeSeconds(120)
-     * // 120
-     *
-     * @example
-     * normalizeSeconds("1:30")
-     * // 90
-     *
-     * @example
-     * normalizeSeconds(null)
-     * // 0
-     */
-    const normalizeSeconds = (value) => {
-        if (value == null) return 0;
-        if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
-        if (typeof value === 'string') return parseTimeToSeconds(value.trim());
-        return 0;
-    };
-
-    // MARK: 🔧 setInnerHTML
-    /**
-    * Sets the innerHTML of an element safely for Trusted Types (Chrome) compatibility.
-    *
-    * @param {HTMLElement} element - HTML element to assign HTML to.
-    * @param {string} html - HTML to assign to its innerHTML.
-    */
-
-    let _ttPolicy = null;
-    function getTrustedTypesPolicy() {
-        if (_ttPolicy) return _ttPolicy;
-        if (window.trustedTypes && window.trustedTypes.createPolicy) {
-            // Nombre con versión para evitar colisiones en hot-reload o doble inyección del script
-            const policyName = `youtube-playback-plox-${(GM_info?.script?.version ?? 'x').replace(/\./g, '-')}`;
-            try {
-                _ttPolicy = window.trustedTypes.createPolicy(policyName, {
-                    createHTML: (html) => html // Pass-through sin sanitización: el script solo usa HTML autogenerado
-                });
-                logInfo('getTrustedTypesPolicy', `Trusted Types policy "${policyName}" created.`);
-            } catch (e) {
-                logError('getTrustedTypesPolicy', 'Failed to create policy (possibly already exists).', e);
-            }
-        }
-        return _ttPolicy;
-    }
-
-    function setInnerHTML(element, html) {
-        if (!(element instanceof Element)) return;
-
-        // Caso vacío: limpiar todos los hijos directamente
-        if (html === '') {
-            while (element.firstChild) element.removeChild(element.firstChild);
-            return;
-        }
-
-        // Caso base: texto plano sin HTML - textContent es el sink más seguro y rápido
-        if (typeof html === 'string' && !html.includes('<')) {
-            element.textContent = html;
-            return;
-        }
-
-        // Trusted Types (recomendado por YouTube)
-        // Permite cumplir con la política de seguridad oficial si el entorno la soporta
-        const policy = getTrustedTypesPolicy();
-        if (policy) {
-            try {
-                element.innerHTML = policy.createHTML(html);
-                return;
-            } catch (e) {
-                logError('setInnerHTML', 'Trusted Types policy failed, using direct assignment.', e);
-            }
-        }
-
-        // Fallback: asignación directa
-        // El script solo usa HTML autogenerado (SVGs hardcoded, template literals con escapeHTML())
-        // por lo que no se necesita sanitización adicional
-        element.innerHTML = html;
-    }
-
-
-    // MARK: 🔧 Crear Elemento
-    /**
-    * Crea un elemento HTML con varias opciones de configuración.
-    *
-    * @param {string} tag - Nombre del tag HTML a crear, e.g., 'div', 'span'.
-    * @param {Object} [options] - Opciones para configurar el elemento.
-    * @param {string} [options.className] - Clases CSS del elemento.
-    * @param {string} [options.id] - ID del elemento.
-    * @param {string} [options.text] - Texto interno del elemento.
-    * @param {string} [options.html] - HTML interno del elemento (usa setInnerHTML seguro).
-    * @param {Function} [options.onClickEvent] - Función legacy para el evento click.
-    * @param {Object.<string, Function>} [options.events] - Eventos a añadir, e.g., { click: fn, mouseover: fn }.
-    * @param {Object.<string, string>} [options.attributes] - Atributos HTML a añadir, e.g., { src: 'img.png' }.
-    * @param {Object.<string, any>} [options.props] - Propiedades del elemento, e.g., { value: '123' }.
-    * @param {Object.<string, string>} [options.styles] - Estilos CSS a aplicar, e.g., { color: 'red', fontSize: '14px' }.
-    * @param {Array<string|Node>} [options.children] - Hijos a añadir al elemento, strings o nodos.
-    * @returns {HTMLElement} - El elemento HTML creado y configurado.
-    */
-    function createElement(tag, {
-        className = '',
-        id = '',
-        text = '',
-        html = '',
-        onClickEvent = null,
-        events = {},
-        attributes = {},
-        props = {},
-        styles = {},
-        children = [],
-        store = null
-    } = {}) {
-
-        const el = document.createElement(tag);
-
-        if (className) el.className = className;
-        if (id) el.id = id;
-
-        // Text vs HTML (HTML wins)
-        if (html) {
-            setInnerHTML(el, html);
-        } else if (text) {
-            el.textContent = text;
-        }
-
-        // Legacy click handler - now tracked by store
-        if (typeof onClickEvent === 'function') {
-            addDisposableListener(el, 'click', onClickEvent, {}, store);
-        }
-
-        // Events
-        if (events && typeof events === 'object') {
-            for (const [event, handler] of Object.entries(events)) {
-                if (typeof handler === 'function') {
-                    el.addEventListener(event, handler);
-                }
-            }
-        }
-
-        // Attributes
-        if (attributes && typeof attributes === 'object') {
-            for (const [k, v] of Object.entries(attributes)) {
-                el.setAttribute(k, v);
-            }
-        }
-
-        // Props (safer subset)
-        if (props && typeof props === 'object') {
-            for (const [k, v] of Object.entries(props)) {
-                if (k in el && !['innerHTML', 'outerHTML'].includes(k)) {
-                    el[k] = v;
-                }
-            }
-        }
-
-        // Styles
-        if (styles && typeof styles === 'object') {
-            Object.assign(el.style, styles);
-        }
-
-        // Children (flat or nested)
-        const append = (child) => {
-            if (child == null) return;
-
-            if (Array.isArray(child)) {
-                child.forEach(append);
-            } else if (child instanceof Node) {
-                el.appendChild(child);
-            } else {
-                el.appendChild(document.createTextNode(String(child)));
-            }
-        };
-
-        append(children);
-
-        return el;
-    }
-
-    /**
-     * Elimina un elemento de forma segura, ignorando errores.
-     * @param {Element|null} element - Elemento a eliminar
-     * @returns {boolean} - True si se eliminó, false si era null o falló
-     */
-    function safeRemove(element) {
-        if (!element) return false;
-        try {
-            element.remove();
-            return true;
-        } catch (_) {
-            return false;
-        }
-    }
-
-    /**
-     * Aplica validación y restricción numérica automática a un campo de entrada.
-     * Sanitiza caracteres no permitidos, controla rangos y formatea ceros a la izquierda.
-     *
-     * @param {HTMLInputElement} el - Elemento input a proteger.
-     * @param {Object} [options] - Opciones de configuración.
-     * @param {number} [options.min=0] - Valor mínimo permitido.
-     * @param {number} [options.max] - Valor máximo permitido.
-     * @param {() => void} [options.onInput] - Callback opcional tras cada cambio válido.
-     */
-    function applyNumericClamping(el, { min = 0, max, onInput } = {}) {
-        if (!(el instanceof Element)) return;
-
-        const clamp = () => {
-            // Sanitizar: Solo dígitos
-            let sanitized = el.value.replace(/\D/g, '');
-
-            if (el.value !== sanitized) {
-                el.value = sanitized;
-            }
-
-            let val = parseInt(el.value, 10);
-            if (isNaN(val)) return;
-
-            // Aplicar límites
-            if (val < min) val = min;
-            if (max !== undefined && val > max) val = max;
-
-            // Formateo visual (evitar ceros a la izquierda como "020")
-            const formatted = String(val);
-            if (el.value !== formatted) {
-                el.value = formatted;
-            }
-
-            if (onInput) onInput();
-        };
-
-        el.addEventListener('input', clamp);
-    }
-
-    // MARK: 🔧 UI Helpers
-    /**
-     * Crea un botón con submenú desplegable hacia arriba (para acciones del footer).
-     * Soporta cierre por click fuera y garantiza un solo menú abierto a la vez.
-     *
-     * @param {{
-     *  label: string,
-     *  icon: string,
-     *  options: Array<{ label: string, icon: string, action: () => Promise<void> | void }>,
-     *  triggerClassName?: string,
-     *  triggerId?: string,
-     *  optionButtonClassName?: string,
-     *  getCurrentlyOpen: () => (null | (() => void)),
-     *  setCurrentlyOpen: (fn: null | (() => void)) => void
-     * }} config - Configuración del menú.
-     * @returns {HTMLElement}
-     */
-    function createFooterActionMenu(config) {
-        const {
-            label,
-            icon,
-            options,
-            triggerClassName = 'ypp-btn ypp-btn-secondary ypp-shadow-md',
-            triggerId = '',
-            optionButtonClassName = 'ypp-btn ypp-btn-outline-secondary ypp-footer-action-menu-option',
-            getCurrentlyOpen,
-            setCurrentlyOpen
-        } = config;
-
-        const wrapper = createElement('div', { className: 'ypp-footer-action-menu' });
-        const trigger = createElement('button', {
-            className: triggerClassName,
-            id: triggerId,
-            html: `${icon} ${label}`,
-            attributes: { type: 'button', 'aria-expanded': 'false' }
-        });
-        const list = createElement('div', {
-            className: 'ypp-footer-action-menu-list ypp-d-none',
-            attributes: { role: 'menu' }
-        });
-
-        let isOpen = false;
-
-        const onOutsideClick = (event) => {
-            if (!wrapper.contains(event.target)) closeMenu();
-        };
-
-        const closeMenu = () => {
-            if (!isOpen) return;
-            isOpen = false;
-            list.classList.add('ypp-d-none');
-            trigger.setAttribute('aria-expanded', 'false');
-            document.removeEventListener('click', onOutsideClick);
-            if (getCurrentlyOpen() === closeMenu) setCurrentlyOpen(null);
-        };
-
-        const openMenu = () => {
-            const current = getCurrentlyOpen();
-            if (typeof current === 'function') current();
-            isOpen = true;
-            list.classList.remove('ypp-d-none');
-            trigger.setAttribute('aria-expanded', 'true');
-            setCurrentlyOpen(closeMenu);
-            // Defer para que el click actual no lo cierre inmediatamente
-            requestAnimationFrame(() => document.addEventListener('click', onOutsideClick, { once: true }));
-        };
-
-        options.forEach((option) => {
-            const optionButton = createElement('button', {
-                className: optionButtonClassName,
-                html: `${option.icon} ${option.label}`,
-                attributes: { type: 'button', role: 'menuitem' }
-            });
-            optionButton.addEventListener('click', async (event) => {
-                event.stopPropagation();
-                closeMenu();
-                await option.action();
-            });
-            list.appendChild(optionButton);
-        });
-
-        trigger.addEventListener('click', (event) => {
-            event.stopPropagation();
-            isOpen ? closeMenu() : openMenu();
-        });
-
-        wrapper.append(trigger, list);
-        return wrapper;
-    }
-
-    // MARK: 🔧 Debounce
-    /**
-    * Crea una función "debounceada" que retrasa la ejecución de la función original
-    * hasta que haya pasado un tiempo determinado sin que se vuelva a invocar.
-    *
-    * @param {Function} fn - La función que se quiere ejecutar con retraso.
-    * @param {number} delay - Tiempo de espera (en milisegundos) antes de ejecutar `fn`.
-    * @returns {Function} - Una nueva función que, al llamarse repetidamente,
-    *                       solo ejecutará `fn` una vez pasado el tiempo indicado.
-    */
-    const debounce = (fn, delay) => {
-        // Variable para almacenar el identificador del temporizador
-        let timer;
-
-        // Retorna una nueva función que "envuelve" a la original
-        return (...args) => {
-            // Si el temporizador ya estaba activo, se cancela
-            clearTimeout(timer);
-
-            // Se crea un nuevo temporizador que ejecutará la función después del delay
-            timer = setTimeout(() => fn(...args), delay);
-        };
-    };
-
 
     // ============================================================================================================
     // MARK: 🎯 VirtualScroller
@@ -8797,7 +8692,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const internal = Object.assign({}, videoObj, { videoId: videoObj.videoId || vidKey });
                     const formatted = toFreeTubeFormat(internal);
                     freeTubeData.push(formatted);
-                    if (internal.videoType === 'shorts' || internal.videoType === 'preview_shorts') shortCount++;
+                    if (internal.type === 'shorts' || internal.type === 'preview_shorts') shortCount++;
                     else videoCount++;
                 });
             } else {
@@ -8805,9 +8700,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const internal = Object.assign({}, data, { videoId: data.videoId || key });
                 const formatted = toFreeTubeFormat(internal);
                 freeTubeData.push(formatted);
-                if (internal.videoType === 'shorts' || internal.videoType === 'preview_shorts') {
+                if (internal.type === 'shorts' || internal.type === 'preview_shorts') {
                     shortCount++;
-                    logLog('exportToFreeTubeFormat', `Short detectado: ${formatted.videoId} | videoType: ${internal.videoType}`);
+                    logLog('exportToFreeTubeFormat', `Short detectado: ${formatted.videoId} | videoType: ${internal.type}`);
                 } else {
                     videoCount++;
                 }
@@ -9130,7 +9025,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Búsqueda flexible adicional
         if (!videoData) {
             const keys = (await Storage.keys?.()) || [];
-            const altKey = keys.find(k => (k.endsWith(videoId) || k.includes(videoId)) && !isNonVideoStorageKey(k));
+            // const altKey = keys.find(k => (k.endsWith(videoId) || k.includes(videoId)) && !isNonVideoStorageKey(k));
+            const altKey = keys.find(k => k === videoId || k.endsWith(`_${videoId}`));
             if (altKey) {
                 logLog('getSavedVideoData', `✅ Video encontrado con clave alternativa: ${altKey}`);
                 videoData = await Storage.get(altKey);
@@ -9762,42 +9658,106 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
-     * Extracts the `ytInitialData` JSON object from raw YouTube HTML using a
-     * brace-counting parser instead of a regex, which is the only reliable approach
-     * for deeply nested JSON that cannot be captured with a simple `{.+?}` pattern.
+     * Extracts and parses the `ytInitialData` object embedded in a YouTube HTML page.
      *
-     * @param {string} html - Raw HTML of a YouTube page.
-     * @returns {object | null} Parsed `ytInitialData`, or `null` if not found or invalid.
+     * YouTube pages often expose a large JSON payload assigned to:
+     * `ytInitialData = {...}`
+     *
+     * This function locates that assignment, finds the full JSON object by
+     * balancing opening and closing braces, and then safely parses it.
+     *
+     * @param {string} html - Raw HTML source from a YouTube page.
+     * @returns {object|null}
+     * Returns the parsed `ytInitialData` object if successful,
+     * otherwise returns `null`.
      */
     function extractYtInitialData(html) {
-        // Look for either assignment form YouTube uses
+        // Locate the beginning of the ytInitialData assignment.
         const marker = html.indexOf('ytInitialData = ');
+
+        // Abort if the marker does not exist in the HTML.
         if (marker === -1) return null;
 
+        // Find the first opening brace after the assignment.
+        // This should be the start of the JSON object.
         const jsonStart = html.indexOf('{', marker);
+
+        // Abort if no JSON object was found.
         if (jsonStart === -1) return null;
 
-        // Walk the string counting braces to find the matching closing brace.
-        // A regex like `{.+?}` would stop at the very first `}` (i.e. the first
-        // nested object), producing invalid JSON.
+        /**
+         * Parsing state variables:
+         *
+         * depth:
+         * Tracks nested object levels using `{` and `}`.
+         *
+         * inString:
+         * Indicates whether the parser is currently inside a JSON string.
+         * Braces inside strings must be ignored.
+         *
+         * escape:
+         * Tracks escaped characters inside strings (e.g. `\"`).
+         */
         let depth = 0;
+        let inString = false;
+        let escape = false;
+
+        // Current scanning position.
         let i = jsonStart;
+
+        // Scan character-by-character until the full JSON object is found.
         while (i < html.length) {
             const ch = html[i];
-            if (ch === '{') depth++;
-            else if (ch === '}') {
-                depth--;
-                if (depth === 0) break;
+
+            // If the previous character was a backslash,
+            // skip special handling for the current one.
+            if (escape) {
+                escape = false;
             }
+
+            // Detect escaped characters inside strings.
+            else if (ch === '\\') {
+                escape = true;
+            }
+
+            // Toggle string mode when encountering quotes.
+            // Only applies if the quote is not escaped.
+            else if (ch === '"') {
+                inString = !inString;
+            }
+
+            // Structural parsing only happens outside strings.
+            else if (!inString) {
+                // Entering a nested object.
+                if (ch === '{') {
+                    depth++;
+                }
+
+                // Leaving an object.
+                else if (ch === '}') {
+                    depth--;
+
+                    // Once depth reaches zero,
+                    // the root JSON object is complete.
+                    if (depth === 0) break;
+                }
+            }
+
             i++;
         }
 
         try {
+            // Extract the detected JSON substring
+            // and convert it into a JavaScript object.
             return JSON.parse(html.slice(jsonStart, i + 1));
         } catch {
+            // Return null if parsing fails for any reason.
             return null;
         }
     }
+
+
+
 
     /**
      * Resolves the display title of a YouTube playlist by ID.
@@ -9988,6 +9948,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
 
     /**
+     * Obtiene el elemento de mensaje de un display de tiempo de forma segura.
+     * @param {HTMLElement|null} displayEl - Elemento display (.ypp-time-display)
+     * @returns {HTMLElement|null} - Elemento mensaje o null
+     */
+    function getTimeDisplayMessage(displayEl) {
+        return displayEl?.querySelector('.ypp-time-display-message') ?? null;
+    }
+
+    /**
+     * Verifica si un display de tiempo tiene un mensaje activo.
+     * @param {HTMLElement|null} displayEl - Elemento display (.ypp-time-display)
+     * @returns {boolean} - True si tiene mensaje conectado
+     */
+    function hasTimeDisplayMessage(displayEl) {
+        return displayEl?.isConnected && getTimeDisplayMessage(displayEl) !== null;
+    }
+
+    /**
      * Muestra un mensaje dentro del button-group de un display,
      * manteniendo los botones de acción visibles y mostrando el span de mensaje al final.
      * @param {HTMLElement} displayEl - Elemento raíz del display (.ypp-time-display).
@@ -9995,7 +9973,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     function showDisplayMessage(displayEl, message) {
         if (!(displayEl instanceof Element)) return;
-        const messageEl = displayEl.querySelector('.ypp-time-display-message');
+        const messageEl = getTimeDisplayMessage(displayEl);
 
         // logLog('showDisplayMessage', `displayEl existe: ${!!displayEl}, messageEl existe: ${!!messageEl}, mensaje: "${message}"`)
 
@@ -10014,7 +9992,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     function restoreDisplayButtons(displayEl) {
         if (!(displayEl instanceof Element)) return;
         const btnManualSave = displayEl.querySelector('.ypp-btn-save');
-        const messageEl = displayEl.querySelector('.ypp-time-display-message');
+        const messageEl = getTimeDisplayMessage(displayEl);
 
         if (btnManualSave) {
             const isFixed = displayEl.dataset.isFixedTime === 'true';
@@ -10354,7 +10332,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         const clearMessageContent = (display) => {
-            const messageEl = display?.querySelector?.('.ypp-time-display-message');
+            const messageEl = getTimeDisplayMessage(display);
             if (messageEl) setInnerHTML(messageEl, '');
         };
 
@@ -10459,8 +10437,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (resolvedPlayer) {
                     const playerContainer = resolvedPlayer;
                     destroy('miniplayer');
-                    if (watchTimeDisplay?.isConnected && watchTimeDisplay.querySelector('.ypp-time-display-message')) return getDisplay(context);
-                    if (watchTimeDisplay) { safeRemove(watchTimeDisplay); watchTimeDisplay = null; }
+                    if (hasTimeDisplayMessage(watchTimeDisplay)) return getDisplay(context);
+                    if (watchTimeDisplay) { watchTimeDisplay.remove(); watchTimeDisplay = null; }
 
                     const timeWrapper = DOMHelpers.get('player:timeWrapper', () =>
                         playerContainer.querySelector('.ytp-time-wrapper')
@@ -10528,8 +10506,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const resolvedPlayer = player || DOMHelpers.getMiniplayerElementActive() || DOMHelpers.getMiniplayerPlayer();
                 if (resolvedPlayer) {
                     const playerContainer = resolvedPlayer;
-                    if (miniplayerTimeDisplay?.isConnected && miniplayerTimeDisplay.querySelector('.ypp-time-display-message')) return getDisplay(context);
-                    if (miniplayerTimeDisplay) { safeRemove(miniplayerTimeDisplay); miniplayerTimeDisplay = null; }
+                    if (hasTimeDisplayMessage(miniplayerTimeDisplay)) return getDisplay(context);
+                    if (miniplayerTimeDisplay) { miniplayerTimeDisplay.remove(); miniplayerTimeDisplay = null; }
 
                     const controls = playerContainer.querySelector('.ytp-time-wrapper') || playerContainer.querySelector('.ytp-left-controls') || document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper') || document.querySelector('ytd-miniplayer-player-container .ytp-left-controls');
                     if (!controls) return getDisplay(context);
@@ -10546,8 +10524,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const resolvedPlayer = player || DOMHelpers.getInlinePreviewPlayer();
                 if (resolvedPlayer) {
                     const previewPlayerEl = resolvedPlayer;
-                    if (inlinePreviewTimeDisplay?.isConnected && inlinePreviewTimeDisplay.querySelector('.ypp-time-display-message')) return getDisplay(context);
-                    if (inlinePreviewTimeDisplay) { safeRemove(inlinePreviewTimeDisplay); inlinePreviewTimeDisplay = null; }
+                    if (hasTimeDisplayMessage(inlinePreviewTimeDisplay)) return getDisplay(context);
+                    if (inlinePreviewTimeDisplay) { inlinePreviewTimeDisplay.remove(); inlinePreviewTimeDisplay = null; }
 
                     inlinePreviewTimeDisplay = createElement('div', { id: 'ypp-inline-preview-time-display', className: 'ypp-time-display ypp-inline-preview-time-display' });
                     const { listBtn, messageEl } = createSplitButtonGroup();
@@ -10667,7 +10645,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             clear(context, { reason: 'destroy' });
             const display = getDisplay(context);
             if (display) {
-                safeRemove(display);
+                display.remove();
             }
             displayIdentity.delete(context);
             if (context === 'watch') watchTimeDisplay = null;
@@ -10794,7 +10772,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Desactivar interacción y lanzar fade
             toast.style.pointerEvents = 'none';
             toast.style.opacity = '0';
-
             const container = toast.parentElement;
             let cleanupTimer = null;
 
@@ -10804,6 +10781,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     clearTimeout(cleanupTimer);
                     cleanupTimer = null;
                 }
+
+                // Ejecutar callback onDismiss antes de remover del DOM
+                // Solo se ejecuta UNA VEZ gracias al WeakSet de tracking
+                if (toast._yppOnDismiss && !toast._yppDismissed) {
+                    toast._yppDismissed = true;
+                    try {
+                        toast._yppOnDismiss();
+                    } catch (err) {
+                        logError('fadeAndRemoveToast', 'Error en onDismiss:', err);
+                    }
+                }
+
                 if (toast.isConnected) {
                     toast.remove();
                 }
@@ -10814,10 +10803,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             };
 
             toast.addEventListener('transitionend', onTransitionEnd);
-
             // Fallback por si transitionend no dispara (seguridad)
             cleanupTimer = setTimeout(onTransitionEnd, 600);
-
             toastTimeouts.delete(toast);
         }, duration);
 
@@ -10839,10 +10826,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             options = duration;
             duration = undefined;
         }
+
         // Fallback robusto para saber si se envió un tiempo o se usa el default
         const isDurationExplicit = duration !== undefined;
         const actualDuration = isDurationExplicit ? duration : 2500;
-
         const container = createToastContainer();
         let toast;
 
@@ -10862,6 +10849,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Inicializar opacity 0 antes de animar
             toast.style.opacity = '0';
             requestAnimationFrame(() => (toast.style.opacity = '1'));
+        }
+
+        // Guardar callback onDismiss en el elemento toast
+        // Se ejecutará cuando el toast se elimine por cualquier razón (X, timeout, acción)
+        if (typeof options.onDismiss === 'function') {
+            toast._yppOnDismiss = options.onDismiss;
+            toast._yppDismissed = false;
         }
 
         // Contenido
@@ -10891,7 +10885,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         // Agregar botón de cerrar para toasts persistentes o de tipo keep
-        /*  if (options.persistent || options.keep) { */
         const closeBtn = createElement('button', {
             className: 'ypp-toast-close',
             html: SVG_ICONS.close,
@@ -10901,7 +10894,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
         });
         toast.appendChild(closeBtn);
-        /*  } */
 
         // Si no es keep, desvanecer por defecto si no es persistente,
         // o si es persistente pero se le especificó una duración explícita mayor a 0.
@@ -10913,10 +10905,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Forzar el repintado del navegador antes de animar (imprescindible para que CSS procese start-state)
                 void progress.offsetWidth;
-
                 progress.style.transition = `transform ${actualDuration}ms linear`;
                 progress.style.transform = 'scaleX(0)';
-
                 fadeAndRemoveToast(toast, actualDuration);
             }
         }
@@ -11004,7 +10994,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const renderAutomaticSavingOptionsSection = (settings) => `
     <div class="ypp-automatic-saving-options">
         <div class="ypp-settings-second-level-section">
-            <h3 class="ypp-section-title">${t('enableAutomaticSavingFor')}:</h2>
+            <h3 class="ypp-section-title">${t('enableAutomaticSavingFor')}:</h3>
             <label class="ypp-label-save-type">
                 <input type="checkbox" name="saveRegularVideos" ${settings.saveRegularVideos ? 'checked' : ''}>
                 <span>${t('regularVideos')}</span>
@@ -11175,7 +11165,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 <div class="ypp-github-help-toggle" id="ypp-github-help-toggle">
                     ${SVG_ICONS.info} ${t('githubHelp')}
                 </div>
-                <div class="ypp-github-help-content" id="ypp-github-help-content">
+                <div class="ypp-github-help-content">
                     <div style="margin-bottom: 10px; font-weight: bold;">${t('githubHelp')}</div>
 
                     <div id="ypp-github-help-gist" style="display: ${lastViewedType === 'gist' ? 'block' : 'none'};">
@@ -11237,7 +11227,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     <span>${t('autoCleanupDays')}: </span>
                     <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small" name="autoCleanupDays" value="${settings.autoCleanupDays || 30}" min="1" max="3650">
                 </label>
-                <span class="ypp-text-secondary-italic" style="margin-top: 4px;">${SVG_ICONS.info} ${t('autoCleanupDaysDescription')}</dfn>
+                <span class="ypp-text-secondary-italic" style="margin-top: 4px;">${SVG_ICONS.info} ${t('autoCleanupDaysDescription')}</span>
             </div>
         </div>
     `;
@@ -11834,6 +11824,95 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             });
 
+            /**
+            * Crea un botón con submenú desplegable hacia arriba (para acciones del footer).
+            * Soporta cierre por click fuera y garantiza un solo menú abierto a la vez.
+            *
+            * @param {{
+            *  label: string,
+            *  icon: string,
+            *  options: Array<{ label: string, icon: string, action: () => Promise<void> | void }>,
+            *  triggerClassName?: string,
+            *  triggerId?: string,
+            *  optionButtonClassName?: string,
+            *  getCurrentlyOpen: () => (null | (() => void)),
+            *  setCurrentlyOpen: (fn: null | (() => void)) => void
+            * }} config - Configuración del menú.
+            * @returns {HTMLElement}
+            */
+            function createFooterActionMenu(config) {
+                const {
+                    label,
+                    icon,
+                    options,
+                    triggerClassName = 'ypp-btn ypp-btn-secondary ypp-shadow-md',
+                    triggerId = '',
+                    optionButtonClassName = 'ypp-btn ypp-btn-outline-secondary ypp-footer-action-menu-option',
+                    getCurrentlyOpen,
+                    setCurrentlyOpen
+                } = config;
+
+                const wrapper = createElement('div', { className: 'ypp-footer-action-menu' });
+                const trigger = createElement('button', {
+                    className: triggerClassName,
+                    id: triggerId,
+                    html: `${icon} ${label}`,
+                    attributes: { type: 'button', 'aria-expanded': 'false' }
+                });
+                const list = createElement('div', {
+                    className: 'ypp-footer-action-menu-list ypp-d-none',
+                    attributes: { role: 'menu' }
+                });
+
+                let isOpen = false;
+
+                const onOutsideClick = (event) => {
+                    if (!wrapper.contains(event.target)) closeMenu();
+                };
+
+                const closeMenu = () => {
+                    if (!isOpen) return;
+                    isOpen = false;
+                    list.classList.add('ypp-d-none');
+                    trigger.setAttribute('aria-expanded', 'false');
+                    document.removeEventListener('click', onOutsideClick);
+                    if (getCurrentlyOpen() === closeMenu) setCurrentlyOpen(null);
+                };
+
+                const openMenu = () => {
+                    const current = getCurrentlyOpen();
+                    if (typeof current === 'function') current();
+                    isOpen = true;
+                    list.classList.remove('ypp-d-none');
+                    trigger.setAttribute('aria-expanded', 'true');
+                    setCurrentlyOpen(closeMenu);
+                    // Defer para que el click actual no lo cierre inmediatamente
+                    requestAnimationFrame(() => document.addEventListener('click', onOutsideClick, { once: true }));
+                };
+
+                options.forEach((option) => {
+                    const optionButton = createElement('button', {
+                        className: optionButtonClassName,
+                        html: `${option.icon} ${option.label}`,
+                        attributes: { type: 'button', role: 'menuitem' }
+                    });
+                    optionButton.addEventListener('click', async (event) => {
+                        event.stopPropagation();
+                        closeMenu();
+                        await option.action();
+                    });
+                    list.appendChild(optionButton);
+                });
+
+                trigger.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    isOpen ? closeMenu() : openMenu();
+                });
+
+                wrapper.append(trigger, list);
+                return wrapper;
+            }
+
             const importMenu = createFooterActionMenu({
                 label: t('import'),
                 icon: SVG_ICONS.download,
@@ -12358,7 +12437,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         const computeContextScore = (videoEl, context) => {
-            if (!videoEl || !videoEl.isConnected) return -999;
+            if (!videoEl?.isConnected) return -999;
             const root = getContextRoot(videoEl, context);
             if (!root) return -999;
 
@@ -14835,7 +14914,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      *   - `lastViewedPlaylistItemId` (string|null): ID único del ítem en la secuencia. No se asigna, es null por defecto para compatibilidad con FreeTube
      */
     async function getCascadedVideoInfo(initialPlayer, videoId, videoEl, type) {
-        // Cache global de metadatos (TTL 5 min)
         const now = Date.now();
         let info = {
             videoId: videoId,
@@ -14867,12 +14945,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (hasPlaylistInfo || (!info.lastViewedPlaylistId && type === 'shorts')) {
                     return { ...info };
                 }
-
-                logLog('getCascadedVideoInfo', `Caché parcial para ${videoId}. Continuando resolución de playlist...`);
             }
         }
 
-        const finalizeInfo = (res) => {
+        const finalizeInfo = (res, warnings = []) => {
+            // Validar completitud de campos críticos
+            const criticalFields = ['title', 'author', 'lengthSeconds'];
+            const missingCritical = criticalFields.filter(field => !res[field]);
+
+            if (missingCritical.length > 0) {
+                const warningMsg = `⚠️ Datos incompletos para ${videoId}: faltan ${missingCritical.join(', ')}`;
+                logWarn('getCascadedVideoInfo', warningMsg);
+                warnings.push(warningMsg);
+            }
+
+            if (warnings.length > 0) {
+                logWarn('getCascadedVideoInfo', `Retornando con ${warnings.length} advertencia(s)`, warnings);
+            }
+
             if (res.title && res.author && (res.viewCount !== null || res.isLive)) {
                 _videoMetadataCache.set(videoId, { info: { ...res }, ts: Date.now() });
             }
@@ -14880,6 +14970,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         let player = initialPlayer;
+        let level1Warnings = [];
 
         // 🟢 Nivel 1: YouTube Internal API
         // getPlayerResponse().videoDetails
@@ -14910,6 +15001,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // info.lastViewedPlaylistItemId: null (No se asigna)
 
                 // logInfo('getCascadedVideoInfo', 'info after getPlayerResponse:', { ...info });
+            } else if (details) {
+                // ID mismatch detectado - loggear pero NO actualizar con datos incorrectos
+                level1Warnings.push(
+                    `VideoId mismatch en playerResponse: esperado=${videoId}, obtenido=${details.videoId}`
+                );
+                logWarn('getCascadedVideoInfo',
+                    `⚠️ ${level1Warnings[level1Warnings.length - 1]}. Probable cambio de video durante carga SPA.`);
             }
 
             // B: getVideoData
@@ -14936,6 +15034,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // info.lastViewedPlaylistItemId: null (No se asigna)
 
                 // logInfo('getCascadedVideoInfo', 'info after getVideoData:', { ...info });
+            } else if (internalData) {
+                level1Warnings.push(
+                    `VideoId mismatch en getVideoData: esperado=${videoId}, obtenido=${internalData.video_id}`
+                );
             }
 
             // C: Microformat (Metadatos de renderizado)
@@ -14950,8 +15052,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 info.published = microformat.publishDate
                     ? new Date(microformat.publishDate).getTime()
                     : info.published;
-                info.description = microformat.description?.simpleText
-                    ?? info.description;
+                info.description = microformat.description?.simpleText ?? info.description;
                 info.viewCount = !isNaN(parseInt(microformat.viewCount, 10))
                     ? parseInt(microformat.viewCount, 10)
                     : info.viewCount;
@@ -14964,9 +15065,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // info.lastViewedPlaylistItemId: null (No se asigna)
 
                 // logInfo('getCascadedVideoInfo', 'info after microformat:', { ...info });
+            } else if (microformat) {
+                level1Warnings.push(
+                    `VideoId mismatch en microformat: esperado=${videoId}, obtenido=${microformat.externalVideoId}`
+                );
             }
         } catch (e) {
             logError('getCascadedVideoInfo', '⚠️ Error en Nivel 1 (Internal API):', e);
+            level1Warnings.push(`Error en Nivel 1: ${e.message}`);
         }
 
         // 🔵 Nivel 2: YouTube Helper API
@@ -18608,7 +18714,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             || escapeHTML(playlistKey)
             || t('unknown');
 
-        const viewsText = `${escapeHTML(viewCount.toLocaleString())} ${t('views')}`;
+        const viewsText = `${viewCount.toLocaleString()} ${t('views')}`;
 
         const videoUrl = isShorts
             ? `https://www.youtube.com/shorts/${videoId}`
@@ -18876,7 +18982,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
     // MARK: 🗑️ Clear All Data
     // ============================================================================================================
-
     let clearedData = null; // Para almacenar datos eliminados y poder deshacer
 
     async function clearAllData() {
@@ -18889,20 +18994,54 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         if (!confirm(t('clearAllDataConfirm'))) return;
 
+        // Si ya hay un undo pendiente (clearedData no null),
+        // NO sobrescribirlo. Preservamos el snapshot original para que el undo
+        // restaure el estado completo previo al PRIMER borrado.
+        if (clearedData && Object.keys(clearedData).length > 0) {
+            logWarn('clearAllData', '⚠️ Ya hay un undo pendiente. Preservando snapshot original.');
+            showFloatingToast(
+                `${SVG_ICONS.warning} Ya hay un borrado pendiente. Usa "Deshacer" para restaurar o cierra el toast anterior.`,
+                5000
+            );
+            return;
+        }
+
         // Guardar datos para posible deshacer
         const allKeys = await Storage.keys();
         clearedData = {};
+        let skippedProtected = 0;
+        let skippedNull = 0;
 
         for (const k of allKeys) {
             const data = await Storage.get(k);
-            if (data?.isProtected) continue;
+
+            // Saltar entradas null/undefined (datos corruptos)
+            if (!data) {
+                skippedNull++;
+                logWarn('clearAllData', `⚠️ Clave "${k}" devolvió null/undefined, omitiendo del backup de undo`);
+                continue;
+            }
+
+            // Saltar videos protegidos
+            if (data.isProtected) {
+                skippedProtected++;
+                continue;
+            }
 
             clearedData[k] = data;
         }
 
         logLog('clearAllData', '🗑️ Datos a eliminar:', Object.keys(clearedData));
 
-        const skippedProtected = allKeys.length - Object.keys(clearedData).length;
+        // Si después de filtrar no hay nada que eliminar, avisar y limpiar referencia
+        if (Object.keys(clearedData).length === 0) {
+            showFloatingToast(
+                `${SVG_ICONS.warning} ${t('noSavedVideos')}` +
+                (skippedProtected > 0 ? ` (${t('protectedItemsSkipped', { count: skippedProtected })})` : '')
+            );
+            clearedData = null;
+            return;
+        }
 
         // Eliminar todos los datos (excepto protegidos)
         for (const k of Object.keys(clearedData)) {
@@ -18910,15 +19049,33 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             PlaybackDisplayManager.syncSavedState({ videoId: k, isSaved: false, isFixedTime: false });
         }
 
-        // Mostrar toast con opción de deshacer
-        showFloatingToast(`${SVG_ICONS.check} ${t('allDataCleared')}${skippedProtected > 0 ? ` (${t('protectedItemsSkipped', { count: skippedProtected })})` : ''}`, {
+        // Construir mensaje informativo
+        const deletedCount = Object.keys(clearedData).length;
+        const skippedParts = [];
+        if (skippedProtected > 0) skippedParts.push(t('protectedItemsSkipped', { count: skippedProtected }));
+        if (skippedNull > 0) skippedParts.push(`${skippedNull} entradas corruptas omitidas`);
+        const skippedMsg = skippedParts.length > 0 ? ` (${skippedParts.join(', ')})` : '';
+
+        // Mostrar toast con onDismiss que limpia clearedData
+        // Esto garantiza que si el usuario cierra el toast con la X (sin pulsar Undo),
+        // la referencia se limpie y el próximo "Borrar todo" funcione correctamente.
+        showFloatingToast(`${SVG_ICONS.check} ${t('allDataCleared')}${skippedMsg}`, {
             keep: true,
             action: {
                 label: t('undo'),
-                callback: undoClearAll
+                callback: undoClearAll  // undoClearAll ya limpia clearedData internamente
+            },
+            onDismiss: () => {
+                // Se ejecuta cuando el toast se elimina por CUALQUIER razón:
+                // - Usuario cerró con la X (sin hacer Undo)
+                // - Usuario pulsó Undo (tras ejecutarse el callback)
+                // - Toast eliminado programáticamente
+                if (clearedData) {
+                    logLog('clearAllData', '🧹 Toast de undo cerrado, limpiando clearedData');
+                    clearedData = null;
+                }
             }
         });
-
 
         // Actualizar UI si es necesario
         await updateVideoList();
@@ -18927,19 +19084,48 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     async function undoClearAll() {
         if (!clearedData || Object.keys(clearedData).length === 0) {
             showFloatingToast(`${SVG_ICONS.trash} ${t('noDataToRestore')}`);
+            clearedData = null;
             return;
         }
 
         logLog('undoClearAll', '⏪ Restaurando datos:', clearedData);
 
-        // Restaurar todos los datos
+        let restoredCount = 0;
+        let failedCount = 0;
+
+        // Verificación defensiva + try/catch por entrada
         for (const [key, value] of Object.entries(clearedData)) {
-            await Storage.set(key, value);
-            PlaybackDisplayManager.syncSavedState({ videoId: key, isSaved: true, isFixedTime: value.forceResumeTime || false });
+            if (!value || typeof value !== 'object') {
+                logWarn('undoClearAll', `⚠️ Entrada inválida para "${key}", omitiendo`);
+                failedCount++;
+                continue;
+            }
+
+            try {
+                await Storage.set(key, value);
+                PlaybackDisplayManager.syncSavedState({
+                    videoId: key,
+                    isSaved: true,
+                    isFixedTime: !!(value.forceResumeTime && value.forceResumeTime > 0)
+                });
+                restoredCount++;
+            } catch (err) {
+                logError('undoClearAll', `❌ Error restaurando "${key}":`, err);
+                failedCount++;
+            }
         }
 
-        // Limpiar referencia
+        // Limpiar referencia INMEDIATAMENTE tras restaurar
+        // Esto permite que un nuevo "Borrar todo" funcione correctamente
         clearedData = null;
+
+        // Feedback al usuario
+        if (restoredCount > 0) {
+            const failedMsg = failedCount > 0 ? ` (${failedCount} fallidos)` : '';
+            showFloatingToast(`${SVG_ICONS.check} ${t('itemsRestored', { count: restoredCount })}${failedMsg}`, 3000);
+        } else {
+            showFloatingToast(`${SVG_ICONS.error} No se pudo restaurar ningún video`, 3000);
+        }
 
         // Actualizar UI
         await updateVideoList();
@@ -19258,7 +19444,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             const videoKeys = allKeys.filter(k => !isNonVideoStorageKey(k));
             const CHUNK_SIZE = 50; // Procesamiento en lotes para no saturar IndexedDB
-            const exportedDeletedData = {
+            let exportedDeletedData = {
                 __metadata__: {
                     version: SCRIPT_VERSION,
                     exportedAt: new Date().toISOString(),
@@ -19298,7 +19484,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (keysToDelete.length > 0) {
                     await Promise.all(keysToDelete.map(({ key }) => StorageAsync.del(key)));
                     for (const { key, title, lastWatched, data } of keysToDelete) {
-                        exportedDeletedData[key] = data;
+
+                        // Validar que data sea válido antes de agregarlo
+                        if (key !== '__metadata__' && data && typeof data === 'object' && data.videoId) {
+                            exportedDeletedData[key] = data;
+                        } else if (key !== '__metadata__') {
+                            logWarn('runAutoCleanup', `Datos inválidos para clave ${key}, omitiendo del backup`);
+                        }
                         deletedCount++;
                         logLog('runAutoCleanup', `🗑️ Video eliminado por antigüedad: ${key} (${title}) - Visto el: ${new Date(lastWatched).toLocaleString()}`);
                     }
@@ -19349,7 +19541,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                 ];
 
-                showFloatingToast(`${SVG_ICONS.trash} ${t('autoCleanupFinished', { count: deletedCount })}`, 15000, { actions });
+                showFloatingToast(`${SVG_ICONS.trash} ${t('autoCleanupFinished', { count: deletedCount })}`, 15000, {
+                    actions,
+                    onDismiss: () => {
+                        // Liberar memoria del backup cuando el toast se cierre
+                        exportedDeletedData = null;
+                        logLog('runAutoCleanup', '🧹 Toast de cleanup cerrado, liberando backup de memoria');
+                    }
+                });
             } else {
                 logLog('runAutoCleanup', `✨ ${t('autoCleanupNoVideosFound', { days: daysThreshold })}`);
                 showFloatingToast(`${SVG_ICONS.info} ${t('autoCleanupNoVideosFound', { days: daysThreshold })}`, 5000);
@@ -19712,5 +19911,3 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     init();
 })();
-
-

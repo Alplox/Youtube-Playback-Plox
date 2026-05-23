@@ -1,5 +1,26 @@
 # 0.0.10-2
 
+### Fixed
+
+- **Critical: "Clear All" Undo Data Loss on Double-Click**: Fixed a critical bug where pressing "Clear All" twice before using the Undo action would silently overwrite the backup snapshot with an empty object, permanently destroying the ability to restore deleted videos. The system now preserves the original snapshot and blocks redundant clears while an undo is pending.
+- **Critical: Undo State Leaks When Toast is Dismissed**: Fixed a bug where closing the "All data cleared" toast via the (X) button (without pressing Undo) left the `clearedData` reference orphaned in memory. Introduced a new `onDismiss` callback system in the toast infrastructure to guarantee cleanup regardless of how the toast is removed.
+- **Auto-Cleanup Backup Memory Leak**: Fixed a bug where the `exportedDeletedData` backup object (created during auto-cleanup) was held in memory indefinitely after the cleanup toast was dismissed. The toast now receives an `onDismiss` callback that sets `exportedDeletedData = null` when the toast closes, releasing the backup from memory.
+- **Critical: `undoClearAll` Crash on Corrupted Storage Entries**: Hardened the undo restoration loop with defensive checks against `null`/invalid entries returned by `Storage.get()`. Previously, a single corrupted key (e.g. deleted between listing and reading) caused a `TypeError` on `value.forceResumeTime` that aborted the entire restoration, leaving the user with partially restored data.
+- **Shorts Export Count Always Zero in FreeTube Format**: Fixed incorrect field reference (`internal.videoType` -> `internal.type`) in `exportToFreeTubeFormat` that caused every exported video to be counted as a regular video, breaking Shorts statistics in the export log.
+- **Auto-Cleanup `__metadata__` Pollution**: Fixed a bug where the internal `__metadata__` key was incorrectly included in the auto-cleanup backup export. The key is now filtered out during the export loop (`if (key !== '__metadata__')`), preventing a non-video key from being restored on Undo.
+- **Fragile `ytInitialData` JSON Parser**: Replaced the naive brace-counting parser in `extractYtInitialData` with a string-aware implementation that correctly handles `{` and `}` characters inside JSON strings (common in video descriptions and titles). The previous parser would stop prematurely and return invalid JSON, breaking playlist title resolution.
+- **Progress Bar Color Ignored Light Theme at 0%**: Fixed `getProgressColor()` always returning the dark-theme red when `percent <= 0`, regardless of the active YouTube theme. Now correctly resolves the theme-aware color cache.
+- **False-Positive Video Lookup in `getSavedVideoData`**: Tightened the flexible key search from permissive `includes(videoId)` to strict `endsWith(_videoId)` matching, preventing unrelated videos (e.g. `"xyzabc"` matching query `"abc"`) from being returned as valid data.
+- **Malformed HTML in Automatic Saving Settings**: Fixed mismatched heading tags (`<h3>` opened, `</h2>` closed) in `renderAutomaticSavingOptionsSection` that produced invalid DOM output.
+- **Orphaned `</dfn>` Tag in Auto-Cleanup Section**: Removed stray closing `</dfn>` tag in `renderAutoCleanupSection` that had no matching opening tag.
+- **Duplicate ID in GitHub Backup Section**: Removed colliding `id="ypp-github-help-content"` attribute from `renderGitHubBackupSection`.
+- **Double-Escaped View Counts in Video List**: Removed redundant `escapeHTML()` wrapping in `createVideoEntry` when the result was already passed to `document.createTextNode()` (which auto-escapes), preventing literal `&amp;` entities from appearing in view counts.
+- **Undefined Reference in Modal Settings Migration**: Removed reference to non-existent `d.dimColouredLabels` default in `normalizeSavedVideosModalSettings` that silently broke legacy settings migration.
+
+### Added
+
+- **Toast `onDismiss` Lifecycle Hook**: Extended `showFloatingToast` and `fadeAndRemoveToast` with an optional `onDismiss` callback that fires exactly once when a toast is removed by any mechanism (X button, timeout, action click, or programmatic removal). Used to guarantee cleanup of transient state like undo snapshots and auto-cleanup backups.
+
 ### Changed
 
 - **Unified Saving Engine**: Refactored the core saving module by consolidating six specialized, redundant functions (`internalSaveRegularVideo`, `saveRegularVideo`, `saveMiniplayer`, `saveShortsVideo`, `savePreview`, `saveLivestream`) into a single, highly flexible `internalSaveVideoGeneric` function.
@@ -7,7 +28,6 @@
   - Refactored `getDisplayContextVideo` and `getDisplayContextPlayer` to use lookup tables instead of if-else chains, reducing code duplication.
   - Refactored `getDisplay` to use lookup table pattern for better maintainability.
   - Refactored `getContextRoot` to use lookup table instead of if-else chains.
-  - Added `safeRemove` helper function to consolidate repeated try-catch patterns for DOM element removal.
 
 # 0.0.10-1
 

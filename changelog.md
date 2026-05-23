@@ -28,6 +28,7 @@
   - Refactored `getDisplayContextVideo` and `getDisplayContextPlayer` to use lookup tables instead of if-else chains, reducing code duplication.
   - Refactored `getDisplay` to use lookup table pattern for better maintainability.
   - Refactored `getContextRoot` to use lookup table instead of if-else chains.
+- **Data-Driven Settings UI**: Centralized settings field generation with a declarative `SETTINGS_FIELDS_SCHEMA` and generic `createFormField` renderer. Replaced 5 repetitive render functions (~275 lines of HTML strings) with schema-driven rendering (~45 lines of field definitions + ~60 lines for `createFormField`). The save logic now iterates over the schema instead of manually reading each of the 18 fields, and numeric clamping + dependency toggles are wired from the same schema. New settings can be added by editing a single schema entry.
 
 # 0.0.10-1
 

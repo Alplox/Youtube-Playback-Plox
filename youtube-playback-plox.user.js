@@ -5402,6 +5402,7 @@ regular-item.ypp-fill-none {
             -ms-flex-align: center;
                 align-items: center;
         gap: 5px;
+        text-wrap: stable;
     }
 }
 
@@ -10956,124 +10957,181 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         return wrapper;
     };
 
-    const renderGeneralSettingSection = (settings) => `
-        <div class="ypp-settings-section">
-            <label class="ypp-label">
-                <input type="checkbox" name="showFloatingButtons" ${settings.showFloatingButtons ? 'checked' : ''}>
-                <span>${t('showFloatingButton')}</span>
-            </label>
-            <label class="ypp-label">
-                <input type="checkbox" name="showHistoryButton" ${settings.showHistoryButton !== false ? 'checked' : ''}>
-                <span>${t('showHistoryButton')} ${SVG_ICONS.clockRotateLeft}</span>
-            </label>
-            <label class="ypp-label">
-                <input type="checkbox" name="enableProgressBarGradient" ${settings.enableProgressBarGradient ? 'checked' : ''}>
-                <span>${t('enableProgressBarGradient')}</span>
-            </label>
-        </div>
-    `;
+    // ============================================================================================================
+    // MARK: 🗂️ Settings Schema - Data-Driven UI
+    // ============================================================================================================
 
-    const renderManualSavingOptionsSection = (settings) => `
-        <div class="ypp-manual-saving-options">
-            <div class="ypp-settings-second-level-section">
-                <label class="ypp-label" title="${t('manualSaveModeTooltip')}">
-                    <input type="checkbox" name="manualSaveMode" ${settings.manualSaveMode ? 'checked' : ''}>
-                    <span>${SVG_ICONS.bookmarkOutline}${t('manualSaveMode')}</span>
-                </label>
-                <div class="ypp-settings-third-level-section" style="margin-left: 28px; margin-top: 8px; ${settings.manualSaveMode ? '' : 'display: none;'} opacity: ${settings.manualSaveMode ? '1' : '0.5'};">
-                    <label class="ypp-label" title="${t('manualSaveHybridModeTooltip')}">
-                        <input type="checkbox" name="manualSaveHybridMode" ${settings.manualSaveHybridMode ? 'checked' : ''} ${settings.manualSaveMode ? '' : 'disabled'}>
-                        <span style="font-size: 0.9em;">${t('manualSaveHybridMode')}</span>
+    /** @type {Array<{section:string, type:string, key:string, labelKey:string, tooltipKey?:string, icon?:string, dependsOn?:string, min?:number, max?:number, suffix?:string, suffixKey?:string, suffixArg?:number|string, descriptionKey?:string, className?:string, defaultTrue?:boolean}>} */
+    const SETTINGS_FIELDS_SCHEMA = [
+        // ── General ──
+        { section: 'general', type: 'checkbox', key: 'showFloatingButtons', labelKey: 'showFloatingButton' },
+        { section: 'general', type: 'checkbox', key: 'showHistoryButton', labelKey: 'showHistoryButton', icon: SVG_ICONS.clockRotateLeft, defaultTrue: true },
+        { section: 'general', type: 'checkbox', key: 'enableProgressBarGradient', labelKey: 'enableProgressBarGradient' },
+
+        // ── Manual Saving ──
+        { section: 'manual', type: 'checkbox', key: 'manualSaveMode', labelKey: 'manualSaveMode', tooltipKey: 'manualSaveModeTooltip', icon: SVG_ICONS.bookmarkOutline },
+        { section: 'manual', type: 'checkbox', key: 'manualSaveHybridMode', labelKey: 'manualSaveHybridMode', tooltipKey: 'manualSaveHybridModeTooltip', dependsOn: 'manualSaveMode' },
+
+        // ── Automatic Saving ──
+        { section: 'auto', type: 'checkbox', key: 'saveRegularVideos', labelKey: 'regularVideos', className: 'ypp-label-save-type' },
+        { section: 'auto', type: 'checkbox', key: 'saveMiniplayerVideos', labelKey: 'miniplayerVideos', className: 'ypp-label-save-type', defaultTrue: true },
+        { section: 'auto', type: 'checkbox', key: 'saveShorts', labelKey: 'shorts', className: 'ypp-label-save-type' },
+        { section: 'auto', type: 'checkbox', key: 'saveLiveStreams', labelKey: 'liveStreams', className: 'ypp-label-save-type' },
+        { section: 'auto', type: 'checkbox', key: 'saveInlinePreviews', labelKey: 'inlinePreviews', className: 'ypp-label-save-type' },
+        { section: 'auto', type: 'number', key: 'minSecondsBetweenSaves', labelKey: 'minSecondsBetweenSaves', min: 1, max: 3600, suffixKey: 'maxLimit', suffixArg: 3600 },
+
+        // ── Notifications ──
+        { section: 'notifications', type: 'checkbox', key: 'showAlertIcon', labelKey: 'showAlertIcon', className: 'ypp-label-checkbox', defaultTrue: true },
+        { section: 'notifications', type: 'checkbox', key: 'showAlertText', labelKey: 'showAlertText', className: 'ypp-label-checkbox', defaultTrue: true },
+        { section: 'notifications', type: 'checkbox', key: 'showAlertTime', labelKey: 'showAlertTime', className: 'ypp-label-checkbox', defaultTrue: true },
+        { section: 'notifications', type: 'number', key: 'staticFinishPercent', labelKey: 'staticFinishPercent', min: 1, max: 99, suffix: '%' },
+        { section: 'notifications', type: 'checkbox', key: 'countOncePerSession', labelKey: 'countOncePerSession', tooltipKey: 'countOncePerSessionTooltip' },
+        { section: 'notifications', type: 'checkbox', key: 'resumeCompletedFromStart', labelKey: 'resumeCompletedFromStart', tooltipKey: 'resumeCompletedFromStartTooltip' },
+
+        // ── Auto Cleanup ──
+        { section: 'cleanup', type: 'checkbox', key: 'autoCleanupEnabled', labelKey: 'autoCleanupEnabled', icon: SVG_ICONS.trash },
+        { section: 'cleanup', type: 'number', key: 'autoCleanupDays', labelKey: 'autoCleanupDays', min: 1, max: 3650, dependsOn: 'autoCleanupEnabled', descriptionKey: 'autoCleanupDaysDescription' },
+    ];
+
+    /**
+     * @param {string} key
+     * @returns {Object|undefined}
+     */
+    const getSchemaField = (key) => SETTINGS_FIELDS_SCHEMA.find(f => f.key === key);
+
+    /**
+     * @param {string} sectionId
+     * @returns {Array}
+     */
+    const getSchemaFieldsBySection = (sectionId) => SETTINGS_FIELDS_SCHEMA.filter(f => f.section === sectionId);
+
+    /**
+     * @param {{type:string, key:string, labelKey:string, tooltipKey?:string, icon?:string, dependsOn?:string, min?:number, max?:number, suffix?:string, suffixKey?:string, suffixArg?:number|string, descriptionKey?:string, className?:string, defaultTrue?:boolean}} field
+     * @param {*} value
+     * @param {{disabled?:boolean}} [options]
+     * @returns {string}
+     */
+    const createFormField = (field, value, options = {}) => {
+        const labelAttr = field.tooltipKey ? `title="${escapeHTML(t(field.tooltipKey))}"` : '';
+        const className = field.className || 'ypp-label';
+        const iconHtml = field.icon || '';
+        const disabledAttr = options.disabled ? 'disabled' : '';
+
+        switch (field.type) {
+            case 'checkbox': {
+                const checked = field.defaultTrue
+                    ? (value !== false ? 'checked' : '')
+                    : (value ? 'checked' : '');
+                return `
+                    <label class="${className}" ${labelAttr}>
+                        <input type="checkbox" name="${field.key}" ${checked} ${disabledAttr}>
+                        <span>${t(field.labelKey)} ${iconHtml}</span>
                     </label>
+                `;
+            }
+            case 'number': {
+                const suffix = field.suffix
+                    ? `<span class="ypp-percent-symbol">${field.suffix}</span>`
+                    : field.suffixKey
+                        ? `<span class="ypp-text-secondary-italic">${SVG_ICONS.info} ${t(field.suffixKey, field.suffixArg)}</span>`
+                        : '';
+                const description = field.descriptionKey
+                    ? `<span class="ypp-text-secondary-italic" style="margin-top: 4px;">${SVG_ICONS.info} ${t(field.descriptionKey)}</span>`
+                    : '';
+                return `
+                    <label class="${className}">
+                        <span>${t(field.labelKey)}: </span>
+                        <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small" name="${field.key}" value="${value}" min="${field.min}" max="${field.max}" ${disabledAttr}>
+                        ${suffix}
+                    </label>
+                    ${description}
+                `;
+            }
+            default:
+                return '';
+        }
+    };
+
+    /**
+     * @param {Array} fields
+     * @param {Object} settings
+     * @returns {string}
+     */
+    const renderFields = (fields, settings) => {
+        return fields.map(f => createFormField(f, settings[f.key])).join('');
+    };
+
+    const renderGeneralSettingSection = (settings) =>
+        `<div class="ypp-settings-section">${renderFields(getSchemaFieldsBySection('general'), settings)}</div>`;
+
+    const renderManualSavingOptionsSection = (settings) => {
+        const mainField = getSchemaField('manualSaveMode');
+        const childField = getSchemaField('manualSaveHybridMode');
+        const isChecked = settings.manualSaveMode;
+        return `
+            <div class="ypp-manual-saving-options">
+                <div class="ypp-settings-second-level-section">
+                    ${createFormField(mainField, settings.manualSaveMode)}
+                    <div class="ypp-settings-third-level-section" style="margin-top: 8px; ${isChecked ? '' : 'display: none;'} opacity: ${isChecked ? '1' : '0.5'};">
+                        ${createFormField(childField, settings.manualSaveHybridMode, { disabled: !isChecked })}
+                    </div>
                 </div>
             </div>
-        </div>
-    `;
-
+        `;
+    };
 
     const renderAutomaticSavingOptionsSection = (settings) => `
-    <div class="ypp-automatic-saving-options">
-        <div class="ypp-settings-second-level-section">
-            <h3 class="ypp-section-title">${t('enableAutomaticSavingFor')}:</h3>
-            <label class="ypp-label-save-type">
-                <input type="checkbox" name="saveRegularVideos" ${settings.saveRegularVideos ? 'checked' : ''}>
-                <span>${t('regularVideos')}</span>
-            </label>
-            <label class="ypp-label-save-type">
-                <input type="checkbox" name="saveMiniplayerVideos" ${settings.saveMiniplayerVideos !== false ? 'checked' : ''}>
-                <span>${t('miniplayerVideos')}</span>
-            </label>
-            <label class="ypp-label-save-type">
-                <input type="checkbox" name="saveShorts" ${settings.saveShorts ? 'checked' : ''}>
-                <span>${t('shorts')}</span>
-            </label>
-            <label class="ypp-label-save-type">
-                <input type="checkbox" name="saveLiveStreams" ${settings.saveLiveStreams ? 'checked' : ''}>
-                <span>${t('liveStreams')}</span>
-            </label>
-            <label class="ypp-label-save-type">
-                <input type="checkbox" name="saveInlinePreviews" ${settings.saveInlinePreviews === true ? 'checked' : ''}>
-                <span>${t('inlinePreviews')}</span>
-            </label>
-
-             <label class="ypp-label">
-                <span>${t('minSecondsBetweenSaves')}: </span>
-                 <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small" name="minSecondsBetweenSaves" value="${settings.minSecondsBetweenSaves}" min="1" max="9999">
-                 <span class="ypp-text-secondary-italic">${SVG_ICONS.info} ${t('maxLimit')}: 3600</span>
-            </label>
+        <div class="ypp-automatic-saving-options">
+            <div class="ypp-settings-second-level-section">
+                <h3 class="ypp-section-title">${t('enableAutomaticSavingFor')}:</h3>
+                ${renderFields(getSchemaFieldsBySection('auto'), settings)}
+            </div>
         </div>
-    </div>
     `;
 
-    const renderNotificationSettingsSection = (settings) => {
+    const renderNotificationSettingsSection = (settings) => `
+        <div class="ypp-settings-second-level-section">
+            <h3 class="ypp-section-title">${t('alertStyle')}:</h3>
+            <div class="ypp-d-flex" style="flex-direction: column; gap: 10px;">
+                ${renderFields(getSchemaFieldsBySection('notifications').filter(f => ['showAlertIcon', 'showAlertText', 'showAlertTime'].includes(f.key)), settings)}
+            </div>
+            <div class="ypp-alert-preview-container">
+                <div class="ypp-alert-preview-title">${t('alertPreview')}</div>
+                <div class="ypp-alert-preview-box" id="ypp-alert-preview-content"></div>
+            </div>
+        </div>
+        <div class="ypp-settings-second-level-section">
+            ${createFormField(getSchemaField('staticFinishPercent'), settings.staticFinishPercent)}
+            <div class="ypp-settings-third-level-section">
+                <div class="ypp-d-flex">
+                    <input type="checkbox" name="countOncePerSession" ${settings.countOncePerSession ? 'checked' : ''}>
+                    <span>${t('countOncePerSession')}</span>
+                </div>
+                <span class="ypp-text-secondary-italic">${SVG_ICONS.info} ${t('countOncePerSessionTooltip')}</span>
+            </div>
+            <div class="ypp-settings-third-level-section" style="margin-top: 10px;">
+                <div class="ypp-d-flex">
+                    <input type="checkbox" name="resumeCompletedFromStart" ${settings.resumeCompletedFromStart ? 'checked' : ''}>
+                    <span>${t('resumeCompletedFromStart')}</span>
+                </div>
+                <span class="ypp-text-secondary-italic">${SVG_ICONS.info} ${t('resumeCompletedFromStartTooltip')}</span>
+            </div>
+        </div>
+    `;
+
+    const renderAutoCleanupSection = (settings) => {
+        const mainField = getSchemaField('autoCleanupEnabled');
+        const childField = getSchemaField('autoCleanupDays');
+        const isChecked = settings.autoCleanupEnabled;
         return `
             <div class="ypp-settings-second-level-section">
-                <h3 class="ypp-section-title">${t('alertStyle')}:</h3>
-                <div class="ypp-d-flex" style="flex-direction: column; gap: 10px;">
-                    <label class="ypp-label-checkbox">
-                        <input type="checkbox" name="showAlertIcon" ${settings.showAlertIcon !== false ? 'checked' : ''}>
-                        <span>${t('showAlertIcon')}</span>
-                    </label>
-                    <label class="ypp-label-checkbox">
-                        <input type="checkbox" name="showAlertText" ${settings.showAlertText !== false ? 'checked' : ''}>
-                        <span>${t('showAlertText')}</span>
-                    </label>
-                    <label class="ypp-label-checkbox">
-                        <input type="checkbox" name="showAlertTime" ${settings.showAlertTime !== false ? 'checked' : ''}>
-                        <span>${t('showAlertTime')}</span>
-                    </label>
-                </div>
-
-                <div class="ypp-alert-preview-container">
-                    <div class="ypp-alert-preview-title">${t('alertPreview')}</div>
-                    <div class="ypp-alert-preview-box" id="ypp-alert-preview-content"></div>
+                ${createFormField(mainField, settings.autoCleanupEnabled)}
+                <div class="ypp-settings-third-level-section" style="margin-top: 8px; ${isChecked ? '' : 'display: none;'} opacity: ${isChecked ? '1' : '0.5'};">
+                    ${createFormField(childField, settings.autoCleanupDays, { disabled: !isChecked })}
                 </div>
             </div>
-
-            <div class="ypp-settings-second-level-section">
-                <label class="ypp-label">
-                    <span>${t('staticFinishPercent')}: </span>
-                     <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small" name="staticFinishPercent" value="${settings.staticFinishPercent}" min="1" max="99">
-                    <span class="ypp-percent-symbol">%</span>
-                </label>
-                <div class="ypp-settings-third-level-section">
-                    <div class="ypp-d-flex">
-                        <input type="checkbox" name="countOncePerSession" ${settings.countOncePerSession ? 'checked' : ''}>
-                        <span>${t('countOncePerSession')}</span>
-                    </div>
-                    <span class="ypp-text-secondary-italic">${SVG_ICONS.info} ${t('countOncePerSessionTooltip')}</span>
-                </div>
-                <div class="ypp-settings-third-level-section" style="margin-top: 10px;">
-                    <div class="ypp-d-flex">
-                        <input type="checkbox" name="resumeCompletedFromStart" ${settings.resumeCompletedFromStart ? 'checked' : ''}>
-                        <span>${t('resumeCompletedFromStart')}</span>
-                    </div>
-                    <span class="ypp-text-secondary-italic">${SVG_ICONS.info} ${t('resumeCompletedFromStartTooltip')}</span>
-                </div>
-            </div>
-    `;
-    }
-
+        `;
+    };
 
     const renderGitHubBackupSection = (rawSettings) => {
         const githubSettings = rawSettings;
@@ -11216,22 +11274,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         `;
     };
 
-    const renderAutoCleanupSection = (settings) => `
-        <div class="ypp-settings-second-level-section">
-            <label class="ypp-label">
-                <input type="checkbox" name="autoCleanupEnabled" ${settings.autoCleanupEnabled ? 'checked' : ''}>
-                <span>${t('autoCleanupEnabled')} ${SVG_ICONS.trash}</span>
-            </label>
-            <div class="ypp-settings-third-level-section" style=" ${settings.autoCleanupEnabled ? '' : 'display: none;'} opacity: ${settings.autoCleanupEnabled ? '1' : '0.5'};">
-                <label class="ypp-label">
-                    <span>${t('autoCleanupDays')}: </span>
-                    <input type="text" inputmode="numeric" pattern="[0-9]*" class="ypp-input-small" name="autoCleanupDays" value="${settings.autoCleanupDays || 30}" min="1" max="3650">
-                </label>
-                <span class="ypp-text-secondary-italic" style="margin-top: 4px;">${SVG_ICONS.info} ${t('autoCleanupDaysDescription')}</span>
-            </div>
-        </div>
-    `;
-
     // ============================================================================================================
     // MARK: ⚙️ Settings UI
     // ============================================================================================================
@@ -11357,36 +11399,31 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             bodyModalSettings.querySelector(`[name="${name}"]`)?.addEventListener('change', updateAlertPreview);
         });
 
-        // Toggle visibilidad de sub-opción modo híbrido
-        const manualSaveCheckbox = bodyModalSettings.querySelector('[name="manualSaveMode"]');
-        const hybridSection = bodyModalSettings.querySelector('.ypp-settings-third-level-section');
-        if (manualSaveCheckbox && hybridSection) {
-            manualSaveCheckbox.addEventListener('change', (e) => {
-                const isChecked = e.target.checked;
-                hybridSection.style.display = isChecked ? 'block' : 'none';
-                hybridSection.style.opacity = isChecked ? '1' : '0.5';
-                const hybridInput = hybridSection.querySelector('input');
-                if (hybridInput) hybridInput.disabled = !isChecked;
-            });
+        // Toggle visibilidad de sub-opciones (schema-driven)
+        for (const field of SETTINGS_FIELDS_SCHEMA) {
+            if (field.dependsOn) {
+                const parentInput = bodyModalSettings.querySelector(`[name="${field.dependsOn}"]`);
+                const childSection = parentInput?.closest('.ypp-settings-second-level-section, .ypp-manual-saving-options')
+                    ?.querySelector('.ypp-settings-third-level-section');
+                if (parentInput && childSection) {
+                    parentInput.addEventListener('change', (e) => {
+                        const isChecked = e.target.checked;
+                        childSection.style.display = isChecked ? 'block' : 'none';
+                        childSection.style.opacity = isChecked ? '1' : '0.5';
+                        const childInput = childSection.querySelector('input');
+                        if (childInput) childInput.disabled = !isChecked;
+                    });
+                }
+            }
         }
 
-        // Toggle visibilidad de sub-opción limpieza automática
-        const autoCleanupCheckbox = bodyModalSettings.querySelector('[name="autoCleanupEnabled"]');
-        const autoCleanupSection = autoCleanupCheckbox?.closest('.ypp-settings-second-level-section')?.querySelector('.ypp-settings-third-level-section');
-        if (autoCleanupCheckbox && autoCleanupSection) {
-            autoCleanupCheckbox.addEventListener('change', (e) => {
-                const isChecked = e.target.checked;
-                autoCleanupSection.style.display = isChecked ? 'block' : 'none';
-                autoCleanupSection.style.opacity = isChecked ? '1' : '0.5';
-                const daysInput = autoCleanupSection.querySelector('input');
-                if (daysInput) daysInput.disabled = !isChecked;
-            });
+        // Aplicar clamping numérico a inputs específicos de settings (schema-driven)
+        for (const field of SETTINGS_FIELDS_SCHEMA) {
+            if (field.type === 'number') {
+                applyNumericClamping(bodyModalSettings.querySelector(`[name="${field.key}"]`), { min: field.min, max: field.max });
+            }
         }
-
-        // Aplicar clamping numérico a inputs específicos de settings
-        applyNumericClamping(bodyModalSettings.querySelector('[name="minSecondsBetweenSaves"]'), { min: 1, max: 3600 });
-        applyNumericClamping(bodyModalSettings.querySelector('[name="staticFinishPercent"]'), { min: 1, max: 99 });
-        applyNumericClamping(bodyModalSettings.querySelector('[name="autoCleanupDays"]'), { min: 1, max: 3650 });
+        // Interval inputs from GitHub section (not in schema)
         bodyModalSettings.querySelectorAll('.ypp-interval-input').forEach(input => {
             applyNumericClamping(input, { min: 1, max: 24 });
         });
@@ -11416,28 +11453,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const getVal = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.value ?? bodyModalSettings.querySelector(`[id="${name}-dropdown"]`)?.dataset.value;
                 const isChecked = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.checked;
 
-                const newSettings = {
-                    minSecondsBetweenSaves: Math.max(1, parseInt(getVal('minSecondsBetweenSaves'), 10) || 1),
-                    showFloatingButtons: isChecked('showFloatingButtons'),
-                    showHistoryButton: isChecked('showHistoryButton'),
-                    enableProgressBarGradient: isChecked('enableProgressBarGradient'),
-                    staticFinishPercent: Math.max(1, Math.min(99, parseInt(getVal('staticFinishPercent'), 10) || 90)),
-                    saveRegularVideos: isChecked('saveRegularVideos'),
-                    saveShorts: isChecked('saveShorts'),
-                    saveLiveStreams: isChecked('saveLiveStreams'),
-                    saveMiniplayerVideos: isChecked('saveMiniplayerVideos'),
-                    saveInlinePreviews: isChecked('saveInlinePreviews'),
-                    manualSaveMode: isChecked('manualSaveMode'),
-                    manualSaveHybridMode: isChecked('manualSaveHybridMode'),
-                    countOncePerSession: isChecked('countOncePerSession'),
-                    resumeCompletedFromStart: isChecked('resumeCompletedFromStart'),
-                    language: getVal('language'),
-                    showAlertIcon: isChecked('showAlertIcon'),
-                    showAlertText: isChecked('showAlertText'),
-                    showAlertTime: isChecked('showAlertTime'),
-                    autoCleanupEnabled: isChecked('autoCleanupEnabled'),
-                    autoCleanupDays: Math.max(1, Math.min(3650, parseInt(getVal('autoCleanupDays'), 10) || 30)),
-                };
+                const newSettings = {};
+                for (const field of SETTINGS_FIELDS_SCHEMA) {
+                    if (field.type === 'checkbox') {
+                        newSettings[field.key] = isChecked(field.key);
+                    } else if (field.type === 'number') {
+                        const defaultVal = CONFIG.defaultSettings[field.key] ?? field.min ?? 1;
+                        const val = parseInt(getVal(field.key), 10);
+                        newSettings[field.key] = !isNaN(val)
+                            ? Math.max(field.min ?? 1, Math.min(field.max ?? 9999, val))
+                            : defaultVal;
+                    }
+                }
+                newSettings.language = getVal('language');
 
                 const rawGistToken = getVal('gist_token') || '';
                 let safeGistToken = rawGistToken

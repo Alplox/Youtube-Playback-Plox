@@ -36,6 +36,17 @@
   - Extracted `createViewModeSelector` - list/grid view toggle with grid-only options (always-expand, expansion mode).
   - Extracted `createOverflowToggle` - overflow (⋯) menu toggle button.
   - Promoted `makeToolbarGroup` and `makeDisplayToggle` to standalone IIFE-level functions with explicit parameter passing for `container` and `settings` instead of closure capture.
+- **updateVideoList Decomposition**: Refactored `updateVideoList` from 540 lines to ~45 lines by extracting 10 focused helper functions:
+  - Extracted `showLoadingState` - manages the skeleton loading overlay (initial/update paths).
+  - Extracted `loadVideoItems` - data loading from storage with parallel batch assembly.
+  - Extracted `resolvePlaylistTitles` - stable title resolution for Mix (RD) playlists using seed video titles.
+  - Extracted `filterItems` - 3-stage filter pipeline (type → search → views/percent).
+  - Promoted `getSortValue` from inline closure to standalone function.
+  - Extracted `buildVirtualItems` - grid row chunking and virtual item assembly with playlist headers.
+  - Extracted `showEmptyState` - empty-state UI with stats reset.
+  - Extracted `updateVirtualScroller` - update path: stats bar, item update, scroll restoration.
+  - Extracted `initVirtualScroller` - full VirtualScroller initialization with stats bar.
+  - Extracted `connectResizeObserver` - grid column reflow on container width change.
 
 # 0.0.10-1
 

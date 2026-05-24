@@ -14999,15 +14999,42 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // MARK: 📁 Update Video List
     // ============================================================================================================
     /**
-     * Actualiza la lista de videos usando virtualización para rendimiento óptimo.
-     * Solo renderiza los items visibles en el viewport, ideal para miles de videos.
+     * Sort-value dispatch for a video item based on currentOrderBy.
+     * @param {Object} item - video item with .info and .videoId
+     * @returns {number|string}
      */
-    async function updateVideoList() {
-        if (!listContainer) return;
+    function getSortValue(item) {
+        if (currentOrderBy === 'titleAZ' || currentOrderBy === 'title') return (item.info.title || item.videoId).toLowerCase();
+        if (currentOrderBy === 'titleZA') return (item.info.title || item.videoId).toLowerCase();
+        if (currentOrderBy === 'authorAZ' || currentOrderBy === 'author') return (item.info.author || '').toLowerCase();
+        if (currentOrderBy === 'authorZA') return (item.info.author || '').toLowerCase();
+        if (currentOrderBy === 'durationShort') return item.info.lengthSeconds || 0;
+        if (currentOrderBy === 'durationLong') return -(item.info.lengthSeconds || 0);
+        if (currentOrderBy === 'yourMostWatched') return -(item.info.completionHistory?.total || 0);
+        if (currentOrderBy === 'yourLeastWatched') return (item.info.completionHistory?.total || 0);
+        if (currentOrderBy === 'mostViewsYoutube') return -(item.info.viewCount || 0);
+        if (currentOrderBy === 'leastViewsYoutube') return (item.info.viewCount || 0);
+        if (currentOrderBy === 'progressDESC' || currentOrderBy === 'progress') {
+            const prog = (item.info.lengthSeconds > 0) ? (item.info.watchProgress / item.info.lengthSeconds) : (item.info.isCompleted ? 1 : 0);
+            return -prog;
+        }
+        if (currentOrderBy === 'progressASC') {
+            const prog = (item.info.lengthSeconds > 0) ? (item.info.watchProgress / item.info.lengthSeconds) : (item.info.isCompleted ? 1 : 0);
+            return prog;
+        }
+        const time = item.info.timeWatched || 0;
+        if (currentOrderBy === 'oldest') return time;
+        return -time;
+    }
 
-        // Si el scroller ya existe, solo actualizar stats sin destruir el DOM
+    /**
+     * Manages the skeleton loading overlay for the video list.
+     * @param {HTMLElement} container - listContainer
+     * @returns {HTMLElement} loadingIndicator element
+     */
+    function showLoadingState(container) {
         const scrollerElCheck = document.getElementById('ypp-virtual-scroller-container');
-        let loadingIndicator = listContainer.querySelector('.ypp-skeleton-container');
+        let loadingIndicator = container.querySelector('.ypp-skeleton-container');
 
         if (!loadingIndicator) {
             loadingIndicator = createElement('div', {
@@ -15031,22 +15058,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         if (!virtualScroller || !scrollerElCheck) {
-            // Primera carga o reconstrucción completa: limpiar observers previos y añadir loader
             if (virtualScroller) {
                 virtualScroller.destroy?.();
                 virtualScroller = null;
             }
-            setInnerHTML(listContainer, '');
+            setInnerHTML(container, '');
             const dummyStats = createElement('div', {
                 className: 'ypp-virtual-stats',
                 id: 'ypp-virtual-stats',
-                style: 'display: none;', // Oculto durante el esqueleto
+                style: 'display: none;',
                 html: `${SVG_ICONS.spinner} ${t('loading')}...`
             });
-            listContainer.appendChild(dummyStats);
-            listContainer.appendChild(loadingIndicator);
+            container.appendChild(dummyStats);
+            container.appendChild(loadingIndicator);
         } else {
-            // Actualización: usar overlay para no ocultar scroller y evitar pérdida de scroll/parpadeo
             loadingIndicator.style.cssText = `
                 position: absolute;
                 top: 35px; left: 0; right: 0; bottom: 0;
@@ -15054,49 +15079,46 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 z-index: 5;
                 overflow: hidden;
             `;
-            if (!loadingIndicator.parentElement) listContainer.appendChild(loadingIndicator);
+            if (!loadingIndicator.parentElement) container.appendChild(loadingIndicator);
             loadingIndicator.style.display = 'flex';
-
             const statsEl = document.querySelector('#ypp-virtual-stats');
             if (statsEl) {
-                statsEl.style.display = 'flex'; // Asegurar visibilidad en actualización
+                statsEl.style.display = 'flex';
                 setInnerHTML(statsEl, `${SVG_ICONS.spinner} ${t('loading')}...`);
             }
         }
+        return loadingIndicator;
+    }
 
-        // Guardar posición de scroll antes de actualizar
-        const currentScrollTop = virtualScroller?.container?.scrollTop ?? 0;
-
-        // TEST: PARA CONGELAR LOS SKELETONS INFINITAMENTE
-        // await new Promise(() => {});
-
+    /**
+     * Loads all video data from storage and assembles into items.
+     * @returns {Promise<Array>}
+     */
+    async function loadVideoItems() {
         const keys = await Storage.keys();
-        // Cargar todos los datos en lotes paralelos
         const allData = await batchLoadStorageData(keys);
-        if (!listContainer) return;
-
-        let allItems = [];
+        const items = [];
         for (const [key, data] of allData) {
             if (!data) continue;
-
-            // Formato actual: cada video es una entrada independiente con sus metadatos consolidados
             const videoId = data.videoId || key;
             const playlistId = data.lastViewedPlaylistId || null;
             const playlistTitle = data.playlistTitle || playlistId || null;
-
-            allItems.push({
+            items.push({
                 type: playlistId ? 'playlist-video' : 'regular-video',
                 videoId,
-                // Aplicar normalizeVideoData en lectura para que la migración de
-                // completionHistory (0.0.9-7) se ejecute aunque el video no haya
-                // sido re-guardado aún desde la actualización.
                 info: normalizeVideoData(data),
                 playlistKey: playlistId,
-                playlistTitle: playlistTitle
+                playlistTitle
             });
         }
+        return items;
+    }
 
-        // Resolver títulos estables para Mix (RD...) usando el video semilla (RD{videoId}) cuando el título es genérico
+    /**
+     * Resolves stable titles for Mix (RD...) playlists using the seed video title.
+     * @param {Array} allItems
+     */
+    function resolvePlaylistTitles(allItems) {
         const videoTitleById = new Map();
         for (const item of allItems) {
             if (!item?.videoId) continue;
@@ -15105,8 +15127,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 videoTitleById.set(item.videoId, title.trim());
             }
         }
-
-        // Publicar en cache global del modal para que createVideoEntry pueda usarlo
         modalVideoTitleById.clear();
         for (const [id, title] of videoTitleById) {
             modalVideoTitleById.set(id, title);
@@ -15115,19 +15135,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (item?.type !== 'playlist-video') continue;
             const playlistKey = item.playlistKey;
             if (!playlistKey || !playlistKey.startsWith('RD')) continue;
-
             const currentTitle = item.playlistTitle || playlistKey;
-            if (currentTitle !== playlistKey) continue; // ya hay un título real (o al menos no genérico)
-
+            if (currentTitle !== playlistKey) continue;
             const seedVideoId = playlistKey.slice(2);
             const seedTitle = videoTitleById.get(seedVideoId);
             if (seedTitle) {
                 item.playlistTitle = `Mix - ${seedTitle}`;
             }
         }
+    }
 
-        // Aplicar filtros
-        let filteredItems = allItems.filter(item => {
+    /**
+     * Applies type/search/range filters to the item list.
+     * @param {Array} allItems
+     * @returns {Array} filteredItems
+     */
+    function filterItems(allItems) {
+        return allItems.filter(item => {
             const vType = item.info.type;
             if (currentFilterBy === 'completed') return item.info.isCompleted === true;
             if (currentFilterBy === 'completedOnce') return item.info.completionHistory?.total > 0;
@@ -15135,11 +15159,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (currentFilterBy === 'protected') return item.info.isProtected === true;
             if (currentFilterBy === 'playlist') return item.type === 'playlist-video';
             if (currentFilterBy === 'preview') return (vType && vType.startsWith('preview'));
-
             if (currentFilterBy === 'video') return vType === 'video';
             if (currentFilterBy === 'shorts') return vType === 'shorts';
             if (currentFilterBy === 'live') return vType === 'live';
-
             if (currentFilterBy === 'all') return true;
             return vType === currentFilterBy;
         }).filter(item => {
@@ -15149,76 +15171,30 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 (item.info.author || '').toLowerCase().includes(query) ||
                 (item.playlistTitle || '').toLowerCase().includes(query);
         }).filter(item => {
-            // Filtro por vistas
             const views = item.info.viewCount ?? 0;
             if (currentMinViews > 0 && views < currentMinViews) return false;
             if (currentMaxViews > 0 && views > currentMaxViews) return false;
-
-            // Filtro por porcentaje
             const watchProgress = item.info.watchProgress ?? 0;
             const lengthSeconds = item.info.lengthSeconds ?? 0;
             let percent = 0;
             if (lengthSeconds > 0) {
                 percent = Math.round((watchProgress / lengthSeconds) * 100);
             }
-
-            // Si el video está marcado como completado, lo tratamos como 100% para el filtro
             const effectivePercent = item.info.isCompleted ? 100 : percent;
-
-            // Si no hay duración y no está completado, pero se requiere un progreso mínimo, ocultar
-            if (lengthSeconds <= 0 && !item.info.isCompleted && currentMinPercent > 0) {
-                return false;
-            }
-
+            if (lengthSeconds <= 0 && !item.info.isCompleted && currentMinPercent > 0) return false;
             if (currentMinPercent > 0 && effectivePercent < currentMinPercent) return false;
             if (currentMaxPercent < 100 && effectivePercent > currentMaxPercent) return false;
             return true;
         });
+    }
 
-        // Aplicar ordenamiento
-        const getSortValue = (item) => {
-            if (currentOrderBy === 'titleAZ' || currentOrderBy === 'title') return (item.info.title || item.videoId).toLowerCase();
-            if (currentOrderBy === 'titleZA') {
-                const t = (item.info.title || item.videoId).toLowerCase();
-                // Para invertir strings, podemos usar un truco de charCode o simplemente invertir la lógica en el sort,
-                // pero aquí devolvemos el valor crudo y el sort se encarga si detecta string.
-                return t;
-            }
-            if (currentOrderBy === 'authorAZ' || currentOrderBy === 'author') return (item.info.author || '').toLowerCase();
-            if (currentOrderBy === 'authorZA') return (item.info.author || '').toLowerCase();
-            if (currentOrderBy === 'durationShort') return item.info.lengthSeconds || 0;
-            if (currentOrderBy === 'durationLong') return -(item.info.lengthSeconds || 0);
-            if (currentOrderBy === 'yourMostWatched') return -(item.info.completionHistory?.total || 0);
-            if (currentOrderBy === 'yourLeastWatched') return (item.info.completionHistory?.total || 0);
-            if (currentOrderBy === 'mostViewsYoutube') return -(item.info.viewCount || 0);
-            if (currentOrderBy === 'leastViewsYoutube') return (item.info.viewCount || 0);
-            if (currentOrderBy === 'progressDESC' || currentOrderBy === 'progress') {
-                const prog = (item.info.lengthSeconds > 0) ? (item.info.watchProgress / item.info.lengthSeconds) : (item.info.isCompleted ? 1 : 0);
-                return -prog;
-            }
-            if (currentOrderBy === 'progressASC') {
-                const prog = (item.info.lengthSeconds > 0) ? (item.info.watchProgress / item.info.lengthSeconds) : (item.info.isCompleted ? 1 : 0);
-                return prog;
-            }
-            const time = item.info.timeWatched || 0;
-            if (currentOrderBy === 'oldest') return time;
-            return -time;
-        };
-        filteredItems.sort((a, b) => {
-            const valA = getSortValue(a);
-            const valB = getSortValue(b);
-            if (typeof valA === 'string') {
-                const cmp = valA.localeCompare(valB);
-                if (currentOrderBy === 'titleZA' || currentOrderBy === 'authorZA') return -cmp;
-                return cmp;
-            }
-            return valA - valB;
-        });
-
-        // Guardar en caché para redimensionados rápidos en ResizeObserver
+    /**
+     * Builds virtual items array with grid row chunking and playlist headers.
+     * @param {Array} filteredItems
+     * @returns {Array} virtualItems
+     */
+    function buildVirtualItems(filteredItems) {
         cachedFilteredItems = filteredItems;
-
-        // Pre-procesar items para incluir headers de playlist y agrupar en filas si es Grid View
         const virtualItems = [];
         let lastPlaylistKey = null;
         const isGridMode = cachedSavedVideosModalSettings?.displayOptions?.viewMode === 'grid';
@@ -15236,7 +15212,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     expandedItemIds: alwaysExpanded
                         ? new Set(currentRowChunk.map(i => i.info.videoId || i.videoId))
                         : new Set(),
-                    gridCols: gridCols
+                    gridCols
                 });
                 currentRowChunk = [];
             }
@@ -15253,7 +15229,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     type: 'playlist-header',
                     playlistKey: item.playlistKey,
                     playlistTitle: headerTitle,
-                    firstVideoId: item.videoId // Guardar ID para enlaces de Mixes
+                    firstVideoId: item.videoId
                 });
                 lastPlaylistKey = item.playlistKey;
             } else if (item.type !== 'playlist-video') {
@@ -15263,192 +15239,145 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             if (isGridMode) {
                 currentRowChunk.push(item);
-                if (currentRowChunk.length >= gridCols) {
-                    flushRowChunk();
-                }
+                if (currentRowChunk.length >= gridCols) flushRowChunk();
             } else {
                 virtualItems.push(item);
             }
         }
         if (isGridMode) flushRowChunk();
+        return virtualItems;
+    }
 
-        // Si ya existe el scroller y el contenedor en el DOM, solo actualizar items y restaurar scroll
-        // Manejar estado vacío (sin resultados) para evitar que se quede la lista previa
+    /**
+     * Shows the empty-state UI when no videos match filters.
+     * @param {HTMLElement} container - listContainer
+     */
+    function showEmptyState(container) {
+        const loadingIndicator = container.querySelector('.ypp-skeleton-container');
         const scrollerEl = document.getElementById('ypp-virtual-scroller-container');
-        let emptyMsg = listContainer.querySelector('.ypp-empty-state-composed');
-        const virtualItemGap = isGridMode ? 12 : 0;
-
-        if (filteredItems.length === 0) {
-            if (loadingIndicator) loadingIndicator.style.display = 'none';
-            if (scrollerEl) scrollerEl.style.display = 'none';
-            if (virtualScroller) {
-                virtualScroller.itemGap = virtualItemGap;
-                virtualScroller.updateItems([]);
-            }
-
-            if (!emptyMsg) {
-                emptyMsg = createElement('div', {
-                    className: 'ypp-empty-state-composed',
-                    html: `
-                        ${SVG_ICONS.search}
-                        <h3>${t('noSavedVideos')}</h3>
-                        <p>${t('emptyStateSubtitle')}</p>
-                    `
-                });
-                listContainer.appendChild(emptyMsg);
-            }
-            emptyMsg.style.display = 'block';
-
-            // Actualizar stats a 0
-            const statsEl = document.querySelector('#ypp-virtual-stats');
-            if (statsEl) {
-                setInnerHTML(statsEl, `
-                    <span>0 ${t('videos')}</span>
-                    <span id="ypp-storage-usage" class="ypp-storage-usage"></span>
-                `);
-                try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
-            }
-            return;
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
+        if (scrollerEl) scrollerEl.style.display = 'none';
+        if (virtualScroller) {
+            virtualScroller.updateItems([]);
         }
 
-        // Si hay items, asegurar que el mensaje vacío esté oculto y el scroller visible
-        if (emptyMsg) emptyMsg.style.display = 'none';
-        if (scrollerEl) scrollerEl.style.display = 'block';
-
-        // Si ya existe el scroller y el contenedor en el DOM, solo actualizar items y restaurar scroll
-        if (virtualScroller && scrollerEl) {
-            // Actualizar stats sin reconstruir todo
-            const statsEl = document.querySelector('#ypp-virtual-stats');
-            if (statsEl) {
-                setInnerHTML(statsEl, `
-                    <span>${filteredItems.length} ${t('videos')}</span>
-                    <span id="ypp-storage-usage" class="ypp-storage-usage"></span>
-                `);
-            }
-
-            // Ocultar overlay
-            if (loadingIndicator) loadingIndicator.style.display = 'none';
-
-            virtualScroller.itemGap = virtualItemGap;
-            virtualScroller.updateItems(virtualItems);
-
-            // Restaurar scroll de forma segura tras el ciclo de renderizado
-            requestAnimationFrame(() => {
-                scrollerEl.scrollTop = currentScrollTop;
+        let emptyMsg = container.querySelector('.ypp-empty-state-composed');
+        if (!emptyMsg) {
+            emptyMsg = createElement('div', {
+                className: 'ypp-empty-state-composed',
+                html: `${SVG_ICONS.search}<h3>${t('noSavedVideos')}</h3><p>${t('emptyStateSubtitle')}</p>`
             });
-
-            try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
-            return;
+            container.appendChild(emptyMsg);
         }
+        emptyMsg.style.display = 'block';
 
-        // Limpiar indicador de carga o contenido previo si vamos a inicializar
+        const statsEl = document.querySelector('#ypp-virtual-stats');
+        if (statsEl) {
+            setInnerHTML(statsEl, `<span>0 ${t('videos')}</span><span id="ypp-storage-usage" class="ypp-storage-usage"></span>`);
+            try { updateStorageUsageIndicator().catch(() => {}); } catch (_) {}
+        }
+    }
+
+    /**
+     * Updates an existing VirtualScroller with new items and restores scroll.
+     * @param {import('./virtual-scroller.js').VirtualScroller} scroller
+     * @param {Array} virtualItems
+     * @param {number} count - filtered item count
+     * @param {number} scrollTop - saved scroll position
+     * @param {number} itemGap - gap between items
+     */
+    function updateVirtualScroller(scroller, virtualItems, count, scrollTop, itemGap) {
+        const statsEl = document.querySelector('#ypp-virtual-stats');
+        if (statsEl) {
+            setInnerHTML(statsEl, `
+                <span>${count} ${t('videos')}</span>
+                <span id="ypp-storage-usage" class="ypp-storage-usage"></span>
+            `);
+        }
+        const loadingIndicator = document.querySelector('.ypp-skeleton-container');
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
+        scroller.itemGap = itemGap;
+        scroller.updateItems(virtualItems);
+        requestAnimationFrame(() => {
+            const el = document.getElementById('ypp-virtual-scroller-container');
+            if (el) el.scrollTop = scrollTop;
+        });
+        try { updateStorageUsageIndicator().catch(() => {}); } catch (_) {}
+    }
+
+    /**
+     * Initializes a new VirtualScroller with stats bar and renders all items.
+     * @param {HTMLElement} container - listContainer
+     * @param {Array} virtualItems
+     * @param {number} count - filtered item count
+     * @param {number} itemGap - gap between items
+     * @returns {Promise<{scroller: import('./virtual-scroller.js').VirtualScroller, scrollerContainer: HTMLElement}>}
+     */
+    async function initVirtualScroller(container, virtualItems, count, itemGap) {
+        const loadingIndicator = container.querySelector('.ypp-skeleton-container');
         if (loadingIndicator) loadingIndicator.remove();
-        setInnerHTML(listContainer, '');
+        setInnerHTML(container, '');
 
-        // Crear barra de estadísticas
         const statsBar = createElement('div', {
             className: 'ypp-virtual-stats',
             id: 'ypp-virtual-stats',
-            html: `<span>${filteredItems.length} ${t('videos')}</span><span id="ypp-storage-usage" class="ypp-storage-usage"></span>`
+            html: `<span>${count} ${t('videos')}</span><span id="ypp-storage-usage" class="ypp-storage-usage"></span>`
         });
-
-        listContainer.appendChild(statsBar);
+        container.appendChild(statsBar);
 
         DOMHelpers.removeExact('ui:storageUsage');
-        try { await updateStorageUsageIndicator(); } catch (_) { }
-        if (!listContainer) return;
+        try { await updateStorageUsageIndicator(); } catch (_) {}
+        if (!listContainer) return null;
 
-        // Crear contenedor para el scroller virtual
         const scrollerContainer = createElement('div', {
             id: 'ypp-virtual-scroller-container',
-            styles: {
-                flexGrow: '1',
-                overflow: 'auto',
-                position: 'relative'
-            }
+            styles: { flexGrow: '1', overflow: 'auto', position: 'relative' }
         });
-        listContainer.appendChild(scrollerContainer);
+        container.appendChild(scrollerContainer);
 
-        // Inicializar VirtualScroller
-        virtualScroller = new VirtualScroller({
+        const scroller = new VirtualScroller({
             container: scrollerContainer,
             items: virtualItems,
-            itemHeight: VIDEO_ITEM_HEIGHT, // Fallback por si acaso
-            itemGap: virtualItemGap,
+            itemHeight: VIDEO_ITEM_HEIGHT,
+            itemGap,
             getItemHeight: (item) => {
                 if (item.type === 'playlist-header') return 40;
                 if (item.type === 'grid-row') {
-                    // Calculate dynamic height based on container width and aspect ratio
-                    // Use gridCols (intended columns) instead of actual items length for consistency
                     const cols = item.gridCols || 3;
-                    const containerWidth = scrollerContainer.getBoundingClientRect().width || scrollerContainer.clientWidth || window.innerWidth || 800;
-                    const padding = 32; // var(--ypp-spacing-md) * 2
+                    const cw = scrollerContainer.getBoundingClientRect().width || scrollerContainer.clientWidth || window.innerWidth || 800;
+                    const padding = 32;
                     const gap = 16 * (cols - 1);
-                    // Compensar bordes: cada item tiene 1px solid (2px total por item)
                     const borderCompensation = 2 * cols;
-                    const itemWidth = (containerWidth - padding - gap - borderCompensation) / cols;
+                    const itemWidth = (cw - padding - gap - borderCompensation) / cols;
                     const thumbHeight = itemWidth * 9 / 16;
-
-                    // Estructura base: thumb + chevron (32px) + bordes/padding (4px)
                     let h = thumbHeight + 36;
-
-                    if (item.expandedItemIds?.size > 0) {
-                        // Fallback inicial; la altura real renderizada queda cacheada por VirtualScroller.
-                        h += 240;
-                    }
+                    if (item.expandedItemIds?.size > 0) h += 240;
                     return Math.max(h, 120);
                 }
-                if (item.playlistKey) return 140; // Optimizado a 140px
+                if (item.playlistKey) return 140;
                 return VIDEO_ITEM_HEIGHT;
             },
             bufferSize: 8,
             renderItem: async (item) => {
                 if (item.type === 'playlist-header') {
-                    const header = createElement('div', {
-                        className: 'ypp-playlist-header'
-                    });
-
+                    const header = createElement('div', { className: 'ypp-playlist-header' });
                     let playlistUrl = getSafeUrl(`https://www.youtube.com/playlist?list=${item.playlistKey}`);
-                    // Para Mixes (RD...), YouTube requiere un v=ID válido.
                     if (item.playlistKey.startsWith('RD') && item.firstVideoId) {
                         playlistUrl = getSafeUrl(`https://www.youtube.com/watch?v=${item.firstVideoId}&list=${item.playlistKey}`);
                     }
-
-                    setInnerHTML(header, `
-                        <a href="${playlistUrl}" target="_blank" rel="noopener noreferrer">
-                            ${SVG_ICONS.playlist} ${item.playlistTitle}
-                        </a>
-                    `);
+                    setInnerHTML(header, `<a href="${playlistUrl}" target="_blank" rel="noopener noreferrer">${SVG_ICONS.playlist} ${item.playlistTitle}</a>`);
                     return header;
                 }
-
-                if (item.type === 'grid-row') {
-                    return await createVideoGridRow(item);
-                }
-
+                if (item.type === 'grid-row') return await createVideoGridRow(item);
                 return await createVideoEntry(item);
             },
             onRender: () => {
-                // const statsEl = document.querySelector('#ypp-render-stats');
-                if (/* statsEl && */ virtualScroller) {
+                if (virtualScroller) {
                     let totalVideos = 0;
-                    // let renderedVideos = 0;
-
                     virtualScroller.items.forEach(i => {
                         if (i.type === 'grid-row') totalVideos += i.items.length;
                         else if (i.type !== 'playlist-header') totalVideos++;
                     });
-
-                    // virtualScroller.renderedItems.forEach((el, idx) => {
-                    //     const item = virtualScroller.items[idx];
-                    //     if (item && item.type !== 'playlist-header') {
-                    //         renderedVideos++;
-                    //     }
-                    // });
-                    // statsEl.textContent = `${renderedVideos}/${totalVideos} ${t('rendered')}`;
-                    // setInnerHTML(statsEl, `${SVG_ICONS.info} ${renderedVideos} ${t('rendered')}`);
-
-                    // Asegurar que el total principal también esté en sincronía con el scroller
                     const parentStats = document.querySelector('#ypp-virtual-stats');
                     if (parentStats && parentStats.firstElementChild) {
                         parentStats.firstElementChild.textContent = `${totalVideos} ${t('videos')}`;
@@ -15456,8 +15385,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             }
         });
+        return { scroller, scrollerContainer };
+    }
 
-        // Attach ResizeObserver to recalculate grid row heights when container width changes
+    /**
+     * Wires a ResizeObserver to recalculate grid columns on container width changes.
+     * @param {HTMLElement} scrollerContainer
+     */
+    function connectResizeObserver(scrollerContainer) {
         if (virtualScrollerResizeObserver) {
             virtualScrollerResizeObserver.disconnect();
             virtualScrollerResizeObserver = null;
@@ -15468,7 +15403,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (!virtualScroller) return;
                 clearTimeout(resizeDebounceTimer);
                 resizeDebounceTimer = setTimeout(() => {
-                    // Check if columns count needs to change in grid mode
                     const isGridMode = cachedSavedVideosModalSettings?.displayOptions?.viewMode === 'grid';
                     if (isGridMode && cachedFilteredItems && cachedFilteredItems.length > 0) {
                         const containerWidth = scrollerContainer.clientWidth || window.innerWidth;
@@ -15484,13 +15418,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             let lastPlaylistKey = null;
                             let currentRowChunk = [];
 
-                            // Capture manually expanded card videoIds to keep them expanded on column reflow
                             const expandedIds = new Set();
                             virtualScroller.items.forEach(item => {
                                 if (item.type === 'grid-row' && item.expandedItemIds) {
-                                    for (const id of item.expandedItemIds) {
-                                        expandedIds.add(id);
-                                    }
+                                    for (const id of item.expandedItemIds) expandedIds.add(id);
                                 }
                             });
 
@@ -15520,11 +15451,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                     if (lastPlaylistKey !== null) flushRowChunk();
                                     lastPlaylistKey = null;
                                 }
-
                                 currentRowChunk.push(item);
-                                if (currentRowChunk.length >= newGridCols) {
-                                    flushRowChunk();
-                                }
+                                if (currentRowChunk.length >= newGridCols) flushRowChunk();
                             }
                             flushRowChunk();
 
@@ -15533,12 +15461,62 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         }
                     }
 
-                    // Force full re-render on resize: card widths changed or text wrapped differently → heights stale
                     if (virtualScroller) virtualScroller.updateHeights(true);
                 }, 120);
             });
             virtualScrollerResizeObserver.observe(scrollerContainer);
         }
+    }
+
+    /**
+     * Actualiza la lista de videos usando virtualización para rendimiento óptimo.
+     * Solo renderiza los items visibles en el viewport, ideal para miles de videos.
+     */
+    async function updateVideoList() {
+        if (!listContainer) return;
+
+        showLoadingState(listContainer);
+        const currentScrollTop = virtualScroller?.container?.scrollTop ?? 0;
+
+        const allItems = await loadVideoItems();
+        if (!listContainer) return;
+
+        resolvePlaylistTitles(allItems);
+        let filteredItems = filterItems(allItems);
+        filteredItems.sort((a, b) => {
+            const valA = getSortValue(a);
+            const valB = getSortValue(b);
+            if (typeof valA === 'string') {
+                const cmp = valA.localeCompare(valB);
+                if (currentOrderBy === 'titleZA' || currentOrderBy === 'authorZA') return -cmp;
+                return cmp;
+            }
+            return valA - valB;
+        });
+
+        const virtualItems = buildVirtualItems(filteredItems);
+        const scrollerEl = document.getElementById('ypp-virtual-scroller-container');
+        const isGridMode = cachedSavedVideosModalSettings?.displayOptions?.viewMode === 'grid';
+        const virtualItemGap = isGridMode ? 12 : 0;
+
+        if (filteredItems.length === 0) {
+            showEmptyState(listContainer);
+            return;
+        }
+
+        const emptyMsg = listContainer.querySelector('.ypp-empty-state-composed');
+        if (emptyMsg) emptyMsg.style.display = 'none';
+        if (scrollerEl) scrollerEl.style.display = 'block';
+
+        if (virtualScroller && scrollerEl) {
+            updateVirtualScroller(virtualScroller, virtualItems, filteredItems.length, currentScrollTop, virtualItemGap);
+            return;
+        }
+
+        const result = await initVirtualScroller(listContainer, virtualItems, filteredItems.length, virtualItemGap);
+        if (!result) return;
+        virtualScroller = result.scroller;
+        connectResizeObserver(result.scrollerContainer);
 
         logLog('updateVideoList', `✅ VirtualScroller inicializado con ${filteredItems.length} items`);
     }
@@ -16860,7 +16838,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const sync = () => {
             const cur = getCurrent();
             container.querySelectorAll(`button[data-${dataAttr}]`).forEach(b => {
-                const active = b.dataset[dataAttr] === cur;
+                const active = b.getAttribute(`data-${dataAttr}`) === cur;
                 b.classList.toggle('ypp-btn-primary', active);
                 b.classList.toggle('ypp-btn-outline-primary', !active);
             });

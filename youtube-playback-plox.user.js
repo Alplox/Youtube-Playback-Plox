@@ -1765,35 +1765,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     const SELECTORS = createSelectorSystem(SELECTOR_DEFINITIONS);
 
     // Selector helpers
-    /**
-     * Queries for a single element.
-     * @param {string} s - Selector
-     * @param {Element} root - Root element
-     * @returns {Element|null} Found element or null
-     * @example
-     * // Select the first button
-     * const button = $('button');
-     *
-     * // Select the first button in a specific container
-     * const container = document.getElementById('my-container');
-     * const buttonInContainer = $('button', container);
-     */
-    const $ = (s, root = document) => root.querySelector(s);
-    /**
-     * Queries for multiple elements.
-     * @param {string} s - Selector
-     * @param {Element} root - Root element
-     * @returns {NodeListOf<Element>} Found elements
-     * @example
-     * // Select all buttons
-     * const buttons = $$('button');
-     *
-     * // Select all buttons in a specific container
-     * const container = document.getElementById('my-container');
-     * const buttonsInContainer = $$('button', container);
-     */
-    const $$ = (s, root = document) => root.querySelectorAll(s);
-
     // ============================================================================================================
     // MARK: 💾 Simple LRU Cache
     // ============================================================================================================
@@ -5292,7 +5263,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         // Verificar si ya existe el estilo para evitar duplicados
-        if (document.querySelector('#ypp-progress-bar-styles')) {
+        if (DOMHelpers.get('style:progressBarStyles', () => document.querySelector('#ypp-progress-bar-styles'), 10000)) {
             logLog('injectProgressBarCSS', 'CSS ya existe, omitiendo inyección');
             return;
         }
@@ -6166,6 +6137,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (reelRenderer) {
                         if (reelRenderer.hasAttribute('is-ads-overlay')) return true;
                         if (reelRenderer.querySelector('ytd-ad-slot-renderer')) return true;
+
                     }
                     if (this.findVisibleAdUi(shortsPlayer)) return true;
                 }
@@ -9237,7 +9209,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // En la nueva interfaz de Shorts, pueden existir múltiples de estos contenedores
         // precargados. Iteramos y devolvemos el que realmente es visible.
-        const panels = document.querySelectorAll(SELECTORS.shorts.metaPanel);
+        const panels = DOMHelpers.get('display:shortsMetaPanels', () => document.querySelectorAll(SELECTORS.shorts.metaPanel), 100);
         logLog('getActiveShortsControlsContainer', `Metapanels encontrados: ${panels.length}`);
         for (const panel of panels) {
             if (panel instanceof Element && isVisiblyDisplayed(panel)) {
@@ -9432,7 +9404,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             try { startShortsPanelObserver(); } catch (_) { }
 
             const activePanel = getActiveShortsControlsContainer();
-            const overlayRoot = document.querySelector(SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER) || DOMHelpers.getShortsPlayer();
+            const overlayRoot = DOMHelpers.get('display:shortsOverlayRoot', () => document.querySelector(SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER), 200) || DOMHelpers.getShortsPlayer();
 
             if (!activePanel || !isVisiblyDisplayed(activePanel)) {
                 const reattach = () => {
@@ -9513,10 +9485,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             } else if (context === 'shorts') {
                 const shortsPlayerControls = getActiveShortsControlsContainer();
-                const overlayRoot = document.querySelector(SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER) || DOMHelpers.getShortsPlayer() || document.querySelector(SELECTORS.ELEMENTS.YTD_SHORTS);
+                const overlayRoot = DOMHelpers.get('display:shortsOverlayRoot', () => document.querySelector(SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER), 200) || DOMHelpers.getShortsPlayer() || DOMHelpers.get('display:ytdShorts', () => document.querySelector(SELECTORS.ELEMENTS.YTD_SHORTS), 200);
 
                 if (!shortsTimeDisplay || !document.contains(shortsTimeDisplay)) {
-                    const existing = document.querySelector('.ypp-shorts-time-display');
+                    const existing = DOMHelpers.get('display:shortsTimeDisplay', () => document.querySelector('.ypp-shorts-time-display'), 200);
                     if (existing) {
                         shortsTimeDisplay = existing;
                     } else {
@@ -9558,7 +9530,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (hasTimeDisplayMessage(miniplayerTimeDisplay)) return getDisplay(context);
                     if (miniplayerTimeDisplay) { miniplayerTimeDisplay.remove(); miniplayerTimeDisplay = null; }
 
-                    const controls = playerContainer.querySelector('.ytp-time-wrapper') || playerContainer.querySelector('.ytp-left-controls') || document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper') || document.querySelector('ytd-miniplayer-player-container .ytp-left-controls');
+                    const controls = playerContainer.querySelector('.ytp-time-wrapper') || playerContainer.querySelector('.ytp-left-controls') || DOMHelpers.get('display:miniplayerTimeWrapper', () => document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper'), 200) || DOMHelpers.get('display:miniplayerLeftControls', () => document.querySelector('ytd-miniplayer-player-container .ytp-left-controls'), 200);
                     if (!controls) return getDisplay(context);
 
                     miniplayerTimeDisplay = createElement('div', { id: 'ypp-miniplayer-time-display', className: 'ypp-time-display ypp-miniplayer-time-display' });
@@ -9797,14 +9769,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const toastTimeouts = new WeakMap();
 
     function createToastContainer() {
-        let container = document.querySelector('.ypp-toast-container');
-        if (!container) {
-            container = createElement('div', { className: 'ypp-toast-container' });
-            document.body.appendChild(container);
-            logLog('createToastContainer', 'Contenedor de toasts creado');
-        }
+        return DOMHelpers.get('ui:toastContainer', () => {
+            const existing = document.querySelector('.ypp-toast-container');
+            if (existing) return existing;
 
-        return container;
+            const newContainer = createElement('div', { className: 'ypp-toast-container' });
+            document.body.appendChild(newContainer);
+            logLog('createToastContainer', 'Contenedor de toasts creado');
+            return newContainer;
+        }, 3000);
     }
 
     /**
@@ -10780,6 +10753,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let isManagementMode = false;
 
     let modalVideosFooterSecondRow = null; // Botones eliminar todo, crear playlist y configuraciones
+    /** @type {{ btnSelectAll: HTMLElement, selectionInfo: HTMLElement, clearSelectionBtn: HTMLElement, exportSelectedBtn: HTMLElement, deleteSelectedBtn: HTMLElement } | null} */
+    let cachedMgmtButtons = null; // Referencias cacheadas de botones del footer de gestión
 
     /**
      * Activa/desactiva el modo de gestión de videos (borrado masivo)
@@ -10798,7 +10773,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Solo modifica los botones propios de cada modo; no toca el flujo de playlist.
      */
     function updateFooterButtons() {
-        const modalFooter = document.querySelector('.ypp-footer');
+        const modalFooter = DOMHelpers.get('list:modalFooter', () => document.querySelector('.ypp-footer'), 500);
         if (!modalFooter) return;
 
         if (isManagementMode) {
@@ -10884,7 +10859,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
 
                     // Actualizar checkboxes en el DOM sin recrear el VirtualScroller
-                    document.querySelectorAll('.ypp-video-checkbox').forEach(checkbox => {
+                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
                         const vid = checkbox.getAttribute('data-video-id');
                         if (vid) checkbox.checked = selectedVideos.has(vid);
                     });
@@ -10900,7 +10875,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (selectedVideos.size === 0) return;
                     selectedVideos.clear();
 
-                    document.querySelectorAll('.ypp-video-checkbox').forEach(checkbox => {
+                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
                         checkbox.checked = false;
                     });
 
@@ -11137,12 +11112,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             managementModeFragment.append(managementModeContainer);
             modalFooter.append(managementModeFragment);
+            cachedMgmtButtons = {
+                btnSelectAll,
+                selectionInfo,
+                clearSelectionBtn: btnClearSelection,
+                exportSelectedBtn: exportSelectedMenu.querySelector('#ypp-export-selected-menu-btn'),
+                deleteSelectedBtn: btnDeleteSelected
+            };
             updateManagementFooterState();
         } else if (isPlaylistCreationMode) {
             modalVideosFooterSecondRow?.classList.add('ypp-d-none');
             // Remueve contenedor de botones management mode
             modalFooter.querySelector('#ypp-management-footer-container')?.remove();
             modalFooter.querySelector('#ypp-playlist-area')?.remove();
+            cachedMgmtButtons = null;
 
             const playlistFragment = document.createDocumentFragment();
 
@@ -11200,7 +11183,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         }
                     }
 
-                    document.querySelectorAll('.ypp-video-checkbox').forEach(checkbox => {
+                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
                         const vid = checkbox.getAttribute('data-video-id');
                         if (vid) checkbox.checked = selectedVideos.has(vid);
                     });
@@ -11217,7 +11200,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (selectedVideos.size === 0) return;
                     selectedVideos.clear();
 
-                    document.querySelectorAll('.ypp-video-checkbox').forEach(checkbox => {
+                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
                         checkbox.checked = false;
                     });
 
@@ -11307,6 +11290,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Remueve contenedor de botones management mode
             modalFooter.querySelector('#ypp-management-footer-container')?.remove();
             modalFooter.querySelector('#ypp-playlist-area')?.remove();
+            cachedMgmtButtons = null;
         }
 
     }
@@ -11315,7 +11299,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Actualiza el estado visual de los botones del footer de gestión dinámicamente sin destruir el DOM
      */
     function updateManagementFooterState() {
-        if (!isManagementMode) return;
+        if (!isManagementMode || !cachedMgmtButtons) return;
+        const { btnSelectAll, selectionInfo, clearSelectionBtn, exportSelectedBtn, deleteSelectedBtn } = cachedMgmtButtons;
         const selectedCount = selectedVideos.size;
         const currentItems = getVirtualScrollerVideoItems();
         const selectedInCurrentResults = currentItems.reduce((count, item) => (
@@ -11323,50 +11308,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         ), 0);
         const hiddenSelectedCount = Math.max(0, selectedCount - selectedInCurrentResults);
 
-        const btnSelectAll = document.getElementById('ypp-select-all-btn');
-        if (btnSelectAll) {
-            const allSelected = currentItems.length > 0 && currentItems.every(v => selectedVideos.has(v.info.videoId));
+        const allSelected = currentItems.length > 0 && currentItems.every(v => selectedVideos.has(v.info.videoId));
+        const icon = allSelected ? SVG_ICONS.close : SVG_ICONS.check;
+        const text = allSelected ? t('deselectAllResults') : t('selectAllResults');
+        setInnerHTML(btnSelectAll, `${icon} ${text}`);
 
-            const icon = allSelected ? SVG_ICONS.close : SVG_ICONS.check;
-            const text = allSelected ? t('deselectAllResults') : t('selectAllResults');
-            setInnerHTML(btnSelectAll, `${icon} ${text}`);
-        }
+        const hiddenInfo = hiddenSelectedCount > 0
+            ? ` ${SVG_ICONS.warning} ${t('hiddenSelectedCurrentResults', { count: hiddenSelectedCount })}`
+            : '';
+        setInnerHTML(selectionInfo, `<strong>${t('selectedVideos')}:</strong> ${selectedVideos.size}${hiddenInfo}`);
 
-        // Elemento DOM generado manualmente o existente
-        const selectionInfo = document.getElementById('ypp-management-selection-info');
-        if (selectionInfo) {
-            const hiddenInfo = hiddenSelectedCount > 0
-                ? ` ${SVG_ICONS.warning} ${t('hiddenSelectedCurrentResults', { count: hiddenSelectedCount })}`
-                : '';
-            setInnerHTML(selectionInfo, `<strong>${t('selectedVideos')}:</strong> ${selectedVideos.size}${hiddenInfo}`);
-        } else {
-            // Re-render in case it's not defined (User had changed structure recently)
-            const secondRowItem = document.querySelector('.ypp-management-footer-item strong');
-            if (secondRowItem && secondRowItem.parentElement) {
-                secondRowItem.parentElement.id = 'ypp-management-selection-info';
-                const hiddenInfo = hiddenSelectedCount > 0
-                    ? ` ${SVG_ICONS.warning} ${t('hiddenSelectedCurrentResults', { count: hiddenSelectedCount })}`
-                    : '';
-                setInnerHTML(secondRowItem.parentElement, `<strong>${t('selectedVideos')}:</strong> ${selectedVideos.size}${hiddenInfo}`);
-            }
-        }
-
-        const clearSelectionBtn = document.getElementById('ypp-clear-selection-btn');
-        if (clearSelectionBtn) {
-            clearSelectionBtn.disabled = selectedCount === 0;
-        }
-
-        const exportSelectedBtn = document.getElementById('ypp-export-selected-menu-btn');
-        if (exportSelectedBtn) {
-            exportSelectedBtn.disabled = selectedCount === 0;
-            setInnerHTML(exportSelectedBtn, `${SVG_ICONS.upload} ${t('exportSelected')} (${selectedCount})`);
-        }
-
-        const deleteSelectedBtn = document.getElementById('ypp-delete-selected-btn');
-        if (deleteSelectedBtn) {
-            deleteSelectedBtn.disabled = selectedCount === 0;
-            setInnerHTML(deleteSelectedBtn, `${SVG_ICONS.trash} ${t('deleteSelected')} (${selectedCount})`);
-        }
+        clearSelectionBtn.disabled = selectedCount === 0;
+        exportSelectedBtn.disabled = selectedCount === 0;
+        setInnerHTML(exportSelectedBtn, `${SVG_ICONS.upload} ${t('exportSelected')} (${selectedCount})`);
+        deleteSelectedBtn.disabled = selectedCount === 0;
+        setInnerHTML(deleteSelectedBtn, `${SVG_ICONS.trash} ${t('deleteSelected')} (${selectedCount})`);
     }
 
     /**
@@ -15081,7 +15037,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             `;
             if (!loadingIndicator.parentElement) container.appendChild(loadingIndicator);
             loadingIndicator.style.display = 'flex';
-            const statsEl = document.querySelector('#ypp-virtual-stats');
+            const statsEl = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
             if (statsEl) {
                 statsEl.style.display = 'flex';
                 setInnerHTML(statsEl, `${SVG_ICONS.spinner} ${t('loading')}...`);
@@ -15271,10 +15227,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
         emptyMsg.style.display = 'block';
 
-        const statsEl = document.querySelector('#ypp-virtual-stats');
+        const statsEl = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
         if (statsEl) {
             setInnerHTML(statsEl, `<span>0 ${t('videos')}</span><span id="ypp-storage-usage" class="ypp-storage-usage"></span>`);
-            try { updateStorageUsageIndicator().catch(() => {}); } catch (_) {}
+            try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
         }
     }
 
@@ -15287,14 +15243,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {number} itemGap - gap between items
      */
     function updateVirtualScroller(scroller, virtualItems, count, scrollTop, itemGap) {
-        const statsEl = document.querySelector('#ypp-virtual-stats');
+        const statsEl = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
         if (statsEl) {
             setInnerHTML(statsEl, `
                 <span>${count} ${t('videos')}</span>
                 <span id="ypp-storage-usage" class="ypp-storage-usage"></span>
             `);
         }
-        const loadingIndicator = document.querySelector('.ypp-skeleton-container');
+        const loadingIndicator = DOMHelpers.get('list:skeletonContainer', () => document.querySelector('.ypp-skeleton-container'), 200);
         if (loadingIndicator) loadingIndicator.style.display = 'none';
         scroller.itemGap = itemGap;
         scroller.updateItems(virtualItems);
@@ -15302,7 +15258,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const el = document.getElementById('ypp-virtual-scroller-container');
             if (el) el.scrollTop = scrollTop;
         });
-        try { updateStorageUsageIndicator().catch(() => {}); } catch (_) {}
+        try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
     }
 
     /**
@@ -15326,7 +15282,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         container.appendChild(statsBar);
 
         DOMHelpers.removeExact('ui:storageUsage');
-        try { await updateStorageUsageIndicator(); } catch (_) {}
+        try { await updateStorageUsageIndicator(); } catch (_) { }
         if (!listContainer) return null;
 
         const scrollerContainer = createElement('div', {
@@ -15378,7 +15334,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (i.type === 'grid-row') totalVideos += i.items.length;
                         else if (i.type !== 'playlist-header') totalVideos++;
                     });
-                    const parentStats = document.querySelector('#ypp-virtual-stats');
+                    const parentStats = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
                     if (parentStats && parentStats.firstElementChild) {
                         parentStats.firstElementChild.textContent = `${totalVideos} ${t('videos')}`;
                     }

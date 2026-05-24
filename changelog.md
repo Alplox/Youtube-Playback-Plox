@@ -23,6 +23,8 @@
 
 ### Changed
 
+- **DOM Query Caching: Migrated ~18 direct `document.querySelector(All)` calls to `DOMHelpers.get()`**: Replaced high-frequency uncached DOM queries across PlaybackDisplayManager (shorts meta panels, overlay root, time displays, miniplayer controls), Toast system, VirtualScroller (stats bar, skeleton container), Management Mode (checkboxes, footer), progress bar CSS injection, and playlist creation mode. Each call now uses a TTL-bounded cache key that automatically invalidates on DOM disconnection. Also removed unused `$`/`$$` querySelector shorthands that bypassed the caching system.
+- **`updateManagementFooterState` Cache Optimization**: Replaced 5 `getElementById` calls per invocation with a single destructured `cachedMgmtButtons` object. The references are captured once when the management footer is created in `updateFooterButtons`, eliminating repeated DOM lookups on every checkbox interaction. Removed the fragile fallback code path (`.ypp-management-footer-item strong`) that assumed a specific DOM structure for recovery.
 - **Unified Saving Engine**: Refactored the core saving module by consolidating six specialized, redundant functions (`internalSaveRegularVideo`, `saveRegularVideo`, `saveMiniplayer`, `saveShortsVideo`, `savePreview`, `saveLivestream`) into a single, highly flexible `internalSaveVideoGeneric` function.
 - **Code Quality Improvements**:
   - Refactored `getDisplayContextVideo` and `getDisplayContextPlayer` to use lookup tables instead of if-else chains, reducing code duplication.

@@ -2043,8 +2043,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                     DOMHelpers.getShortsPlayer()?.querySelector(`video${SELECTORS.CLASSES.HTML5_VIDEO_STREAM}${SELECTORS.CLASSES.HTML5_MAIN_VIDEO}`) ?? null
                 ),
 
-
-
             /**
              * Get the container element of the Miniplayer.
              * @returns {Element|null} <ytd-miniplayer> element (or null if it doesn't exist).
@@ -2090,13 +2088,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                 get('miniplayerPlayerVideo', () =>
                     DOMHelpers.getMiniplayerPlayer()?.querySelector('video') ?? null
                 ),
-
-
-
-
-
-
-
 
             /**
              * Get the main container for inline preview videos <ytd-video-preview>.
@@ -2374,12 +2365,11 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     // ============================================================================================================
 
     GM_addStyle(`
-:root {
+    :root {
     /* Colores fijos independiente de tema */
     --ypp-bg-time-display: rgba(17, 17, 17, 0.45);
     --ypp-white: #ffffff;
     --ypp-black: #000000;
-
     /* Variables segun tema */
     --ypp-bg: #ffffff;
     --ypp-bg-secondary: #dadada;
@@ -2388,54 +2378,42 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-muted: #555555;
     --ypp-light: #888888;
     --ypp-overlay: rgba(0, 0, 0, 0.4);  /* Background externo modales */
-
     /* Botones */
     --ypp-primary: #2563eb;
     --ypp-primary-hover: #1d4ed8;
     --ypp-primary-active: #1e40af;
-
     --ypp-secondary: #494949;
     --ypp-secondary-hover: #3d3d3d;
     --ypp-secondary-active: #272727;
-
     --ypp-danger: #dc2626;
     --ypp-danger-hover: #b91c1c;
     --ypp-danger-active: #991b1b;
-
     --ypp-warning: #a96500;
     --ypp-warning-hover: #8a5200;
     --ypp-warning-active: #7c4a00;
-
     --ypp-success: #16a34a;
     --ypp-success-hover: #15803d;
     --ypp-success-active: #166534;
-
     --ypp-info: #0891b2;
     --ypp-info-hover: #0e7490;
     --ypp-info-active: #155e75;
-
     --ypp-alert: #E1E200;
     --ypp-alert-hover: #C4B300;
     --ypp-alert-active: #A79A00;
-
     --ypp-violet: #9561fb;
     --ypp-violet-hover: #7c4de8;
     --ypp-violet-active: #6338d5;
-
     --ypp-border: #cccccc;
-
     /* Tipografía */
     --ypp-text: #1b1b1bff;
     --ypp-text-secondary: #393939;
     --ypp-font-base: system-ui, -apple-system, BlinkMacSystemFont, "Roboto", "Segoe UI", "Helvetica Neue", sans-serif;
-
     --ypp-font-size-xs: 0.75rem;
     --ypp-font-size-sm: 0.875rem;
     --ypp-font-size-md: 1rem;
     --ypp-font-size-lg: 1.125rem;
     --ypp-font-size-xl: 1.25rem;
     --ypp-font-size-2xl: 1.4rem;
-
     /*
      * Tokens semánticos para texto
      * Garantizan contraste AAA (≥7:1) sobre el fondo del tema correspondiente.
@@ -2451,26 +2429,21 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-violet-text: #6338d5;   /* 7.2:1 sobre #fff */
     --ypp-danger-warning-text: #993300;  /* 7.1:1 sobre #fff - entre danger y warning */
     --ypp-warning-success-text: #8B7300;  /* 7.1:1 sobre #fff - entre warning y success */
-
     /* Espaciado */
     --ypp-spacing-sm: 0.5rem;
     --ypp-spacing-md: 1rem;
     --ypp-spacing-lg: 1.5rem;
-
     --ypp-padding-sm: 0.25rem;
     --ypp-padding-md: 0.5rem;
     --ypp-padding-lg: 1rem;
-
     /* Z-index */
     --ypp-z-overlay: 9999;
     --ypp-z-modal: 10000;
     --ypp-z-toast: 10001;
-
     /* Inputs */
     --ypp-input: #f5f5f5;
     --ypp-input-border: #cccccc;
 }
-
 :root[data-theme="dark"] {
     --ypp-bg: #0f0f0f;
     --ypp-bg-secondary: #1a1a1a;
@@ -2479,50 +2452,38 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-muted: #aaaaaa;
     --ypp-light: #251a1aff;
     --ypp-overlay: rgba(0, 0, 0, 0.8);
-
     /* Botones */
     --ypp-primary: #004683ff;
     --ypp-primary-hover: #0d5fa8ff;
     --ypp-primary-active: #136fadff;
-
     --ypp-secondary: #4a4a4a;
     --ypp-secondary-hover: #5a5a5a;
     --ypp-secondary-active: #3a3a3a;
-
     --ypp-danger: #720000ff;
     --ypp-danger-hover: #8a1515ff;
     --ypp-danger-active: #a81313ff;
-
     --ypp-warning: #e28700;
     --ypp-warning-hover: #f59e0b;
     --ypp-warning-active: #c47700;
-
     --ypp-success: #15803d;
     --ypp-success-hover: #16a34a;
     --ypp-success-active: #166534;
-
     --ypp-info: #0e7490;
     --ypp-info-hover: #0891b2;
     --ypp-info-active: #155e75;
-
     --ypp-alert: #F5D700;
     --ypp-alert-hover: #E1C200;
     --ypp-alert-active: #CDA800;
-
     --ypp-violet: #a78bfa;
     --ypp-violet-hover: #b794f4;
     --ypp-violet-active: #c4a7ff;
-
     --ypp-border: #303030;
-
     /* Inputs */
     --ypp-input: #1a1a1a;
     --ypp-input-border: #303030;
-
     /* Tipografía */
     --ypp-text: #ececec;
     --ypp-text-secondary: #c0c0c0;
-
     /*
      * Tokens semánticos para texto en tema oscuro.
      * Garantizan contraste AAA (≥7:1) sobre --ypp-bg: #0f0f0f.
@@ -2538,7 +2499,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-danger-warning-text: #F56D16;  /* 7:1 sobre #0f0f0f - entre danger y warning */
     --ypp-warning-success-text: #E3AE00;  /* 7:1 sobre #0f0f0f - entre warning y success */
 }
-
 .ypp-shadow-sm {
     box-shadow:
         0.4px 0.4px 1.3px rgba(0, 0, 0, 0.05),
@@ -2546,15 +2506,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         2px 2px 7px rgba(0, 0, 0, 0.09),
         4px 4px 14px rgba(0, 0, 0, 0.11),
         10px 10px 30px rgba(0, 0, 0, 0.15);
-
-    -webkit-box-shadow:
-        0.4px 0.4px 1.3px rgba(0, 0, 0, 0.05),
-        1px 1px 3.5px rgba(0, 0, 0, 0.07),
-        2px 2px 7px rgba(0, 0, 0, 0.09),
-        4px 4px 14px rgba(0, 0, 0, 0.11),
-        10px 10px 30px rgba(0, 0, 0, 0.15);
-}
-
+    }
 .ypp-shadow-md {
     box-shadow:
         0.8px 0.8px 2.7px rgba(0, 0, 0, 0.062),
@@ -2562,15 +2514,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         4.3px 4.3px 14.2px rgba(0, 0, 0, 0.111),
         8.8px 8.8px 29.2px rgba(0, 0, 0, 0.138),
         24px 24px 80px rgba(0, 0, 0, 0.2);
-
-    -webkit-box-shadow:
-        0.8px 0.8px 2.7px rgba(0, 0, 0, 0.062),
-        2.1px 2.1px 6.9px rgba(0, 0, 0, 0.089),
-        4.3px 4.3px 14.2px rgba(0, 0, 0, 0.111),
-        8.8px 8.8px 29.2px rgba(0, 0, 0, 0.138),
-        24px 24px 80px rgba(0, 0, 0, 0.2);
-}
-
+    }
 .ypp-shadow-lg {
     box-shadow:
         1.2px 1.2px 4px rgba(0, 0, 0, 0.07),
@@ -2578,64 +2522,41 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         6px 6px 20px rgba(0, 0, 0, 0.13),
         12px 12px 40px rgba(0, 0, 0, 0.16),
         40px 40px 120px rgba(0, 0, 0, 0.25);
-
-    -webkit-box-shadow:
-        1.2px 1.2px 4px rgba(0, 0, 0, 0.07),
-        3px 3px 10px rgba(0, 0, 0, 0.1),
-        6px 6px 20px rgba(0, 0, 0, 0.13),
-        12px 12px 40px rgba(0, 0, 0, 0.16),
-        40px 40px 120px rgba(0, 0, 0, 0.25);
-}
-
+    }
 .ypp-m0 {
     margin: 0 !important;
 }
-
 .ypp-link {
     color: var(--ypp-primary-text) !important;
     text-decoration: none !important;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     gap: var(--ypp-spacing-sm);
-
     &:hover {
         text-decoration: underline !important;
     }
 }
-
 .ypp-svg-reset {
     display: inline-block;
     height: 16px;
     width: 16px;
     margin: 0;
 }
-
 .ypp-fill-currentColor {
     fill: currentColor;
 }
-
 regular-item.ypp-fill-none {
     fill: none !important;
 }
-
 .ypp-d-flex {
-    display: -webkit-box !important;
-    display: -ms-flexbox !important;
     display: flex !important;
 }
-
 .ypp-d-none {
     display: none !important;
 }
-
 .ypp-bg-danger {
     background: var(--ypp-danger) !important;
 }
-
 .ypp-text-secondary-italic {
     font-size: var(--ypp-font-size-lg) !important;
     color: var(--ypp-text-secondary) !important;
@@ -2644,99 +2565,73 @@ regular-item.ypp-fill-none {
     align-items: center;
     justify-content: flex-start;
     font-style: italic !important;
-
     svg {
         flex-shrink: 0;
          margin-top: 2px;
     }
 }
-
 /* =========================
    Contenedores y Overlays
 ========================= */
-
 .ypp-overlay,
 .ypp-modalOverlay {
     position: fixed;
     top: 0;
     left: 0;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    justify-content: center;
+    align-items: center;
     width: 100vw;
     height: 100vh;
     background: var(--ypp-overlay);
     z-index: var(--ypp-z-overlay);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
 }
-
-/* Custom Scrollbars for Modals */
-/* .ypp-videosContainer,
-.ypp-videosContainer * {
-    scrollbar-color: rgba(150, 150, 150, 0.4) transparent !important;
-}
-.ypp-videosContainer ::-webkit-scrollbar {
-    width: 12px !important;
-    height: 12px !important;
-    background-color: transparent !important;
-}
-.ypp-videosContainer ::-webkit-scrollbar-track {
-    background-color: transparent !important;
-}
-.ypp-videosContainer ::-webkit-scrollbar-thumb {
-    background-color: rgba(150, 150, 150, 0.4) !important;
-    border-radius: 10px !important;
-    border: 3px solid transparent !important;
-    background-clip: padding-box !important;
-}
-.ypp-videosContainer ::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(150, 150, 150, 0.6) !important;
-} */
 
 /* Scrollbar Thickness */
 .ypp-videosContainer[data-ypp-scrollbar-thickness="thin"],
 .ypp-videosContainer[data-ypp-scrollbar-thickness="thin"] * {
-    scrollbar-width: thin !important;
+    scrollbar-width: thin !important; /* Firefox */
 }
-.ypp-videosContainer[data-ypp-scrollbar-thickness="thin"] ::-webkit-scrollbar {
+
+.ypp-videosContainer[data-ypp-scrollbar-thickness="thin"]::-webkit-scrollbar,
+.ypp-videosContainer[data-ypp-scrollbar-thickness="thin"] *::-webkit-scrollbar {
     width: 6px !important;
     height: 6px !important;
 }
-.ypp-videosContainer[data-ypp-scrollbar-thickness="thin"] ::-webkit-scrollbar-thumb {
-    border: 0px solid transparent !important;
+
+.ypp-videosContainer[data-ypp-scrollbar-thickness="thin"]::-webkit-scrollbar-thumb,
+.ypp-videosContainer[data-ypp-scrollbar-thickness="thin"] *::-webkit-scrollbar-thumb {
+    border: 0 solid transparent !important;
 }
 
 /* Scrollbar Visibility */
 .ypp-videosContainer[data-ypp-scrollbar-visibility="hidden"],
 .ypp-videosContainer[data-ypp-scrollbar-visibility="hidden"] * {
-    scrollbar-width: none !important;
+    scrollbar-width: none !important; /* Firefox */
 }
-.ypp-videosContainer[data-ypp-scrollbar-visibility="hidden"] ::-webkit-scrollbar {
+
+.ypp-videosContainer[data-ypp-scrollbar-visibility="hidden"]::-webkit-scrollbar,
+.ypp-videosContainer[data-ypp-scrollbar-visibility="hidden"] *::-webkit-scrollbar {
     display: none !important;
 }
+
+/* Hidden until hover */
 .ypp-videosContainer[data-ypp-scrollbar-visibility="hiddenUntilHover"]:not(:hover),
 .ypp-videosContainer[data-ypp-scrollbar-visibility="hiddenUntilHover"] *:not(:hover) {
     scrollbar-color: transparent transparent !important;
 }
+
 .ypp-videosContainer[data-ypp-scrollbar-visibility="hiddenUntilHover"]:not(:hover)::-webkit-scrollbar-thumb,
-.ypp-videosContainer[data-ypp-scrollbar-visibility="hiddenUntilHover"] :not(:hover)::-webkit-scrollbar-thumb {
+.ypp-videosContainer[data-ypp-scrollbar-visibility="hiddenUntilHover"] *:not(:hover)::-webkit-scrollbar-thumb {
     background-color: transparent !important;
 }
+
 
 .ypp-videosContainer {
     position: fixed;
     top: 50%;
     left: 50%;
-    -webkit-transform: translate(-50%, -50%);
-        -ms-transform: translate(-50%, -50%);
-            transform: translate(-50%, -50%);
+    transform: translate(-50%, -50%);
     background: var(--ypp-bg);
     border: 1px solid var(--ypp-border);
     border-radius: 12px;
@@ -2745,64 +2640,36 @@ regular-item.ypp-fill-none {
     max-height: 85vh;
     color: var(--ypp-text);
     z-index: var(--ypp-z-modal);
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-
-    -webkit-box-orient: vertical;
-
-    -webkit-box-direction: normal;
-
-        -ms-flex-direction: column;
-
-            flex-direction: column;
+    flex-direction: column;
     opacity: 0;
     box-shadow:
         0 8px 30px rgba(0, 0, 0, 0.15);
-    -webkit-transform: translate(-50%, -50%) translateY(20px) scale(0.95);
-        -ms-transform: translate(-50%, -50%) translateY(20px) scale(0.95);
-            transform: translate(-50%, -50%) translateY(20px) scale(0.95);
-    -webkit-animation: videosModalSlideIn 0.3s ease-out forwards;
-            animation: videosModalSlideIn 0.3s ease-out forwards;
+    transform: translate(-50%, -50%) translateY(20px) scale(0.95);
+    animation: videosModalSlideIn 0.3s ease-out forwards;
 }
-
 :root[data-theme="dark"] .ypp-videosContainer {
     box-shadow:
         inset 0 1px 0 0 rgba(255, 255, 255, 0.05),
         0 8px 30px rgba(0, 0, 0, 0.4);
 }
-
 .ypp-videosContainer > *, .ypp-modalBox > * {
     opacity: 0;
-    -webkit-animation: ypp-stagger-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-            animation: ypp-stagger-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    animation: ypp-stagger-fade-in 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
-
-.ypp-videosContainer > *:nth-child(1), .ypp-modalBox > *:nth-child(1) { -webkit-animation-delay: 50ms; animation-delay: 50ms; }
-.ypp-videosContainer > *:nth-child(2), .ypp-modalBox > *:nth-child(2) { -webkit-animation-delay: 100ms; animation-delay: 100ms; }
-.ypp-videosContainer > *:nth-child(3), .ypp-modalBox > *:nth-child(3) { -webkit-animation-delay: 150ms; animation-delay: 150ms; }
-.ypp-videosContainer > *:nth-child(4), .ypp-modalBox > *:nth-child(4) { -webkit-animation-delay: 200ms; animation-delay: 200ms; }
-.ypp-videosContainer > *:nth-child(5), .ypp-modalBox > *:nth-child(5) { -webkit-animation-delay: 250ms; animation-delay: 250ms; }
-
-@-webkit-keyframes ypp-stagger-fade-in {
-    from { opacity: 0; -webkit-transform: translateY(15px); }
-    to { opacity: 1; -webkit-transform: translateY(0); }
-}
-
+.ypp-videosContainer > *:nth-child(1), .ypp-modalBox > *:nth-child(1) { animation-delay: 50ms; }
+.ypp-videosContainer > *:nth-child(2), .ypp-modalBox > *:nth-child(2) { animation-delay: 100ms; }
+.ypp-videosContainer > *:nth-child(3), .ypp-modalBox > *:nth-child(3) { animation-delay: 150ms; }
+.ypp-videosContainer > *:nth-child(4), .ypp-modalBox > *:nth-child(4) { animation-delay: 200ms; }
+.ypp-videosContainer > *:nth-child(5), .ypp-modalBox > *:nth-child(5) { animation-delay: 250ms; }
 @keyframes ypp-stagger-fade-in {
     from { opacity: 0; transform: translateY(15px); }
     to { opacity: 1; transform: translateY(0); }
-}
-
-@-webkit-keyframes ypp-pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
 }
 @keyframes ypp-pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
 }
-
 .ypp-skeleton-container {
     display: flex;
     flex-direction: column;
@@ -2812,7 +2679,6 @@ regular-item.ypp-fill-none {
     align-items: stretch !important;
     justify-content: flex-start !important;
 }
-
 .ypp-skeleton-entry {
     display: flex;
     gap: 16px;
@@ -2822,51 +2688,41 @@ regular-item.ypp-fill-none {
     height: 120px;
     align-items: center;
 }
-
 .ypp-skeleton-actions {
     display: flex;
     gap: 8px;
     margin-left: auto;
 }
-
 .ypp-skeleton-circle {
     width: 38px;
     height: 38px;
     border-radius: 50%;
     border: 1px solid var(--ypp-border);
     background: transparent;
-    -webkit-animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-
 .ypp-skeleton-thumb {
     width: 140px;
     height: 80px;
     background: var(--ypp-border);
     border-radius: 6px;
-    -webkit-animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-
 .ypp-skeleton-lines {
     flex: 1;
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
-
 .ypp-skeleton-line {
     height: 12px;
     background: var(--ypp-border);
     border-radius: 4px;
-    -webkit-animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-            animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    animation: ypp-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
-
 .ypp-skeleton-line.title { width: 80%; height: 16px; margin-bottom: 4px; }
 .ypp-skeleton-line.meta { width: 40%; }
 .ypp-skeleton-line.meta-short { width: 60%; }
-
 .ypp-empty-state-composed {
     display: flex;
     flex-direction: column;
@@ -2875,176 +2731,121 @@ regular-item.ypp-fill-none {
     padding: 80px 20px;
     text-align: center;
     color: var(--ypp-muted);
-
     svg {
         width: 64px;
         height: 64px;
         margin-bottom: 20px;
         opacity: 0.4;
     }
-
     h3 {
         margin: 0 0 10px 0;
         font-size: 1.6rem;
         color: var(--ypp-text);
         font-weight: 500;
     }
-
     p {
         margin: 0;
         font-size: 1.3rem;
     }
 }
-
-@-webkit-keyframes videosModalSlideIn {
-    to {
-        opacity: 1;
-        -webkit-transform: translate(-50%, -50%) translateY(0) scale(1);
-                transform: translate(-50%, -50%) translateY(0) scale(1);
-    }
-}
-
 @keyframes videosModalSlideIn {
     to {
         opacity: 1;
-        -webkit-transform: translate(-50%, -50%) translateY(0) scale(1);
-                transform: translate(-50%, -50%) translateY(0) scale(1);
+        transform: translate(-50%, -50%) translateY(0) scale(1);
     }
 }
-
 /* =========================
    Boton group script en barras reproducción
  ========================= */
 .ypp-time-display,
 .ypp-shorts-time-display {
-    display: -webkit-inline-box;
-    display: -ms-inline-flexbox;
     display: inline-flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     /* justify-content: center; */
-    -webkit-transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-    -o-transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-
     background: var(--ypp-bg-time-display);
     border-radius: var(--ypp-spacing-lg);
     overflow: hidden;
     padding: 0;
     gap: 0;
     height: 28px;
-    min-width: -webkit-fit-content;
-    min-width: -moz-fit-content;
     min-width: fit-content;
-
-    -webkit-box-ordinal-group: 4 !important;
-        -ms-flex-order: 3 !important;
-            order: 3 !important;   /* para que se muestre a la derecha en livestreams /watch */
-
+    order: 3 !important;   /* para que se muestre a la derecha en livestreams /watch */
     &:hover {
         background: var(--ypp-black);
         color: var(--ypp-text)
     }
 }
-
 /* Livestreams */
 .ytp-delhi-modern .ytp-time-wrapper:not(.ytp-miniplayer-ui *) {
     min-width: 0;
     position: relative;
-    display: -webkit-box !important;
-    display: -ms-flexbox !important;
     display: flex !important;
     height: var(--yt-delhi-pill-height, 48px);
     border-radius: 28px;
     padding: 0 16px;
-    -webkit-backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override,
-            blur(16px));
     backdrop-filter: var(--yt-frosted-glass-backdrop-filter-override, blur(16px));
     background: var(--yt-spec-overlay-background-medium-light,
             rgba(0, 0, 0, 0.3));
     text-shadow: 0 0 2px #000;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     gap: 8px;
     cursor: default;
     /* No interceptar clicks que no son nuestros */
     pointer-events: auto;
 }
-
 /* Corregir orden en el rediseño Delhi: el botón del script debe ir al final */
 #movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-time-current,
 #movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-time-separator,
 #movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-time-duration {
-    -webkit-box-ordinal-group: 2;
-        -ms-flex-order: 1;
-            order: 1;
+    order: 1;
     /* El tiempo debe estar visible para que YouTube calcule bien los offsets de click */
     display: inline-block !important;
 }
-
 #movie_player .ytp-delhi-modern .ytp-time-wrapper .ytp-live-badge,
 #movie_player .ytp-delhi-modern .ytp-time-wrapper .live-badge {
-    -webkit-box-ordinal-group: 3 !important;
-        -ms-flex-order: 2 !important;
-            order: 2 !important;
+    order: 2 !important;
     margin-left: 4px;
     /* Asegurar que el badge sea clickeable */
     pointer-events: auto !important;
     cursor: pointer !important;
 }
-
 .ytp-live .ytp-time-current,
 .ytp-live .ytp-time-separator,
 .ytp-live .ytp-time-duration {
     display: none !important;
     visibility: visible !important;
 }
-
 /* Estilo específico para Shorts */
 .ypp-shorts-time-display {
     margin: 4px auto 0;
 }
-
 /* Fallback flotante para Shorts cuando el metapanel no se encuentra */
 .ypp-shorts-time-display.ypp-floating {
     position: absolute;
     left: 50%;
-    -webkit-transform: translateX(-50%);
-        -ms-transform: translateX(-50%);
-            transform: translateX(-50%);
+    transform: translateX(-50%);
     bottom: 64px;
     /* por encima de botones de acción */
     z-index: var(--ypp-z-toast, 10001);
     pointer-events: auto;
 }
-
 /* Estilo específico para Miniplayer */
 .ypp-miniplayer-time-display {
     pointer-events: auto;
 }
-
 .ytdMiniplayerComponentVisible .ytp-time-wrapper.ytp-time-wrapper-delhi {
-    display: -webkit-box !important;
-    display: -ms-flexbox !important;
     display: flex !important;
     /* Para poner botones al lado de tiempo */
-    -webkit-box-align: center !important;
-        -ms-flex-align: center !important;
-            align-items: center !important;
+    align-items: center !important;
     gap: 8px !important;
     margin-bottom: 10px !important;
     /* Para que no se tape con heatmaps */
 }
-
 .ytdMiniplayerComponentVisible .ytp-live-badge {
-    -webkit-box-ordinal-group: 3 !important;
-        -ms-flex-order: 2 !important;
-            order: 2 !important;
+    order: 2 !important;
     margin: 0 17px 0 0;
 }
-
 /* Estilo específico para Inline Previews */
 .ypp-inline-preview-time-display {
     position: absolute;
@@ -3052,121 +2853,80 @@ regular-item.ypp-fill-none {
     left: 14px; /* 8px; */
     z-index: var(--ypp-z-toast, 10001);
 }
-
 /* =========================
    Botones dentro de ypp-time-display
    ========================= */
 .ypp-btn-history,
 .ypp-btn-save {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
-
+    align-items: center;
+    justify-content: center;
     background: transparent;
     border: none;
     color: var(--ypp-white);
     cursor: pointer;
-
-    -webkit-transition: background 0.2s;
-
-    -o-transition: background 0.2s;
-
     transition: background 0.2s;
     height: 100%;
-    -webkit-box-shadow: none;
-            box-shadow: none;
-
+    box-shadow: none;
     &:hover {
         background: var(--ypp-primary-hover);
     }
-
     &:active {
         background: var(--ypp-primary-hover);
         transform: scale(0.96);
         transition: transform 0.1s ease;
     }
-
     &:focus-visible {
         background: var(--ypp-primary-hover);
         outline: transparent;
         box-shadow: 0 0 0 2px var(--ypp-bg-time-display), 0 0 0 4px var(--ypp-primary);
     }
 }
-
 .ypp-btn-history {
     padding: 0 7px 0 10px;
 }
-
 .ypp-btn-save {
     padding: 0 7px 0 7px;
 }
-
 .ypp-btn-save-hover-color-when-saved {
     &:hover {
         background: var(--ypp-success);
     }
-
     &:active {
         background: var(--ypp-success-dark);
     }
-
     &:focus-visible {
         background: var(--ypp-success-dark);
     }
 }
-
 .ypp-time-display-message {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    justify-content: center;
+    align-items: center;
     gap: var(--ypp-spacing-sm);
-
     padding: 0 12px 0 7px;
     white-space: nowrap;
     overflow: hidden;
     cursor: default;
     text-shadow: none !important;
-
     /*  max-width: 180px; */
     font-size: var(--ypp-font-size-lg);
     color: var(--ypp-white);
     border-left: 2px solid var(--ypp-bg);
     font-variant-numeric: tabular-nums;
 }
-
 /* =========================
    Header, Footer, Layout
 ========================= */
-
 .ypp-header,
 .ypp-modalHeader {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-pack: justify;
-        -ms-flex-pack: justify;
-            justify-content: space-between;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    justify-content: space-between;
+    align-items: center;
     padding: 6px 12px;
     border-bottom: 1px solid var(--ypp-border);
-    -ms-flex-negative: 0;
-        flex-shrink: 0;
+    flex-shrink: 0;
 }
-
 .ypp-filters-top-row {
     position: relative;
     z-index: 10;
@@ -3176,7 +2936,6 @@ regular-item.ypp-fill-none {
     padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
     border-bottom: 1px solid var(--ypp-border);
 }
-
 .ypp-search-container {
     display: flex;
     align-items: center;
@@ -3186,12 +2945,10 @@ regular-item.ypp-fill-none {
     background: var(--ypp-bg);
     transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-
 .ypp-search-container:focus-within {
     border-color: var(--ypp-primary);
     box-shadow: 0 0 0 1px var(--ypp-primary);
 }
-
 .ypp-input-search-icon {
     display: flex;
     align-items: center;
@@ -3199,12 +2956,10 @@ regular-item.ypp-fill-none {
     padding: 0 10px 0 16px;
     color: var(--ypp-text-secondary);
 }
-
 .ypp-searchbar {
     flex: 1;
     display: flex;
 }
-
 .ypp-search-input {
     background: transparent;
     border: none;
@@ -3214,12 +2969,10 @@ regular-item.ypp-fill-none {
     width: 100%;
     outline: none !important;
 }
-
 .ypp-search-input::placeholder {
     color: var(--ypp-text-secondary);
     opacity: 0.7;
 }
-
 .ypp-filters-toggle-btn {
     position: relative;
     display: flex;
@@ -3237,34 +2990,27 @@ regular-item.ypp-fill-none {
     font-size: 1.3rem;
     white-space: nowrap;
     align-self: stretch;
-
     &:hover {
         background: var(--ypp-bg-secondary);
     }
-
     &:active {
         transform: scale(0.96);
         background: var(--ypp-bg-secondary);
         transition: transform 0.1s ease;
     }
-
     &:focus-visible {
         outline: transparent;
         box-shadow: inset 0 0 0 2px var(--ypp-primary);
     }
 }
-
-
 .ypp-filters-toggle-btn.active {
     background: var(--ypp-primary);
     color: var(--ypp-white);
 }
-
 .ypp-saved-videos-toolbar-wrap {
     position: relative;
     border-bottom: 1px solid var(--ypp-border);
 }
-
 .ypp-saved-videos-toolbar-section-toggle {
     display: flex;
     align-items: center;
@@ -3279,25 +3025,20 @@ regular-item.ypp-fill-none {
     text-align: left;
     transition: background 0.2s ease;
 }
-
 .ypp-saved-videos-toolbar-section-toggle:hover {
     background: var(--ypp-bg-secondary);
 }
-
 .ypp-saved-videos-toolbar-section-toggle.active {
     background: var(--ypp-bg-secondary);
 }
-
 .ypp-saved-videos-toolbar-chevron {
     display: inline-flex;
     transition: transform 0.25s ease;
     flex-shrink: 0;
 }
-
 .ypp-saved-videos-toolbar-section-toggle.active .ypp-saved-videos-toolbar-chevron {
     transform: rotate(180deg);
 }
-
 .ypp-saved-videos-actions-toolbar-body {
     transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), padding 0.35s ease, opacity 0.25s ease;
     max-height: 0;
@@ -3306,7 +3047,6 @@ regular-item.ypp-fill-none {
     overflow: hidden;
     pointer-events: none;
 }
-
 .ypp-saved-videos-actions-toolbar-body.expanded {
     max-height: 240px;
     overflow: auto;
@@ -3314,13 +3054,11 @@ regular-item.ypp-fill-none {
     padding: var(--ypp-spacing-sm) var(--ypp-spacing-lg) var(--ypp-spacing-md);
     pointer-events: auto;
 }
-
 .ypp-saved-videos-actions-toolbar-inner {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
-
 .ypp-saved-videos-toolbar-group {
     display: flex;
     flex-direction: column;
@@ -3330,11 +3068,9 @@ regular-item.ypp-fill-none {
     border-radius: 8px;
     background: color-mix(in srgb, var(--ypp-bg-secondary) 56%, transparent);
 }
-
 .ypp-saved-videos-toolbar-action-group {
     background: color-mix(in srgb, var(--ypp-primary) 8%, var(--ypp-bg-secondary));
 }
-
 .ypp-saved-videos-toolbar-group-title {
     font-size: 0.75rem;
     font-weight: 700;
@@ -3342,58 +3078,48 @@ regular-item.ypp-fill-none {
     text-transform: uppercase;
     letter-spacing: 0.04em;
 }
-
 .ypp-saved-videos-toolbar-row {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
 }
-
 .ypp-saved-videos-toolbar-row-label {
     min-width: 100px;
     font-size: 0.85rem;
     color: var(--ypp-text-secondary);
 }
-
 .ypp-saved-videos-toolbar-toggles {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
 }
-
 .ypp-toolbar-grid-options {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
 }
-
-
 .ypp-saved-videos-toolbar-opacity-row {
     display: flex;
     align-items: center;
     gap: 10px;
     flex-wrap: wrap;
 }
-
 .ypp-saved-videos-toolbar-opacity-btns {
     display: flex;
     gap: 6px;
     flex-wrap: wrap;
 }
-
 .ypp-saved-videos-opacity-active {
     box-shadow: inset 0 0 0 2px var(--ypp-primary);
     border-radius: 6px;
 }
-
 .ypp-saved-video-overflow-menu {
     background: var(--ypp-bg);
     border: 1px solid var(--ypp-border);
     border-radius: 8px;
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
     padding: 4px;
-
     position: fixed;
     z-index: 100002;
     max-height: min(70vh, 420px);
@@ -3401,64 +3127,49 @@ regular-item.ypp-fill-none {
     min-width: 200px;
     max-width: 300px;
 }
-
 .ypp-videosContainer[data-ypp-act-force_time="off"] .ypp-video-item [data-action-id="force-time"] {
     display: none !important;
 }
-
 .ypp-videosContainer[data-ypp-act-unlink_playlist="off"] .ypp-video-item [data-action-id="unlink-playlist"] {
     display: none !important;
 }
-
 .ypp-videosContainer[data-ypp-act-toggle_protection="off"] .ypp-video-item [data-action-id="toggle-protection"] {
     display: none !important;
 }
-
 .ypp-videosContainer[data-ypp-act-delete_entry="off"] .ypp-video-item [data-action-id="delete-entry"] {
     display: none !important;
 }
-
 .ypp-videosContainer[data-ypp-act-qa_freetube="off"] .ypp-video-item [data-action-id="qa-freetube"] {
     display: none !important;
 }
-
 .ypp-videosContainer[data-ypp-act-qa_spotify="off"] .ypp-video-item [data-action-id="qa-spotify"] {
     display: none !important;
 }
-
 .ypp-videosContainer[data-ypp-act-qa_markdown="off"] .ypp-video-item [data-action-id="qa-markdown"] {
     display: none !important;
 }
-
 .ypp-videosContainer[data-entry-action-opacity="dimUntilHover"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action,
 .ypp-videosContainer[data-entry-action-opacity="hiddenUntilHover"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
     transition: opacity 0.2s ease;
 }
-
 .ypp-videosContainer[data-entry-action-opacity="dimUntilHover"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
     opacity: 0.7;
 }
-
 .ypp-videosContainer[data-entry-action-opacity="dimUntilHover"] .ypp-containerButtonsTime:hover .ypp-btn-circle.ypp-saved-video-entry-action {
     opacity: 1;
 }
-
 .ypp-videosContainer[data-entry-action-opacity="hiddenUntilHover"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
     opacity: 0;
 }
-
 .ypp-videosContainer[data-entry-action-opacity="hiddenUntilHover"] .ypp-containerButtonsTime:hover .ypp-btn-circle.ypp-saved-video-entry-action {
     opacity: 1;
 }
-
 .ypp-videosContainer[data-entry-action-opacity="hidden"] .ypp-containerButtonsTime .ypp-btn-circle.ypp-saved-video-entry-action {
     display: none !important;
 }
-
 .ypp-videosContainer[data-ypp-overflow-menu="off"] .ypp-saved-video-overflow-trigger {
     display: none !important;
 }
-
 /* Label Styles */
 .ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-timestamp.completed,
@@ -3466,7 +3177,6 @@ regular-item.ypp-fill-none {
 /* .ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-playlist-indicator  */{
     filter: grayscale(1);
 }
-
 .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
 .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
@@ -3479,7 +3189,6 @@ regular-item.ypp-fill-none {
 /* .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:hover .ypp-playlist-indicator */ {
     filter: grayscale(0);
 }
-
 .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
 .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
@@ -3492,7 +3201,6 @@ regular-item.ypp-fill-none {
 /* .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:hover .ypp-playlist-indicator */ {
     filter: grayscale(1);
 }
-
 /* Label Visibility */
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-timestamp.completed,
@@ -3502,10 +3210,8 @@ regular-item.ypp-fill-none {
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.completed,
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.forced
 /* .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-playlist-indicator  */{
-    -webkit-transition: opacity 0.2s ease;
     transition: opacity 0.2s ease;
 }
-
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
@@ -3513,7 +3219,6 @@ regular-item.ypp-fill-none {
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator *  */{
     opacity: 0.5;
 }
-
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
@@ -3521,14 +3226,12 @@ regular-item.ypp-fill-none {
     opacity: 0;
     pointer-events: none;
 }
-
 .ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-timestamp.completed,
 .ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-timestamp.forced
 /* .ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-playlist-indicator */ {
     display: none !important;
 }
-
 /* Display Options toggles */
 .ypp-videosContainer[data-ypp-show-thumbs="false"] .ypp-thumb-wrapper {
     display: none !important;
@@ -3542,7 +3245,6 @@ regular-item.ypp-fill-none {
 .ypp-videosContainer[data-ypp-show-buttons="false"] .ypp-containerButtonsTime .ypp-buttons-row {
     display: none !important;
 }
-
 .ypp-toolbar-separator {
     width: 2px;
     height: 24px;
@@ -3550,7 +3252,6 @@ regular-item.ypp-fill-none {
     margin: 0 var(--ypp-spacing-sm);
     border-radius: 2px;
 }
-
 .ypp-display-toggle-buttons {
     position: relative;
 }
@@ -3559,17 +3260,14 @@ regular-item.ypp-fill-none {
     border-color: rgba(255, 60, 60, 0.4) !important;
     color: #ff6b6b !important;
 }
-
 .ypp-saved-videos-toolbar-toggle.dragging {
     opacity: 0.5;
     transform: scale(0.9);
 }
-
 .ypp-saved-videos-toolbar-toggles.drag-over {
     background: rgba(var(--ypp-primary-rgb), 0.1);
     border-radius: 20px;
 }
-
 .ypp-active-filter-badge {
     position: absolute;
     top: -10px;
@@ -3587,7 +3285,6 @@ regular-item.ypp-fill-none {
     padding: 0 5px;
     border: 2px solid var(--ypp-bg);
 }
-
 .ypp-filters-advanced {
     position: relative;
     z-index: 5;
@@ -3602,10 +3299,8 @@ regular-item.ypp-fill-none {
     padding: 0 var(--ypp-spacing-lg);
     gap: var(--ypp-spacing-sm);
     pointer-events: none;
-    -webkit-animation: none !important;
-            animation: none !important;
+    animation: none !important;
 }
-
 .ypp-filters-advanced.expanded {
     max-height: 400px;
     /* max-height: 200px; */
@@ -3614,13 +3309,11 @@ regular-item.ypp-fill-none {
     border-bottom: 1px solid var(--ypp-border);
     pointer-events: auto;
 }
-
 .ypp-filters-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: var(--ypp-spacing-md);
 }
-
 .ypp-range-filter-section {
     display: flex;
     flex-direction: column;
@@ -3632,47 +3325,39 @@ regular-item.ypp-fill-none {
     border: 1px solid var(--ypp-border);
     box-sizing: border-box;
     transition: transform 0.2s ease, border-color 0.2s ease;
-
     &:hover {
         border-color: var(--ypp-primary);
     }
-
     /* Estado cuando el filtro tiene valores NO predeterminados */
     &.active {
         border-color: var(--ypp-primary);
         background: color-mix(in srgb, var(--ypp-primary) 8%, var(--ypp-bg));
         box-shadow: 0 0 10px rgba(var(--ypp-primary-rgb), 0.1);
-
         .ypp-filter-chip-label {
             color: var(--ypp-text);
         }
-
         .ypp-dropdown-trigger {
             border-color: var(--ypp-primary);
         }
     }
 }
-
 .ypp-range-controls {
     display: flex;
     gap: 6px;
     align-items: center;
     flex-direction: row;
     width: 100%;
-
     .ypp-custom-dropdown {
         flex: 1.5; /* Prioridad al texto del dropdown */
         min-width: 120px;
     }
 }
-
 .ypp-range-inputs-group {
     display: flex;
     gap: 4px;
     align-items: center;
     flex-shrink: 0;
 }
-
 /* Input numérico: sin flechas y más ancho */
 .ypp-range-input {
     width: 75px;
@@ -3687,14 +3372,11 @@ regular-item.ypp-fill-none {
     box-sizing: border-box;
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
     appearance: textfield; /* Quita flechas en Firefox */
-
     /* Quita flechas en Chrome/Safari */
-    &::-webkit-outer-spin-button,
-    &::-webkit-inner-spin-button {
-        -webkit-appearance: none;
+    &::outer-spin-button,
+    &::inner-spin-button {
         margin: 0;
     }
-
     &:focus {
         outline: none;
         border-color: var(--ypp-primary);
@@ -3702,21 +3384,18 @@ regular-item.ypp-fill-none {
         box-shadow: 0 0 0 2px rgba(var(--ypp-primary-rgb), 0.2);
     }
 }
-
 .ypp-range-input-label {
     font-size: 1rem;
     font-weight: 600;
     color: var(--ypp-text-secondary);
     margin-right: 2px;
 }
-
 .ypp-range-separator {
     color: var(--ypp-text-secondary);
     font-size: 1.1rem;
     font-weight: bold;
     opacity: 0.7;
 }
-
 /* Chip de etiquetas */
 .ypp-filter-chip-label {
     display: inline-flex;
@@ -3728,71 +3407,44 @@ regular-item.ypp-fill-none {
     text-transform: uppercase;
     letter-spacing: 0.06em;
     margin-bottom: 2px;
-
     svg {
         width: 14px;
         height: 14px;
         color: var(--ypp-primary);
     }
 }
-
 .ypp-range-filters-group {
     display: contents; /* integrado directo al grid padre */
 }
-
 .ypp-footer {
     padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
     border-top: 2px solid var(--ypp-border);
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
     gap: var(--ypp-spacing-sm);
     z-index: 10;
-    -ms-flex-negative: 0;
-        flex-shrink: 0;
+    flex-shrink: 0;
 }
-
 .ypp-footer-row {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    justify-content: center;
+    align-items: center;
     gap: var(--ypp-spacing-sm);
-    -ms-flex-wrap: wrap;
-        flex-wrap: wrap;
+    flex-wrap: wrap;
 }
-
 .ypp-footer-row-bottom {
-    -webkit-box-pack: justify;
-        -ms-flex-pack: justify;
-            justify-content: space-between;
+    justify-content: space-between;
 }
-
 .ypp-footer-action-menu {
     position: relative;
 }
-
 .ypp-footer-action-menu-list {
     position: absolute;
     left: 50%;
     bottom: calc(100% + 6px);
     transform: translateX(-50%);
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
     gap: 6px;
     min-width: 170px;
     padding: 8px;
@@ -3802,71 +3454,48 @@ regular-item.ypp-fill-none {
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.3);
     z-index: 50;
 }
-
 .ypp-footer-action-menu-option {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
+    align-items: center;
+    justify-content: center;
     gap: 8px;
     width: 100%;
 }
-
 .ypp-footer-action-menu-option[disabled],
 .ypp-btn[disabled] {
     opacity: 0.45;
     cursor: not-allowed;
     pointer-events: none;
 }
-
 #video-list-container {
-    -webkit-box-flex: 1;
-        -ms-flex-positive: 1;
-            flex-grow: 1;
+    flex-grow: 1;
     /* Ocupar el espacio restante */
     overflow: hidden;
     /* El scroll lo maneja el virtual scroller */
     padding: 0;
     /* Padding se aplica a los elementos internos */
     position: relative;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
 }
-
 #ypp-virtual-scroller-container {
-    -webkit-box-flex: 1;
-        -ms-flex-positive: 1;
-            flex-grow: 1;
+    flex-grow: 1;
     overflow-y: auto;
     overflow-x: hidden;
     padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
 }
-
 /* Virtual Scroller Styles */
 .ypp-virtual-spacer {
     position: relative;
     width: 100%;
 }
-
 .ypp-virtual-item {
     position: absolute;
     left: 0;
     right: 0;
     width: 100%;
-    -webkit-box-sizing: border-box;
-            box-sizing: border-box;
+    box-sizing: border-box;
 }
-
 .ypp-virtual-stats {
     position: sticky;
     top: 0;
@@ -3876,137 +3505,78 @@ regular-item.ypp-fill-none {
     font-size: 0.9rem;
     color: var(--ypp-text-secondary);
     z-index: 10;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-pack: justify;
-        -ms-flex-pack: justify;
-            justify-content: space-between;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    justify-content: space-between;
+    align-items: center;
 }
-
 .ypp-settingsContent {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
     gap: var(--ypp-spacing-lg);
     max-height: 60vh;
     overflow-y: auto;
 }
-
 .ypp-settings-footer {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-pack: end;
-        -ms-flex-pack: end;
-            justify-content: flex-end;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    justify-content: flex-end;
+    align-items: center;
     gap: 12px;
     padding: 16px 24px;
     color: var(--ypp-light);
     border-radius: 0 0 12px 12px;
-    -ms-flex-negative: 0;
-        flex-shrink: 0;
+    flex-shrink: 0;
     margin-top: auto;
 }
-
 .ypp-settings-main-section {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
     gap: var(--ypp-spacing-md);
     background: var(--ypp-border);
     border-radius: 6px;
     padding: 10px;
 }
-
 .ypp-manual-saving-options {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
 }
-
 .ypp-automatic-saving-options {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
     border-radius: 6px;
 }
-
 .ypp-settings-second-level-section {
     background: var(--ypp-bg-secondary);
     border-radius: 6px;
     padding: var(--ypp-spacing-md);
     gap: var(--ypp-spacing-md);
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
     border: 1px solid var(--ypp-bg);
 }
-
 .ypp-settings-third-level-section {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
     gap: var(--ypp-spacing-sm);
     background: var(--ypp-bg-tertiary);
     border-radius: 6px;
     padding: var(--ypp-spacing-sm);
 }
-
 .ypp-github-tab-content {
     background: var(--ypp-bg-secondary);
     padding: var(--ypp-spacing-md);
     gap: var(--ypp-spacing-md);
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
     border: 1px solid var(--ypp-bg);
     border-top: none;
     border-radius: 0 0 6px 6px;
 }
-
 .ypp-label-save-type {
     margin: 0 0 0 10px;
 }
-
 /* =========================
    Tipografía
 ========================= */
-
 .ypp-playlistTitle {
     margin: 8px 0 4px;
     color: var(--ypp-primary-text);
@@ -4016,17 +3586,13 @@ regular-item.ypp-fill-none {
     font-size: 1.2rem;
     font-weight: 500;
     text-wrap: balance;
-
     &:hover {
         color: var(--ypp-primary-hover);
         text-decoration: underline;
     }
 }
-
 .ypp-titleLink {
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
+    display: box;
     font-weight: 600;
     font-size: 1.4rem;
     color: var(--ypp-primary-text);
@@ -4037,120 +3603,80 @@ regular-item.ypp-fill-none {
     line-height: 1.3;
     max-height: 3.6rem;
     text-wrap: pretty;
-
     &:hover {
         text-decoration: underline;
     }
-
     svg {
         margin: 0 0 -4px 0;
     }
 }
-
 .ypp-author,
 .ypp-views {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     gap: var(--ypp-spacing-sm);
     font-size: 1.1rem;
     color: var(--ypp-muted);
 }
-
 .ypp-views {
     font-variant-numeric: tabular-nums;
 }
-
 .ypp-watched-count {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
 }
-
 .ypp-timestamp,
 .ypp-progressInfo {
     font-size: 1.3rem;
     font-weight: bold;
     margin-top: 4px;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     gap: var(--ypp-spacing-sm);
     font-variant-numeric: tabular-nums;
 }
-
 .ypp-timestamp {
     color: var(--ypp-muted);
 }
-
 .ypp-timestamp.forced {
     color: var(--ypp-primary-text);
     font-weight: bold;
 }
-
 .ypp-timestamp.completed {
     color: var(--ypp-success-text);
     font-weight: bold;
 }
-
-
-
 /* =========================
    Video List
 ========================= */
-
 .ypp-videoWrapper {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     min-height: 120px;
     /* Altura fija para virtualización precisa */
     border-bottom: 1px solid var(--ypp-border);
     padding: var(--ypp-spacing-sm) var(--ypp-spacing-md);
-    -webkit-box-sizing: border-box;
-            box-sizing: border-box;
+    box-sizing: border-box;
     background: var(--ypp-bg);
 }
-
 .ypp-videoWrapper.playlist-item {
     border-radius: 6px;
-    -webkit-transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
-    -o-transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
     transition: opacity 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
     height: 140px !important;
-
     .ypp-timestamp:not(.forced):not(.completed):not(.forced.completed),
     .ypp-views,
     .ypp-progressInfo {
         color: var(--ypp-text);
     }
 }
-
 .ypp-videoWrapper.regular-item {
     /* background-color: var(--ypp-bg-secondary); */
     border-left: 2px solid var(--ypp-border);
     height: 120px !important; /* Altura estándar */
 }
-
 .ypp-playlist-indicator {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: start;
-        -ms-flex-align: start;
-            align-items: start;
+    align-items: start;
     margin: 4px 0;
     font-size: 0.85em;
     font-weight: bold;
@@ -4159,23 +3685,17 @@ regular-item.ypp-fill-none {
     border-radius: var(--ypp-spacing-sm);
     /*  white-space: nowrap; */
     overflow: auto;
-    -o-text-overflow: ellipsis;
-       text-overflow: ellipsis;
+    text-overflow: ellipsis;
     max-width: 100%;
-    width: -webkit-fit-content;
-    width: -moz-fit-content;
     width: fit-content;
     max-height: 20px;
 }
-
 .ypp-videoWrapper {
     overflow: hidden !important;
 }
-
 .ypp-protected-item {
     /* border: 1px solid var(--ypp-warning) !important;
     box-shadow: 0 0 8px rgba(242, 187, 65, 0.2); */
-
     background: linear-gradient(
         to right,
         hsl(128.09, 100%, 45.1%) 0%,
@@ -4196,95 +3716,67 @@ regular-item.ypp-fill-none {
         hsla(128.09, 100%, 45.1%, 0) 100%
     );
 }
-
 .ypp-protected-item .ypp-thumb-regular,
 .ypp-protected-item .ypp-thumb-shorts {
     outline: 2px solid var(--ypp-success) !important;
 }
-
 .ypp-playlist-link {
-    display: -webkit-inline-box;
-    display: -ms-inline-flexbox;
     display: inline-flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     color: var(--ypp-text);
     opacity: 0.7;
-    -webkit-transition: opacity 0.2s ease;
-    -o-transition: opacity 0.2s ease;
     transition: opacity 0.2s ease;
     text-decoration: none;
     overflow: hidden;
 }
-
 .ypp-playlist-link:hover {
     opacity: 1;
 }
-
 .ypp-playlist-header {
     height: 40px !important;
     max-height: 40px !important;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     padding: 0 var(--ypp-spacing-md);
-    -webkit-box-sizing: border-box;
-            box-sizing: border-box;
+    box-sizing: border-box;
     font-weight: bold;
     color: var(--ypp-primary-text);
     overflow: hidden;
 }
-
 .ypp-playlist-header a {
     color: inherit;
     text-decoration: none;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     gap: 8px;
-    -webkit-box-flex: 1;
-        -ms-flex: 1;
-            flex: 1;
+    flex: 1;
     min-width: 0;
     /* Necesario para que text-overflow funcione en flex child */
     white-space: nowrap;
     overflow: hidden;
-    -o-text-overflow: ellipsis;
-       text-overflow: ellipsis;
-
+    text-overflow: ellipsis;
     &:hover {
         text-decoration: underline;
     }
 }
-
 @media (max-width: 600px) {
     /* Contenedor del Modal */
     .ypp-videosContainer {
         width: 95% !important;
         max-height: 90vh !important;
     }
-
     /* Filas principales (Lista y desplegables de Grid) */
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper.regular-item,
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper.playlist-item {
         height: auto !important;
         min-height: 100px !important;
     }
-    
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper {
         position: relative !important; /* Esencial para posicionar el trigger de menú de forma absoluta */
         flex-wrap: wrap !important;
         align-items: flex-start !important;
         padding: var(--ypp-spacing-sm) !important;
     }
-
     /* Miniatura (Sólo para filas de Lista, ya que el dropdown del Grid no las renderiza) */
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-thumb-wrapper {
         width: 96px !important;
@@ -4292,14 +3784,12 @@ regular-item.ypp-fill-none {
         margin-right: var(--ypp-spacing-sm) !important;
         flex-shrink: 0 !important;
     }
-
     /* Contenedor de Información */
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-infoDiv {
         width: calc(100% - 108px) !important;
         flex-grow: 1 !important;
         min-width: 0 !important;
     }
-
     /* En Grid Mode, los desplegables no tienen miniatura. Asegurar que usen todo el espacio disponible */
     /* Mantenerlo por si acaso el list view asume algo incorrecto o como seguridad global, 
        aunque en general el Grid View no debería necesitar estar aquí si scoped. */
@@ -4308,17 +3798,14 @@ regular-item.ypp-fill-none {
         padding-right: 28px !important; /* Espacio para el menú ⋯ */
         box-sizing: border-box !important;
     }
-    
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper.selection-mode .ypp-infoDiv {
         width: calc(100% - 148px) !important;
     }
-
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-playlist-indicator {
         max-height: none !important;
         overflow: visible !important;
         white-space: normal !important;
     }
-
     /* Contenedor de Botones de Acción (Se apila verticalmente en su propia línea inferior) */
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-containerButtonsTime {
         width: 100% !important;
@@ -4333,7 +3820,6 @@ regular-item.ypp-fill-none {
         gap: 6px !important;
         min-height: 0 !important;
     }
-
     /* Filas de Botones individuales (QA y Acciones) */
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-buttons-row {
         width: 100% !important;
@@ -4342,7 +3828,6 @@ regular-item.ypp-fill-none {
         gap: 6px !important;
         min-height: 0 !important;
     }
-
     /* Botón de Más Acciones (⋯) */
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-saved-video-overflow-trigger {
         position: absolute !important;
@@ -4353,29 +3838,21 @@ regular-item.ypp-fill-none {
         z-index: 10 !important;
     }
 }
-
-
-
 .ypp-virtual-item {
     position: absolute !important;
     left: 0;
     width: 100%;
 }
-
 /* Estilos para modo de selección */
 .ypp-videoWrapper.selection-mode {
-    -webkit-transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
-    -o-transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
     transition: opacity 0.2s ease, background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
-
 .ypp-video-checkbox {
     min-width: 30px;
     min-height: 30px;
     margin: 0 10px 0 0;
     cursor: pointer;
 }
-
 /* =========================
    Grid View Mode
 ========================= */
@@ -4393,7 +3870,6 @@ regular-item.ypp-fill-none {
     gap: var(--ypp-spacing-md);
     box-sizing: border-box;
 }
-
 .ypp-grid-item {
     flex: 0 0 calc((100% - (var(--ypp-spacing-md) * (var(--row-cols, 3) - 1))) / var(--row-cols, 3));
     min-width: 0;
@@ -4406,12 +3882,10 @@ regular-item.ypp-fill-none {
     border: 1px solid var(--ypp-border);
     box-sizing: border-box;
 }
-
 .ypp-grid-item:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
 }
-
 .ypp-grid-item .ypp-thumb-wrapper {
     width: 100%;
     height: auto;
@@ -4420,7 +3894,6 @@ regular-item.ypp-fill-none {
     max-width: none;
     border-radius: var(--ypp-spacing-md) var(--ypp-spacing-md) 0 0;
 }
-
 .ypp-grid-item .ypp-video-checkbox {
     position: absolute;
     top: 8px;
@@ -4430,7 +3903,6 @@ regular-item.ypp-fill-none {
     border-radius: 4px;
     padding: 2px;
 }
-
 .ypp-grid-chevron {
     display: flex;
     justify-content: center;
@@ -4451,7 +3923,6 @@ regular-item.ypp-fill-none {
 .ypp-grid-item.is-expanded .ypp-grid-chevron {
     transform: rotate(180deg);
 }
-
 .ypp-grid-dropdown-info {
     width: 100%;
     overflow: hidden;
@@ -4482,7 +3953,6 @@ regular-item.ypp-fill-none {
     padding-right: 0;
     align-items: flex-start;
 }
-
 /* Estilos para el área de playlist integrada */
 .ypp-playlist-creation-area {
     margin-top: 12px;
@@ -4491,7 +3961,6 @@ regular-item.ypp-fill-none {
     border: 1px solid var(--ypp-border);
     border-radius: 6px;
 }
-
 .ypp-playlist-textarea {
     width: 100%;
     height: 50px;
@@ -4507,18 +3976,12 @@ regular-item.ypp-fill-none {
     overflow-y: auto;
     word-wrap: break-word;
 }
-
 .ypp-playlist-actions {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
     gap: 10px;
     margin-top: 10px;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
+    justify-content: center;
 }
-
 .ypp-thumb-wrapper {
     position: relative;
     display: flex;
@@ -4532,15 +3995,12 @@ regular-item.ypp-fill-none {
     overflow: hidden;
     background: var(--ypp-bg-secondary)
 }
-
 .ypp-thumb-regular {
     max-width: 155px;
 }
-
 .ypp-thumb-shorts {
     max-width: 55px;
 }
-
 .ypp-thumb {
     object-fit: cover;
     border-radius: var(--ypp-spacing-md);
@@ -4556,18 +4016,13 @@ regular-item.ypp-fill-none {
     outline: 1px solid rgba(0, 0, 0, 0.1);
     outline-offset: -1px;
 }
-
 :root[data-theme="dark"] .ypp-thumb {
     outline: 1px solid rgba(255, 255, 255, 0.1);
 }
-
 .ypp-infoDiv {
-    -webkit-box-flex: 1;
-        -ms-flex-positive: 1;
-            flex-grow: 1;
+    flex-grow: 1;
     min-width: 0;
 }
-
 .ypp-containerButtonsTime {
     display: flex;
     flex-direction: column;
@@ -4580,7 +4035,6 @@ regular-item.ypp-fill-none {
     flex-shrink: 0;
     min-height: 36px;
 }
-
 .ypp-buttons-row {
     display: flex;
     flex-wrap: wrap;
@@ -4590,7 +4044,6 @@ regular-item.ypp-fill-none {
     justify-content: flex-start;
     min-height: 36px;
 }
-
 .ypp-saved-video-overflow-trigger {
     position: absolute !important;
     right: 0;
@@ -4598,7 +4051,6 @@ regular-item.ypp-fill-none {
     transform: translateY(-50%) !important;
     margin: 0 !important;
 }
-
 .ypp-sort-select,
 .ypp-filter-select {
     background: var(--ypp-bg);
@@ -4608,50 +4060,33 @@ regular-item.ypp-fill-none {
     border-radius: 6px;
     font-size: 1.3rem;
     cursor: pointer;
-    -webkit-transition:
-        border-color 0.2s ease,
-        background-color 0.2s ease;
-    -o-transition:
-        border-color 0.2s ease,
-        background-color 0.2s ease;
     transition:
         border-color 0.2s ease,
         background-color 0.2s ease;
-    -webkit-box-flex: 1;
-        -ms-flex: 1;
-            flex: 1;
+    flex: 1;
     min-width: 0;
     width: auto;
-
     &:hover {
         background: var(--ypp-bg);
-
     }
-
     &:active {
         background: var(--ypp-bg);
-
     }
 }
-
 .ypp-sort-select:focus,
 .ypp-filter-select:focus {
     outline: none;
     border-color: var(--ypp-bg);
     background: var(--ypp-bg);
 }
-
 .ypp-sort-select option,
 .ypp-filter-select option {
     background: var(--ypp-bg);
     color: var(--ypp-text);
 }
-
-
 /* =========================
    Botones
 ========================= */
-
 .ypp-btn {
     display: inline-flex;
     align-items: center;
@@ -4668,133 +4103,99 @@ regular-item.ypp-fill-none {
     overflow: hidden;
     gap: 8px;
     background: var(--btn-bg, var(--ypp-primary));
-
     color: var(--btn-color, var(--ypp-white));
     /* min-height: 36px; */
-
     svg {
         flex-shrink: 0;
     }
-
     &::before {
         content: "";
         position: absolute;
         inset: 0;
         background: rgba(255, 255, 255, 0.1);
         opacity: 0;
-        -webkit-transition: opacity 0.2s ease;
-        -o-transition: opacity 0.2s ease;
         transition: opacity 0.2s ease;
         pointer-events: none;
     }
-
     &:hover {
         background: var(--btn-bg-hover, var(--ypp-primary-hover));
-
         &::before {
             opacity: 1;
         }
     }
-
     &:active {
         background: var(--btn-bg-active, var(--ypp-primary-active));
-        -webkit-transform: scale(0.98);
-            -ms-transform: scale(0.98);
-                transform: scale(0.98);
+        transform: scale(0.98);
     }
-
     &:focus-visible {
         outline: 2px solid var(--btn-bg-hover, var(--ypp-primary-hover));
         outline-offset: 2px;
     }
 }
-
 .ypp-btn-circle {
     padding: 0;  /* Sin padding para botón circular fijo */
     width: 36px;
     height: 36px;
     min-height: 36px;
-    -ms-flex-negative: 0;
-        flex-shrink: 0;
+    flex-shrink: 0;
     border-radius: 50%;
-    display: -webkit-inline-flex;
     display: inline-flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
+    align-items: center;
+    justify-content: center;
     line-height: 0;  /* Evitar espacios de baseline */
-
     svg {
         width: 16px;
         height: 16px;
         flex-shrink: 0;
     }
 }
-
-
-
-
-
-
-
 /* =========================
    Variantes de color de botones
    Uso: .ypp-btn + .ypp-btn-{variant} o .ypp-btn + .ypp-btn-outline-{variant}
    Variantes disponibles: primary | secondary | success | danger | warning | info
 ========================= */
-
 .ypp-btn-primary {
     --btn-bg: var(--ypp-primary);
     --btn-bg-hover: var(--ypp-primary-hover);
     --btn-bg-active: var(--ypp-primary-active);
     --btn-color: var(--ypp-white);
 }
-
 .ypp-btn-secondary {
     --btn-bg: var(--ypp-secondary);
     --btn-bg-hover: var(--ypp-secondary-hover);
     --btn-bg-active: var(--ypp-secondary-active);
     --btn-color: var(--ypp-white);
 }
-
 .ypp-btn-success {
     --btn-bg: var(--ypp-success);
     --btn-bg-hover: var(--ypp-success-hover);
     --btn-bg-active: var(--ypp-success-active);
     --btn-color: var(--ypp-white);
 }
-
 .ypp-btn-danger {
     --btn-bg: var(--ypp-danger);
     --btn-bg-hover: var(--ypp-danger-hover);
     --btn-bg-active: var(--ypp-danger-active);
     --btn-color: var(--ypp-white);
 }
-
 .ypp-btn-warning {
     --btn-bg: var(--ypp-warning);
     --btn-bg-hover: var(--ypp-warning-hover);
     --btn-bg-active: var(--ypp-warning-active);
     --btn-color: var(--ypp-black);
 }
-
 .ypp-btn-info {
     --btn-bg: var(--ypp-info);
     --btn-bg-hover: var(--ypp-info-hover);
     --btn-bg-active: var(--ypp-info-active);
     --btn-color: var(--ypp-white);
 }
-
 .ypp-btn-violet {
     --btn-bg: var(--ypp-violet);
     --btn-bg-hover: var(--ypp-violet-hover);
     --btn-bg-active: var(--ypp-violet-active);
     --btn-color: var(--ypp-white);
 }
-
 /* Outlines */
 .ypp-btn-outline-primary {
     --btn-bg: transparent;
@@ -4802,108 +4203,88 @@ regular-item.ypp-fill-none {
     --btn-bg-active: var(--ypp-primary-active);
     --btn-color: var(--ypp-primary-text);
     border: 1px solid var(--ypp-primary);
-
     &:hover {
         --btn-color: var(--ypp-white);
     }
-
     &:active {
         --btn-color: var(--ypp-white);
     }
 }
-
 .ypp-btn-outline-secondary {
     --btn-bg: transparent;
     --btn-bg-hover: var(--ypp-secondary);
     --btn-bg-active: var(--ypp-secondary-active);
     --btn-color: var(--ypp-secondary-text);
     border: 1px solid var(--ypp-secondary);
-
     &:hover {
         --btn-color: var(--ypp-white);
     }
-
     &:active {
         --btn-color: var(--ypp-white);
     }
 }
-
 .ypp-btn-outline-success {
     --btn-bg: transparent;
     --btn-bg-hover: var(--ypp-success);
     --btn-bg-active: var(--ypp-success-active);
     --btn-color: var(--ypp-success-text);
     border: 1px solid var(--ypp-success);
-
     &:hover {
         --btn-color: var(--ypp-white);
     }
 }
-
 .ypp-btn-outline-danger {
     --btn-bg: transparent;
     --btn-bg-hover: var(--ypp-danger);
     --btn-bg-active: var(--ypp-danger-active);
     --btn-color: var(--ypp-danger-text);
     border: 1px solid var(--ypp-danger);
-
     &:hover {
         --btn-color: var(--ypp-white);
     }
-
     &:active {
         --btn-color: var(--ypp-white);
     }
 }
-
 .ypp-btn-outline-warning {
     --btn-bg: transparent;
     --btn-bg-hover: var(--ypp-warning);
     --btn-bg-active: var(--ypp-warning-active);
     --btn-color: var(--ypp-warning-text);
     border: 1px solid var(--ypp-warning);
-
     &:hover {
         --btn-color: var(--ypp-black);
     }
-
     &:active {
         --btn-color: var(--ypp-black);
     }
 }
-
 .ypp-btn-outline-info {
     --btn-bg: transparent;
     --btn-bg-hover: var(--ypp-info);
     --btn-bg-active: var(--ypp-info-active);
     --btn-color: var(--ypp-info-text);
     border: 1px solid var(--ypp-info);
-
     &:hover {
         --btn-color: var(--ypp-white);
     }
-
     &:active {
         --btn-color: var(--ypp-white);
     }
 }
-
 .ypp-btn-outline-violet {
     --btn-bg: transparent;
     --btn-bg-hover: var(--ypp-violet);
     --btn-bg-active: var(--ypp-violet-active);
     --btn-color: var(--ypp-violet-text);
     border: 1px solid var(--ypp-violet);
-
     &:hover {
         --btn-color: var(--ypp-white);
     }
-
     &:active {
         --btn-color: var(--ypp-white);
     }
 }
-
 /* =========================
    Botones invariantes de tema
    Siempre negros o siempre blancos,
@@ -4911,157 +4292,101 @@ regular-item.ypp-fill-none {
    Uso: .ypp-btn + .ypp-btn-dark / .ypp-btn-light
         .ypp-btn + .ypp-btn-outline-dark / .ypp-btn-outline-light
 ========================= */
-
 /* Solid - Siempre oscuro */
 .ypp-btn-dark {
     background: #111111;
     color: #ffffff;
     border: 1px solid var(--ypp-secondary);
-
     &:hover {
         background: #000000;
         color: #ffffff;
     }
-
     &:active {
         background: #333333;
         color: #ffffff;
         filter: brightness(0.9);
     }
 }
-
 /* Solid - Siempre claro */
 .ypp-btn-light {
     background: #f4f4f5;
     color: #111111;
     border: 1px solid var(--ypp-secondary);
-
     &:hover {
         background: #ffffff;
         color: #000000;
     }
-
     &:active {
         background: #e4e4e7;
         color: #111111;
         filter: brightness(0.95);
     }
 }
-
 /* Outline - Siempre oscuro */
 .ypp-btn-outline-dark {
     background: transparent;
     border: 1px solid #111111;
     color: #111111;
-
     &:hover {
         background: #111111;
         color: #ffffff;
     }
-
     &:active {
         background: #000000;
         color: #ffffff;
     }
 }
-
 /* Outline - Siempre claro */
 .ypp-btn-outline-light {
     background: transparent;
     border: 1px solid #d4d4d8;
     color: #f4f4f5;
-
     &:hover {
         background: #f4f4f5;
         color: #111111;
     }
-
     &:active {
         background: #ffffff;
         color: #000000;
     }
 }
-
-@-webkit-keyframes fadeIn {
-    from {
-        opacity: 0;
-    }
-
-    to {
-        opacity: 1;
-    }
-}
-
 @keyframes fadeIn {
     from {
         opacity: 0;
     }
-
     to {
         opacity: 1;
     }
 }
-
-@-webkit-keyframes slideUp {
-    from {
-        opacity: 0;
-        -webkit-transform: translateY(20px) scale(0.95);
-                transform: translateY(20px) scale(0.95);
-    }
-
-    to {
-        opacity: 1;
-        -webkit-transform: translateY(0) scale(1);
-                transform: translateY(0) scale(1);
-    }
-}
-
 @keyframes slideUp {
     from {
         opacity: 0;
-        -webkit-transform: translateY(20px) scale(0.95);
-                transform: translateY(20px) scale(0.95);
+        transform: translateY(20px) scale(0.95);
     }
-
     to {
         opacity: 1;
-        -webkit-transform: translateY(0) scale(1);
-                transform: translateY(0) scale(1);
+        transform: translateY(0) scale(1);
     }
 }
-
 /* =========================
    Toasts
 ========================= */
-
 .ypp-toast-container {
     position: fixed;
     top: var(--ypp-spacing-md);
     right: var(--ypp-spacing-md);
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
     gap: 0.5rem;
     z-index: var(--ypp-z-toast);
     pointer-events: none;
 }
-
 .ypp-toast {
     position: relative;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
     gap: 10px;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    justify-content: center;
+    align-items: center;
     background: var(--ypp-bg);
     color: var(--ypp-text);
     padding: 12px 16px;
@@ -5069,19 +4394,14 @@ regular-item.ypp-fill-none {
     border: 1px solid var(--ypp-border);
     font-size: 1.4rem;
     max-width: 300px;
-    -webkit-animation: ypp-spring-toast-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-            animation: ypp-spring-toast-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    -webkit-transition: opacity 0.2s ease, -webkit-transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation: ypp-spring-toast-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    -o-transition: opacity 0.2s ease;
     transition: opacity 0.2s ease;
-    -webkit-backdrop-filter: blur(10px);
-            backdrop-filter: blur(10px);
+    backdrop-filter: blur(10px);
     pointer-events: auto;
     overflow: hidden;
     /* Para que la barra de progreso no se salga de los bordes redondeados */
 }
-
 .ypp-toast-progress {
     position: absolute;
     bottom: 0;
@@ -5089,59 +4409,36 @@ regular-item.ypp-fill-none {
     height: 4px;
     background: var(--ypp-primary);
     width: 100%;
-    -webkit-transform-origin: left;
-        -ms-transform-origin: left;
-            transform-origin: left;
-    -webkit-transform: scaleX(1);
-        -ms-transform: scaleX(1);
-            transform: scaleX(1);
+    transform-origin: left;
+    transform: scaleX(1);
 }
-
-@-webkit-keyframes ypp-spring-toast-in {
-    0% { opacity: 0; -webkit-transform: translateY(20px) scale(0.9); }
-    100% { opacity: 1; -webkit-transform: translateY(0) scale(1); }
-}
-
 @keyframes ypp-spring-toast-in {
     0% { opacity: 0; transform: translateY(20px) scale(0.9); }
     100% { opacity: 1; transform: translateY(0) scale(1); }
 }
-
 .ypp-toast.persistent {
     position: relative;
 }
-
 .ypp-toast-close {
     border: none;
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
+    align-items: center;
+    justify-content: center;
     cursor: pointer;
-    -webkit-transition: background-color 0.2s ease;
-    -o-transition: background-color 0.2s ease;
     transition: background-color 0.2s ease;
-
     &:hover {
         background: var(--ypp-danger);
         color: var(--ypp-text);
     }
 }
-
 .ypp-toast-actions {
     display: flex;
     gap: 8px;
     margin-left: auto;
 }
-
 .ypp-toast-action {
     background: var(--ypp-primary);
     border: none;
@@ -5153,15 +4450,12 @@ regular-item.ypp-fill-none {
     white-space: nowrap;
     transition: filter 0.2s;
 }
-
 .ypp-toast-action:hover {
     filter: brightness(1.1);
 }
-
 /* =========================
    Modal
 ========================= */
-
 .ypp-modalOverlay {
     position: fixed;
     top: 0;
@@ -5169,22 +4463,13 @@ regular-item.ypp-fill-none {
     width: 100%;
     height: 100%;
     background: var(--ypp-overlay, rgba(0, 0, 0, 0.8));
-    -webkit-backdrop-filter: blur(4px);
-            backdrop-filter: blur(4px);
+    backdrop-filter: blur(4px);
     z-index: var(--ypp-z-modal);
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
-    -webkit-animation: fadeIn 0.2s ease-out;
-            animation: fadeIn 0.2s ease-out;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.2s ease-out;
 }
-
 .ypp-modalBox {
     background: var(--ypp-bg);
     border: 1px solid var(--ypp-border);
@@ -5195,23 +4480,13 @@ regular-item.ypp-fill-none {
     width: 90%;
     max-height: 85vh;
     /* overflow: hidden; */
-    -webkit-animation: slideUp 0.3s ease-out;
-            animation: slideUp 0.3s ease-out;
-    display: -webkit-box;
-    display: -ms-flexbox;
+    animation: slideUp 0.3s ease-out;
     display: flex;
-    -webkit-box-orient: vertical;
-    -webkit-box-direction: normal;
-        -ms-flex-direction: column;
-            flex-direction: column;
+    flex-direction: column;
     opacity: 0;
-    -webkit-transform: translateY(20px) scale(0.95);
-        -ms-transform: translateY(20px) scale(0.95);
-            transform: translateY(20px) scale(0.95);
-    -webkit-animation: modalSlideIn 0.3s ease-out forwards;
-            animation: modalSlideIn 0.3s ease-out forwards;
+    transform: translateY(20px) scale(0.95);
+    animation: modalSlideIn 0.3s ease-out forwards;
 }
-
 .ypp-storage-usage {
     display: flex;
     align-items: center;
@@ -5220,133 +4495,79 @@ regular-item.ypp-fill-none {
     padding: 2px 6px;
     border-radius: var(--ypp-spacing-sm);
 }
-
 /* Tabs para GitHub Backup */
 .ypp-github-tabs {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
     gap: var(--ypp-spacing-lg);
     border-radius: 8px;
 }
-
 .ypp-github-tab {
-    -webkit-box-flex: 1;
-        -ms-flex: 1;
-            flex: 1;
+    flex: 1;
     padding: 8px;
     text-align: center;
     cursor: pointer;
     border-radius: 6px 6px 0 0;
     font-size: 0.9em;
     font-weight: 500;
-    -webkit-transition: background-color 0.2s, color 0.2s;
-    -o-transition: background-color 0.2s, color 0.2s;
     transition: background-color 0.2s, color 0.2s;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
-    -webkit-box-pack: center;
-        -ms-flex-pack: center;
-            justify-content: center;
+    align-items: center;
+    justify-content: center;
     gap: 6px;
     padding: var(--ypp-spacing-lg);
 }
-
 .ypp-github-tab.active {
     background: var(--ypp-bg-secondary);
 }
-
 .ypp-github-tab:not(.active):hover {
     background: var(--ypp-bg);
 }
-
-@-webkit-keyframes modalSlideIn {
-    to {
-        opacity: 1;
-        -webkit-transform: translateY(0) scale(1);
-                transform: translateY(0) scale(1);
-    }
-}
-
 @keyframes modalSlideIn {
     to {
         opacity: 1;
-        -webkit-transform: translateY(0) scale(1);
-                transform: translateY(0) scale(1);
+        transform: translateY(0) scale(1);
     }
 }
-
 .ypp-header {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
-    -webkit-box-pack: justify;
-        -ms-flex-pack: justify;
-            justify-content: space-between;
+    align-items: center;
+    justify-content: space-between;
     padding: 6px 12px;
     border-bottom: 1px solid var(--ypp-border);
     background: var(--ypp-bg);
     border-radius: 12px 12px 0 0;
-    -ms-flex-negative: 0;
-        flex-shrink: 0;
+    flex-shrink: 0;
 }
-
 .ypp-header h2 {
     margin: 0;
     color: var(--ypp-text);
     font-size: 1.8rem;
     font-weight: 500;
 }
-
 .ypp-modalTitle {
     font-weight: 500;
     color: var(--ypp-text);
     font-size: 1.6rem;
     margin: 0;
     text-wrap: balance;
-    -webkit-box-flex: 1;
-        -ms-flex: 1;
-            flex: 1;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
-    -webkit-box-pack: start;
-        -ms-flex-pack: start;
-            justify-content: flex-start;
-    display: -webkit-box;
-    display: -ms-flexbox;
+    flex: 1;
+    align-items: center;
+    justify-content: flex-start;
     display: flex;
     gap: 5px;
-
     svg {
         width: 20px;
         height: 20px;
     }
 }
-
 .ypp-modalTitle-version {
     color: var(--ypp-muted);
     margin-left: 8px;
-    -webkit-user-select: none;
-       -moz-user-select: none;
-        -ms-user-select: none;
-            user-select: none;
+    user-select: none;
     font-size: 1.2rem;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
 }
-
 .ypp-log-textarea {
     width: 90%;
     height: 120px;
@@ -5363,57 +4584,38 @@ regular-item.ypp-fill-none {
     white-space: pre-wrap;
     word-break: break-all;
 }
-
 .ypp-modalBody {
     font-size: 1.4rem;
     padding: 10px 24px;
-    -webkit-box-flex: 1;
-        -ms-flex: 1;
-            flex: 1;
+    flex: 1;
     background: var(--ypp-bg);
     min-height: 0;
 }
-
 /* =========================
    Inputs y Forms
 ========================= */
-
 .ypp-label {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     color: var(--ypp-text);
     font-size: 1.4rem;
-    -webkit-transition: color 0.2s ease;
-    -o-transition: color 0.2s ease;
     transition: color 0.2s ease;
     white-space: nowrap;
     /*   margin: 8px 0; */
     gap: var(--ypp-spacing-sm);
-
     span {
-        display: -webkit-box;
-        display: -ms-flexbox;
         display: flex;
-        -webkit-box-align: center;
-            -ms-flex-align: center;
-                align-items: center;
+        align-items: center;
         gap: 5px;
         text-wrap: stable;
     }
 }
-
 .ypp-label-language {
     gap: 12px;
 }
-
 .ypp-label-filters {
     margin: 0 8px 0 0;
 }
-
 .ypp-input {
     width: 100%;
     padding: 6px;
@@ -5422,68 +4624,31 @@ regular-item.ypp-fill-none {
     border-radius: 8px;
     color: var(--ypp-text);
     font-size: 1.4rem;
-    -webkit-transition:
-        border-color 0.2s ease,
-        background-color 0.2s ease;
-    -o-transition:
-        border-color 0.2s ease,
-        background-color 0.2s ease;
     transition:
         border-color 0.2s ease,
         background-color 0.2s ease;
-
     &:focus {
         outline: none;
         border-color: var(--ypp-primary);
         background: var(--ypp-bg-secondary);
         color: var(--ypp-text);
-
-        &::-webkit-input-placeholder {
+        &::input-placeholder {
             color: var(--ypp-text);
         }
-
-        &::-moz-placeholder {
-            color: var(--ypp-text);
-        }
-
-        &:-ms-input-placeholder {
-            color: var(--ypp-text);
-        }
-
-        &::-ms-input-placeholder {
-            color: var(--ypp-text);
-        }
-
         &::placeholder {
             color: var(--ypp-text);
         }
     }
-
-    &::-webkit-input-placeholder {
+    &::input-placeholder {
         color: var(--ypp-text-secondary);
     }
-
-    &::-moz-placeholder {
-        color: var(--ypp-text-secondary);
-    }
-
-    &:-ms-input-placeholder {
-        color: var(--ypp-text-secondary);
-    }
-
-    &::-ms-input-placeholder {
-        color: var(--ypp-text-secondary);
-    }
-
     &::placeholder {
         color: var(--ypp-text-secondary);
     }
 }
-
 .ypp-percent-symbol {
     margin-left: 6px;
 }
-
 .ypp-select {
     padding: 5px 12px;
     background: var(--ypp-input);
@@ -5492,36 +4657,26 @@ regular-item.ypp-fill-none {
     color: var(--ypp-text);
     font-size: 1.4rem;
     cursor: pointer;
-    -webkit-transition:
-        border-color 0.2s ease,
-        background-color 0.2s ease;
-    -o-transition:
-        border-color 0.2s ease,
-        background-color 0.2s ease;
     transition:
         border-color 0.2s ease,
         background-color 0.2s ease;
-
     &:focus {
         outline: none;
         border-color: var(--ypp-primary);
         background: var(--ypp-bg-secondary);
     }
 }
-
 .ypp-input-small {
     border-radius: 10px;
     padding: 2px 10px;
     max-width: 45px;
 }
-
 .ypp-alert-preview-container {
     padding: 12px;
     display: flex;
     flex-direction: column;
     gap: 8px;
 }
-
 .ypp-alert-preview-title {
     font-size: 1.1rem;
     color: var(--ypp-text-secondary);
@@ -5529,7 +4684,6 @@ regular-item.ypp-fill-none {
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
-
 .ypp-alert-preview-box {
     padding: 8px 14px;
     background: var(--ypp-bg);
@@ -5542,68 +4696,48 @@ regular-item.ypp-fill-none {
     word-break: break-all;
     gap: var(--ypp-spacing-sm);
 }
-
 /* =========================
    Floating Button
 ========================= */
-
 .ypp-floatingBtnContainer {
     position: fixed;
     bottom: var(--ypp-spacing-md);
     right: var(--ypp-spacing-md);
     z-index: var(--ypp-z-overlay);
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
     gap: 10px;
 }
-
 /* =========================
    Selector de Idioma con Banderas
 ========================= */
-
 .ypp-language-selector {
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     gap: 8px;
 }
-
 .ypp-language-flag {
     font-size: 1.2em;
     margin-right: 5px;
 }
-
 /* =========================
    GitHub Backup
 ========================= */
-
 .ypp-github-settings-header {
     margin-bottom: 10px;
 }
-
 .ypp-github-help-toggle {
     cursor: pointer;
     color: var(--ypp-primary-text);
     font-size: 0.85em;
-    display: -webkit-box;
-    display: -ms-flexbox;
     display: flex;
-    -webkit-box-align: center;
-        -ms-flex-align: center;
-            align-items: center;
+    align-items: center;
     gap: var(--ypp-spacing-sm);
     margin-top: 5px;
     opacity: 0.8;
-
     &:hover {
         opacity: 1;
     }
 }
-
 .ypp-github-help-content {
     font-size: 0.8em;
     color: var(--ypp-text-secondary);
@@ -5613,83 +4747,66 @@ regular-item.ypp-fill-none {
     margin-top: 5px;
     display: none;
 }
-
 .ypp-github-help-toggle.active+.ypp-github-help-content {
     display: block;
 }
-
 .ypp-github-help-important {
     margin: 0;
     color: var(--ypp-warning);
     background: var(--ypp-bg);
     border-radius: var(--ypp-spacing-sm);
     padding: 5px;
-    width: -webkit-fit-content;
-    width: -moz-fit-content;
     width: fit-content;
     font-weight: bold;
     text-transform: uppercase;
 }
-
-.ypp-support-options {
+/* .ypp-support-options {
     border-top: 1px solid var(--ypp-border);
     font-size: 1.4rem;
     color: var(--ypp-text);
     background: var(--ypp-bg-secondary);
-
     /* display: flex;
     flex-direction: column;
     gap: var(--ypp-spacing-md); */
     background: var(--ypp-border);
     border-radius: 6px;
     padding: 10px;
-}
-
-
-
+} */
 .ypp-management-footer-container {
     display: flex;
     flex-direction: column;
     gap: var(--ypp-spacing-md);
 }
-
 .ypp-management-footer-item-group {
     display: grid;
     gap: var(--ypp-spacing-md);
     grid-template-columns: 1fr;
 }
-
 .ypp-management-footer-section {
     display: flex;
     gap: var(--ypp-spacing-sm);
     flex-wrap: wrap;
     align-items: center;
 }
-
 .ypp-management-footer-section[data-section="danger"] {
     padding-top: 8px;
     border-top: 1px solid var(--ypp-border);
 }
-
 .ypp-management-footer-section[data-section="danger"] .ypp-management-footer-item:last-child {
     margin-left: auto;
 }
-
 .ypp-management-footer-section[data-section="session"] {
     justify-content: flex-end;
 }
-
 /* =========================
    Custom Icon Dropdown
    Replaces native <select> to enable SVG icons inside options
 ========================= */
-
 .ypp-custom-dropdown {
     position: relative;
     flex: 1;
     min-width: 0;
 }
-
 .ypp-dropdown-trigger {
     display: flex;
     align-items: center;
@@ -5705,37 +4822,31 @@ regular-item.ypp-fill-none {
     transition: border-color 0.2s ease, background-color 0.2s ease;
     box-sizing: border-box;
     user-select: none;
-
     &:hover {
         background: var(--ypp-bg-secondary);
     }
-
     &[aria-expanded="true"] {
         border-color: var(--ypp-primary);
         background: var(--ypp-bg-secondary);
     }
 }
-
 .ypp-dropdown-trigger-icon {
     display: flex;
     align-items: center;
     flex-shrink: 0;
    /*  width: 16px;
     height: 16px; */
-
     svg {
         width: 16px;
         height: 16px;
     }
 }
-
 .ypp-dropdown-trigger-label {
     flex: 1;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
-
 .ypp-dropdown-trigger-chevron {
     display: flex;
     align-items: center;
@@ -5745,17 +4856,14 @@ regular-item.ypp-fill-none {
     height: 18px;
     color: var(--ypp-text-secondary);
     transition: transform 0.2s ease;
-
     svg {
         width: 18px;
         height: 18px;
     }
-
     &.open {
         transform: rotate(180deg);
     }
 }
-
 .ypp-dropdown-list {
     position: absolute;
     top: calc(100% + 4px);
@@ -5773,12 +4881,10 @@ regular-item.ypp-fill-none {
     padding: 4px;
     box-sizing: border-box;
     animation: yppDropdownSlideIn 0.15s ease-out;
-
     &.hidden {
         display: none;
     }
 }
-
 @keyframes yppDropdownSlideIn {
     from {
         opacity: 0;
@@ -5789,7 +4895,6 @@ regular-item.ypp-fill-none {
         transform: translateY(0);
     }
 }
-
 .ypp-dropdown-group-label {
     display: flex;
     align-items: center;
@@ -5804,18 +4909,15 @@ regular-item.ypp-fill-none {
     pointer-events: none;
     border-top: 1px solid var(--ypp-border);
     margin-top: 4px;
-
     &:first-child {
         border-top: none;
         margin-top: 0;
     }
-
     svg {
         width: 14px;
         height: 14px;
     }
 }
-
 .ypp-dropdown-item {
     display: flex;
     align-items: center;
@@ -5827,30 +4929,25 @@ regular-item.ypp-fill-none {
     color: var(--ypp-text);
     transition: background-color 0.1s ease;
     white-space: nowrap;
-
     &:hover {
         background: var(--ypp-bg-secondary);
     }
-
     &[aria-selected="true"] {
         background: var(--ypp-primary);
         color: var(--ypp-white);
     }
 }
-
 .ypp-dropdown-item-icon {
     display: flex;
     align-items: center;
     flex-shrink: 0;
   /*   width: 16px;
     height: 16px; */
-
     svg {
         width: 16px;
         height: 16px;
     }
 }
-
 /* Estilos cuando NO existe .ytp-delhi-modern */
 /* Medida para https://greasyfork.org/es/scripts/564036-old-youtube-player */
 #movie_player:not(:has(.ytp-delhi-modern)) {
@@ -5861,7 +4958,6 @@ regular-item.ypp-fill-none {
         gap: 10px !important;
     }
 }
-
 ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     .ytp-time-wrapper {
         display: flex !important; 
@@ -5869,8 +4965,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         align-items: center !important; 
         gap: 10px !important;
     }
-}
-`);
+}  
+        `);
 
     // ============================================================================================================
     // MARK: 🎨 Theme
@@ -6210,38 +5306,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             .ytp-play-progress {
                 background: var(--ytp-progress-color) !important;
-                -webkit-transition: background 0.3s ease !important;
-                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
             .ytp-hover-progress {
                 background: var(--ytp-progress-color) !important;
-                -webkit-transition: background 0.3s ease !important;
-                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
             .ytp-progress-bar-container {
-                background: -webkit-gradient(linear,
-                    left top, right top,
-                    from(var(--ytp-progress-color)),
-                    color-stop(var(--ytp-progress-color)),
-                    color-stop(rgba(255, 255, 255, 0.2)),
-                    to(rgba(255, 255, 255, 0.2))) !important;
-                background: -o-linear-gradient(left,
+                background: linear-gradient(
+                    to right,
                     var(--ytp-progress-color) 0%,
                     var(--ytp-progress-color) var(--ytp-progress-percent),
                     rgba(255, 255, 255, 0.2) var(--ytp-progress-percent),
-                    rgba(255, 255, 255, 0.2) 100%) !important;
-                background: linear-gradient(to right,
-                    var(--ytp-progress-color) 0%,
-                    var(--ytp-progress-color) var(--ytp-progress-percent),
-                    rgba(255, 255, 255, 0.2) var(--ytp-progress-percent),
-                    rgba(255, 255, 255, 0.2) 100%) !important;
+                    rgba(255, 255, 255, 0.2) 100%
+                ) !important;
+
                 background-size: 100% 100% !important;
-                -webkit-transition: background 0.3s ease !important;
-                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
@@ -6259,40 +5341,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             /* Barra de progreso principal de shorts */
             .ytProgressBarLineProgressBarPlayed {
                 background: var(--ytp-progress-color) !important;
-                -webkit-transition: background 0.3s ease !important;
-                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
             /* Barra de hover en shorts */
             .ytProgressBarLineProgressBarHovered {
                 background: var(--ytp-progress-color) !important;
-                -webkit-transition: background 0.3s ease !important;
-                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
             /* Contenedor principal de la barra de shorts */
             .ytProgressBarLineProgressBarLine {
-                background: -webkit-gradient(linear,
-                    left top, right top,
-                    from(var(--ytp-progress-color)),
-                    color-stop(var(--ytp-progress-color)),
-                    color-stop(rgba(255, 255, 255, 0.2)),
-                    to(rgba(255, 255, 255, 0.2))) !important;
-                background: -o-linear-gradient(left,
+                background: linear-gradient(
+                    to right,
                     var(--ytp-progress-color) 0%,
                     var(--ytp-progress-color) var(--ytp-progress-percent),
                     rgba(255, 255, 255, 0.2) var(--ytp-progress-percent),
-                    rgba(255, 255, 255, 0.2) 100%) !important;
-                background: linear-gradient(to right,
-                    var(--ytp-progress-color) 0%,
-                    var(--ytp-progress-color) var(--ytp-progress-percent),
-                    rgba(255, 255, 255, 0.2) var(--ytp-progress-percent),
-                    rgba(255, 255, 255, 0.2) 100%) !important;
+                    rgba(255, 255, 255, 0.2) 100%
+                ) !important;
+
                 background-size: 100% 100% !important;
-                -webkit-transition: background 0.3s ease !important;
-                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
@@ -6304,8 +5372,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             /* Punto del seek (playhead) en shorts */
             .ytProgressBarPlayheadProgressBarPlayheadDot {
                 background: var(--ytp-progress-color) !important;
-                -webkit-transition: background 0.3s ease !important;
-                -o-transition: background 0.3s ease !important;
                 transition: background 0.3s ease !important;
             }
 
@@ -8919,17 +7985,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         // 5. Determinar el tipo final guardado en la base de datos
-        let resolvedType = finalType;
-        if (finalType === 'preview') {
-            const previousType = sourceData?.type;
-            resolvedType = (previousType === 'video' || previousType === 'shorts' || previousType === 'live')
-                ? previousType
-                : (options.previewType || 'preview_watch');
-        } else if (finalType === 'watch' || finalType === 'miniplayer') {
-            resolvedType = 'video';
-        } else if (finalType === 'shorts') {
-            resolvedType = 'shorts';
-        }
+        const RESOLVED_TYPES = { watch: 'video', miniplayer: 'video', shorts: 'shorts' };
+        const resolvedType = finalType === 'preview'
+            ? (['video', 'shorts', 'live'].includes(sourceData?.type) ? sourceData.type : (options.previewType || 'preview_watch'))
+            : (RESOLVED_TYPES[finalType] || finalType);
 
         const videoData = {
             ...sourceData,
@@ -8990,10 +8049,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         return { success: true, videoId, watchProgress: videoData.watchProgress, type: finalType, savedData: videoData };
     }
-
-
-
-
 
     // ============================================================================================================
     // MARK: 📺 Helpers
@@ -9757,9 +8812,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
     }
 
-
-
-
     /**
      * Resolves the display title of a YouTube playlist by ID.
      *
@@ -10236,8 +9288,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         return null;
     }
 
-
-
     let shortsPanelObserver = null;
 
     /**
@@ -10255,8 +9305,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         /** @type {Map<'watch'|'shorts'|'miniplayer'|'preview', { videoEl: HTMLVideoElement|null, videoId: string|null }>} */
         const displayIdentity = new Map();
-
-
 
         const getDisplay = (context) => {
             const displayMap = {
@@ -10649,10 +9697,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 display.remove();
             }
             displayIdentity.delete(context);
-            if (context === 'watch') watchTimeDisplay = null;
-            else if (context === 'shorts') shortsTimeDisplay = null;
-            else if (context === 'miniplayer') miniplayerTimeDisplay = null;
-            else if (context === 'preview') inlinePreviewTimeDisplay = null;
+            switch (context) {
+                case 'watch': watchTimeDisplay = null; break;
+                case 'shorts': shortsTimeDisplay = null; break;
+                case 'miniplayer': miniplayerTimeDisplay = null; break;
+                case 'preview': inlinePreviewTimeDisplay = null; break;
+            }
         };
 
         const bind = (context, { videoEl = null, videoId = null } = {}) => {
@@ -11306,7 +10356,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const settings = { ...await getSettings() };
         const githubSettings = { ...await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings) };
 
-        // Crear overlay
         const overlay = createElement('div', {
             className: 'ypp-modalOverlay',
             attributes: { 'aria-modal': 'true', role: 'dialog' },
@@ -11315,18 +10364,28 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const modal = createElement('div', { className: 'ypp-modalBox ypp-shadow-md' });
 
-        // Header
-        const header = createElement('div', { className: 'ypp-modalHeader' });
-        setInnerHTML(header, `
-            <h1 class="ypp-modalTitle">️${SVG_ICONS.settings} ${t('settings')} <span class="ypp-modalTitle-version">v${SCRIPT_VERSION}</span></h1>
-            <button class="ypp-btn ypp-btn-circle ypp-btn-outline-danger" id="btn-close-settings" aria-label="${t('close')}" title="${t('close')}" type="button">
-                ${SVG_ICONS.close}
-            </button>
-        `);
-        header.querySelector('#btn-close-settings').addEventListener('click', closeModal);
+        const header = createElement('div', {
+            className: 'ypp-modalHeader',
+            children: [
+                createElement('h1', {
+                    className: 'ypp-modalTitle',
+                    html: `️${SVG_ICONS.settings} ${t('settings')} <span class="ypp-modalTitle-version">v${SCRIPT_VERSION}</span>`
+                }),
+                createElement('button', {
+                    className: 'ypp-btn ypp-btn-circle ypp-btn-outline-danger',
+                    id: 'btn-close-settings',
+                    ariaLabel: t('close'),
+                    title: t('close'),
+                    type: 'button',
+                    html: SVG_ICONS.close,
+                    onClickEvent: closeModal
+                })
+            ]
+        });
 
-        // Body
-        const settingsHTML = `
+        const bodyModalSettings = createElement('div', {
+            className: 'ypp-modalBody',
+            html: `
             <div class="ypp-settingsContent">
                 <div id="ypp-language-section-container" style="display: contents;"></div>
                 ${renderGeneralSettingSection(settings)}
@@ -11337,30 +10396,27 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     ${renderNotificationSettingsSection(settings)}
                     ${renderAutoCleanupSection(settings)}
                 </div>
+
                 <div class="ypp-settings-main-section">
                     ${renderGitHubBackupSection(githubSettings)}
                 </div>
-                <div class="ypp-support-options">
-                    <h3 style="margin:10px 0; display:flex; align-items:center; gap:8px; font-size:1.4rem; color: var(--ypp-text);">
+
+                <div class="ypp-settings-main-section"">
+                    <h2 class="ypp-section-title">
                         ${SVG_ICONS.bug} ${t('supportLogsTitle')}
-                    </h3>
-                    <textarea readonly class="ypp-log-textarea ypp-shadow-sm" spellcheck="false" placeholder="${t('noLogs')}">${(window.MyScriptLogger._errorLogs && window.MyScriptLogger._errorLogs.length > 0)
-                ? window.MyScriptLogger._errorLogs.join('\n')
-                : ''
-            }</textarea>
-                    <button class="ypp-btn ypp-btn-secondary" type="button" style="margin-top: 10px;" id="ypp-copy-logs-btn">
-                        ${SVG_ICONS.copy} ${t('copyLogsBtn')}
-                    </button>
-                    <button class="ypp-btn ypp-btn-outline-info ypp-create-issue-btn" type="button" style="margin-top: 10px; margin-left: 10px;">
-                        ${SVG_ICONS.issueDraft} ${t('reportIssue')} ${SVG_ICONS.linkExternal}
-                    </button>
+                    </h2>
+                    <textarea readonly class="ypp-log-textarea ypp-shadow-sm" spellcheck="false" placeholder="${t('noLogs')}">${(window.MyScriptLogger._errorLogs && window.MyScriptLogger._errorLogs.length > 0) ? window.MyScriptLogger._errorLogs.join('\n') : ''}</textarea>
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button class="ypp-btn ypp-btn-secondary" type="button" id="ypp-copy-logs-btn">
+                            ${SVG_ICONS.copy} ${t('copyLogsBtn')}
+                        </button>
+                        <button class="ypp-btn ypp-btn-outline-info ypp-create-issue-btn" type="button">
+                            ${SVG_ICONS.issueDraft} ${t('reportIssue')} ${SVG_ICONS.linkExternal}
+                        </button>
+                    </div>
                 </div>
             </div>
-        `;
-
-        const bodyModalSettings = createElement('div', {
-            className: 'ypp-modalBody',
-            html: settingsHTML
+            `
         });
 
         const langContainer = bodyModalSettings.querySelector('#ypp-language-section-container');
@@ -12070,8 +11126,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     toggleManagementMode();
                 }
             });
-
-
 
             managementModeContainer.append(selectionInfo);
             selectionSection.append(btnSelectAll, btnClearSelection);
@@ -13987,11 +13041,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Optimización: Solo iniciar el intervalo si el guardado automático está habilitado para este tipo
         const isLive = sessionRef.videoInfo?.isLive || false;
-        const isAutoSaveEnabled =
-            type === 'shorts' ? cachedSettings?.saveShorts :
-                type === 'preview' ? cachedSettings?.saveInlinePreviews :
-                    type === 'miniplayer' ? cachedSettings?.saveMiniplayerVideos :
-                        (isLive ? cachedSettings?.saveLiveStreams : cachedSettings?.saveRegularVideos);
+        const TYPE_SAVE_KEY = { shorts: 'saveShorts', preview: 'saveInlinePreviews', miniplayer: 'saveMiniplayerVideos' };
+        const isAutoSaveEnabled = TYPE_SAVE_KEY[type]
+            ? cachedSettings?.[TYPE_SAVE_KEY[type]]
+            : (isLive ? cachedSettings?.saveLiveStreams : cachedSettings?.saveRegularVideos);
 
         if (isAutoSaveEnabled !== false) {
             let tickCount = 0;
@@ -14442,77 +13495,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         startProcessingSession(videoEl, type, videoId, player);
     }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
     // ============================================================================================================
     // MARK: PlaybackController
     // ============================================================================================================
@@ -14822,12 +13804,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 updateProgressBarGradient(currentTime, duration, finalType);
 
                 // Verificar si el guardado está habilitado para este tipo final para modo AUTOMÁTICO
-                let isEnabledForAutoSave = true;
-                if (finalType === 'live' && !cachedSettings?.saveLiveStreams) isEnabledForAutoSave = false;
-                else if (finalType === 'shorts' && !cachedSettings?.saveShorts) isEnabledForAutoSave = false;
-                else if (finalType === 'preview' && !cachedSettings?.saveInlinePreviews) isEnabledForAutoSave = false;
-                else if (finalType === 'miniplayer' && !cachedSettings?.saveMiniplayerVideos) isEnabledForAutoSave = false;
-                else if (finalType === 'watch' && !cachedSettings?.saveRegularVideos) isEnabledForAutoSave = false;
+                const TYPE_SAVE_SETTING = { live: 'saveLiveStreams', shorts: 'saveShorts', preview: 'saveInlinePreviews', miniplayer: 'saveMiniplayerVideos', watch: 'saveRegularVideos' };
+                const saveSetting = TYPE_SAVE_SETTING[finalType];
+                let isEnabledForAutoSave = !(saveSetting && !cachedSettings?.[saveSetting]);
 
                 // Si es un guardado automático y el tipo está desactivado, salimos.
                 // Si es manual (options.isManual), permitimos el guardado independientemente del tipo.
@@ -16015,8 +14994,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         isBatchStorageCacheValid = true;
         return results;
     }
-
-
 
     // ============================================================================================================
     // MARK: 📁 Update Video List
@@ -18269,10 +17246,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         generalGroup.appendChild(scrollbarThickRow);
         inner.appendChild(generalGroup);
 
-
-
-
-
         const itemDisplayGroup = makeToolbarGroup('savedVideosToolbarItemDisplayGroup');
 
         const displayRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row ypp-saved-videos-toolbar-display-row' });
@@ -18282,8 +17255,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }));
         const displayChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles ypp-display-options-toggles' });
 
-
-
         displayChips.appendChild(makeDisplayToggle('showThumbnails', SVG_ICONS.image, 'showThumbnails'));
         displayChips.appendChild(makeDisplayToggle('showViews', SVG_ICONS.people, 'showViews'));
         /* displayChips.appendChild(makeDisplayToggle('showStats', SVG_ICONS.graph, 'showStats'));
@@ -18291,15 +17262,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         displayRow.appendChild(displayChips);
         itemDisplayGroup.appendChild(displayRow);
         inner.appendChild(itemDisplayGroup);
-
-
-
-
-
-
-
-
-
 
         const rowActionsGroup = makeToolbarGroup('savedVideosToolbarRowActionsGroup', 'ypp-saved-videos-toolbar-action-group');
         rowActionsGroup.appendChild(makeToggleRow('savedVideosToolbarQuickAccess', settings.quickAccess, 'quickAccess'));
@@ -18459,10 +17421,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         visRow.appendChild(visBtns);
         labelsGroup.appendChild(visRow);
         inner.appendChild(labelsGroup);
-
-
-
-
 
         body.appendChild(inner);
         wrap.appendChild(sectionToggle);
@@ -19185,17 +18143,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error abriendo listado de completados:', e); }
         });
     }
-
-
-
-
-
-
-
-
-
-
-
 
     // ============================================================================================================
     // MARK: 🔄 Migración de Datos

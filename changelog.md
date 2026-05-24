@@ -31,6 +31,11 @@
 - **Data-Driven Settings UI**: Centralized settings field generation with a declarative `SETTINGS_FIELDS_SCHEMA` and generic `createFormField` renderer. Replaced 5 repetitive render functions (~275 lines of HTML strings) with schema-driven rendering (~45 lines of field definitions + ~60 lines for `createFormField`). The save logic now iterates over the schema instead of manually reading each of the 18 fields, and numeric clamping + dependency toggles are wired from the same schema. New settings can be added by editing a single schema entry.
 - **CSS Vendor Prefix Cleanup**: Removed ~340 lines of redundant `-webkit-`, `-ms-`, and `-o-` vendor prefixes where standard CSS properties were already present.
 - **Type-Check Dispatch Maps**: Replaced 3 if/else-if/ternary chains with dispatch maps in `PlaybackController.saveStatus` (type→save setting lookup), `internalSaveVideoGeneric` (type→resolvedType mapping), and `startProcessingSession` (type→setting key lookup). Also converted a 4-branch null-assignment chain in `PlaybackDisplayManager.destroy` to a `switch` statement for readability.
+- **Toolbar Function Decomposition**: Refactored `mountSavedVideosModalActionsToolbar` from 576 lines to ~330 lines by extracting 5 helper functions:
+  - Extracted `createModeSelector` - generic mode selector builder that unified 5 near-duplicate scrollbar/opacity/style/visibility selectors into a single reusable helper (~80 lines eliminated).
+  - Extracted `createViewModeSelector` - list/grid view toggle with grid-only options (always-expand, expansion mode).
+  - Extracted `createOverflowToggle` - overflow (⋯) menu toggle button.
+  - Promoted `makeToolbarGroup` and `makeDisplayToggle` to standalone IIFE-level functions with explicit parameter passing for `container` and `settings` instead of closure capture.
 
 # 0.0.10-1
 

@@ -16848,6 +16848,249 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     );
 
     /**
+     * Generic mode selector: renders buttons for an array of modes with sync/click wiring.
+     * @param {Object} options
+     * @param {HTMLElement} options.container - Element to append buttons to
+     * @param {Array<{key:string, label:string}>} options.modes - Mode definitions
+     * @param {() => string} options.getCurrent - Returns current mode key
+     * @param {(key:string) => void} options.onSelect - Called when user clicks a mode button
+     * @param {string} options.dataAttr - data attribute name (without 'data-')
+     */
+    function createModeSelector({ container, modes, getCurrent, onSelect, dataAttr }) {
+        const sync = () => {
+            const cur = getCurrent();
+            container.querySelectorAll(`button[data-${dataAttr}]`).forEach(b => {
+                const active = b.dataset[dataAttr] === cur;
+                b.classList.toggle('ypp-btn-primary', active);
+                b.classList.toggle('ypp-btn-outline-primary', !active);
+            });
+        };
+        for (const { key, label } of modes) {
+            const b = createElement('button', {
+                className: 'ypp-btn ypp-btn-sm',
+                text: label,
+                attributes: { type: 'button', [`data-${dataAttr}`]: key }
+            });
+            addDisposableListener(b, 'click', (ev) => {
+                ev.stopPropagation();
+                onSelect(key);
+                sync();
+            }, {}, ModalDisposables);
+            container.appendChild(b);
+        }
+        sync();
+        return { sync, container };
+    }
+
+    /**
+     * Creates a view-mode toggle row (list/grid) with grid-only options (always-expand, expansion mode).
+     * @param {HTMLElement} container - videosContainer (for dataset attr propagation)
+     * @param {Object} settings - cachedSavedVideosModalSettings
+     * @returns {HTMLElement}
+     */
+    function createViewModeSelector(container, settings) {
+        const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        row.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('savedVideosToolbarViewMode')
+        }));
+        const chips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
+
+        // Grid-only options group
+        const gridOptionsGroup = createElement('div', {
+            className: 'ypp-toolbar-grid-options',
+            attributes: {
+                title: t('savedVideosToolbarGridOptions'),
+                'aria-label': t('savedVideosToolbarGridOptions')
+            }
+        });
+
+        const syncGridOptionsVisibility = () => {
+            const isGrid = (settings.displayOptions || {}).viewMode === 'grid';
+            gridOptionsGroup.style.setProperty('display', isGrid ? 'flex' : 'none', 'important');
+        };
+
+        const listViewBtn = createElement('button', {
+            className: 'ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle',
+            html: `${SVG_ICONS.list}<span>${t('viewModeList')}</span>`,
+            attributes: { type: 'button', title: t('viewModeList') }
+        });
+
+        const gridViewBtn = createElement('button', {
+            className: 'ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle',
+            html: `${SVG_ICONS.grid}<span>${t('viewModeGrid')}</span>`,
+            attributes: { type: 'button', title: t('viewModeGrid') }
+        });
+
+        const syncViewModeBtn = () => {
+            const isGrid = (settings.displayOptions || {}).viewMode === 'grid';
+            listViewBtn.classList.toggle('ypp-btn-primary', !isGrid);
+            listViewBtn.classList.toggle('is-active', !isGrid);
+            listViewBtn.classList.toggle('ypp-btn-outline-primary', isGrid);
+            listViewBtn.classList.toggle('is-inactive', isGrid);
+            listViewBtn.setAttribute('aria-pressed', !isGrid ? 'true' : 'false');
+            gridViewBtn.classList.toggle('ypp-btn-primary', isGrid);
+            gridViewBtn.classList.toggle('is-active', isGrid);
+            gridViewBtn.classList.toggle('ypp-btn-outline-primary', !isGrid);
+            gridViewBtn.classList.toggle('is-inactive', !isGrid);
+            gridViewBtn.setAttribute('aria-pressed', isGrid ? 'true' : 'false');
+        };
+        syncViewModeBtn();
+
+        addDisposableListener(listViewBtn, 'click', (ev) => {
+            ev.stopPropagation();
+            if (settings.displayOptions.viewMode === 'list') return;
+            settings.displayOptions.viewMode = 'list';
+            syncViewModeBtn();
+            syncGridOptionsVisibility();
+            applySavedVideoActionDatasetToVideosContainer(container);
+            void setSavedVideosModalSettings(settings);
+            void updateVideoList();
+        }, {}, ModalDisposables);
+
+        addDisposableListener(gridViewBtn, 'click', (ev) => {
+            ev.stopPropagation();
+            if (settings.displayOptions.viewMode === 'grid') return;
+            settings.displayOptions.viewMode = 'grid';
+            syncViewModeBtn();
+            syncGridOptionsVisibility();
+            applySavedVideoActionDatasetToVideosContainer(container);
+            void setSavedVideosModalSettings(settings);
+            void updateVideoList();
+        }, {}, ModalDisposables);
+
+        chips.appendChild(listViewBtn);
+        chips.appendChild(gridViewBtn);
+        syncGridOptionsVisibility();
+
+        // Always Expand Toggle
+        gridOptionsGroup.appendChild(makeDisplayToggle(container, settings, 'gridAlwaysExpanded', SVG_ICONS.foldDown, 'gridAlwaysExpanded'));
+
+        // Expansion Mode Toggle (Single vs Row)
+        const expModeToggle = createElement('button', {
+            className: 'ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ypp-btn-outline-primary',
+            attributes: { type: 'button' }
+        });
+
+        const syncExpModeBtn = () => {
+            const mode = settings.displayOptions.gridExpansionMode || 'single';
+            setInnerHTML(expModeToggle, mode === 'row' ? SVG_ICONS.arrowBoth : SVG_ICONS.crosshair);
+            expModeToggle.setAttribute('title', `${t('gridExpansionMode')}: ${t(mode === 'row' ? 'gridExpansionModeRow' : 'gridExpansionModeSingle')}`);
+            expModeToggle.classList.toggle('ypp-btn-primary', mode === 'row');
+            expModeToggle.classList.toggle('ypp-btn-outline-primary', mode !== 'row');
+        };
+        syncExpModeBtn();
+
+        addDisposableListener(expModeToggle, 'click', (ev) => {
+            ev.stopPropagation();
+            const current = settings.displayOptions.gridExpansionMode || 'single';
+            settings.displayOptions.gridExpansionMode = current === 'single' ? 'row' : 'single';
+            syncExpModeBtn();
+            void setSavedVideosModalSettings(settings);
+            void updateVideoList();
+        }, {}, ModalDisposables);
+
+        gridOptionsGroup.appendChild(expModeToggle);
+        chips.appendChild(gridOptionsGroup);
+        row.appendChild(chips);
+        return row;
+    }
+
+    /**
+     * Creates the overflow (⋯) toggle button row for the saved-videos toolbar.
+     * @param {HTMLElement} container - videosContainer (for dataset attr propagation)
+     * @param {Object} settings - cachedSavedVideosModalSettings
+     * @returns {HTMLElement}
+     */
+    function createOverflowToggle(container, settings) {
+        const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+        row.appendChild(createElement('span', {
+            className: 'ypp-saved-videos-toolbar-row-label',
+            text: t('savedVideosToolbarShowOverflowButton')
+        }));
+        const chips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
+        const btn = createElement('button', {
+            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ${settings.showOverflowMenu ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'}`,
+            text: '⋯',
+            attributes: {
+                type: 'button',
+                title: t('savedVideosToolbarShowOverflowHint'),
+                'aria-pressed': settings.showOverflowMenu ? 'true' : 'false'
+            }
+        });
+        addDisposableListener(btn, 'click', (ev) => {
+            ev.stopPropagation();
+            settings.showOverflowMenu = !settings.showOverflowMenu;
+            const on = settings.showOverflowMenu;
+            btn.classList.toggle('ypp-btn-primary', on);
+            btn.classList.toggle('is-active', on);
+            btn.classList.toggle('ypp-btn-outline-primary', !on);
+            btn.classList.toggle('is-inactive', !on);
+            btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+            applySavedVideoActionDatasetToVideosContainer(container);
+            void setSavedVideosModalSettings(settings);
+        }, {}, ModalDisposables);
+        chips.appendChild(btn);
+        row.appendChild(chips);
+        return row;
+    }
+
+    /**
+     * Creates a visual group inside the saved-videos toolbar while preserving row/button controls.
+     * @param {string} titleKey - Translation key for the group title.
+     * @param {string} [extraClassName=''] - Optional extra class for group-specific styling.
+     * @returns {HTMLElement}
+     */
+    function makeToolbarGroup(titleKey, extraClassName = '') {
+        const group = createElement('div', {
+            className: `ypp-saved-videos-toolbar-group ${extraClassName}`.trim()
+        });
+        group.appendChild(createElement('div', {
+            className: 'ypp-saved-videos-toolbar-group-title',
+            text: t(titleKey)
+        }));
+        return group;
+    }
+
+    /**
+     * Creates a display toggle button wired to a settings key.
+     * @param {HTMLElement} container - videosContainer (for dataset attr propagation)
+     * @param {Object} settings - cachedSavedVideosModalSettings
+     * @param {string} key - key in settings.displayOptions
+     * @param {string} icon - SVG icon string
+     * @param {string} labelKey - translation key
+     * @param {boolean} [showText=false] - whether to show text alongside the icon
+     * @returns {HTMLElement}
+     */
+    function makeDisplayToggle(container, settings, key, icon, labelKey, showText = false) {
+        const on = settings.displayOptions[key] !== false;
+        const btn = createElement('button', {
+            className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'}`,
+            html: showText ? `${icon}<span>${t(labelKey)}</span>` : icon,
+            attributes: {
+                type: 'button',
+                title: t(labelKey),
+                'aria-pressed': on ? 'true' : 'false'
+            }
+        });
+
+        addDisposableListener(btn, 'click', (ev) => {
+            ev.stopPropagation();
+            settings.displayOptions[key] = !settings.displayOptions[key];
+            const nextOn = settings.displayOptions[key];
+            btn.classList.toggle('ypp-btn-primary', nextOn);
+            btn.classList.toggle('is-active', nextOn);
+            btn.classList.toggle('ypp-btn-outline-primary', !nextOn);
+            btn.classList.toggle('is-inactive', !nextOn);
+            btn.setAttribute('aria-pressed', nextOn ? 'true' : 'false');
+            applySavedVideoActionDatasetToVideosContainer(container);
+            void setSavedVideosModalSettings(settings);
+            void updateVideoList();
+        }, {}, ModalDisposables);
+        return btn;
+    }
+
+    /**
      * Monta la toolbar de acciones (toggles + opacidad) bajo la barra de búsqueda del modal.
      * Sección colapsable (como filtros avanzados) para ahorrar espacio durante la búsqueda.
      * @param {HTMLElement} container - videosContainer
@@ -16997,166 +17240,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return row;
         };
 
-        /**
-         * Creates a visual group inside the saved-videos toolbar while preserving row/button controls.
-         * @param {string} titleKey - Translation key for the group title.
-         * @param {string} [extraClassName=''] - Optional extra class for group-specific styling.
-         * @returns {HTMLElement}
-         */
-        const makeToolbarGroup = (titleKey, extraClassName = '') => {
-            const group = createElement('div', {
-                className: `ypp-saved-videos-toolbar-group ${extraClassName}`.trim()
-            });
-            group.appendChild(createElement('div', {
-                className: 'ypp-saved-videos-toolbar-group-title',
-                text: t(titleKey)
-            }));
-            return group;
-        };
-
-        const makeDisplayToggle = (key, icon, labelKey, showText = false) => {
-            const on = cachedSavedVideosModalSettings.displayOptions[key] !== false;
-            const btn = createElement('button', {
-                className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'}`,
-                html: showText ? `${icon}<span>${t(labelKey)}</span>` : icon,
-                attributes: {
-                    type: 'button',
-                    title: t(labelKey),
-                    'aria-pressed': on ? 'true' : 'false'
-                }
-            });
-
-            addDisposableListener(btn, 'click', (ev) => {
-                ev.stopPropagation();
-                cachedSavedVideosModalSettings.displayOptions[key] = !cachedSavedVideosModalSettings.displayOptions[key];
-                const nextOn = cachedSavedVideosModalSettings.displayOptions[key];
-                btn.classList.toggle('ypp-btn-primary', nextOn);
-                btn.classList.toggle('is-active', nextOn);
-                btn.classList.toggle('ypp-btn-outline-primary', !nextOn);
-                btn.classList.toggle('is-inactive', !nextOn);
-                btn.setAttribute('aria-pressed', nextOn ? 'true' : 'false');
-                applySavedVideoActionDatasetToVideosContainer(container);
-                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                void updateVideoList();
-            }, {}, ModalDisposables);
-            return btn;
-        };
-
-
         const generalGroup = makeToolbarGroup('savedVideosToolbarGeneralGroup', 'ypp-saved-videos-toolbar-action-group');
-        const viewModeRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-        viewModeRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('savedVideosToolbarViewMode')
-        }));
-        const viewModeChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
-
-        // Grid-only options group
-        const gridOptionsGroup = createElement('div', {
-            className: 'ypp-toolbar-grid-options',
-            attributes: {
-                title: t('savedVideosToolbarGridOptions'),
-                'aria-label': t('savedVideosToolbarGridOptions')
-            }
-        });
-
-        const syncGridOptionsVisibility = () => {
-            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
-            gridOptionsGroup.style.setProperty('display', isGrid ? 'flex' : 'none', 'important');
-        };
-
-        const listViewBtn = createElement('button', {
-            className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle`,
-            html: `${SVG_ICONS.list}<span>${t('viewModeList')}</span>`,
-            attributes: {
-                type: 'button',
-                title: t('viewModeList')
-            }
-        });
-
-        const gridViewBtn = createElement('button', {
-            className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle`,
-            html: `${SVG_ICONS.grid}<span>${t('viewModeGrid')}</span>`,
-            attributes: {
-                type: 'button',
-                title: t('viewModeGrid')
-            }
-        });
-
-        const syncViewModeBtn = () => {
-            const isGrid = (cachedSavedVideosModalSettings.displayOptions || {}).viewMode === 'grid';
-
-            listViewBtn.classList.toggle('ypp-btn-primary', !isGrid);
-            listViewBtn.classList.toggle('is-active', !isGrid);
-            listViewBtn.classList.toggle('ypp-btn-outline-primary', isGrid);
-            listViewBtn.classList.toggle('is-inactive', isGrid);
-            listViewBtn.setAttribute('aria-pressed', !isGrid ? 'true' : 'false');
-
-            gridViewBtn.classList.toggle('ypp-btn-primary', isGrid);
-            gridViewBtn.classList.toggle('is-active', isGrid);
-            gridViewBtn.classList.toggle('ypp-btn-outline-primary', !isGrid);
-            gridViewBtn.classList.toggle('is-inactive', !isGrid);
-            gridViewBtn.setAttribute('aria-pressed', isGrid ? 'true' : 'false');
-        };
-        syncViewModeBtn();
-
-        addDisposableListener(listViewBtn, 'click', (ev) => {
-            ev.stopPropagation();
-            if (cachedSavedVideosModalSettings.displayOptions.viewMode === 'list') return;
-            cachedSavedVideosModalSettings.displayOptions.viewMode = 'list';
-            syncViewModeBtn();
-            syncGridOptionsVisibility();
-            applySavedVideoActionDatasetToVideosContainer(container);
-            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-            void updateVideoList(); // Re-render grid/list layout
-        }, {}, ModalDisposables);
-
-        addDisposableListener(gridViewBtn, 'click', (ev) => {
-            ev.stopPropagation();
-            if (cachedSavedVideosModalSettings.displayOptions.viewMode === 'grid') return;
-            cachedSavedVideosModalSettings.displayOptions.viewMode = 'grid';
-            syncViewModeBtn();
-            syncGridOptionsVisibility();
-            applySavedVideoActionDatasetToVideosContainer(container);
-            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-            void updateVideoList(); // Re-render grid/list layout
-        }, {}, ModalDisposables);
-
-        viewModeChips.appendChild(listViewBtn);
-        viewModeChips.appendChild(gridViewBtn);
-        syncGridOptionsVisibility();
-
-        // Always Expand Toggle
-        gridOptionsGroup.appendChild(makeDisplayToggle('gridAlwaysExpanded', SVG_ICONS.foldDown, 'gridAlwaysExpanded'));
-
-        // Expansion Mode Toggle (Single vs Row)
-        const expModeToggle = createElement('button', {
-            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ypp-btn-outline-primary`,
-            attributes: { type: 'button' }
-        });
-
-        const syncExpModeBtn = () => {
-            const mode = cachedSavedVideosModalSettings.displayOptions.gridExpansionMode || 'single';
-            setInnerHTML(expModeToggle, mode === 'row' ? SVG_ICONS.arrowBoth : SVG_ICONS.crosshair);
-            expModeToggle.setAttribute('title', `${t('gridExpansionMode')}: ${t(mode === 'row' ? 'gridExpansionModeRow' : 'gridExpansionModeSingle')}`);
-            expModeToggle.classList.toggle('ypp-btn-primary', mode === 'row');
-            expModeToggle.classList.toggle('ypp-btn-outline-primary', mode !== 'row');
-        };
-        syncExpModeBtn();
-
-        addDisposableListener(expModeToggle, 'click', (ev) => {
-            ev.stopPropagation();
-            const current = cachedSavedVideosModalSettings.displayOptions.gridExpansionMode || 'single';
-            cachedSavedVideosModalSettings.displayOptions.gridExpansionMode = current === 'single' ? 'row' : 'single';
-            syncExpModeBtn();
-            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-            void updateVideoList();
-        }, {}, ModalDisposables);
-
-        gridOptionsGroup.appendChild(expModeToggle);
-        viewModeChips.appendChild(gridOptionsGroup);
-        viewModeRow.appendChild(viewModeChips);
-        generalGroup.appendChild(viewModeRow);
+        generalGroup.appendChild(createViewModeSelector(container, cachedSavedVideosModalSettings));
 
         const generalRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
         generalRow.appendChild(createElement('span', {
@@ -17164,86 +17249,62 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             text: t('savedVideosToolbarLinkBehavior')
         }));
         const generalChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
-        generalChips.appendChild(makeDisplayToggle('openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab', true));
+        generalChips.appendChild(makeDisplayToggle(container, settings, 'openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab', true));
         generalRow.appendChild(generalChips);
         generalGroup.appendChild(generalRow);
 
         // Scrollbar Visibility
-        const scrollbarVisRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-        scrollbarVisRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('scrollbarVisibility')
-        }));
-        const scrollbarVisBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-        const scrollbarVisModes = [
-            { key: 'alwaysVisible', label: t('AlwaysVisible') },
-            { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
-            { key: 'hidden', label: t('Hidden') }
-        ];
-        const syncScrollbarVis = () => {
-            const cur = cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility || 'alwaysVisible';
-            scrollbarVisBtns.querySelectorAll('button').forEach(b => {
-                const active = b.dataset.mode === cur;
-                b.classList.toggle('ypp-btn-primary', active);
-                b.classList.toggle('ypp-btn-outline-primary', !active);
+        {
+            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+            row.appendChild(createElement('span', {
+                className: 'ypp-saved-videos-toolbar-row-label',
+                text: t('scrollbarVisibility')
+            }));
+            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+            createModeSelector({
+                container: btns,
+                modes: [
+                    { key: 'alwaysVisible', label: t('AlwaysVisible') },
+                    { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
+                    { key: 'hidden', label: t('Hidden') }
+                ],
+                getCurrent: () => cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility || 'alwaysVisible',
+                onSelect: (key) => {
+                    cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility = key;
+                    applySavedVideoActionDatasetToVideosContainer(container);
+                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                },
+                dataAttr: 'mode'
             });
-        };
-        for (const { key, label } of scrollbarVisModes) {
-            const b = createElement('button', {
-                className: 'ypp-btn ypp-btn-sm',
-                text: label,
-                attributes: { type: 'button', 'data-mode': key }
-            });
-            addDisposableListener(b, 'click', (ev) => {
-                ev.stopPropagation();
-                cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility = key;
-                applySavedVideoActionDatasetToVideosContainer(container);
-                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                syncScrollbarVis();
-            }, {}, ModalDisposables);
-            scrollbarVisBtns.appendChild(b);
+            row.appendChild(btns);
+            generalGroup.appendChild(row);
         }
-        syncScrollbarVis();
-        scrollbarVisRow.appendChild(scrollbarVisBtns);
-        generalGroup.appendChild(scrollbarVisRow);
 
         // Scrollbar Thickness
-        const scrollbarThickRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-        scrollbarThickRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('scrollbarThickness')
-        }));
-        const scrollbarThickBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-        const scrollbarThickModes = [
-            { key: 'normal', label: t('scrollbarThicknessNormal') },
-            { key: 'thin', label: t('scrollbarThicknessThin') }
-        ];
-        const syncScrollbarThick = () => {
-            const cur = cachedSavedVideosModalSettings.displayOptions.scrollbarThickness || 'normal';
-            scrollbarThickBtns.querySelectorAll('button').forEach(b => {
-                const active = b.dataset.mode === cur;
-                b.classList.toggle('ypp-btn-primary', active);
-                b.classList.toggle('ypp-btn-outline-primary', !active);
+        {
+            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+            row.appendChild(createElement('span', {
+                className: 'ypp-saved-videos-toolbar-row-label',
+                text: t('scrollbarThickness')
+            }));
+            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+            createModeSelector({
+                container: btns,
+                modes: [
+                    { key: 'normal', label: t('scrollbarThicknessNormal') },
+                    { key: 'thin', label: t('scrollbarThicknessThin') }
+                ],
+                getCurrent: () => cachedSavedVideosModalSettings.displayOptions.scrollbarThickness || 'normal',
+                onSelect: (key) => {
+                    cachedSavedVideosModalSettings.displayOptions.scrollbarThickness = key;
+                    applySavedVideoActionDatasetToVideosContainer(container);
+                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                },
+                dataAttr: 'mode'
             });
-        };
-        for (const { key, label } of scrollbarThickModes) {
-            const b = createElement('button', {
-                className: 'ypp-btn ypp-btn-sm',
-                text: label,
-                attributes: { type: 'button', 'data-mode': key }
-            });
-            addDisposableListener(b, 'click', (ev) => {
-                ev.stopPropagation();
-                cachedSavedVideosModalSettings.displayOptions.scrollbarThickness = key;
-                applySavedVideoActionDatasetToVideosContainer(container);
-                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                syncScrollbarThick();
-            }, {}, ModalDisposables);
-            scrollbarThickBtns.appendChild(b);
+            row.appendChild(btns);
+            generalGroup.appendChild(row);
         }
-        syncScrollbarThick();
-        scrollbarThickRow.appendChild(scrollbarThickBtns);
-        generalGroup.appendChild(scrollbarThickRow);
         inner.appendChild(generalGroup);
 
         const itemDisplayGroup = makeToolbarGroup('savedVideosToolbarItemDisplayGroup');
@@ -17255,8 +17316,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }));
         const displayChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles ypp-display-options-toggles' });
 
-        displayChips.appendChild(makeDisplayToggle('showThumbnails', SVG_ICONS.image, 'showThumbnails'));
-        displayChips.appendChild(makeDisplayToggle('showViews', SVG_ICONS.people, 'showViews'));
+        displayChips.appendChild(makeDisplayToggle(container, settings, 'showThumbnails', SVG_ICONS.image, 'showThumbnails'));
+        displayChips.appendChild(makeDisplayToggle(container, settings, 'showViews', SVG_ICONS.people, 'showViews'));
         /* displayChips.appendChild(makeDisplayToggle('showStats', SVG_ICONS.graph, 'showStats'));
         displayChips.appendChild(makeDisplayToggle('showButtons', SVG_ICONS.settings, 'showButtons')); */
         displayRow.appendChild(displayChips);
@@ -17272,154 +17333,89 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             className: 'ypp-saved-videos-toolbar-row-label',
             text: t('savedVideosToolbarEntryVisibility')
         }));
-        const opacityBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-        const modes = [
-            { key: 'alwaysVisible', label: t('AlwaysVisible') },
-            { key: 'dimUntilHover', label: t('DimUntilHover') },
-            { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
-            { key: 'hidden', label: t('Hidden') }
-        ];
-        const syncOpacityActive = () => {
-            const cur = cachedSavedVideosModalSettings.entryButtonVisibility || 'alwaysVisible';
-            opacityBtns.querySelectorAll('button[data-opacity-mode]').forEach((b) => {
-                const active = b.dataset.opacityMode === cur;
-                b.classList.toggle('ypp-btn-primary', active);
-                b.classList.toggle('ypp-btn-outline-primary', !active);
+        {
+            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+            createModeSelector({
+                container: btns,
+                modes: [
+                    { key: 'alwaysVisible', label: t('AlwaysVisible') },
+                    { key: 'dimUntilHover', label: t('DimUntilHover') },
+                    { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
+                    { key: 'hidden', label: t('Hidden') }
+                ],
+                getCurrent: () => cachedSavedVideosModalSettings.entryButtonVisibility || 'alwaysVisible',
+                onSelect: (key) => {
+                    cachedSavedVideosModalSettings.entryButtonVisibility = key;
+                    applySavedVideoActionDatasetToVideosContainer(container);
+                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                },
+                dataAttr: 'opacity-mode'
             });
-        };
-        for (const { key, label } of modes) {
-            const b = createElement('button', {
-                className: 'ypp-btn ypp-btn-sm',
-                text: label,
-                attributes: { type: 'button', 'data-opacity-mode': key }
-            });
-            addDisposableListener(b, 'click', (ev) => {
-                ev.stopPropagation();
-                cachedSavedVideosModalSettings.entryButtonVisibility = key;
-                applySavedVideoActionDatasetToVideosContainer(container);
-                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                syncOpacityActive();
-            }, {}, ModalDisposables);
-            opacityBtns.appendChild(b);
+            opacityRow.appendChild(btns);
         }
-        syncOpacityActive();
-        opacityRow.appendChild(opacityBtns);
         rowActionsGroup.appendChild(opacityRow);
 
-        const overflowRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-        overflowRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('savedVideosToolbarShowOverflowButton')
-        }));
-        const overflowChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
-        const overflowBtn = createElement('button', {
-            className: `ypp-btn ypp-btn-circle ypp-shadow-md ypp-saved-videos-toolbar-toggle ${cachedSavedVideosModalSettings.showOverflowMenu ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'}`,
-            text: '⋯',
-            attributes: {
-                type: 'button',
-                title: t('savedVideosToolbarShowOverflowHint'),
-                'aria-pressed': cachedSavedVideosModalSettings.showOverflowMenu ? 'true' : 'false'
-            }
-        });
-        addDisposableListener(overflowBtn, 'click', (ev) => {
-            ev.stopPropagation();
-            cachedSavedVideosModalSettings.showOverflowMenu = !cachedSavedVideosModalSettings.showOverflowMenu;
-            const on = cachedSavedVideosModalSettings.showOverflowMenu;
-            overflowBtn.classList.toggle('ypp-btn-primary', on);
-            overflowBtn.classList.toggle('is-active', on);
-            overflowBtn.classList.toggle('ypp-btn-outline-primary', !on);
-            overflowBtn.classList.toggle('is-inactive', !on);
-            overflowBtn.setAttribute('aria-pressed', on ? 'true' : 'false');
-            applySavedVideoActionDatasetToVideosContainer(container);
-            void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-        }, {}, ModalDisposables);
-        overflowChips.appendChild(overflowBtn);
-        overflowRow.appendChild(overflowChips);
-        rowActionsGroup.appendChild(overflowRow);
+        rowActionsGroup.appendChild(createOverflowToggle(container, cachedSavedVideosModalSettings));
         inner.appendChild(rowActionsGroup);
 
         const labelsGroup = makeToolbarGroup('savedVideosToolbarLabelsGroup');
 
-        const styleRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-        styleRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('colouredLabelsStyle')
-        }));
-        const styleBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-        const styleModes = [
-            { key: 'color', label: t('colouredLabelsStyleColor') },
-            { key: 'colorOnHover', label: t('colouredLabelsStyleColorOnHover') },
-            { key: 'grayscaleOnHover', label: t('colouredLabelsStyleGrayscaleOnHover') },
-            { key: 'grayscale', label: t('colouredLabelsStyleGrayscale') }
-        ];
-        const syncStyleActive = () => {
-            const cur = cachedSavedVideosModalSettings.colouredLabelsStyle || 'color';
-            styleBtns.querySelectorAll('button[data-style-mode]').forEach((b) => {
-                const active = b.dataset.styleMode === cur;
-                b.classList.toggle('ypp-btn-primary', active);
-                b.classList.toggle('ypp-btn-outline-primary', !active);
+        {
+            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+            row.appendChild(createElement('span', {
+                className: 'ypp-saved-videos-toolbar-row-label',
+                text: t('colouredLabelsStyle')
+            }));
+            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+            createModeSelector({
+                container: btns,
+                modes: [
+                    { key: 'color', label: t('colouredLabelsStyleColor') },
+                    { key: 'colorOnHover', label: t('colouredLabelsStyleColorOnHover') },
+                    { key: 'grayscaleOnHover', label: t('colouredLabelsStyleGrayscaleOnHover') },
+                    { key: 'grayscale', label: t('colouredLabelsStyleGrayscale') }
+                ],
+                getCurrent: () => cachedSavedVideosModalSettings.colouredLabelsStyle || 'color',
+                onSelect: (key) => {
+                    cachedSavedVideosModalSettings.colouredLabelsStyle = key;
+                    applySavedVideoActionDatasetToVideosContainer(container);
+                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                    void updateVideoList();
+                },
+                dataAttr: 'style-mode'
             });
-        };
-        for (const { key, label } of styleModes) {
-            const b = createElement('button', {
-                className: 'ypp-btn ypp-btn-sm',
-                text: label,
-                attributes: { type: 'button', 'data-style-mode': key }
-            });
-            addDisposableListener(b, 'click', (ev) => {
-                ev.stopPropagation();
-                cachedSavedVideosModalSettings.colouredLabelsStyle = key;
-                applySavedVideoActionDatasetToVideosContainer(container);
-                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                syncStyleActive();
-                void updateVideoList();
-            }, {}, ModalDisposables);
-            styleBtns.appendChild(b);
+            row.appendChild(btns);
+            labelsGroup.appendChild(row);
         }
-        syncStyleActive();
-        styleRow.appendChild(styleBtns);
-        labelsGroup.appendChild(styleRow);
 
-        const visRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-        visRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('colouredLabelsVisibility')
-        }));
-        const visBtns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-        const visModes = [
-            { key: 'alwaysVisible', label: t('AlwaysVisible') },
-            { key: 'dimUntilHover', label: t('DimUntilHover') },
-            { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
-            { key: 'hidden', label: t('Hidden') }
-        ];
-        const syncVisActive = () => {
-            const cur = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible';
-            visBtns.querySelectorAll('button[data-vis-mode]').forEach((b) => {
-                const active = b.dataset.visMode === cur;
-                b.classList.toggle('ypp-btn-primary', active);
-                b.classList.toggle('ypp-btn-outline-primary', !active);
+        {
+            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
+            row.appendChild(createElement('span', {
+                className: 'ypp-saved-videos-toolbar-row-label',
+                text: t('colouredLabelsVisibility')
+            }));
+            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+            createModeSelector({
+                container: btns,
+                modes: [
+                    { key: 'alwaysVisible', label: t('AlwaysVisible') },
+                    { key: 'dimUntilHover', label: t('DimUntilHover') },
+                    { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
+                    { key: 'hidden', label: t('Hidden') }
+                ],
+                getCurrent: () => cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible',
+                onSelect: (key) => {
+                    const currentMode = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible';
+                    cachedSavedVideosModalSettings.colouredLabelsVisibility = currentMode === key ? 'alwaysVisible' : key;
+                    applySavedVideoActionDatasetToVideosContainer(container);
+                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                    void updateVideoList();
+                },
+                dataAttr: 'vis-mode'
             });
-        };
-        for (const { key, label } of visModes) {
-            const b = createElement('button', {
-                className: 'ypp-btn ypp-btn-sm',
-                text: label,
-                attributes: { type: 'button', 'data-vis-mode': key }
-            });
-            addDisposableListener(b, 'click', (ev) => {
-                ev.stopPropagation();
-                const currentMode = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible';
-                cachedSavedVideosModalSettings.colouredLabelsVisibility = currentMode === key ? 'alwaysVisible' : key;
-                applySavedVideoActionDatasetToVideosContainer(container);
-                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                syncVisActive();
-                void updateVideoList();
-            }, {}, ModalDisposables);
-            visBtns.appendChild(b);
+            row.appendChild(btns);
+            labelsGroup.appendChild(row);
         }
-        syncVisActive();
-        visRow.appendChild(visBtns);
-        labelsGroup.appendChild(visRow);
         inner.appendChild(labelsGroup);
 
         body.appendChild(inner);

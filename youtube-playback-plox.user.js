@@ -430,6 +430,17 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     /** @type {number} Default static finish percent */
     const DEFAULT_STATIC_FINISH_PERCENT = CONFIG.defaultSettings.staticFinishPercent;
 
+    /**
+     * Centralized config for video type -> settings key + log label.
+     */
+    const TYPE_CONFIG = Object.freeze({
+        watch: { saveSetting: 'saveRegularVideos', logLabel: 'saveStatus/watch' },
+        shorts: { saveSetting: 'saveShorts', logLabel: 'saveStatus/shorts' },
+        miniplayer: { saveSetting: 'saveMiniplayerVideos', logLabel: 'saveStatus/miniplayer' },
+        preview: { saveSetting: 'saveInlinePreviews', logLabel: 'saveStatus/preview' },
+        live: { saveSetting: 'saveLiveStreams', logLabel: 'saveStatus/live' },
+    });
+
     // ============================================================================================================
     // MARK: 📊 Global Variables
     // ============================================================================================================
@@ -12995,163 +13006,152 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // 3. Configurar intervalo de guardado
         let intervalId = null;
 
-        // Optimización: Solo iniciar el intervalo si el guardado automático está habilitado para este tipo
-        const isLive = sessionRef.videoInfo?.isLive || false;
-        const TYPE_SAVE_KEY = { shorts: 'saveShorts', preview: 'saveInlinePreviews', miniplayer: 'saveMiniplayerVideos' };
-        const isAutoSaveEnabled = TYPE_SAVE_KEY[type]
-            ? cachedSettings?.[TYPE_SAVE_KEY[type]]
-            : (isLive ? cachedSettings?.saveLiveStreams : cachedSettings?.saveRegularVideos);
+        let tickCount = 0;
+        intervalId = setInterval(async () => {
+            // Self-destruct: verificar que esta instancia siga siendo la sesión activa y no esté finalizada.
+            // Si la sesión fue reemplazada por otra en el mismo elemento o finalizada externamente,
+            // este intervalo debe detenerse para evitar procesos "zombie" y fugas de memoria.
+            const currentSession = activeProcessingSessions.get(videoEl);
+            const isLocked = RouteContextResolver.isContextLocked(videoEl, type);
 
-        if (isAutoSaveEnabled !== false) {
-            let tickCount = 0;
-            intervalId = setInterval(async () => {
-                // Self-destruct: verificar que esta instancia siga siendo la sesión activa y no esté finalizada.
-                // Si la sesión fue reemplazada por otra en el mismo elemento o finalizada externamente,
-                // este intervalo debe detenerse para evitar procesos "zombie" y fugas de memoria.
-                const currentSession = activeProcessingSessions.get(videoEl);
-                const isLocked = RouteContextResolver.isContextLocked(videoEl, type);
+            if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized || !isLocked) {
+                const isMismatch = !isLocked && currentSession === sessionRef && !sessionRef.isFinalized;
+                const reason = isMismatch ? 'context_mismatch' : 'zombie';
 
-                if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized || !isLocked) {
-                    const isMismatch = !isLocked && currentSession === sessionRef && !sessionRef.isFinalized;
-                    const reason = isMismatch ? 'context_mismatch' : 'zombie';
-
-                    clearInterval(intervalId);
-                    if (isMismatch) {
-                        SessionOrchestrator.finalizeSession(videoEl, reason);
-                    }
-                    logLog('process', `🧹 Interval eliminado [${type}] - ${videoId} (Reason: ${reason})`);
-                    return;
+                clearInterval(intervalId);
+                if (isMismatch) {
+                    SessionOrchestrator.finalizeSession(videoEl, reason);
                 }
+                logLog('process', `🧹 Interval eliminado [${type}] - ${videoId} (Reason: ${reason})`);
+                return;
+            }
 
-                tickCount++;
+            tickCount++;
 
-                // --- UI WATCHDOG ---
-                // Si el usuario usa scripts como "Engine Tamer", el DOM puede ser reemplazado post-carga.
-                // Verificamos periódicamente si nuestra UI sigue presente y la re-inyectamos si es necesario.
-                if (tickCount % 4 === 0 && type === 'watch') {
-                    const display = document.getElementById('ypp-time-display-indicator');
-                    if (!display || !display.isConnected) {
-                        logWarn('startProcessingSession', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
-                        PlaybackDisplayManager.ensure(type, player);
-                    }
+            // --- UI WATCHDOG ---
+            // Si el usuario usa scripts como "Engine Tamer", el DOM puede ser reemplazado post-carga.
+            // Verificamos periódicamente si nuestra UI sigue presente y la re-inyectamos si es necesario.
+            if (tickCount % 4 === 0 && type === 'watch') {
+                const display = document.getElementById('ypp-time-display-indicator');
+                if (!display || !display.isConnected) {
+                    logWarn('startProcessingSession', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
+                    PlaybackDisplayManager.ensure(type, player);
                 }
+            }
 
-                // --- PERSISTENCE RESCUE ---
-                // Usa sessionRef.savedData (resuelto asíncronamente desde storage en fast-path).
-                // Si el video sigue en 0s pero deberíamos haber reanudado, forzamos un re-seek de último recurso.
-                const sessionSavedData = sessionRef.savedData;
-                const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
-                if (tickCount === 6 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > 10 && !isCurrentlyAd) {
-                    logWarn('startProcessingSession', '🆘 Persistence Rescue: El video sigue en 0s tras 6s. Forzando re-seek...');
-                    PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef);
-                }
+            // --- PERSISTENCE RESCUE ---
+            // Usa sessionRef.savedData (resuelto asíncronamente desde storage en fast-path).
+            // Si el video sigue en 0s pero deberíamos haber reanudado, forzamos un re-seek de último recurso.
+            const sessionSavedData = sessionRef.savedData;
+            const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
+            if (tickCount === 6 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > 10 && !isCurrentlyAd) {
+                logWarn('startProcessingSession', '🆘 Persistence Rescue: El video sigue en 0s tras 6s. Forzando re-seek...');
+                PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef);
+            }
 
-                if (sessionRef.isResumePending) {
-                    // Evitar guardar 0s (falso progreso) mientras el resume original aún está en bucle de espera
-                    return;
-                }
+            if (sessionRef.isResumePending) {
+                // Evitar guardar 0s (falso progreso) mientras el resume original aún está en bucle de espera
+                return;
+            }
 
-                // Kill Switch: Condiciones para detener el seguimiento de esta sesión
-                const isDisconnected = !document.contains(videoEl);
-                const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
-                const currentVideoId = getPlayerVideoId(player);
-                const hasIdChanged = currentVideoId !== videoId;
-                // Detectar "Ghosts": Previews o Miniplayer que siguen en el DOM pero estan ocultos (pooled)
-                const isHiddenGhost = (type === 'preview' || type === 'miniplayer') && !isVisiblyDisplayed(videoEl);
+            // Kill Switch: Condiciones para detener el seguimiento de esta sesión
+            const isDisconnected = !document.contains(videoEl);
+            const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
+            const currentVideoId = getPlayerVideoId(player);
+            const hasIdChanged = currentVideoId !== videoId;
+            // Detectar "Ghosts": Previews o Miniplayer que siguen en el DOM pero estan ocultos (pooled)
+            const isHiddenGhost = (type === 'preview' || type === 'miniplayer') && !isVisiblyDisplayed(videoEl);
 
-                if (isDisconnected || isAdNow || hasIdChanged || isHiddenGhost) {
-                    const session = activeProcessingSessions.get(videoEl);
-                    const currentSrc = videoEl.currentSrc || videoEl.src || null;
+            if (isDisconnected || isAdNow || hasIdChanged || isHiddenGhost) {
+                const session = activeProcessingSessions.get(videoEl);
+                const currentSrc = videoEl.currentSrc || videoEl.src || null;
 
-                    // En previews, YouTube puede reportar IDs transitorios del player compartido
-                    // sin cambiar todavía el <video src>. Evitamos cortar sesión por un único mismatch.
-                    if (type === 'preview' && hasIdChanged && !isDisconnected && !isAdNow) {
-                        const hadSessionSrc = !!session?.lastKnownSrc;
-                        const hasRealSrcChange = hadSessionSrc && currentSrc && session.lastKnownSrc !== currentSrc;
+                // En previews, YouTube puede reportar IDs transitorios del player compartido
+                // sin cambiar todavía el <video src>. Evitamos cortar sesión por un único mismatch.
+                if (type === 'preview' && hasIdChanged && !isDisconnected && !isAdNow) {
+                    const hadSessionSrc = !!session?.lastKnownSrc;
+                    const hasRealSrcChange = hadSessionSrc && currentSrc && session.lastKnownSrc !== currentSrc;
 
-                        if (!hasRealSrcChange) {
-                            session.idMismatchCount = (session.idMismatchCount || 0) + 1;
-                            if (session.idMismatchCount <= 2) {
-                                return;
-                            }
-                        }
-                    }
-
-                    // Si el ID cambió pero el elemento está en transición (cambio de src controlado por VideoObserverManager),
-                    // no terminar la sesión - dejar que el observer maneje la transición
-                    if (hasIdChanged && previewTransitions.has(videoEl)) {
-                        previewTransitions.delete(videoEl); // Limpiar el flag de transición
-                        if (FailSafeManager.isSafeMode()) {
-                            SessionOrchestrator.finalizeSession(videoEl, 'safeModePreviewTransition');
-                            VideoObserverManager.enqueueWithResolver(videoEl, 'preview', 'safeModeRestart');
+                    if (!hasRealSrcChange) {
+                        session.idMismatchCount = (session.idMismatchCount || 0) + 1;
+                        if (session.idMismatchCount <= 2) {
                             return;
                         }
-                        SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'previewTransition', 'intraNodeHandoff');
+                    }
+                }
+
+                // Si el ID cambió pero el elemento está en transición (cambio de src controlado por VideoObserverManager),
+                // no terminar la sesión - dejar que el observer maneje la transición
+                if (hasIdChanged && previewTransitions.has(videoEl)) {
+                    previewTransitions.delete(videoEl); // Limpiar el flag de transición
+                    if (FailSafeManager.isSafeMode()) {
+                        SessionOrchestrator.finalizeSession(videoEl, 'safeModePreviewTransition');
+                        VideoObserverManager.enqueueWithResolver(videoEl, 'preview', 'safeModeRestart');
                         return;
                     }
-                    if (hasIdChanged && type === 'miniplayer' && VideoObserverManager.hasMiniplayerTransition(videoEl)) {
-                        VideoObserverManager.clearMiniplayerTransition(videoEl);
-                        if (FailSafeManager.isSafeMode()) {
-                            SessionOrchestrator.finalizeSession(videoEl, 'safeModeMiniplayerTransition');
-                            VideoObserverManager.requeueMiniplayer(videoEl);
-                            return;
-                        }
-                        SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'miniplayerTransition', 'intraNodeHandoff');
-                        logInfo('process', `🔄 Handoff de sesión [miniplayer] por transición de ID: ${videoId} → ${currentVideoId}`);
+                    SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'previewTransition', 'intraNodeHandoff');
+                    return;
+                }
+                if (hasIdChanged && type === 'miniplayer' && VideoObserverManager.hasMiniplayerTransition(videoEl)) {
+                    VideoObserverManager.clearMiniplayerTransition(videoEl);
+                    if (FailSafeManager.isSafeMode()) {
+                        SessionOrchestrator.finalizeSession(videoEl, 'safeModeMiniplayerTransition');
                         VideoObserverManager.requeueMiniplayer(videoEl);
                         return;
                     }
-
-                    const logReason = isDisconnected ? 'Elemento removido' :
-                        isAdNow ? 'Anuncio detectado' :
-                            hasIdChanged ? `ID cambiado: ${currentVideoId}` :
-                                `${type === 'miniplayer' ? 'Miniplayer cerrada' : 'Preview oculta'} (ghost)`;
-                    logWarn('process', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${logReason}`);
-
-                    SessionOrchestrator.finalizeSession(videoEl, logReason);
-                    if (isAdNow) {
-                        try {
-                            VideoObserverManager.waitForAdClear(videoEl, type);
-                        } catch (_) { }
-                    }
-                    // Seguridad extra para previews: re-encolar explícitamente si hubo cambio de ID real
-                    // y el observer de src no alcanzó a capturarlo.
-                    if (type === 'preview' && hasIdChanged && document.contains(videoEl)) {
-                        try {
-                            VideoObserverManager.bootstrap(true);
-                        } catch (_) {
-                            try { processMediaVideo(videoEl, 'preview'); } catch (_) { }
-                        }
-                    }
+                    SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'miniplayerTransition', 'intraNodeHandoff');
+                    logInfo('process', `🔄 Handoff de sesión [miniplayer] por transición de ID: ${videoId} → ${currentVideoId}`);
+                    VideoObserverManager.requeueMiniplayer(videoEl);
                     return;
                 }
 
-                // Llamada unificada al controlador modular de guardado usando metadatos cacheados
-                const session = activeProcessingSessions.get(videoEl);
-                if (session) {
-                    session.idMismatchCount = 0;
-                    session.lastKnownSrc = videoEl.currentSrc || videoEl.src || session.lastKnownSrc || null;
-                }
-                const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session?.videoInfo);
-                if (result?.videoInfo && session) {
-                    session.videoInfo = result.videoInfo;
-                }
-            }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
+                const logReason = isDisconnected ? 'Elemento removido' :
+                    isAdNow ? 'Anuncio detectado' :
+                        hasIdChanged ? `ID cambiado: ${currentVideoId}` :
+                            `${type === 'miniplayer' ? 'Miniplayer cerrada' : 'Preview oculta'} (ghost)`;
+                logWarn('process', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${logReason}`);
 
-            // Registrar el intervalId inmediatamente para permitir que finalizeSession() pueda limpiarlo
-            // si la sesión se termina antes de completar el Object.assign final.
-            sessionRef.intervalId = intervalId;
-        } else {
-            logLog('process', `ℹ️ Guardado automático desactivado para [${type}] - ${videoId}`);
-            // Si el guardado está desactivado, el intervalo no limpiará el estado de "Loading".
-            // Lo limpiamos tras un breve delay para permitir que el resume termine.
-            setTimeout(() => {
-                const stillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
-                if (stillValid) {
-                    PlaybackDisplayManager.clear(type, { videoEl, videoId });
+                SessionOrchestrator.finalizeSession(videoEl, logReason);
+                if (isAdNow) {
+                    try {
+                        VideoObserverManager.waitForAdClear(videoEl, type);
+                    } catch (_) { }
                 }
-            }, 2500);
-        }
+                // Seguridad extra para previews: re-encolar explícitamente si hubo cambio de ID real
+                // y el observer de src no alcanzó a capturarlo.
+                if (type === 'preview' && hasIdChanged && document.contains(videoEl)) {
+                    try {
+                        VideoObserverManager.bootstrap(true);
+                    } catch (_) {
+                        try { processMediaVideo(videoEl, 'preview'); } catch (_) { }
+                    }
+                }
+                return;
+            }
+
+            // Llamada unificada al controlador modular de guardado usando metadatos cacheados
+            const session = activeProcessingSessions.get(videoEl);
+            if (session) {
+                session.idMismatchCount = 0;
+                session.lastKnownSrc = videoEl.currentSrc || videoEl.src || session.lastKnownSrc || null;
+            }
+            const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session?.videoInfo);
+            if (result?.videoInfo && session) {
+                session.videoInfo = result.videoInfo;
+            }
+        }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
+
+        // Registrar el intervalId inmediatamente para permitir que finalizeSession() pueda limpiarlo
+        // si la sesión se termina antes de completar el Object.assign final.
+        sessionRef.intervalId = intervalId;
+
+        // Cleanup del loading state transitorio tras 2.5s (el primer save real lo reemplazará)
+        setTimeout(() => {
+            const stillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
+            if (stillValid) {
+                PlaybackDisplayManager.clear(type, { videoEl, videoId });
+            }
+        }, 2500);
 
         Object.assign(sessionRef, {
             intervalId,
@@ -13760,8 +13760,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 updateProgressBarGradient(currentTime, duration, finalType);
 
                 // Verificar si el guardado está habilitado para este tipo final para modo AUTOMÁTICO
-                const TYPE_SAVE_SETTING = { live: 'saveLiveStreams', shorts: 'saveShorts', preview: 'saveInlinePreviews', miniplayer: 'saveMiniplayerVideos', watch: 'saveRegularVideos' };
-                const saveSetting = TYPE_SAVE_SETTING[finalType];
+                const saveSetting = TYPE_CONFIG[finalType]?.saveSetting;
                 let isEnabledForAutoSave = !(saveSetting && !cachedSettings?.[saveSetting]);
 
                 // Si es un guardado automático y el tipo está desactivado, salimos.
@@ -13808,15 +13807,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         videoEl.dataset.yppShortsPreview = String(isShortsPreview);
                     }
                     const specificPreviewType = isShortsPreview ? 'preview_shorts' : 'preview_watch';
-                    result = await internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, 'savePreview', { ...saveOptions, previewType: specificPreviewType });
+                    result = await internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, TYPE_CONFIG[finalType]?.logLabel || 'saveStatus/watch', { ...saveOptions, previewType: specificPreviewType });
                 } else {
-                    const logContextMap = {
-                        live: 'saveLivestream',
-                        shorts: 'saveShortsVideo',
-                        watch: 'saveRegularVideo',
-                        miniplayer: 'saveMiniplayer'
-                    };
-                    const logContext = logContextMap[finalType] || 'saveRegularVideo';
+                    const logContext = TYPE_CONFIG[finalType]?.logLabel || 'saveStatus/watch';
                     result = await internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, logContext, saveOptions);
                 }
 
@@ -13913,7 +13906,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const finalizeInfo = (res, warnings = []) => {
             // Validar completitud de campos críticos
-            const criticalFields = ['title', 'author', 'lengthSeconds'];
+            const criticalFields = ['title', 'author', ...(res.isLive ? [] : ['lengthSeconds'])];
             const missingCritical = criticalFields.filter(field => !res[field]);
 
             if (missingCritical.length > 0) {

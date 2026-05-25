@@ -12628,6 +12628,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         ]);
         const dedupeByKey = new Map();
         const DEDUPE_MS = 450;
+        const DEDUPE_MAX_SIZE = 500;
 
         const buildSessionId = (videoEl, context, videoId) => {
             sessionIdCounter += 1;
@@ -12669,17 +12670,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const now = Date.now();
             const identityKey = buildIdentityKey(videoEl, context, videoId);
             const dedupeKey = `${identityKey}|${source}`;
-            const dedupeTs = dedupeByKey.get(dedupeKey) || 0;
-            if ((now - dedupeTs) < DEDUPE_MS) {
-                SessionTelemetry.emit('routingDecision', {
-                    decision: 'dedupe',
-                    reason: source,
-                    context,
-                    videoId
-                });
-                return { accepted: false, reason: 'dedupe' };
+            const dedupeTs = dedupeByKey.get(dedupeKey);
+            if (dedupeTs !== undefined) {
+                if ((now - dedupeTs) < DEDUPE_MS) {
+                    SessionTelemetry.emit('routingDecision', {
+                        decision: 'dedupe',
+                        reason: source,
+                        context,
+                        videoId
+                    });
+                    return { accepted: false, reason: 'dedupe' };
+                }
+                dedupeByKey.delete(dedupeKey);
             }
             dedupeByKey.set(dedupeKey, now);
+            if (dedupeByKey.size > DEDUPE_MAX_SIZE) {
+                const [oldestKey] = dedupeByKey.keys();
+                dedupeByKey.delete(oldestKey);
+            }
 
             const existing = activeProcessingSessions.get(videoEl);
             if (existing && existing.type === context && existing.lastVideoId === videoId && existing.state !== 'finalized') {

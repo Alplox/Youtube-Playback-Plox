@@ -17,7 +17,7 @@
 - **Double-Escaped View Counts in Video List**: Removed redundant `escapeHTML()` wrapping in `createVideoEntry` when the result was already passed to `document.createTextNode()` (which auto-escapes), preventing literal `&amp;` entities from appearing in view counts.
 - **Undefined Reference in Modal Settings Migration**: Removed reference to non-existent `d.dimColouredLabels` default in `normalizeSavedVideosModalSettings` that silently broke legacy settings migration.
 - **Livestream `lengthSeconds` false-positive missing warning**: Fixed `finalizeInfo` in `getCascadedVideoInfo` excluding `lengthSeconds` from critical fields when `res.isLive` is `true`, since livestreams inherently have unknown/0/null/Infinity duration.
-
+- **`dedupeByKey` memory leak in SessionOrchestrator**: Replaced unbounded `Map` with FIFO-bounded eviction (max 500 entries): expired entries (>450ms) are deleted on access, and the oldest insertion is evicted when the limit is reached.
 ### Added
 
 - **Toast `onDismiss` Lifecycle Hook**: Extended `showFloatingToast` and `fadeAndRemoveToast` with an optional `onDismiss` callback that fires exactly once when a toast is removed by any mechanism (X button, timeout, action click, or programmatic removal). Used to guarantee cleanup of transient state like undo snapshots and auto-cleanup backups.

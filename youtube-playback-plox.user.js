@@ -13150,6 +13150,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (result?.savedData && session) {
                 session.savedData = result.savedData;
             }
+            // Marcar que al menos un guardado real ocurrió (para que el cleanup de loading no lo borre)
+            if (result?.success && session) {
+                session.hasRealSave = true;
+            }
         }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
 
         // Registrar el intervalId inmediatamente para permitir que finalizeSession() pueda limpiarlo
@@ -13157,9 +13161,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         sessionRef.intervalId = intervalId;
 
         // Cleanup del loading state transitorio tras 2.5s (el primer save real lo reemplazará)
+        // Solo limpia si ningún guardado real ha ocurrido aún (caso: metadata waterfall lento)
         setTimeout(() => {
             const stillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
-            if (stillValid) {
+            if (stillValid && !sessionRef.hasRealSave) {
                 PlaybackDisplayManager.clear(type, { videoEl, videoId });
             }
         }, 2500);

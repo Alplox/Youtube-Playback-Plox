@@ -796,28 +796,25 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                 VERSION: TRANSLATIONS_EXPECTED_VERSION
             };
 
-            // 1) Try to use cache (prefer GM_*)
+            // 1) Try to use cache (via Storage abstraction)
             try {
-                if (typeof GM_getValue === 'function') {
-                    const raw = await GM_getValue(CACHE_KEY, null);
-                    if (raw) {
-                        try {
-                            const cached = JSON.parse(raw);
-                            const isFresh = cached?.ts && (Date.now() - cached.ts) < TTL_MS;
-                            const cachedVersion = cached?.version ?? cached?.data?.VERSION ?? cached?.data?.__metadata__?.VERSION;
-                            const versionMatches = !TRANSLATIONS_EXPECTED_VERSION || cachedVersion === TRANSLATIONS_EXPECTED_VERSION;
+                const raw = await Storage.get(CACHE_KEY);
+                if (raw) {
+                    try {
+                        const cached = typeof raw === 'string' ? JSON.parse(raw) : raw;
+                        const isFresh = cached?.ts && (Date.now() - cached.ts) < TTL_MS;
+                        const cachedVersion = cached?.version ?? cached?.data?.VERSION ?? cached?.data?.__metadata__?.VERSION;
+                        const versionMatches = !TRANSLATIONS_EXPECTED_VERSION || cachedVersion === TRANSLATIONS_EXPECTED_VERSION;
 
-                            if (isFresh && cached?.data && versionMatches) {
-                                // Quick schema validation
-                                if (cached.data.LANGUAGE_FLAGS && cached.data.TRANSLATIONS) {
-                                    logInfo('loadTranslations', 'Using translations from GM_* cache');
-                                    return cached.data;
-                                }
+                        if (isFresh && cached?.data && versionMatches) {
+                            if (cached.data.LANGUAGE_FLAGS && cached.data.TRANSLATIONS) {
+                                logInfo('loadTranslations', 'Using translations from cache');
+                                return cached.data;
                             }
-                        } catch (parseError) {
-                            logWarn('loadTranslations', 'Corrupt cache detected, cleaning...', parseError);
-                            if (typeof GM_deleteValue === 'function') await GM_deleteValue(CACHE_KEY);
                         }
+                    } catch (parseError) {
+                        logWarn('loadTranslations', 'Corrupt cache detected, cleaning...', parseError);
+                        await Storage.del(CACHE_KEY);
                     }
                 }
             } catch (e) {
@@ -890,13 +887,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                         logInfo('loadTranslations', 'External translations loaded correctly from: ' + url);
 
                         // Cache payload asynchronously
-                        const cachePayload = JSON.stringify({
-                            ts: Date.now(),
-                            version: candidate.VERSION ?? candidate.__metadata__?.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null,
-                            data: candidate
-                        });
                         try {
-                            if (typeof GM_setValue === 'function') await GM_setValue(CACHE_KEY, cachePayload);
+                            await Storage.set(CACHE_KEY, {
+                                ts: Date.now(),
+                                version: candidate.VERSION ?? candidate.__metadata__?.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null,
+                                data: candidate
+                            });
                         } catch (_) { }
 
                         return candidate;
@@ -1247,10 +1243,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             }
         }
 
-        // Fallback: asignación directa
-        // El script solo usa HTML autogenerado (SVGs hardcoded, template literals con escapeHTML())
-        // por lo que no se necesita sanitización adicional
-        element.innerHTML = html;
+        // Fallback seguro: createContextualFragment + replaceChildren
+        // Evita innerHTML directo para mantener compatibilidad con Trusted Types contexts
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const fragment = range.createContextualFragment(html);
+        element.replaceChildren(fragment);
     }
 
 
@@ -5707,17 +5705,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         function enqueue(operation) {
             operationQueue = operationQueue
-                .then(() => operation().catch((error) => {
-                    logError('Operación fallida en cola IndexedDB', error);
-                    // Re-lanzar para que el error llegue al llamador (ej: detección de cuota)
-                    throw error;
-                }))
+                .catch(() => {})
+                .then(() => operation())
                 .catch((error) => {
-                    // Solo loggear si no venía ya de la operación fallida
-                    if (!error.__idbEnqueueLogged) {
-                        Object.defineProperty(error, '__idbEnqueueLogged', { value: true });
-                        logError('Error en cola IndexedDB', error);
-                    }
+                    logError('Error en cola IndexedDB', error);
                     throw error;
                 });
             return operationQueue;
@@ -5863,9 +5854,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (isNonVideoStorageKey(key)) {
                 try {
                     const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
-                    const raw = await GM_getValue(gmKey, null);
-                    if (raw) {
-                        try { return JSON.parse(raw); } catch (_) { return raw; }
+                    if (typeof GM_getValue === 'function') {
+                        const raw = await GM_getValue(gmKey, null);
+                        if (raw) {
+                            try { return JSON.parse(raw); } catch (_) { return raw; }
+                        }
                     }
                     return null;
                 } catch (err) {
@@ -10356,7 +10349,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         const settings = { ...await getSettings() };
-        const githubSettings = { ...await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings) };
+        const githubSettings = { ...(await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings) };
 
         const overlay = createElement('div', {
             className: 'ypp-modalOverlay',
@@ -10575,7 +10568,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 await Promise.all([
                     setSettings(newSettings),
-                    GM_setValue(CONFIG.STORAGE_KEYS.github, newGithubSettings)
+                    Storage.set(CONFIG.STORAGE_KEYS.github, newGithubSettings)
                 ]);
 
                 cachedSettings = newSettings;
@@ -11741,6 +11734,40 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const miniplayerTransitions = new Set();
 
         /**
+         * Limpia la sesión activa de un video y lo re-encola para reprocesamiento.
+         * Patrón común en src-change de todos los tipos de observer.
+         * @param {HTMLVideoElement} videoEl
+         * @param {string} type - 'watch' | 'shorts' | 'miniplayer' | 'preview'
+         */
+        const resetSessionAndEnqueue = (videoEl, type) => {
+            videoTypeCache.delete(videoEl);
+            const prevSession = activeProcessingSessions.get(videoEl);
+            if (prevSession?.intervalId) clearInterval(prevSession.intervalId);
+            activeProcessingSessions.delete(videoEl);
+            enqueueVideo(videoEl, type);
+        };
+
+        /**
+         * Recorre mutaciones childList buscando elementos <video> que cumplan un predicado.
+         * Patrón común en todos los observers.
+         * @param {MutationRecord[]} mutations
+         * @param {(v: HTMLVideoElement) => boolean} matchFn
+         * @param {string} enqueueType
+         */
+        const processMutationsForVideo = (mutations, matchFn, enqueueType) => {
+            for (const m of mutations) {
+                if (m.type !== 'childList') continue;
+                for (const node of m.addedNodes) {
+                    if (!(node instanceof Element)) continue;
+                    const video = node.tagName === 'VIDEO' ? node : node.querySelector?.('video');
+                    if (video && matchFn(video)) {
+                        enqueueVideo(video, enqueueType);
+                    }
+                }
+            }
+        };
+
+        /**
          * Ejecuta el procesamiento de los videos encolados de forma asíncrona.
          */
         const processBatch = () => {
@@ -12145,30 +12172,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                 return;
                             }
 
-                            // Log en consola para depuración
-                            // Indica que el src del video cambió y se reiniciará la sesión
-                            logLog(
-                                'VideoObserverManager',
-                                '📺 Watch: cambio de src detectado, reiniciando sesión y encolando'
-                            );
-
-                            // Elimina de la caché el tipo de video asociado a este elemento
-                            // Esto fuerza a recalcular si es watch, short, etc.
-                            videoTypeCache.delete(videoEl);
-
-                            // Si existía un intervalo activo (setInterval),
-                            // se detiene para evitar procesos duplicados
-                            if (prevSession?.intervalId) {
-                                clearInterval(prevSession.intervalId);
-                            }
-
-                            // Elimina completamente la sesión previa del registro
-                            activeProcessingSessions.delete(videoEl);
-
-                            // Encola el video para ser procesado nuevamente
-                            // El segundo parámetro "watch" indica
-                            // que se trata de un video normal de la página de reproducción
-                            enqueueVideo(videoEl, 'watch');
+                            logLog('VideoObserverManager', '📺 Watch: cambio de src detectado, reiniciando sesión y encolando');
+                            resetSessionAndEnqueue(videoEl, 'watch');
 
                             // Sale inmediatamente del loop de mutaciones
                             // para evitar procesar más eventos innecesarios
@@ -12177,166 +12182,48 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                 }
 
-                // Recorre todas las mutaciones detectadas
-                mutations.forEach(m => {
-
-                    // Determina qué nodos revisar dependiendo del tipo de mutación
-                    const nodes = m.type === 'childList'
-                        // Si se agregaron nodos al DOM, usa los nodos añadidos
-                        ? Array.from(m.addedNodes)
-                        // Si no, revisa el nodo objetivo de la mutación
-                        : [m.target];
-
-                    // Recorre cada nodo afectado por la mutación
-                    nodes.forEach(node => {
-
-                        // Si el nodo no es un elemento del DOM (puede ser texto, comentario, etc.)
-                        // se ignora
-                        if (!(node instanceof Element)) return;
-
-
-                        // CASO 1: el nodo agregado ES directamente un <video>
-                        if (node.tagName === 'VIDEO') {
-
-                            // Verifica que el video esté dentro del player principal
-                            // y que no sea el miniplayer
-                            if (
-                                node.closest(SELECTORS.player.movie) &&
-                                !node.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT)
-                            ) {
-
-                                // Encola el video para procesamiento
-                                enqueueVideo(node, 'watch');
-                            }
-
-                            // Termina aquí porque ya procesamos este nodo
-                            return;
-                        }
-
-                        // CASO 2: el nodo agregado contiene un <video> dentro
-
-                        // Busca un <video> dentro del nodo agregado
-                        const video = node.querySelector?.('video');
-
-                        // Si se encontró un video y está dentro del player principal
-                        // y no está dentro del miniplayer
-                        if (
-                            video &&
-                            video.closest(SELECTORS.player.movie) &&
-                            !video.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT)
-                        ) {
-
-                            // Encola ese video para procesamiento
-                            enqueueVideo(video, 'watch');
-                        }
-
-                    });
-                });
+                // Recorre mutaciones childList buscando <video> en el player principal (excluyendo miniplayer)
+                processMutationsForVideo(mutations,
+                    v => v.closest(SELECTORS.player.movie) && !v.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT),
+                    'watch'
+                );
             });
 
             // 2. Selector para Shorts
             observers.shorts = new MutationObserver((mutations) => {
-                // Safeguard: solo procesar como "shorts" si estamos realmente en la página de shorts
                 if (currentPageType !== 'shorts') return;
-                // Shorts suele reutilizar elementos, detectamos cambio de src
                 for (const m of mutations) {
                     if (m.type === 'attributes' && m.attributeName === 'src' && m.target instanceof HTMLVideoElement) {
                         const videoEl = m.target;
                         if (videoEl.closest(SELECTORS.shorts.player)) {
                             logLog('VideoObserverManager', '📱 Shorts: cambio de src detectado, reiniciando sesión y encolando');
-                            // Invalidar caché de playerVideoId para evitar stale data
                             const player = videoEl.closest(SELECTORS.shorts.player);
                             if (player) playerVideoIdCache.delete(player);
-
-                            videoTypeCache.delete(videoEl);
-                            const prevSession = activeProcessingSessions.get(videoEl);
-                            if (prevSession?.intervalId) clearInterval(prevSession.intervalId);
-                            activeProcessingSessions.delete(videoEl);
-
-                            enqueueVideo(videoEl, 'shorts');
+                            resetSessionAndEnqueue(videoEl, 'shorts');
                             return;
                         }
                     }
                 }
-
-                mutations.forEach(m => {
-
-                    const nodes = m.type === 'childList'
-                        ? Array.from(m.addedNodes)
-                        : [m.target];
-
-                    nodes.forEach(node => {
-
-                        if (!(node instanceof Element)) return;
-
-                        // Caso 1: el nodo agregado ES el video
-                        if (node.tagName === 'VIDEO') {
-                            if (node.closest(SELECTORS.shorts.player)) {
-                                enqueueVideo(node, 'shorts');
-                            }
-                            return;
-                        }
-
-                        // Caso 2: el video está dentro del nodo agregado
-                        const video = node.querySelector?.('video');
-
-                        if (video && video.closest(SELECTORS.shorts.player)) {
-                            enqueueVideo(video, 'shorts');
-                        }
-
-                    });
-
-                });
+                processMutationsForVideo(mutations,
+                    v => v.closest(SELECTORS.shorts.player),
+                    'shorts'
+                );
             });
 
             // 3. Selector para Miniplayer
-            /** @type {string} Último src visto en el video del miniplayer, para detectar cambios de video. */
+            /** @type {string} Último src visto en el video del miniplayer, para detectar cambios de video */
             let lastMiniplayerSrc = '';
 
             observers.miniplayer = new MutationObserver((mutations) => {
-                // miniplayer no puede existir en /watch - destruir su display si quedó huérfano
                 if (currentPageType === 'watch') {
                     PlaybackDisplayManager.destroy('miniplayer');
                     return;
                 }
 
-                // 1. Actualizar estado de visibilidad si el cambio es en ytd-app
-                // YouTube aplica `miniplayer-is-active` en ytd-app (no en html/body).
-                const visibilityMutation = mutations.find(m =>
-                    m.target?.tagName === 'YTD-APP' &&
-                    m.type === 'attributes' &&
-                    m.attributeName === SELECTORS.miniplayer.activeAttr
-                );
+                // Actualizar estado de visibilidad
+                const app = DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100);
+                isMiniplayerActive = !!(app?.hasAttribute('miniplayer-is-active'));
 
-                if (visibilityMutation) {
-                    logLog('VideoObserverManager', `👀 Miniplayer visibilidad cambió: ${visibilityMutation.attributeName}`);
-                    // Detección de visibilidad ultra-robusta combinando clase, atributo y estado de ytd-app
-                    const newState = !!(
-                        document.querySelector(`${SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT}${SELECTORS.CLASSES.MINIPLAYER_VISIBLE}`) ||
-                        DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100)?.matches(SELECTORS.miniplayer.activeAttr)
-                    );
-
-                    if (newState !== isMiniplayerActive) {
-                        isMiniplayerActive = newState;
-                        logLog('VideoObserverManager', `📱 Miniplayer visibilidad cambió: ${isMiniplayerActive}`);
-
-                        // Si se oculta, destruir el display para evitar que quede huérfano
-                        if (!isMiniplayerActive) {
-                            PlaybackDisplayManager.destroy('miniplayer');
-                        } else {
-                            // El miniplayer acaba de activarse: intentar encolarlo si hay video
-                            const v = DOMHelpers.getMiniplayerPlayerVideo();
-                            if (v) {
-                                videoTypeCache.delete(v);
-                                enqueueVideo(v, 'miniplayer');
-                            }
-                        }
-                    }
-                }
-
-                // Ruta rápida para cambio de src del video (YouTube muta src en el mismo elemento <video>)
-                // No dependemos de isVisible aquí: si el video está físicamente dentro del selector miniplayer
-                // y su src cambió, es un cambio de video que SIEMPRE debemos registrar.
                 for (const m of mutations) {
                     if (m.type === 'attributes' && m.attributeName === 'src' && m.target instanceof HTMLVideoElement) {
                         const videoEl = m.target;
@@ -12344,21 +12231,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (videoEl.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT) && newSrc && newSrc !== lastMiniplayerSrc) {
                             lastMiniplayerSrc = newSrc;
                             logLog('VideoObserverManager', '📱 Miniplayer: cambio de src detectado, reiniciando sesión y encolando');
-                            // Invalidar caché de playerVideoId para evitar stale data
                             const player = videoEl.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT);
                             if (player) playerVideoIdCache.delete(player);
                             miniplayerTransitions.add(videoEl);
-
-                            // Limpiar sesión previa y forzar reprocessing
-                            videoTypeCache.delete(videoEl); // IMPORTANTE: permitir re-encolar
-                            const prevSession = activeProcessingSessions.get(videoEl);
-                            if (prevSession?.intervalId) clearInterval(prevSession.intervalId);
-                            activeProcessingSessions.delete(videoEl);
-
-                            enqueueVideo(videoEl, 'miniplayer');
+                            resetSessionAndEnqueue(videoEl, 'miniplayer');
                             return;
                         }
-
                     }
                 }
 
@@ -12369,35 +12247,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 if (!isMiniplayerActive) return;
 
-                mutations.forEach(m => {
-                    const nodes = m.type === 'childList'
-                        ? Array.from(m.addedNodes)
-                        : [m.target];
-
-                    nodes.forEach(node => {
-
-                        if (!(node instanceof Element)) return;
-
-                        const video =
-                            node.tagName === 'VIDEO'
-                                ? node
-                                : node.querySelector?.('video');
-
-                        if (!video) return;
-
-                        if (video.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT)) {
-                            enqueueVideo(video, 'miniplayer');
-                        }
-
-                    });
-
-                });
-
-                // Trigger manual en caso de que ya haya un video presente
-                const v = DOMHelpers.getMiniplayerPlayerVideo();
-                if (v) enqueueVideo(v, 'miniplayer');
-
+                processMutationsForVideo(mutations,
+                    v => v.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT),
+                    'miniplayer'
+                );
             });
+
+            // Trigger manual en caso de que ya haya un video presente
+            const v = DOMHelpers.getMiniplayerPlayerVideo();
+            if (v) enqueueVideo(v, 'miniplayer');
 
             // 4. Selector para Previews
             // Igual que el miniplayer, YouTube reutiliza el mismo elemento <video> para diferentes previews.
@@ -12451,14 +12309,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                             // Marcar como en transición para evitar que el intervalo termine la sesión por cambio de ID
                             previewTransitions.add(videoEl);
-
-                            // Limpiar sesión previa y forzar reprocessing
-                            videoTypeCache.delete(videoEl); // IMPORTANTE: permitir re-encolar
-                            const prevSession = activeProcessingSessions.get(videoEl);
-                            if (prevSession?.intervalId) clearInterval(prevSession.intervalId);
-                            activeProcessingSessions.delete(videoEl);
-
-                            enqueueVideo(videoEl, 'preview');
+                            resetSessionAndEnqueue(videoEl, 'preview');
                             return;
                         }
 
@@ -12628,6 +12479,46 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let sessionIdCounter = 0;
     let transitionTokenCounter = 0;
 
+    /** @type {WeakMap<object, Set<number>>} Almacena timeoutIds por sesión para limpieza en finalizeSession */
+    const sessionTimeoutIds = new WeakMap();
+
+    /**
+     * Crea un setTimeout asociado a una sesión, que se limpia automáticamente
+     * cuando la sesión se finaliza (vía SessionOrchestrator.finalizeSession).
+     * @param {object} sessionRef - Referencia a la sesión (objeto del Map activeProcessingSessions)
+     * @param {Function} fn - Función a ejecutar cuando el timeout expire
+     * @param {number} delayMs - Milisegundos de espera
+     * @returns {number} timeoutId
+     */
+    const createSessionTimeout = (sessionRef, fn, delayMs) => {
+        if (!sessionRef || sessionRef.isFinalized) return -1;
+        if (!sessionTimeoutIds.has(sessionRef)) {
+            sessionTimeoutIds.set(sessionRef, new Set());
+        }
+        const id = setTimeout(() => {
+            const ids = sessionTimeoutIds.get(sessionRef);
+            if (ids) ids.delete(id);
+            fn();
+        }, delayMs);
+        sessionTimeoutIds.get(sessionRef).add(id);
+        return id;
+    };
+
+    /**
+     * Limpia todos los timeouts asociados a una sesión.
+     * Se llama desde SessionOrchestrator.finalizeSession.
+     * @param {object} sessionRef
+     */
+    const clearSessionTimeouts = (sessionRef) => {
+        if (!sessionRef) return;
+        const ids = sessionTimeoutIds.get(sessionRef);
+        if (ids) {
+            for (const id of ids) clearTimeout(id);
+            ids.clear();
+            sessionTimeoutIds.delete(sessionRef);
+        }
+    };
+
     const SessionOrchestrator = (() => {
         const VALID_STATES = new Set(['idle', 'starting', 'active', 'inAd', 'transitioning', 'stopping', 'finalized']);
         const transitions = new Map([
@@ -12757,6 +12648,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             session.state = 'finalized';
             if (session.intervalId) clearInterval(session.intervalId);
             if (session.abortController) session.abortController.abort();
+            clearSessionTimeouts(session);
             PlaybackDisplayManager.release(session.type, { videoEl, videoId: session.lastVideoId });
             SessionFallbackManager.clear(videoEl);
             activeProcessingSessions.delete(videoEl);
@@ -13180,7 +13072,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Cleanup del loading state transitorio tras 2.5s (el primer save real lo reemplazará)
         // Solo limpia si ningún guardado real ha ocurrido aún (caso: metadata waterfall lento)
-        setTimeout(() => {
+        createSessionTimeout(sessionRef, () => {
             const stillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
             if (stillValid && !sessionRef.hasRealSave) {
                 PlaybackDisplayManager.clear(type, { videoEl, videoId });
@@ -13201,7 +13093,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Fast-path para previews: no esperar al primer intervalo (1s por defecto),
         // porque en hover corto el usuario puede salir antes del primer guardado.
         if (type === 'preview') {
-            setTimeout(async () => {
+            createSessionTimeout(sessionRef, async () => {
                 const session = activeProcessingSessions.get(videoEl);
                 if (!session || session.lastVideoId !== videoId || session.type !== 'preview') return;
                 if (!videoEl.isConnected || AdDetector.isNodeWithinAdContainer(videoEl)) return;
@@ -13311,10 +13203,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return false;
             },
             resolveVideoId: (_videoEl, player) => {
-                const playerVideoId = player ? getPlayerVideoId(player) : null;
+                let playerVideoId = player ? getPlayerVideoId(player) : null;
                 const urlId = extractYouTubeVideoIdFromUrl(window.location.href);
 
                 // Validación crítica: evita race conditions en navegación SPA para Shorts.
+                if (!playerVideoId || playerVideoId !== urlId) {
+                    // Posible cache stale: limpiar y reintentar una vez
+                    if (player) playerVideoIdCache.delete(player);
+                    playerVideoId = player ? getPlayerVideoId(player) : null;
+                }
+
                 if (!playerVideoId || playerVideoId !== urlId) {
                     logWarn('processMediaVideo/shorts', `⚠️ Mismatch de ID detectado en Shorts (Player: ${playerVideoId} vs URL: ${urlId}).`);
                     return null;
@@ -13633,7 +13531,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // --- PERSISTENCE CHECK ---
                     // En cuentas logueadas, YouTube puede intentar forzar su propio progreso (native resume).
                     // Verificamos 800ms después si el tiempo se mantuvo o si saltó hacia atrás.
-                    setTimeout(() => {
+                    createSessionTimeout(session, () => {
                         const currentSession = activeProcessingSessions.get(videoEl);
                         if (session && (session.isFinalized || currentSession !== session)) return;
 
@@ -16197,6 +16095,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         info.isProtected = !info.isProtected;
         await Storage.set(videoId, info);
 
+        // Sincronizar sesiones activas para evitar que cachedSavedData obsoleto
+        // sobreescriba isProtected=false en el próximo guardado automático.
+        for (const session of activeProcessingSessions.values()) {
+            if (session.lastVideoId === videoId && session.savedData) {
+                session.savedData.isProtected = info.isProtected;
+            }
+        }
+
         const msg = info.isProtected
             ? `${SVG_ICONS.shieldYesFill} ${t('protected')}`
             : `${SVG_ICONS.shieldOff} ${t('unprotected')}`;
@@ -18642,7 +18548,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Evitar cleanup destructivo solo si ya estábamos en un contexto que no es watch y seguimos en uno que no es watch,
                 // y hay una sesión de miniplayer que preservar.
-                const skipCleanup = preserveMiniplayer && lastHandledPageType !== 'watch' && hasActiveMiniplayerSession;
+                // Excepción: cuando entramos a shorts, siempre recrear observadores porque YouTube
+                // reemplaza el contenedor #shorts-player en cada navegación SPA, dejando el observer
+                // anterior huérfano en un elemento detached.
+                const skipCleanup = preserveMiniplayer && lastHandledPageType !== 'watch' && hasActiveMiniplayerSession && newPageType !== 'shorts';
 
                 if (typeof VideoObserverManager?.clearCache === 'function') VideoObserverManager.clearCache();
                 if (typeof VideoObserverManager?.init === 'function') VideoObserverManager.init(shouldForceBootstrap, preserveMiniplayer, skipCleanup);
@@ -18819,7 +18728,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                      * Verificar primero si hay configuración válida para backup automático
                      * antes de programar intervalos innecesarios.
                      */
-                    const githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+                    const githubSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
                     const hasGistBackup = githubSettings?.gist?.autoBackup && githubSettings?.gist?.token;
                     const hasRepoBackup = githubSettings?.repo?.autoBackup && githubSettings?.repo?.token;
 
@@ -18866,5 +18775,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
     };
 
-    init();
+    // Iniciar con protección contra errores sincrónicos
+    setTimeout(() => {
+        init().catch((error) => {
+            logError('init', '❌ Error fatal en init():', error);
+        });
+    }, 0);
 })();

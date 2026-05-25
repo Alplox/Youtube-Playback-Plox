@@ -26,6 +26,9 @@
 
 ### Changed
 
+- **MutationObserver consolidation: extracted 2 shared helpers from 4 observers**: Extracted `resetSessionAndEnqueue(videoEl, type)` and `processMutationsForVideo(mutations, matchFn, enqueueType)` from the Watch, Shorts, Miniplayer, and Preview MutationObservers. Each observer's childList traversal is now a single `processMutationsForVideo` call (~1 line, from ~30 lines of nested forEach). The src-change fast path uses `resetSessionAndEnqueue` instead of repeating the 4-line cleanup pattern. Only Preview observer retained its full complexity due to unique dedup/filtering logic. Total reduction: ~180 lines.
+- **Storage migration: replaced 4 direct GM_* calls with `Storage.get/set/del`**: Migrated `loadTranslations` cache (read/write/delete via GM_getValue/GM_setValue/GM_deleteValue), GitHub settings modal (read/write via GM_getValue/GM_setValue), and cleanup init (`GM_deleteValue`) to use the existing `Storage` abstraction. Also hardened `Storage.get` with a `typeof GM_getValue === 'function'` guard to prevent crashes in environments without GM_* APIs.
+- **IndexedDB enqueue error resilience**: Removed the `__idbEnqueueLogged` custom property hack from the `enqueue()` operation queue. Simplified to `.catch(() => {}).then(() => operation())` pattern that swallows prior queue rejections without marking them, keeping the queue alive. Errors from the actual operation are still logged and propagated.
 - **Reduced `handleNavigation` session iteration from O(3n) to O(n)**: Replaced 3 separate `Array.from(activeProcessingSessions.values()).some(...)` calls (each iterating all sessions) with a single `for...of` loop that tracks all 3 flags (`hasActiveSession`, `hasActiveMiniplayerSession`, `hasActivePreviewSession`) in one pass, with early-exit when all flags are found.
 - **Hoisted `fetchShortsViews` and `fetchPlaylistTitle` out of `getCascadedVideoInfo`**: Moved two inline async function definitions to standalone functions above `getCascadedVideoInfo`, preventing function object recreation on every metadata waterfall call. Functions now accept parameters (`videoId`, `playlistId`) instead of capturing closure variables.
 - **Extracted `pickVideoInfoFields` helper in save hot path**: Replaced duplicated `Object.fromEntries(Object.entries(videoInfo).filter(...))` chain (appearing twice in `internalSaveVideoGeneric`, every 1-2s) with a simple `for...of` loop helper that avoids creating intermediate arrays/objects.
@@ -61,6 +64,12 @@
   - Extracted `updateVirtualScroller` - update path: stats bar, item update, scroll restoration.
   - Extracted `initVirtualScroller` - full VirtualScroller initialization with stats bar.
   - Extracted `connectResizeObserver` - grid column reflow on container width change.
+
+### Fixed
+
+- **Critical: `setInnerHTML` unsafe fallback bypassing Trusted Types**: Replaced the direct `element.innerHTML = html` fallback (line ~1249) with `document.createRange().createContextualFragment()` + `element.replaceChildren()`, ensuring no HTML sink bypasses Trusted Types even when the policy is unavailable.
+- **Critical: `init()` fire-and-forget without sync error protection**: Wrapped the `init()` call in `setTimeout(() => init().catch(...), 0)` to guarantee that synchronous throw sites before the first `await` in `initializeGlobal` are caught and logged instead of crashing the script.
+- **Critical: Session timeouts not abortable on `finalizeSession`**: Introduced `createSessionTimeout(sessionRef, fn, delayMs)` helper backed by a `WeakMap<session, Set<timeoutIds>>`. The 3 orphaned `setTimeout` calls (persistence check at 800ms, loading cleanup at 2500ms, preview fast-path at 220ms) now register via this helper and are automatically cleared by `finalizeSession()`, preventing stale callbacks from accessing finalized sessions or disconnected DOM elements.
 
 # 0.0.10-1
 

@@ -149,24 +149,26 @@
 
     const noop = () => { };
 
+    const resolveArgs = (args) => args.map(a => typeof a === 'function' ? a() : a);
+
     const build = (t, l) =>
         (level >= l || t === 'error')
-            ? (c, ...a) => console[t](`%c[${c}]`, LOG_STYLES[t], ...a)
+            ? (c, ...a) => console[t](`%c[${c}]`, LOG_STYLES[t], ...resolveArgs(a))
             : noop;
 
     window.MyScriptLogger = {
         _errorLogs: [],
         log: (c, ...a) => {
-            if (level >= L.debug) console.log(`%c[${c}]`, LOG_STYLES.debug, ...a);
+            if (level >= L.debug) console.log(`%c[${c}]`, LOG_STYLES.debug, ...resolveArgs(a));
         },
         debug: build('debug', L.debug),
         info: build('info', L.info),
         warn: (c, ...a) => {
-            console.warn(`%c[${c}]`, LOG_STYLES.warn, ...a);
+            console.warn(`%c[${c}]`, LOG_STYLES.warn, ...resolveArgs(a));
             // window.MyScriptLogger._internalPushLog(c, a);
         },
         error: (c, ...a) => {
-            console.error(`%c[${c}]`, LOG_STYLES.error, ...a);
+            console.error(`%c[${c}]`, LOG_STYLES.error, ...resolveArgs(a));
             window.MyScriptLogger._internalPushLog(c, a);
         },
         group: (label) => {
@@ -7883,7 +7885,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return { success: false, reason: 'manual_save_mode_active' };
         }
 
-        const sourceData = await getSavedVideoData(videoId, playlistId);
+        const sourceData = options.cachedSavedData ?? await getSavedVideoData(videoId, playlistId);
         const now = Date.now();
 
         // 1. Manejo de transmisiones en directo (Livestreams)
@@ -7900,10 +7902,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const normalizedData = normalizeVideoData(videoData);
             const storageResult = await Storage.set(videoId, normalizedData);
 
-            logLog(logContext, `✅ Livestream guardado:`, {
+            logLog(logContext, `✅ Livestream guardado:`, () => ({
                 ...videoData,
                 description: videoData.description ? videoData.description.slice(0, 12) + (videoData.description.length > 12 ? ' (truncada para log)' : '') : ''
-            });
+            }));
 
             if (storageResult && !storageResult.success) {
                 return { success: false, reason: storageResult.reason, videoId, type: 'live' };
@@ -8021,10 +8023,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const normalizedData = normalizeVideoData(videoData);
         const storageResult = await Storage.set(videoId, normalizedData);
 
-        logLog(logContext, `✅ Video/Short/Preview guardado:`, {
+        logLog(logContext, `✅ Video/Short/Preview guardado:`, () => ({
             ...videoData,
             description: videoData.description ? videoData.description.slice(0, 12) + (videoData.description.length > 12 ? ' (truncada para log)' : '') : ''
-        });
+        }));
 
         if (storageResult && !storageResult.success) {
             return { success: false, reason: storageResult.reason, videoId, type: finalType };
@@ -9195,6 +9197,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 if (result?.videoInfo && session) {
                     session.videoInfo = result.videoInfo;
+                }
+                if (result?.savedData && session) {
+                    session.savedData = result.savedData;
                 }
 
             }
@@ -13139,6 +13144,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (result?.videoInfo && session) {
                 session.videoInfo = result.videoInfo;
             }
+            if (result?.savedData && session) {
+                session.savedData = result.savedData;
+            }
         }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
 
         // Registrar el intervalId inmediatamente para permitir que finalizeSession() pueda limpiarlo
@@ -13179,6 +13187,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session.videoInfo);
                     if (result?.videoInfo) {
                         session.videoInfo = result.videoInfo;
+                    }
+                    if (result?.savedData) {
+                        session.savedData = result.savedData;
                     }
                 } catch (_) { }
             }, 220);
@@ -13782,7 +13793,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (finalType === 'preview') {
                     logInfo('PlaybackController', `saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);
                 }
-                const saveOptions = { isManual: !!options.isManual };
+                const saveOptions = { isManual: !!options.isManual, cachedSavedData: session?.savedData };
 
                 // Armonizar con formato FreeTube (Integer): Actualizamos solo si hay cambio real en segundos redondeados.
                 const roundedDuration = Math.round(duration);

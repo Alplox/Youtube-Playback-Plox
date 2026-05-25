@@ -6100,17 +6100,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     /** @type {WeakMap<Element, { val: boolean, ts: number }>} Cache para deteccion de anuncios por nodo */
     const _adContainerCache = new WeakMap();
 
-    // Sincronización en pipeline de render (Frame Ticking Memoization)
-    let _adDetectorFrameId = 0;
-    const _adDetectorTick = () => {
-        _adDetectorFrameId++;
-        requestAnimationFrame(_adDetectorTick);
-    };
-    requestAnimationFrame(_adDetectorTick);
-
+    // Cache por TTL para resultados de detección de anuncios (evita re-scan del DOM en ráfagas)
+    const AD_CACHE_TTL = 50;
     let _lastAdRoot = null;
     let _lastAdResult = null;
-    let _lastAdRootFrame = -1;
+    let _lastAdRootTime = 0;
 
     const _MAX_VIDEO_METADATA_CACHE_SIZE = 100;
     const _videoMetadataCache = new SimpleLRUCache(_MAX_VIDEO_METADATA_CACHE_SIZE);
@@ -6227,11 +6221,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             try {
                 if (!root?.querySelector) return null;
 
-                // Hit de Memoización: Evita que el mismo root se re-evalúe repetidas veces
-                if (root === _lastAdRoot && _adDetectorFrameId === _lastAdRootFrame) return _lastAdResult;
+                // Hit de Memoización: Evita que el mismo root se re-evalúe repetidas veces en ráfagas rápidas
+                const now = Date.now();
+                if (root === _lastAdRoot && (now - _lastAdRootTime) < AD_CACHE_TTL) return _lastAdResult;
 
                 _lastAdRoot = root;
-                _lastAdRootFrame = _adDetectorFrameId;
+                _lastAdRootTime = now;
 
                 // Consulta nativa múltiple agrupada + post-validación en layout
                 const activeUiSelector = SELECTORS.ads.ui.activePlayer.join(', ');

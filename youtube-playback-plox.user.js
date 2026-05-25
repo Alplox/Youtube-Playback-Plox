@@ -7863,6 +7863,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         return base;
     }
 
+    /**
+     * Filtra campos de videoInfo: solo incluye valores no-null y los campos
+     * lastViewed* y playlistTitle (que se preservan aunque sean null).
+     * Hoistead para no recrear el filter callback en cada tick de guardado.
+     * @param {Object} info - Objeto videoInfo
+     * @returns {Object}
+     */
+    const pickVideoInfoFields = (info) => {
+        const result = {};
+        for (const k of Object.keys(info)) {
+            const v = info[k];
+            if (v !== null || k.startsWith('lastViewed') || k === 'playlistTitle') {
+                result[k] = v;
+            }
+        }
+        return result;
+    };
+
     // MARK: 💾 Save Video Generic
     /**
      * Lógica unificada para guardar el progreso y estado de reproducción de videos.
@@ -7887,7 +7905,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (finalType === 'live') {
             const videoData = {
                 ...sourceData,
-                ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
+                ...pickVideoInfoFields(videoInfo),
                 watchProgress: currentTime,
                 timeWatched: now,
                 type: 'live',
@@ -7972,7 +7990,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const videoData = {
             ...sourceData,
-            ...Object.fromEntries(Object.entries(videoInfo).filter(([k, v]) => v !== null || k.startsWith('lastViewed') || k === 'playlistTitle')),
+            ...pickVideoInfoFields(videoInfo),
             watchProgress: finalWatchProgress,
             timeWatched: now,
             type: resolvedType,
@@ -11750,7 +11768,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             // Continuar con el siguiente lote si hay más videos
             if (pendingVideos.size > 0) {
-                setTimeout(processBatch, 0);
+                queueMicrotask(processBatch);
             } else {
                 isBatchProcessing = false;
             }
@@ -13888,6 +13906,69 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      *   - `lastViewedPlaylistType` (string): Categoría de la playlist detectada. No se asigna, es una cadena vacía por defecto para compatibilidad con FreeTube
      *   - `lastViewedPlaylistItemId` (string|null): ID único del ítem en la secuencia. No se asigna, es null por defecto para compatibilidad con FreeTube
      */
+
+    /**
+     * Obtiene vistas de Shorts mediante fetch a la API interna de YouTube.
+     * Hoistead fuera de getCascadedVideoInfo para no recrearse en cada llamado.
+     * @param {string} vid - ID del video
+     * @returns {Promise<string|null>}
+     */
+    async function fetchShortsViews(vid) {
+        if (typeof ytcfg === 'undefined') return null;
+        if (!vid) return null;
+        try {
+            const res = await fetch(
+                "https://www.youtube.com/youtubei/v1/player?key=" + ytcfg.get("INNERTUBE_API_KEY"),
+                {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                        context: ytcfg.get("INNERTUBE_CONTEXT"),
+                        videoId: vid
+                    })
+                }
+            );
+            const data = await res.json();
+            return data.videoDetails?.viewCount;
+        } catch (_) {
+            return null;
+        }
+    }
+
+    /**
+     * Obtiene título de playlist mediante fetch a la API /next de YouTube.
+     * Hoistead fuera de getCascadedVideoInfo para no recrearse en cada llamado.
+     * @param {string} vid - ID del video
+     * @param {string} playlistId - ID de la playlist
+     * @returns {Promise<string|null>}
+     */
+    async function fetchPlaylistTitle(vid, playlistId) {
+        if (typeof ytcfg === 'undefined') return null;
+        if (!playlistId) return null;
+        try {
+            const res = await fetch(
+                'https://www.youtube.com/youtubei/v1/next?key=' + ytcfg.get('INNERTUBE_API_KEY'),
+                {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        context: ytcfg.get('INNERTUBE_CONTEXT'),
+                        videoId: vid,
+                        playlistId
+                    })
+                }
+            );
+            const data = await res.json();
+            return (
+                data?.contents?.twoColumnWatchNextResults?.playlist?.playlist?.titleText?.runs?.[0]?.text ??
+                data?.playerOverlays?.playerOverlayRenderer?.autoplay?.playerOverlayAutoplayRenderer?.playlistTitle?.simpleText ??
+                null
+            );
+        } catch (_) {
+            return null;
+        }
+    }
+
     async function getCascadedVideoInfo(initialPlayer, videoId, videoEl, type) {
         const now = Date.now();
         let info = {
@@ -14119,27 +14200,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
 
                 if (info.viewCount === 0 || info.viewCount === null) {
-                    async function fetchShortsViews() {
-                        if (typeof ytcfg === 'undefined') return null;
-                        if (!videoId) return null;
-
-                        const res = await fetch(
-                            "https://www.youtube.com/youtubei/v1/player?key=" + ytcfg.get("INNERTUBE_API_KEY"),
-                            {
-                                method: "POST",
-                                headers: { "Content-Type": "application/json" },
-                                body: JSON.stringify({
-                                    context: ytcfg.get("INNERTUBE_CONTEXT"),
-                                    videoId
-                                })
-                            }
-                        );
-
-                        const data = await res.json();
-                        return data.videoDetails?.viewCount;
-                    }
-
-                    let viewCountFromFetch = await fetchShortsViews();
+                    const viewCountFromFetch = await fetchShortsViews(videoId);
                     if (viewCountFromFetch) {
                         info.viewCount = !isNaN(parseInt(viewCountFromFetch, 10))
                             ? parseInt(viewCountFromFetch, 10)
@@ -14309,38 +14370,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 logInfo('getCascadedVideoInfo', `Final playlistTitle: "${info.playlistTitle}"`)
 
 
-                // Nivel 2: Fallback en fast-transitions: Si seguimos en null, es posible que el DOM/API aún no se hayan propagado.
-                async function fetchPlaylistTitle() {
-                    if (typeof ytcfg === 'undefined') return null;
-                    if (!info.lastViewedPlaylistId) return null;
-
-                    try {
-                        const res = await fetch(
-                            'https://www.youtube.com/youtubei/v1/next?key=' + ytcfg.get('INNERTUBE_API_KEY'),
-                            {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    context: ytcfg.get('INNERTUBE_CONTEXT'),
-                                    videoId,
-                                    playlistId: info.lastViewedPlaylistId
-                                })
-                            }
-                        );
-                        const data = await res.json();
-                        return (
-                            data?.contents?.twoColumnWatchNextResults?.playlist?.playlist?.titleText?.runs?.[0]?.text ??
-                            data?.playerOverlays?.playerOverlayRenderer?.autoplay?.playerOverlayAutoplayRenderer?.playlistTitle?.simpleText ??
-                            null
-                        );
-                    } catch (e) {
-                        logWarn('getCascadedVideoInfo', 'fetchPlaylistTitle: Error al obtener título de playlist:', e);
-                        return null;
-                    }
-                }
-
                 if (info.playlistTitle === null || info.playlistTitle === '') {
-                    const titleFromFetch = await fetchPlaylistTitle();
+                    const titleFromFetch = await fetchPlaylistTitle(videoId, info.lastViewedPlaylistId);
                     if (titleFromFetch) {
                         logLog('getCascadedVideoInfo', 'playlistTitle obtenido mediante fetch /next: ' + titleFromFetch);
                         info.playlistTitle = titleFromFetch;
@@ -18524,12 +18555,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Solo ignoramos si el ID coincide Y ya tenemos una sesión activa para ese ID en el contexto principal.
                 // Esto permite que si la primera inicialización falló por race-condition (Player API stale),
                 // los eventos subsiguientes puedan reintentar el bootstrap.
-                const hasActiveSession = Array.from(activeProcessingSessions.values())
-                    .some(session => (session.type === 'watch' || session.type === 'shorts') && session.lastVideoId === currentVideoId);
-                const hasActiveMiniplayerSession = Array.from(activeProcessingSessions.values())
-                    .some(session => session.type === 'miniplayer');
-                const hasActivePreviewSession = Array.from(activeProcessingSessions.values())
-                    .some(session => session.type === 'preview');
+                let hasActiveSession = false;
+                let hasActiveMiniplayerSession = false;
+                let hasActivePreviewSession = false;
+                for (const session of activeProcessingSessions.values()) {
+                    if (!hasActiveSession && (session.type === 'watch' || session.type === 'shorts') && session.lastVideoId === currentVideoId) {
+                        hasActiveSession = true;
+                    }
+                    if (!hasActiveMiniplayerSession && session.type === 'miniplayer') {
+                        hasActiveMiniplayerSession = true;
+                    }
+                    if (!hasActivePreviewSession && session.type === 'preview') {
+                        hasActivePreviewSession = true;
+                    }
+                    if (hasActiveSession && hasActiveMiniplayerSession && hasActivePreviewSession) break;
+                }
 
                 // firstLoadGuard: lastHandledPageType === null -> primera carga de página
                 const isFirstLoad = lastHandledPageType === null;

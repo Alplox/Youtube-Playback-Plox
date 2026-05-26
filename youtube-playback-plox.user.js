@@ -11532,6 +11532,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             const now = Date.now();
             if (
+                !preferredContext &&
                 activeSelection &&
                 activeSelection.videoEl === videoEl &&
                 activeSelection.context !== winner.context &&
@@ -12108,13 +12109,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             watch: null,
             shorts: null,
             miniplayer: null,
+            miniplayerState: null,
             preview: null
         };
         const initObservers = (forceBootstrap = false, preserveMiniplayer = false, skipCleanup = false) => {
             if (!skipCleanup) cleanup(preserveMiniplayer);
 
             // Si skipCleanup es true y los observadores ya están inicializados, no recrearlos
-            if (skipCleanup && observers.watch && observers.shorts && observers.miniplayer && observers.preview) {
+            if (skipCleanup && observers.watch && observers.shorts && observers.miniplayer && observers.miniplayerState && observers.preview) {
                 logLog('VideoObserverManager', '⏭️ Observadores ya inicializados, omitiendo recreación');
                 bootstrap(forceBootstrap);
                 return;
@@ -12214,15 +12216,33 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             /** @type {string} Último src visto en el video del miniplayer, para detectar cambios de video */
             let lastMiniplayerSrc = '';
 
+            // Observer de visibilidad: solo trackea el atributo en ytd-app
+            observers.miniplayerState = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                    if (m.attributeName === 'miniplayer-is-active') {
+                        const wasActive = isMiniplayerActive;
+                        isMiniplayerActive = m.target.hasAttribute('miniplayer-is-active');
+                        if (wasActive && !isMiniplayerActive) {
+                            PlaybackDisplayManager.destroy('miniplayer');
+                        }
+                        return;
+                    }
+                }
+            });
+
+            // Observer de videos: solo detecta src-change y childList en ytd-miniplayer
             observers.miniplayer = new MutationObserver((mutations) => {
                 if (currentPageType === 'watch') {
                     PlaybackDisplayManager.destroy('miniplayer');
                     return;
                 }
 
-                // Actualizar estado de visibilidad
-                const app = DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100);
-                isMiniplayerActive = !!(app?.hasAttribute('miniplayer-is-active'));
+                // Verificación multi-señal como respaldo para cubrir race conditions
+                // donde el DOM de ytd-miniplayer llega antes que el atributo de ytd-app.
+                if (!isMiniplayerActive) {
+                    isMiniplayerActive = !!DOMHelpers.getMiniplayerElementActive();
+                    if (!isMiniplayerActive) return;
+                }
 
                 for (const m of mutations) {
                     if (m.type === 'attributes' && m.attributeName === 'src' && m.target instanceof HTMLVideoElement) {
@@ -12239,13 +12259,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         }
                     }
                 }
-
-                // Ruta normal: verificar visibilidad usando el cache de estado
-                // Nota: isMiniplayerActive se actualiza en NavigationEvents y bootstrap()
-                // Una alternativa de detección es:
-                // document.querySelector(".html5-video-player")?.classList.contains("ytp-player-minimized")
-
-                if (!isMiniplayerActive) return;
 
                 processMutationsForVideo(mutations,
                     v => v.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT),
@@ -12372,22 +12385,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     logInfo('VideoObserverManager', '✅ Observador de Previews inicializado');
                 }
 
-                // Observar el contenedor principal del miniplayer
+                // Observer de visibilidad: ytd-app (ultra-ligero, solo attributeFilter)
+                const ytdApp = DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100);
+                if (ytdApp) {
+                    observers.miniplayerState.observe(ytdApp, {
+                        attributes: true,
+                        attributeFilter: [SELECTORS.RAW.attrs.MINIPLAYER_ACTIVE]
+                    });
+                }
+
+                // Observer de videos: ytd-miniplayer (childList + src)
                 const miniContainer = DOMHelpers.getMiniplayerElement();
                 if (miniContainer) {
                     observers.miniplayer.observe(miniContainer, config);
-                    // También observar ytd-app para el atributo `miniplayer-is-active`
-                    // que YouTube usa para señalizar la activación del miniplayer.
-                    // Nota: ytd-app NO es descendiente de ytd-miniplayer, por lo que
-                    // necesita su propia llamada a observe() con su propio attributeFilter.
-                    const ytdApp = DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100);
-                    if (ytdApp) {
-                        observers.miniplayer.observe(ytdApp, {
-                            attributes: true,
-                            attributeFilter: [SELECTORS.RAW.attrs.MINIPLAYER_ACTIVE]
-                        });
-                    }
-                    logInfo('VideoObserverManager', '✅ Observador de Miniplayer inicializado');
+                    logInfo('VideoObserverManager', '✅ Observadores de Miniplayer inicializados');
                 }
 
                 // Asegurar que el tipo de página sea correcto antes del bootstrap inicial
@@ -12403,7 +12414,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const cleanup = (preserveMiniplayer = false) => {
             Object.values(observers).forEach(obs => obs?.disconnect());
-            observers = { watch: null, shorts: null, miniplayer: null, preview: null };
+            observers = { watch: null, shorts: null, miniplayer: null, miniplayerState: null, preview: null };
 
             if (shortsPanelObserver) {
                 shortsPanelObserver.disconnect();

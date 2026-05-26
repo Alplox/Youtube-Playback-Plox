@@ -5199,69 +5199,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     * @param {number} duration - Duración total del video en segundos
     * @param {string} type - Tipo de video ('shorts', 'watch')
     */
+    let _lastProgressColorWatch = null;
+    let _lastProgressColorShorts = null;
     function updateProgressBarGradient(currentTime, duration, type = 'watch') {
-        try {
-            // Verificar si la funcionalidad está deshabilitada en la configuración
-            if (!cachedSettings.enableProgressBarGradient) {
-                return;
-            }
+        if (!cachedSettings.enableProgressBarGradient) return;
+        if (!duration || duration <= 0) return;
+        if (type === 'live') return;
 
-            if (!duration || duration <= 0) return;
+        const percent = Math.min(100, Math.round((currentTime / duration) * 100));
+        const progressColor = getProgressColor(percent);
 
-            const percent = Math.min(100, Math.round((currentTime / duration) * 100));
-            const progressColor = getProgressColor(percent);
+        const isShorts = type === 'shorts';
+        const lastColor = isShorts ? _lastProgressColorShorts : _lastProgressColorWatch;
+        if (progressColor === lastColor) return;
+        if (isShorts) { _lastProgressColorShorts = progressColor; } else { _lastProgressColorWatch = progressColor; }
 
-            if (type === 'shorts') {
-                const shortsProgressHost = DOMHelpers.get('shorts:progressHost', () => document.querySelector('.desktopShortsPlayerControlsHost .ytPlayerProgressBarHost, .ytPlayerProgressBarHost'), 50);
-                const shortsPlayedBar = DOMHelpers.get('shorts:playedBar', () => document.querySelector('.ytProgressBarLineProgressBarPlayed'), 50);
-                const shortsHoveredBar = DOMHelpers.get('shorts:hoveredBar', () => document.querySelector('.ytProgressBarLineProgressBarHovered'), 50);
-                const shortsPlayheadDot = DOMHelpers.get('shorts:playheadDot', () => document.querySelector('.ytProgressBarPlayheadProgressBarPlayheadDot'), 50);
-
-                if (shortsProgressHost) {
-                    // Aplicar variables CSS para el degradado en shorts
-                    shortsProgressHost.style.setProperty('--ytp-progress-color', progressColor, 'important');
-                    shortsProgressHost.style.setProperty('--ytp-progress-percent', `${percent}%`, 'important');
-
-                    // Aplicar estilos directamente a los elementos de la barra de shorts
-                    if (shortsPlayedBar) {
-                        shortsPlayedBar.style.backgroundColor = progressColor;
-                        shortsPlayedBar.style.setProperty('background', progressColor, 'important');
-                    }
-
-                    if (shortsHoveredBar) {
-                        shortsHoveredBar.style.backgroundColor = progressColor;
-                        shortsHoveredBar.style.setProperty('background', progressColor, 'important');
-                    }
-
-                    if (shortsPlayheadDot) {
-                        shortsPlayheadDot.style.backgroundColor = progressColor;
-                        shortsPlayheadDot.style.setProperty('background', progressColor, 'important');
-                    }
-                }
-            } else {
-                const progressContainer = DOMHelpers.get('video:progressContainer', () => document.querySelector('.ytp-progress-bar'), 50);
-                const playProgress = DOMHelpers.get('video:playProgress', () => document.querySelector('.ytp-play-progress'), 50);
-                const hoverProgress = DOMHelpers.get('video:hoverProgress', () => document.querySelector('.ytp-hover-progress'), 50);
-
-                if (progressContainer) {
-                    // Aplicar variables CSS para el degradado
-                    progressContainer.style.setProperty('--ytp-progress-color', progressColor, 'important');
-                    progressContainer.style.setProperty('--ytp-progress-percent', `${percent}%`, 'important');
-
-                    // Aplicar estilos directamente a la barra de progreso
-                    if (playProgress) {
-                        playProgress.style.backgroundColor = progressColor;
-                        playProgress.style.setProperty('background', progressColor, 'important');
-                    }
-
-                    if (hoverProgress) {
-                        hoverProgress.style.backgroundColor = progressColor;
-                        hoverProgress.style.setProperty('background', progressColor, 'important');
-                    }
-                }
-            }
-        } catch (error) {
-            // Silenciar errores para no afectar el funcionamiento principal
+        const container = isShorts
+            ? DOMHelpers.get('shorts:progressHost', () => document.querySelector('.desktopShortsPlayerControlsHost .ytPlayerProgressBarHost, .ytPlayerProgressBarHost'), 50)
+            : DOMHelpers.get('video:progressContainer', () => document.querySelector('.ytp-progress-bar'), 50);
+        if (container) {
+            container.style.setProperty('--ytp-progress-color', progressColor, 'important');
         }
     }
 
@@ -5283,98 +5240,69 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             /* Barra de progreso personalizada con degradado de colores - Videos regulares */
             .ytp-progress-bar {
                 --ytp-progress-color: #ff4533;
-                --ytp-progress-percent: 0%;
             }
 
             .ytp-play-progress {
                 background: var(--ytp-progress-color) !important;
-                transition: background 0.3s ease !important;
+                background-image: none !important;
+                transition: background-color 0.15s ease !important;
             }
 
             .ytp-hover-progress {
                 background: var(--ytp-progress-color) !important;
-                transition: background 0.3s ease !important;
-            }
-
-            .ytp-progress-bar-container {
-                background: linear-gradient(
-                    to right,
-                    var(--ytp-progress-color) 0%,
-                    var(--ytp-progress-color) var(--ytp-progress-percent),
-                    rgba(255, 255, 255, 0.2) var(--ytp-progress-percent),
-                    rgba(255, 255, 255, 0.2) 100%
-                ) !important;
-
-                background-size: 100% 100% !important;
-                transition: background 0.3s ease !important;
-            }
-
-            .ytp-load-progress {
-                background: rgba(255, 255, 255, 0.3) !important;
+                background-image: none !important;
+                transition: background-color 0.15s ease !important;
             }
 
             /* Shorts - barra de progreso específica con estructura correcta */
             .desktopShortsPlayerControlsHost .ytPlayerProgressBarHost,
             .ytPlayerProgressBarHost {
                 --ytp-progress-color: #ff4533;
-                --ytp-progress-percent: 0%;
             }
 
             /* Barra de progreso principal de shorts */
             .ytProgressBarLineProgressBarPlayed {
                 background: var(--ytp-progress-color) !important;
-                transition: background 0.3s ease !important;
+                background-image: none !important;
+                transition: background-color 0.15s ease !important;
             }
 
             /* Barra de hover en shorts */
             .ytProgressBarLineProgressBarHovered {
                 background: var(--ytp-progress-color) !important;
-                transition: background 0.3s ease !important;
-            }
-
-            /* Contenedor principal de la barra de shorts */
-            .ytProgressBarLineProgressBarLine {
-                background: linear-gradient(
-                    to right,
-                    var(--ytp-progress-color) 0%,
-                    var(--ytp-progress-color) var(--ytp-progress-percent),
-                    rgba(255, 255, 255, 0.2) var(--ytp-progress-percent),
-                    rgba(255, 255, 255, 0.2) 100%
-                ) !important;
-
-                background-size: 100% 100% !important;
-                transition: background 0.3s ease !important;
-            }
-
-            /* Fondo de carga en shorts */
-            .ytProgressBarLineProgressBarLoaded {
-                background: rgba(255, 255, 255, 0.3) !important;
+                background-image: none !important;
+                transition: background-color 0.15s ease !important;
             }
 
             /* Punto del seek (playhead) en shorts */
             .ytProgressBarPlayheadProgressBarPlayheadDot {
                 background: var(--ytp-progress-color) !important;
-                transition: background 0.3s ease !important;
+                background-image: none !important;
+                transition: background-color 0.15s ease !important;
             }
 
             /* Asegurar que los estilos se apliquen sobre los de YouTube */
             .ytp-progress-bar .ytp-play-progress,
             .ytp-chrome-controls .ytp-progress-bar .ytp-play-progress {
                 background: var(--ytp-progress-color) !important;
+                background-image: none !important;
             }
 
             .ytp-progress-bar .ytp-hover-progress,
             .ytp-chrome-controls .ytp-progress-bar .ytp-hover-progress {
                 background: var(--ytp-progress-color) !important;
+                background-image: none !important;
             }
 
             /* Para el punto del seek (thumb) - regular */
             .ytp-scrubber-container .ytp-scrubber {
                 background: var(--ytp-progress-color) !important;
+                background-image: none !important;
             }
 
             .ytp-scrubber-button {
                 background: var(--ytp-progress-color) !important;
+                background-image: none !important;
             }
         `;
 
@@ -5705,7 +5633,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         function enqueue(operation) {
             operationQueue = operationQueue
-                .catch(() => {})
+                .catch(() => { })
                 .then(() => operation())
                 .catch((error) => {
                     logError('Error en cola IndexedDB', error);
@@ -7889,6 +7817,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (cachedSettings.manualSaveMode && !options.isManual && !isHybridAutoSave) {
             logLog(logContext, `No se guardó el video ${videoId} en ${currentTime}s porque el modo de guardado manual está activo`);
             return { success: false, reason: 'manual_save_mode_active' };
+        }
+
+        // No guardar si la metadata del video aún no está disponible
+        // (evita sobrescribir datos existentes con duration=0 o Infinity).
+        if (!duration || !isFinite(duration) || duration <= 0) {
+            logLog(logContext, `⏳ Metadata no disponible (duration=${duration}), omitiendo guardado para ${videoId}`);
+            return { success: false, reason: 'duration_not_ready' };
         }
 
         const sourceData = options.cachedSavedData ?? await getSavedVideoData(videoId, playlistId);
@@ -12889,6 +12824,22 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     return;
                 }
 
+                // Anti re-seek: si YouTube reemplazó el <video> por un blob URL change
+                // (quality switch, ABR, seek del usuario), hay otra sesión activa para el mismo
+                // videoId+type en otro <video>. NO re-aplicar el saved seek.
+                const existingSessionForVideoId = Array.from(activeProcessingSessions.entries())
+                    .find(([existingEl, s]) =>
+                        !s.isFinalized &&
+                        s.lastVideoId === videoId &&
+                        s.type === type &&
+                        existingEl !== videoEl
+                    );
+                if (existingSessionForVideoId) {
+                    logLog('process', `⏭️ Resume omitido: sesión activa existente para ${videoId} [${type}] en otro <video>`);
+                    sessionRef.isResumePending = false;
+                    return;
+                }
+
                 if (savedData.watchProgress > 1 || savedData.forceResumeTime > 0 || savedData.isCompleted) {
                     if (shouldSkipResumeForActivePlayback(videoEl, type, videoId, savedData)) {
                         logLog('process', `⏭️ Resume omitido: reproducción ya sincronizada`);
@@ -12896,9 +12847,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         return;
                     }
                     recentResumeAttempts.set(videoEl, { videoId, ts: Date.now() });
-                    // PlaybackController.resume maneja internamente la espera a que el video esté listo (isReady)
-                    // Pasamos la sesión para permitir que el resume se aborte si la sesión cambia o finaliza.
-                    await PlaybackController.resume(player, videoId, videoEl, savedData, type, sessionRef);
+                    // Fire-and-forget: el resume no bloquea el setup de la sesión.
+                    // El while de espera fue reemplazado por eventos del DOM,
+                    // por lo que no hay polling de getPlayerVideoId durante la espera.
+                    PlaybackController.resume(player, videoId, videoEl, savedData, type, sessionRef);
                 }
             } else if (!savedData) {
                 PlaybackDisplayManager.syncSavedState({ videoId, isSaved: false });
@@ -12973,8 +12925,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Si el video sigue en 0s pero deberíamos haber reanudado, forzamos un re-seek de último recurso.
             const sessionSavedData = sessionRef.savedData;
             const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
-            if (tickCount === 6 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > 10 && !isCurrentlyAd) {
-                logWarn('startProcessingSession', '🆘 Persistence Rescue: El video sigue en 0s tras 6s. Forzando re-seek...');
+            if (tickCount >= 6 && tickCount % 6 === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > 10 && !isCurrentlyAd) {
+                logWarn('startProcessingSession', `🆘 Persistence Rescue: El video sigue en 0s tras ${tickCount}s. Reintentando resume...`);
                 PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef);
             }
 
@@ -13477,23 +13429,37 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     notifySeekOrProgress(0, 'seek', { videoType: type, videoEl, isLoading: true });
                 }
 
-                let attempts = 0;
-                while (!isReady() && attempts < 20) {
-                    await new Promise(r => setTimeout(r, 500));
+                // Esperar sin polling: eventos del DOM + timeout como fallback
+                // Reemplaza el anterior bucle while que llamaba getPlayerVideoId cada 500ms.
+                try {
+                    await new Promise((resolve, reject) => {
+                        const cleanup = () => {
+                            videoEl.removeEventListener('loadedmetadata', onReady);
+                            videoEl.removeEventListener('canplay', onReady);
+                            if (timeout) clearTimeout(timeout);
+                        };
 
-                    // Abortar si la sesión fue invalidada o reemplazada durante la espera
-                    const currentSession = activeProcessingSessions.get(videoEl);
-                    if (session && (session.isFinalized || currentSession !== session)) {
-                        logWarn('PlaybackController', `🛑 Abortando resume para ${videoId}: sesión invalidada o reemplazada.`);
-                        return;
-                    }
+                        const onReady = () => {
+                            cleanup();
+                            const currentSession = activeProcessingSessions.get(videoEl);
+                            if (session && (session.isFinalized || currentSession !== session)) {
+                                reject(new Error('session_finalized'));
+                                return;
+                            }
+                            resolve();
+                        };
 
-                    // Abortar si el video ha cambiado físicamente en el player
-                    if (videoId !== (player ? getPlayerVideoId(player) : null)) {
-                        logWarn('PlaybackController', `🛑 Abortando resume para ${videoId}: navegación detectada.`);
-                        return;
-                    }
-                    attempts++;
+                        videoEl.addEventListener('loadedmetadata', onReady, { once: true });
+                        videoEl.addEventListener('canplay', onReady, { once: true });
+
+                        const timeout = setTimeout(() => {
+                            cleanup();
+                            resolve();
+                        }, 10000);
+                    });
+                } catch (_) {
+                    logWarn('PlaybackController', `🛑 Abortando resume para ${videoId}: sesión invalidada o reemplazada.`);
+                    return;
                 }
             }
 

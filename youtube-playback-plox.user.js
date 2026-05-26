@@ -251,7 +251,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         YPP.status === 'initialized' &&
         YPP.version === SCRIPT_VERSION
     ) {
-        console.log('[YPP] Already initialized');
+        logLog('YPP', 'Already initialized');
         return;
     }
 
@@ -259,7 +259,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     try {
         YPP.destroy?.();
     } catch (e) {
-        console.error('[YPP] Previous destroy failed', e);
+        logError('YPP', 'Previous destroy failed', e);
     }
 
     /**
@@ -288,10 +288,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         };
 
         YPP.status = 'initialized';
-        console.log(`[YPP] Initialized v${SCRIPT_VERSION}`);
+        logLog('YPP', `Initialized v${SCRIPT_VERSION}`);
     } catch (e) {
         YPP.status = 'error';
-        console.error('[YPP] Initialization failed', e);
+        logError('YPP', 'Initialization failed', e);
         throw e;
     }
 
@@ -411,8 +411,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             displayOptions: {
                 showThumbnails: true,
                 showViews: true,
-                /* showStats: true,
-                showButtons: true, */
+
                 viewMode: 'list', // 'list' | 'grid'
                 gridAlwaysExpanded: false,
                 gridExpansionMode: 'single',
@@ -420,7 +419,25 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                 scrollbarVisibility: 'alwaysVisible',
                 scrollbarThickness: 'normal'
             }
-        }
+        },
+
+    };
+
+    /** Hardcoded thresholds for video processing */
+    const THRESHOLDS = {
+        SHORT_VIDEO_DURATION_S: 60,
+        COMPLETION_EPSILON_S: 0.75,
+        SHORTS_SHIELD_S: 2,
+        DEFAULT_SHIELD_S: 5,
+        PREVIEW_MIN_CURRENT_TIME: 0.8,
+        PREVIEW_MIN_DURATION: 1,
+        WATCHDOG_EVERY_N_TICKS: 4,
+        PERSISTENCE_RESCUE_START_TICKS: 6,
+        PERSISTENCE_RESCUE_EVERY_N_TICKS: 6,
+        PERSISTENCE_RESCUE_MIN_SEEK_S: 10,
+        LOADING_CLEANUP_MS: 2500,
+        PREVIEW_FASTPATH_MS: 220,
+        SESSION_FALLBACK_RETRY_MS: 180
     };
 
     // ============================================================================================================
@@ -1190,6 +1207,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         return 0;
     };
 
+    // MARK: ⏳ delay
+    /**
+     * Returns a Promise that resolves after `ms` milliseconds.
+     * @param {number} ms
+     * @returns {Promise<void>}
+     */
+    const delay = (ms) => new Promise(r => setTimeout(r, ms));
+
     // MARK: 🔧 setInnerHTML
     /**
     * Sets the innerHTML of an element safely for Trusted Types (Chrome) compatibility.
@@ -1305,7 +1330,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         if (events && typeof events === 'object') {
             for (const [event, handler] of Object.entries(events)) {
                 if (typeof handler === 'function') {
-                    el.addEventListener(event, handler);
+                    addDisposableListener(el, event, handler, {}, store);
                 }
             }
         }
@@ -1359,7 +1384,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
      * @param {number} [options.max] - Valor máximo permitido.
      * @param {() => void} [options.onInput] - Callback opcional tras cada cambio válido.
      */
-    function applyNumericClamping(el, { min = 0, max, onInput } = {}) {
+    function applyNumericClamping(el, { min = 0, max, onInput, store } = {}) {
         if (!(el instanceof Element)) return;
 
         const clamp = () => {
@@ -1386,7 +1411,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             if (onInput) onInput();
         };
 
-        el.addEventListener('input', clamp);
+        addDisposableListener(el, 'input', clamp, {}, store);
     }
 
     // MARK: 🔧 Debounce
@@ -2364,6 +2389,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-primary: #2563eb;
     --ypp-primary-hover: #1d4ed8;
     --ypp-primary-active: #1e40af;
+    --ypp-primary-rgb: 37, 99, 235;
+    --ypp-primary-transparent: rgba(37, 99, 235, 0.1);
     --ypp-secondary: #494949;
     --ypp-secondary-hover: #3d3d3d;
     --ypp-secondary-active: #272727;
@@ -2376,6 +2403,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-success: #16a34a;
     --ypp-success-hover: #15803d;
     --ypp-success-active: #166534;
+    --ypp-success-dark: #0d5c2a;
     --ypp-info: #0891b2;
     --ypp-info-hover: #0e7490;
     --ypp-info-active: #155e75;
@@ -2438,6 +2466,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-primary: #004683ff;
     --ypp-primary-hover: #0d5fa8ff;
     --ypp-primary-active: #136fadff;
+    --ypp-primary-rgb: 0, 70, 131;
+    --ypp-primary-transparent: rgba(0, 70, 131, 0.1);
     --ypp-secondary: #4a4a4a;
     --ypp-secondary-hover: #5a5a5a;
     --ypp-secondary-active: #3a3a3a;
@@ -2450,6 +2480,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     --ypp-success: #15803d;
     --ypp-success-hover: #16a34a;
     --ypp-success-active: #166534;
+    --ypp-success-dark: #0d5c2a;
     --ypp-info: #0e7490;
     --ypp-info-hover: #0891b2;
     --ypp-info-active: #155e75;
@@ -2527,7 +2558,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
 .ypp-fill-currentColor {
     fill: currentColor;
 }
-regular-item.ypp-fill-none {
+.regular-item.ypp-fill-none {
     fill: none !important;
 }
 .ypp-d-flex {
@@ -2555,8 +2586,7 @@ regular-item.ypp-fill-none {
 /* =========================
    Contenedores y Overlays
 ========================= */
-.ypp-overlay,
-.ypp-modalOverlay {
+.ypp-overlay {
     position: fixed;
     top: 0;
     left: 0;
@@ -2743,7 +2773,7 @@ regular-item.ypp-fill-none {
 .ypp-shorts-time-display {
     display: inline-flex;
     align-items: center;
-    /* justify-content: center; */
+
     transition: background-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
     background: var(--ypp-bg-time-display);
     border-radius: var(--ypp-spacing-lg);
@@ -2796,7 +2826,6 @@ regular-item.ypp-fill-none {
 .ytp-live .ytp-time-separator,
 .ytp-live .ytp-time-duration {
     display: none !important;
-    visibility: visible !important;
 }
 /* Estilo específico para Shorts */
 .ypp-shorts-time-display {
@@ -2891,7 +2920,7 @@ regular-item.ypp-fill-none {
     overflow: hidden;
     cursor: default;
     text-shadow: none !important;
-    /*  max-width: 180px; */
+
     font-size: var(--ypp-font-size-lg);
     color: var(--ypp-white);
     border-left: 2px solid var(--ypp-bg);
@@ -2907,6 +2936,8 @@ regular-item.ypp-fill-none {
     align-items: center;
     padding: 6px 12px;
     border-bottom: 1px solid var(--ypp-border);
+    background: var(--ypp-bg);
+    border-radius: 12px 12px 0 0;
     flex-shrink: 0;
 }
 .ypp-filters-top-row {
@@ -2914,7 +2945,7 @@ regular-item.ypp-fill-none {
     z-index: 10;
     display: flex;
     align-items: center;
-    /* gap: var(--ypp-spacing-md); */
+
     padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
     border-bottom: 1px solid var(--ypp-border);
 }
@@ -3155,63 +3186,52 @@ regular-item.ypp-fill-none {
 /* Label Styles */
 .ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-timestamp.forced
-/* .ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-playlist-indicator  */{
+.ypp-videosContainer[data-ypp-label-style="grayscale"] .ypp-timestamp.forced{
     filter: grayscale(1);
 }
 .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
-/* .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator  */{
+.ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced{
     filter: grayscale(1);
 }
 .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:hover .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:hover .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:hover .ypp-timestamp.forced
-/* .ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:hover .ypp-playlist-indicator */ {
+.ypp-videosContainer[data-ypp-label-style="colorOnHover"] .ypp-videoWrapper:hover .ypp-timestamp.forced{
     filter: grayscale(0);
 }
 .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
-/* .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator */ {
+.ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced{
     filter: grayscale(0);
 }
 .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:hover .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:hover .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:hover .ypp-timestamp.forced
-/* .ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:hover .ypp-playlist-indicator */ {
+.ypp-videosContainer[data-ypp-label-style="grayscaleOnHover"] .ypp-videoWrapper:hover .ypp-timestamp.forced{
     filter: grayscale(1);
 }
 /* Label Visibility */
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-timestamp.completed,
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-timestamp.forced,
-/* .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-playlist-indicator, */
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.forced
-/* .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-playlist-indicator  */{
+.ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-timestamp.forced{
     transition: opacity 0.2s ease;
 }
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
-/* .ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator,
-.ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator *  */{
+.ypp-videosContainer[data-ypp-label-visibility="dimUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced{
     opacity: 0.5;
 }
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced
-/* .ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-playlist-indicator  */{
+.ypp-videosContainer[data-ypp-label-visibility="hiddenUntilHover"] .ypp-videoWrapper:not(:hover) .ypp-timestamp.forced{
     opacity: 0;
     pointer-events: none;
 }
 .ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-progressInfo,
 .ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-timestamp.completed,
-.ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-timestamp.forced
-/* .ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-playlist-indicator */ {
+.ypp-videosContainer[data-ypp-label-visibility="hidden"] .ypp-timestamp.forced{
     display: none !important;
 }
 /* Display Options toggles */
@@ -3275,7 +3295,6 @@ regular-item.ypp-fill-none {
     border-bottom: 0 solid var(--ypp-border);
     display: flex;
     flex-direction: column;
-    /* overflow: hidden; */
     max-height: 0;
     opacity: 0;
     padding: 0 var(--ypp-spacing-lg);
@@ -3285,7 +3304,6 @@ regular-item.ypp-fill-none {
 }
 .ypp-filters-advanced.expanded {
     max-height: 400px;
-    /* max-height: 200px; */
     opacity: 1;
     padding: var(--ypp-spacing-md) var(--ypp-spacing-lg);
     border-bottom: 1px solid var(--ypp-border);
@@ -3353,7 +3371,8 @@ regular-item.ypp-fill-none {
     text-align: center;
     box-sizing: border-box;
     transition: background-color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, color 0.2s ease;
-    appearance: textfield; /* Quita flechas en Firefox */
+    -webkit-appearance: textfield;
+    appearance: textfield;
     /* Quita flechas en Chrome/Safari */
     &::outer-spin-button,
     &::inner-spin-button {
@@ -3472,7 +3491,7 @@ regular-item.ypp-fill-none {
     width: 100%;
 }
 .ypp-virtual-item {
-    position: absolute;
+    position: absolute !important;
     left: 0;
     right: 0;
     width: 100%;
@@ -3640,6 +3659,7 @@ regular-item.ypp-fill-none {
     padding: var(--ypp-spacing-sm) var(--ypp-spacing-md);
     box-sizing: border-box;
     background: var(--ypp-bg);
+    overflow: hidden !important;
 }
 .ypp-videoWrapper.playlist-item {
     border-radius: 6px;
@@ -3652,7 +3672,7 @@ regular-item.ypp-fill-none {
     }
 }
 .ypp-videoWrapper.regular-item {
-    /* background-color: var(--ypp-bg-secondary); */
+
     border-left: 2px solid var(--ypp-border);
     height: 120px !important; /* Altura estándar */
 }
@@ -3665,15 +3685,12 @@ regular-item.ypp-fill-none {
     background: var(--ypp-bg-secondary);
     padding: 3px 8px;
     border-radius: var(--ypp-spacing-sm);
-    /*  white-space: nowrap; */
+
     overflow: auto;
     text-overflow: ellipsis;
     max-width: 100%;
     width: fit-content;
     max-height: 20px;
-}
-.ypp-videoWrapper {
-    overflow: hidden !important;
 }
 .ypp-protected-item {
     /* border: 1px solid var(--ypp-warning) !important;
@@ -3819,11 +3836,6 @@ regular-item.ypp-fill-none {
         margin: 0 !important;
         z-index: 10 !important;
     }
-}
-.ypp-virtual-item {
-    position: absolute !important;
-    left: 0;
-    width: 100%;
 }
 /* Estilos para modo de selección */
 .ypp-videoWrapper.selection-mode {
@@ -4086,7 +4098,7 @@ regular-item.ypp-fill-none {
     gap: 8px;
     background: var(--btn-bg, var(--ypp-primary));
     color: var(--btn-color, var(--ypp-white));
-    /* min-height: 36px; */
+
     svg {
         flex-shrink: 0;
     }
@@ -4340,16 +4352,6 @@ regular-item.ypp-fill-none {
         opacity: 1;
     }
 }
-@keyframes slideUp {
-    from {
-        opacity: 0;
-        transform: translateY(20px) scale(0.95);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0) scale(1);
-    }
-}
 /* =========================
    Toasts
 ========================= */
@@ -4378,7 +4380,6 @@ regular-item.ypp-fill-none {
     max-width: 300px;
     animation: ypp-spring-toast-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    transition: opacity 0.2s ease;
     backdrop-filter: blur(10px);
     pointer-events: auto;
     overflow: hidden;
@@ -4461,8 +4462,6 @@ regular-item.ypp-fill-none {
     max-width: 600px;
     width: 90%;
     max-height: 85vh;
-    /* overflow: hidden; */
-    animation: slideUp 0.3s ease-out;
     display: flex;
     flex-direction: column;
     opacity: 0;
@@ -4509,16 +4508,6 @@ regular-item.ypp-fill-none {
         opacity: 1;
         transform: translateY(0) scale(1);
     }
-}
-.ypp-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 6px 12px;
-    border-bottom: 1px solid var(--ypp-border);
-    background: var(--ypp-bg);
-    border-radius: 12px 12px 0 0;
-    flex-shrink: 0;
 }
 .ypp-header h2 {
     margin: 0;
@@ -4583,7 +4572,7 @@ regular-item.ypp-fill-none {
     font-size: 1.4rem;
     transition: color 0.2s ease;
     white-space: nowrap;
-    /*   margin: 8px 0; */
+
     gap: var(--ypp-spacing-sm);
     span {
         display: flex;
@@ -5473,9 +5462,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Si no está en caché y IndexedDB disponible, buscarlo
             if (IndexedDBAdapter.isSupported) {
                 try {
-                    const raw = await new Promise((resolve, reject) => {
-                        IndexedDBAdapter.runInStore('readonly', (store) => store.get(key)).then((req) => resolve(req?.result?.value)).catch(reject);
-                    });
+                    const storeResult = await IndexedDBAdapter.runInStore('readonly', (store) => store.get(key));
+                    const raw = storeResult?.result?.value;
                     if (raw !== undefined) {
                         storageCache.set(key, raw);
                         return JSON.parse(raw);
@@ -7676,7 +7664,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             }
             // Rendición cooperativa para no bloquear el hilo principal
-            if ((++iter % 50) === 0) { await new Promise(r => setTimeout(r, 0)); }
+            if ((++iter % 50) === 0) { await delay(0); }
         }
 
         logLog('exportToFreeTubeFormat', `Exportando ${freeTubeData.length} items: ${videoCount} videos, ${shortCount} shorts`);
@@ -7859,7 +7847,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const defaultPercent = (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) / 100;
         const isFinished = duration > 0 && (
             progress >= defaultPercent ||
-            (duration <= 60 && currentTime >= duration - 0.75)
+            (duration <= THRESHOLDS.SHORT_VIDEO_DURATION_S && currentTime >= duration - THRESHOLDS.COMPLETION_EPSILON_S)
         );
 
         // 3. Protección para videos con tiempo de reanudación fijo
@@ -7897,8 +7885,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // 4. Escudo protector de reset automático
         let finalIsCompleted = isFinished;
         let finalWatchProgress = currentTime;
-        const shieldThreshold = finalType === 'shorts' ? 2 : 5;
-        const safeIsFinished = finalType === 'preview' ? (isFinished && currentTime > 0.8 && duration > 1) : isFinished;
+        const shieldThreshold = finalType === 'shorts' ? THRESHOLDS.SHORTS_SHIELD_S : THRESHOLDS.DEFAULT_SHIELD_S;
+        const safeIsFinished = finalType === 'preview' ? (isFinished && currentTime > THRESHOLDS.PREVIEW_MIN_CURRENT_TIME && duration > THRESHOLDS.PREVIEW_MIN_DURATION) : isFinished;
 
         if (finalType !== 'preview') {
             if (!isFinished && sourceData?.isCompleted && currentTime < shieldThreshold) {
@@ -9161,60 +9149,42 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {HTMLElement|null} Contenedor de controles del Short activo o null si no existe aún.
      */
     function getActiveShortsControlsContainer() {
-        // return null; // para testear fallback floating
         if (currentPageType !== 'shorts') return null;
-
-        // En la nueva interfaz de Shorts, pueden existir múltiples de estos contenedores
-        // precargados. Iteramos y devolvemos el que realmente es visible.
-        const panels = DOMHelpers.get('display:shortsMetaPanels', () => document.querySelectorAll(SELECTORS.shorts.metaPanel), 100);
-        logLog('getActiveShortsControlsContainer', `Metapanels encontrados: ${panels.length}`);
-        for (const panel of panels) {
-            if (panel instanceof Element && isVisiblyDisplayed(panel)) {
-                logLog('getActiveShortsControlsContainer', `Metapanel seleccionado: ${panel.id} - ${panel.className} - ${panel.getBoundingClientRect().width}x${panel.getBoundingClientRect().height}`);
-                return panel;
-            }
-        }
-
-        // Priorizar el overlay del reproductor de Shorts (UI visible)
-        // ejemplo jerarquia en DOM
-        // └─ ytd-shorts.style-scope.ytd-page-manager
-        //    ├─ div#header.style-scope.ytd-shorts
-        //    ├─ div#offline-container.style-scope.ytd-shorts
-        //    └─ div#shorts-container.style-scope.ytd-shorts
-        //       └─ div#cinematic-shorts-scrim.style-scope.ytd-shorts
-        //          └─ div#shorts-inner-container.style-scope.ytd-shorts
-        //             └─ div#0.reel-video-in-sequence-new.style-scope.ytd-shorts
-        //                └─ div#experiment-overlay.overlay.style-scope.ytd-reel-video-renderer
-        //                   └─ ytd-reel-player-overlay-renderer.style-scope.ytd-reel-video-renderer
-        //                      └─ div.metadata-container.style-scope.ytd-reel-player-overlay-renderer
-        //                         └─ div#overlay.style-scope.ytd-reel-player-overlay-renderer
-        //                            └─ div#metapanel
-
-        const selectors = [
-            `${SELECTORS.shorts.renderer} ${SELECTORS.shorts.metaPanel}`,
-            `${SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER} ${SELECTORS.CLASSES.METADATA_CONTAINER}`,
-            `${SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER} ${SELECTORS.shorts.metaPanel}`,
-            `#experiment-overlay ${SELECTORS.shorts.metaPanel}`,
-            `#reel-overlay-container ${SELECTORS.shorts.metaPanel}`,
-            `${SELECTORS.shorts.container} ${SELECTORS.shorts.metaPanel}`,
-            // Fallbacks para nuevas estructuras de ViewModels
-            SELECTORS.ELEMENTS.REEL_METAPANEL_VIEW_MODEL,
-            SELECTORS.CLASSES.REEL_METAPANEL_CONTAINER,
-            SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_VIEW_MODEL
-        ];
-
-        for (const selector of selectors) {
-            const elements = document.querySelectorAll(selector);
-            for (const el of elements) {
-                if (el instanceof Element && isVisiblyDisplayed(el)) {
-                    logLog('getActiveShortsControlsContainer', `Elemento seleccionado: ${el.id} - ${el.className} - ${el.getBoundingClientRect().width}x${el.getBoundingClientRect().height}`);
-                    return el;
+        return DOMHelpers.get('shorts:controlsContainer', () => {
+            // En la nueva interfaz de Shorts, pueden existir múltiples de estos contenedores
+            // precargados. Iteramos y devolvemos el que realmente es visible.
+            const panels = DOMHelpers.get('display:shortsMetaPanels', () => document.querySelectorAll(SELECTORS.shorts.metaPanel), 100);
+            for (const panel of panels) {
+                if (panel instanceof Element && isVisiblyDisplayed(panel)) {
+                    return panel;
                 }
             }
-        }
 
-        // Fallback final: No se encontró ningún contenedor que sea visible
-        return null;
+            const selectors = [
+                `${SELECTORS.shorts.renderer} ${SELECTORS.shorts.metaPanel}`,
+                `${SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER} ${SELECTORS.CLASSES.METADATA_CONTAINER}`,
+                `${SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER} ${SELECTORS.shorts.metaPanel}`,
+                `#experiment-overlay ${SELECTORS.shorts.metaPanel}`,
+                `#reel-overlay-container ${SELECTORS.shorts.metaPanel}`,
+                `${SELECTORS.shorts.container} ${SELECTORS.shorts.metaPanel}`,
+                // Fallbacks para nuevas estructuras de ViewModels
+                SELECTORS.ELEMENTS.REEL_METAPANEL_VIEW_MODEL,
+                SELECTORS.CLASSES.REEL_METAPANEL_CONTAINER,
+                SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_VIEW_MODEL
+            ];
+
+            for (const selector of selectors) {
+                const elements = document.querySelectorAll(selector);
+                for (const el of elements) {
+                    if (el instanceof Element && isVisiblyDisplayed(el)) {
+                        return el;
+                    }
+                }
+            }
+
+            // Fallback final: No se encontró ningún contenedor que sea visible
+            return null;
+        }, 250);
     }
 
     let shortsPanelObserver = null;
@@ -9511,7 +9481,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     setupManualSaveButton(inlinePreviewTimeDisplay, previewPlayerEl, 'preview');
                     inlinePreviewTimeDisplay.appendChild(messageEl);
                     previewPlayerEl.appendChild(inlinePreviewTimeDisplay);
-                    inlinePreviewTimeDisplay.addEventListener('click', (e) => { e.stopPropagation(); e.preventDefault(); }, { passive: false });
+                    addDisposableListener(inlinePreviewTimeDisplay, 'click', (e) => { e.stopPropagation(); e.preventDefault(); }, { passive: false });
                     clear('preview');
                 }
             }
@@ -10273,7 +10243,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (modal !== videosOverlay) modal.remove();
         });
 
+        const settingsDisposables = new DisposableStore();
+
         const closeModal = () => {
+            settingsDisposables.clear();
             overlay.remove();
             document.body.style.overflow = '';
             // Restaurar modal de videos si estaba abierto
@@ -10382,7 +10355,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         ['showAlertIcon', 'showAlertText', 'showAlertTime'].forEach(name => {
-            bodyModalSettings.querySelector(`[name="${name}"]`)?.addEventListener('change', updateAlertPreview);
+            const el = bodyModalSettings.querySelector(`[name="${name}"]`);
+            if (el) addDisposableListener(el, 'change', updateAlertPreview, {}, settingsDisposables);
         });
 
         // Toggle visibilidad de sub-opciones (schema-driven)
@@ -10392,13 +10366,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const childSection = parentInput?.closest('.ypp-settings-second-level-section, .ypp-manual-saving-options')
                     ?.querySelector('.ypp-settings-third-level-section');
                 if (parentInput && childSection) {
-                    parentInput.addEventListener('change', (e) => {
+                    addDisposableListener(parentInput, 'change', (e) => {
                         const isChecked = e.target.checked;
                         childSection.style.display = isChecked ? 'block' : 'none';
                         childSection.style.opacity = isChecked ? '1' : '0.5';
                         const childInput = childSection.querySelector('input');
                         if (childInput) childInput.disabled = !isChecked;
-                    });
+                    }, {}, settingsDisposables);
                 }
             }
         }
@@ -10406,12 +10380,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Aplicar clamping numérico a inputs específicos de settings (schema-driven)
         for (const field of SETTINGS_FIELDS_SCHEMA) {
             if (field.type === 'number') {
-                applyNumericClamping(bodyModalSettings.querySelector(`[name="${field.key}"]`), { min: field.min, max: field.max });
+                applyNumericClamping(bodyModalSettings.querySelector(`[name="${field.key}"]`), { min: field.min, max: field.max, store: settingsDisposables });
             }
         }
         // Interval inputs from GitHub section (not in schema)
         bodyModalSettings.querySelectorAll('.ypp-interval-input').forEach(input => {
-            applyNumericClamping(input, { min: 1, max: 24 });
+            applyNumericClamping(input, { min: 1, max: 24, store: settingsDisposables });
         });
 
         // Inicializar preview
@@ -10515,7 +10489,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Event listeners para Backup Manual (Delegación)
         bodyModalSettings.querySelectorAll('.ypp-github-backup-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
+            addDisposableListener(btn, 'click', async (e) => {
                 const type = e.currentTarget.getAttribute('data-type');
                 const getVal = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.value;
                 const isChecked = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.checked;
@@ -10537,13 +10511,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Pasamos los ajustes actuales a performRemoteBackup
                 await performRemoteBackup(type, true, currentModeSettings);
-            });
+            }, {}, settingsDisposables);
         });
 
         // Lógica Copy Logs
         const copyLogsBtn = bodyModalSettings.querySelector('#ypp-copy-logs-btn');
         if (copyLogsBtn) {
-            copyLogsBtn.addEventListener('click', async () => {
+            addDisposableListener(copyLogsBtn, 'click', async () => {
                 const storageInfo = typeof StorageAsync !== 'undefined' ? StorageAsync.getBackendInfo() : { error: 'StorageAsync no disponible' };
                 const logData = [
                     `--- YouTube Playback Plox Logs ---`,
@@ -10565,20 +10539,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 } catch (e) {
                     showFloatingToast(`${SVG_ICONS.error} Error: ${e.message}`);
                 }
-            });
+            }, {}, settingsDisposables);
         }
 
         // boton para abrir enlace para crear issue a repositorio
         const createIssueBtn = bodyModalSettings.querySelector('.ypp-create-issue-btn');
         if (createIssueBtn) {
-            createIssueBtn.addEventListener('click', () => {
+            addDisposableListener(createIssueBtn, 'click', () => {
                 window.open(getSafeUrl('https://github.com/Alplox/Youtube-Playback-Plox/issues/new'), '_blank');
-            });
+            }, {}, settingsDisposables);
         }
 
         // Lógica de Tabs
         bodyModalSettings.querySelectorAll('.ypp-github-tab').forEach(tab => {
-            tab.addEventListener('click', () => {
+            addDisposableListener(tab, 'click', () => {
                 const type = tab.getAttribute('data-type');
 
                 // Actualizar clases de tabs
@@ -10599,13 +10573,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const helpRepo = bodyModalSettings.querySelector('#ypp-github-help-repo');
                 if (helpGist) helpGist.style.display = type === 'gist' ? 'block' : 'none';
                 if (helpRepo) helpRepo.style.display = type === 'repo' ? 'block' : 'none';
-            });
+            }, {}, settingsDisposables);
         });
 
         // Event listener para el toggle de ayuda de GitHub
-        bodyModalSettings.querySelector('#ypp-github-help-toggle')?.addEventListener('click', (e) => {
-            e.currentTarget.classList.toggle('active');
-        });
+        const helpToggle = bodyModalSettings.querySelector('#ypp-github-help-toggle');
+        if (helpToggle) {
+            addDisposableListener(helpToggle, 'click', (e) => {
+                e.currentTarget.classList.toggle('active');
+            }, {}, settingsDisposables);
+        }
 
 
         const btnCloseSettings = createElement('button', {
@@ -10628,14 +10605,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Toggle para mostrar/ocultar gist_id
         bodyModalSettings.querySelectorAll('.ypp-gist-id-toggle').forEach(btn => {
-            btn.addEventListener('click', () => {
+            addDisposableListener(btn, 'click', () => {
                 const input = btn.closest('div')?.querySelector('input[name="gist_id"]');
                 if (!input) return;
                 const isHidden = input.type === 'password';
                 input.type = isHidden ? 'text' : 'password';
                 setInnerHTML(btn, isHidden ? SVG_ICONS.eyeOff : SVG_ICONS.eye);
                 btn.title = isHidden ? t('hide') : t('show');
-            });
+            }, {}, settingsDisposables);
         });
 
         document.body.appendChild(overlay);
@@ -11625,9 +11602,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 SessionTelemetry.emit('fallbackRetry', { source, context: session.type, sessionId: session.sessionId, transitionToken: session.transitionToken });
                 try {
                     VideoObserverManager.enqueueWithResolver(session.videoEl, session.type, 'fallbackRetry');
-                } catch (_) { }
+                } catch (_) {
+                    logWarn('SessionFallbackManager', `⚠️ fallbackRetry falló para ${session.lastVideoId || session.sessionId}`);
+                }
                 tries++;
-            }, 180);
+            }, THRESHOLDS.SESSION_FALLBACK_RETRY_MS);
 
             const startedAt = Date.now();
             const watchdogId = setInterval(() => {
@@ -11639,7 +11618,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 SessionTelemetry.emit('fallbackWatchdog', { source, context: session.type, sessionId: session.sessionId, transitionToken: session.transitionToken });
                 try {
                     VideoObserverManager.enqueueWithResolver(session.videoEl, session.type, 'fallbackWatchdog');
-                } catch (_) { }
+                } catch (_) {
+                    logWarn('SessionFallbackManager', `⚠️ fallbackWatchdog enqueueWithResolver falló para ${session.lastVideoId || session.sessionId}`);
+                }
             }, watchdogMs);
 
             fallbackTimers.set(session.videoEl, { retryTimeoutId, watchdogId });
@@ -11667,7 +11648,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         /** @description Registro de videos actualmente esperando que termine un anuncio para re-encolarse */
         const activeAdWaiters = new WeakSet();
         /** @description Marca videos del miniplayer en transición de src para handoff de sesión */
-        const miniplayerTransitions = new Set();
+        const miniplayerTransitions = new WeakSet();
 
         /**
          * Limpia la sesión activa de un video y lo re-encola para reprocesamiento.
@@ -12419,7 +12400,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @type {Map<HTMLVideoElement, { intervalId: number, lastVideoId: string }>}
      */
     const activeProcessingSessions = new Map();
-    const previewTransitions = new Set(); // Marca elementos en transición para evitar condiciones de carrera
+    const previewTransitions = new WeakSet(); // Marca elementos en transición para evitar condiciones de carrera
     /** @type {WeakMap<HTMLVideoElement, { videoId: string, ts: number }>} */
     const recentResumeAttempts = new WeakMap();
     let sessionIdCounter = 0;
@@ -12856,6 +12837,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 PlaybackDisplayManager.syncSavedState({ videoId, isSaved: false });
             }
             sessionRef.isResumePending = false;
+        }).catch(err => {
+            logError('process', `Error al obtener savedData para ${videoId}`, err);
+            if (sessionRef) sessionRef.isResumePending = false;
         });
 
         // 2. Iniciar Waterfall de metadatos pesados en segundo plano
@@ -12886,12 +12870,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // 3. Configurar intervalo de guardado
         let intervalId = null;
-
         let tickCount = 0;
-        intervalId = setInterval(async () => {
-            // Self-destruct: verificar que esta instancia siga siendo la sesión activa y no esté finalizada.
-            // Si la sesión fue reemplazada por otra en el mismo elemento o finalizada externamente,
-            // este intervalo debe detenerse para evitar procesos "zombie" y fugas de memoria.
+
+        const sessionTick = async () => {
+            try {
             const currentSession = activeProcessingSessions.get(videoEl);
             const isLocked = RouteContextResolver.isContextLocked(videoEl, type);
 
@@ -12912,10 +12894,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // --- UI WATCHDOG ---
             // Si el usuario usa scripts como "Engine Tamer", el DOM puede ser reemplazado post-carga.
             // Verificamos periódicamente si nuestra UI sigue presente y la re-inyectamos si es necesario.
-            if (tickCount % 4 === 0 && type === 'watch') {
-                const display = document.getElementById('ypp-time-display-indicator');
+            if (tickCount % THRESHOLDS.WATCHDOG_EVERY_N_TICKS === 0 && type === 'watch') {
+                const display = DOMHelpers.get('sessionTick:timeDisplay', () => document.getElementById('ypp-time-display-indicator'));
                 if (!display || !display.isConnected) {
-                    logWarn('startProcessingSession', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
+                    logWarn('sessionTick', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
                     PlaybackDisplayManager.ensure(type, player);
                 }
             }
@@ -12925,22 +12907,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Si el video sigue en 0s pero deberíamos haber reanudado, forzamos un re-seek de último recurso.
             const sessionSavedData = sessionRef.savedData;
             const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
-            if (tickCount >= 6 && tickCount % 6 === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > 10 && !isCurrentlyAd) {
-                logWarn('startProcessingSession', `🆘 Persistence Rescue: El video sigue en 0s tras ${tickCount}s. Reintentando resume...`);
+            if (tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !isCurrentlyAd) {
+                logWarn('sessionTick', `🆘 Persistence Rescue: El video sigue en 0s tras ${tickCount}s. Reintentando resume...`);
                 PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef);
             }
 
             if (sessionRef.isResumePending) {
-                // Evitar guardar 0s (falso progreso) mientras el resume original aún está en bucle de espera
                 return;
             }
 
-            // Kill Switch: Condiciones para detener el seguimiento de esta sesión
+            // Kill Switch
             const isDisconnected = !document.contains(videoEl);
             const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
             const currentVideoId = getPlayerVideoId(player);
             const hasIdChanged = currentVideoId !== videoId;
-            // Detectar "Ghosts": Previews o Miniplayer que siguen en el DOM pero estan ocultos (pooled)
             const isHiddenGhost = (type === 'preview' || type === 'miniplayer') && !isVisiblyDisplayed(videoEl);
 
             if (isDisconnected || isAdNow || hasIdChanged || isHiddenGhost) {
@@ -12964,7 +12944,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Si el ID cambió pero el elemento está en transición (cambio de src controlado por VideoObserverManager),
                 // no terminar la sesión - dejar que el observer maneje la transición
                 if (hasIdChanged && previewTransitions.has(videoEl)) {
-                    previewTransitions.delete(videoEl); // Limpiar el flag de transición
+                    previewTransitions.delete(videoEl);
                     if (FailSafeManager.isSafeMode()) {
                         SessionOrchestrator.finalizeSession(videoEl, 'safeModePreviewTransition');
                         VideoObserverManager.enqueueWithResolver(videoEl, 'preview', 'safeModeRestart');
@@ -12981,7 +12961,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         return;
                     }
                     SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'miniplayerTransition', 'intraNodeHandoff');
-                    logInfo('process', `🔄 Handoff de sesión [miniplayer] por transición de ID: ${videoId} → ${currentVideoId}`);
+                    logInfo('sessionTick', `🔄 Handoff de sesión [miniplayer] por transición de ID: ${videoId} → ${currentVideoId}`);
                     VideoObserverManager.requeueMiniplayer(videoEl);
                     return;
                 }
@@ -12990,7 +12970,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     isAdNow ? 'Anuncio detectado' :
                         hasIdChanged ? `ID cambiado: ${currentVideoId}` :
                             `${type === 'miniplayer' ? 'Miniplayer cerrada' : 'Preview oculta'} (ghost)`;
-                logWarn('process', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${logReason}`);
+                logWarn('sessionTick', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${logReason}`);
 
                 SessionOrchestrator.finalizeSession(videoEl, logReason);
                 if (isAdNow) {
@@ -13027,7 +13007,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (result?.success && session) {
                 session.hasRealSave = true;
             }
-        }, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000); // Guardar según configuración (default 1s)
+            } catch (err) {
+                logError('sessionTick', `Error en tick [${type}] ${videoId}`, err);
+                if (sessionRef) sessionRef.isResumePending = false;
+            }
+        };
+
+        intervalId = setInterval(sessionTick, (Math.max(cachedSettings?.minSecondsBetweenSaves || 1, 1)) * 1000);
 
         // Registrar el intervalId inmediatamente para permitir que finalizeSession() pueda limpiarlo
         // si la sesión se termina antes de completar el Object.assign final.
@@ -13040,7 +13026,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (stillValid && !sessionRef.hasRealSave) {
                 PlaybackDisplayManager.clear(type, { videoEl, videoId });
             }
-        }, 2500);
+        }, THRESHOLDS.LOADING_CLEANUP_MS);
 
         Object.assign(sessionRef, {
             intervalId,
@@ -13072,8 +13058,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (result?.savedData) {
                         session.savedData = result.savedData;
                     }
-                } catch (_) { }
-            }, 220);
+                } catch (_) {
+                    logWarn('process', `⚠️ Preview fast-path saveStatus falló para ${videoId}`);
+                }
+            }, THRESHOLDS.PREVIEW_FASTPATH_MS);
         }
     };
 
@@ -13245,7 +13233,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (videoEl.dataset.yppDebouncing === 'true') return false;
                 videoEl.dataset.yppDebouncing = 'true';
 
-                await new Promise(resolve => setTimeout(resolve, 150));
+                await delay(150);
                 delete videoEl.dataset.yppDebouncing;
 
                 if (!videoEl.isConnected) {
@@ -13373,6 +13361,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Si se proporciona una sesión, verificar que no esté finalizada de entrada
             if (session && session.isFinalized) return;
 
+            try {
             const isForced = savedData.forceResumeTime > 0;
             let timeToSeek = isForced ? savedData.forceResumeTime : (savedData.watchProgress || 0);
 
@@ -13527,6 +13516,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     logError('PlaybackController', '❌ Error al aplicar seek:', e);
                 }
             }
+            } catch (err) {
+                logError('PlaybackController', `❌ Error en resume para ${videoId}`, err);
+            }
         },
 
 
@@ -13617,7 +13609,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                 videoEl.dataset.resumeRetries = (retryCount + 1).toString();
                                 // Extender ligeramente la ventana de protección al reintentar
                                 videoEl.dataset.lastResumeTimestamp = Date.now().toString();
-                            } catch (e) { }
+                            } catch (e) {
+                                logWarn('saveStatus', `⚠️ Rebound seek falló: ${e?.message}`);
+                            }
                         }
                     }
 
@@ -14221,7 +14215,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                         if (currentPlaylistId) break;
 
-                        await new Promise(r => setTimeout(r, 200));
+                        await delay(200);
                         retryCount++;
                     }
 
@@ -14523,7 +14517,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {(min: number, max: number) => void} onChange - Callback al cambiar.
      * @returns {HTMLElement}
      */
-    function createRangeFilter(type, minVal, maxVal, onChange) {
+    function createRangeFilter(type, minVal, maxVal, onChange, store) {
         const wrapper = createElement('div', { className: 'ypp-range-filter-section' });
 
         const isDefault = (min, max) => {
@@ -14704,11 +14698,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
         const debouncedUpdate = debounce(updateFromInputs, 400);
         // Validación de límites y sincronización
-        applyNumericClamping(inputMin, { min: 0, max: type === 'percent' ? 100 : undefined });
-        applyNumericClamping(inputMax, { min: 0, max: type === 'percent' ? 100 : undefined });
+        applyNumericClamping(inputMin, { min: 0, max: type === 'percent' ? 100 : undefined, store });
+        applyNumericClamping(inputMax, { min: 0, max: type === 'percent' ? 100 : undefined, store });
 
-        inputMin.addEventListener('input', debouncedUpdate);
-        inputMax.addEventListener('input', debouncedUpdate);
+        addDisposableListener(inputMin, 'input', debouncedUpdate, {}, store);
+        addDisposableListener(inputMax, 'input', debouncedUpdate, {}, store);
 
         customGroup.appendChild(minWrapper);
         customGroup.appendChild(createElement('span', { className: 'ypp-range-separator', text: '-' }));
@@ -14729,7 +14723,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {(value: string) => void} onChange - Callback al cambiar.
      * @returns {HTMLElement}
      */
-    function createSearchInput(currentValue, onChange) {
+    function createSearchInput(currentValue, onChange, store) {
         const wrapper = createElement('div', { className: 'ypp-searchbar' });
         const input = createElement('input', {
             className: 'ypp-search-input',
@@ -14745,7 +14739,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Aplicar debounce para no procesar cada tecla inmediatamente
         const debouncedOnChange = debounce((value) => onChange(value), 300);
-        input.addEventListener('input', () => debouncedOnChange(input.value.trim()));
+        addDisposableListener(input, 'input', () => debouncedOnChange(input.value.trim()), {}, store);
 
         wrapper.appendChild(input);
         return wrapper;
@@ -14853,10 +14847,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return [key, data];
             });
 
-            const batchResults = await Promise.all(promises);
-            batchResults.forEach(([key, data]) => {
-                if (data) results.set(key, data);
-            });
+            const settledResults = await Promise.allSettled(promises);
+            settledResults
+                .filter(r => r.status === 'fulfilled')
+                .map(r => r.value)
+                .forEach(([key, data]) => {
+                    if (data) results.set(key, data);
+                });
+            settledResults
+                .filter(r => r.status === 'rejected')
+                .forEach(r => logWarn('batchLoad', 'Fallo al cargar key en batch', r.reason));
 
             // Ceder control al event loop cada lote para no bloquear UI
             if (i + batchSize < keys.length) {
@@ -15239,7 +15239,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (item.playlistKey.startsWith('RD') && item.firstVideoId) {
                         playlistUrl = getSafeUrl(`https://www.youtube.com/watch?v=${item.firstVideoId}&list=${item.playlistKey}`);
                     }
-                    setInnerHTML(header, `<a href="${playlistUrl}" target="_blank" rel="noopener noreferrer">${SVG_ICONS.playlist} ${item.playlistTitle}</a>`);
+                    setInnerHTML(header, `<a href="${playlistUrl}" target="_blank" rel="noopener noreferrer">${SVG_ICONS.playlist} ${escapeHTML(item.playlistTitle)}</a>`);
                     return header;
                 }
                 if (item.type === 'grid-row') return await createVideoGridRow(item);
@@ -15631,7 +15631,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // Esperar ambas promesas para asegurar al menos 500ms de animación visible
                     const [newUsage] = await Promise.all([
                         calculateScriptStorageUsage(),
-                        new Promise(resolve => setTimeout(resolve, 500))
+                        delay(500)
                     ]);
 
                     scriptStorageUsageCache = newUsage;
@@ -15738,7 +15738,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             currentSearchQuery = query;
             await setFilters({ searchQuery: query });
             await updateVideoList();
-        }));
+        }, ModalDisposables));
 
         const advancedToggleBtn = createElement('button', {
             className: 'ypp-filters-toggle-btn',
@@ -15789,7 +15789,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 await setFilters({ minViews: min, maxViews: max });
                 updateActiveFilterBadge();
                 void debouncedUpdateVideoList();
-            }
+            }, ModalDisposables
         ));
 
         rangeGroup.appendChild(createRangeFilter('percent', currentMinPercent, currentMaxPercent,
@@ -15799,7 +15799,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 await setFilters({ minPercent: min, maxPercent: max });
                 updateActiveFilterBadge();
                 void debouncedUpdateVideoList();
-            }
+            }, ModalDisposables
         ));
 
         filtersGrid.appendChild(rangeGroup);
@@ -18179,7 +18179,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     try {
                         logInfo('cleanupNonVideoData', `📥 Iniciando exportación pre-migración...`);
                         await exportDataToFile(null, 'PRE-MIGRATION');
-                        await new Promise(resolve => setTimeout(resolve, 800));
+                        await delay(800);
                     } catch (e) {
                         logError('cleanupNonVideoData', '❌ Fallo durante backup pre-migración:', e);
                     }
@@ -18228,7 +18228,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
 
                     if ((++batchCount % 50) === 0) {
-                        await new Promise(r => setTimeout(r, 0)); // No bloquear main thread
+                        await delay(0); // No bloquear main thread
                     }
                 }
 
@@ -18287,9 +18287,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const chunk = videoKeys.slice(i, i + CHUNK_SIZE);
 
                 // Fetch datos en paralelo por cada lote
-                const itemsData = await Promise.all(
+                const settledItems = await Promise.allSettled(
                     chunk.map(key => StorageAsync.get(key).then(data => ({ key, data })))
                 );
+                const itemsData = settledItems
+                    .filter(r => r.status === 'fulfilled')
+                    .map(r => r.value);
+                settledItems
+                    .filter(r => r.status === 'rejected')
+                    .forEach(r => logWarn('autoCleanup', 'Fallo al cargar datos de video', r.reason));
 
                 const keysToDelete = [];
 
@@ -18574,7 +18580,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             // 3. Limpiar recursos cuando la página se cierra para prevenir memory leaks
-            window.addEventListener('unload', () => {
+            addDisposableListener(window, 'unload', () => {
                 cleanupGlobalListeners();
                 cleanupThemeObserver();
                 logLog('initializeGlobal', '🧹 Cleanup de recursos al cerrar página');

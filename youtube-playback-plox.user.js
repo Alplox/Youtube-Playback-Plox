@@ -910,7 +910,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                                 version: candidate.VERSION ?? candidate.__metadata__?.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null,
                                 data: candidate
                             });
-                        } catch (_) { }
+                        } catch (_) { logWarn('loadTranslations', 'Fallo al cachear traducciones en storage'); }
 
                         return candidate;
                     } else {
@@ -5802,9 +5802,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     } else {
                         await GM_setValue(gmKey, null);
                     }
-                } catch (_) { }
+                } catch (_) { logWarn('Storage', `Fallo al eliminar GM key "${gmKey}"`); }
                 // Si la clave estaba en IDB (legacy), borrarla también para limpiar
-                try { await StorageAsync.del(key); } catch (_) { }
+                try { await StorageAsync.del(key); } catch (_) { logWarn('Storage', `Fallo al eliminar IDB legacy key "${key}"`); }
                 return;
             }
             try {
@@ -6779,7 +6779,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const backupToGitHubGist = async (data, initialModeSettings, isManual) => {
         // Fresh pull from storage to prevent stale gistId/token drift
-        const fullSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+        const fullSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
         const modeSettings = { ...fullSettings.gist, ...(initialModeSettings || {}) };
 
         return new Promise((resolve) => {
@@ -6833,7 +6833,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                         // Actualizar el objeto actual para feedback en la UI si el modal está abierto
                         // Persistir metadatos de sincronización
-                        let storedSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+                        let storedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+                        if (!storedSettings.gist) storedSettings.gist = {};
 
                         storedSettings.gist.id = result.id;
                         storedSettings.gist.url = result.html_url;
@@ -6844,7 +6845,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             storedSettings.gist.token = '';
                         }
 
-                        await GM_setValue(CONFIG.STORAGE_KEYS.github, storedSettings);
+                        await Storage.set(CONFIG.STORAGE_KEYS.github, storedSettings);
 
                         logInfo('backupToGitHubGist', 'Respaldo en GitHub exitoso:', result.id.slice(0, 10) + '...');
                         resolve(true);
@@ -6870,7 +6871,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const backupToGithubRepository = async (data, initialModeSettings, isManual) => {
         // Fresh pull from storage to prevent token drift
-        const fullSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+        const fullSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
         const modeSettings = { ...fullSettings.repo, ...(initialModeSettings || {}) };
 
         return new Promise((resolve) => {
@@ -6960,7 +6961,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                 onload: async (putResponse) => {
                                     if (putResponse.status >= 200 && putResponse.status < 300) {
                                         // Persistir metadatos
-                                        let storedSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+                                        let storedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+                                        if (!storedSettings.repo) storedSettings.repo = {};
 
                                         storedSettings.repo.lastSync = Date.now();
 
@@ -6969,7 +6971,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                             storedSettings.repo.token = '';
                                         }
 
-                                        await GM_setValue(CONFIG.STORAGE_KEYS.github, storedSettings);
+                                        await Storage.set(CONFIG.STORAGE_KEYS.github, storedSettings);
 
                                         logInfo('backupToGithubRepository', 'Respaldo en repositorio exitoso');
                                         resolve(true);
@@ -7003,7 +7005,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Punto de entrada unificado para respaldos remotos.
      */
     const performRemoteBackup = async (type = 'gist', isManual = false, settingsOverride = null) => {
-        let githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+        let githubSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
 
         const modeSettings = settingsOverride
             ? { ...(githubSettings[type] || {}), ...settingsOverride }
@@ -7041,7 +7043,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             showFloatingToast(`${SVG_ICONS.check} ${t('githubBackupSuccess')}`);
 
             // Re-leer settings desde GM para obtener valores actualizados (lastSync, gistId, etc.)
-            const updatedSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+            const updatedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
 
             // Actualizar UI en tiempo real si el modal está abierto
             const lastSyncEl = document.getElementById(`ypp-github-last-sync-${type}`);
@@ -7053,11 +7055,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (type === 'gist') {
                 const gistContainer = document.getElementById('ypp-github-gist-link-container-gist');
                 if (gistContainer && updatedSettings.gist?.url) {
-                    setInnerHTML(gistContainer, `
-                        <a href="${updatedSettings.gist.url}" class="ypp-link" target="_blank" rel="noopener noreferrer">
-                            ${SVG_ICONS.linkExternal} ${t('githubGistView')}
-                        </a>
-                    `);
+                    const link = createElement('a', {
+                        className: 'ypp-link',
+                        props: { href: updatedSettings.gist.url, target: '_blank', rel: 'noopener noreferrer' },
+                        html: `${SVG_ICONS.linkExternal} ${t('githubGistView')}`
+                    });
+                    gistContainer.replaceChildren(link);
                 }
                 const gistIdInput = document.querySelector('input[name="gist_id"]');
                 if (gistIdInput && !gistIdInput.value && updatedSettings.gist?.id) {
@@ -7081,7 +7084,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const checkGitHubBackup = async () => {
         logLog('checkGitHubBackup', 'Verificando respaldo automático...');
-        let githubSettings = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+        let githubSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
 
         const now = Date.now();
         const types = ['gist', 'repo'];
@@ -7119,12 +7122,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     logInfo('checkGitHubBackup', `Iniciando respaldo automático (${type})...`);
 
                     // Adquirir bloqueo inmediatamente en el storage
-                    const fresh = await GM_getValue(CONFIG.STORAGE_KEYS.github, CONFIG.defaultGithubSettings);
+                    const fresh = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
 
                     fresh[type] = fresh[type] || {};
                     fresh[type].lastSyncAttempt = now;
 
-                    await GM_setValue(CONFIG.STORAGE_KEYS.github, fresh);
+                    await Storage.set(CONFIG.STORAGE_KEYS.github, fresh);
 
                     await performRemoteBackup(type, false);
                     logInfo('checkGitHubBackup', `Respaldo (${type}) completado correctamente`);
@@ -9337,10 +9340,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const reattach = () => {
                     const panel = getActiveShortsControlsContainer();
                     if (panel && isVisiblyDisplayed(panel)) {
-                        try { panel.appendChild(shortsTimeDisplay); } catch (_) { }
+                        try { panel.appendChild(shortsTimeDisplay); } catch (_) { logWarn('display:shorts', 'Fallo al re-adjuntar display al panel'); }
                         shortsTimeDisplay.classList.remove('ypp-floating');
                     } else if (overlayRoot) {
-                        try { overlayRoot.appendChild(shortsTimeDisplay); } catch (_) { }
+                        try { overlayRoot.appendChild(shortsTimeDisplay); } catch (_) { logWarn('display:shorts', 'Fallo al adjuntar display flotante'); }
                         shortsTimeDisplay.classList.add('ypp-floating');
                     } else {
                         return;
@@ -9349,11 +9352,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     requestAnimationFrame(() => {
                         try {
                             if (!isVisiblyDisplayed(shortsTimeDisplay) && overlayRoot) {
-                                try { overlayRoot.appendChild(shortsTimeDisplay); } catch (_) { }
+                                try { overlayRoot.appendChild(shortsTimeDisplay); } catch (_) { logWarn('display:shorts', 'Fallo al re-adjuntar display en rAF'); }
                                 shortsTimeDisplay.classList.add('ypp-floating');
                                 if (message) showDisplayMessage(shortsTimeDisplay, message);
                             }
-                        } catch (_) { }
+                        } catch (_) { logWarn('display:shorts', 'Error en reattach rAF'); }
                     });
                 };
                 if (document.visibilityState === 'visible' && typeof requestAnimationFrame === 'function') {
@@ -9365,7 +9368,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             if (shortsTimeDisplay.parentElement !== activePanel) {
-                try { activePanel.appendChild(shortsTimeDisplay); } catch (_) { }
+                try { activePanel.appendChild(shortsTimeDisplay); } catch (_) { logWarn('display:shorts', 'Fallo al mover display al panel activo'); }
             }
             shortsTimeDisplay.classList.toggle('ypp-floating', shortsTimeDisplay.parentElement !== activePanel);
             return true;
@@ -9435,7 +9438,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 const target = (shortsPlayerControls instanceof Element && shortsPlayerControls) || (overlayRoot instanceof Element && overlayRoot) || document.body;
                 if (shortsTimeDisplay.parentElement !== target) {
-                    try { target.appendChild(shortsTimeDisplay); } catch (_) { }
+                    try { target.appendChild(shortsTimeDisplay); } catch (_) { logWarn('display:shorts', 'Fallo al adjuntar display al target'); }
                 }
 
                 shortsTimeDisplay.classList.toggle('ypp-floating', !(shortsPlayerControls instanceof Element));
@@ -9869,7 +9872,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // MARK: ⚙️ Settings UI Rendering Helpers
     // ============================================================================================================
 
-    const renderLanguageSection = (currentLang) => {
+    const renderLanguageSection = (currentLang, store) => {
         const sortedLanguages = Object.entries(LANGUAGE_FLAGS).sort((a, b) => a[1].name.localeCompare(b[1].name));
         const options = sortedLanguages.map(([code, lang]) => ({
             value: code,
@@ -9897,7 +9900,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             id: 'language-dropdown',
             initialValue: currentLang,
             options: options,
-            onChange: () => { }
+            onChange: () => { },
+            store
         });
 
         label.appendChild(span);
@@ -10324,7 +10328,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const langContainer = bodyModalSettings.querySelector('#ypp-language-section-container');
         if (langContainer) {
-            langContainer.replaceWith(renderLanguageSection(settings.language));
+            langContainer.replaceWith(renderLanguageSection(settings.language, settingsDisposables));
         }
 
         // Lógica de Previsualización de Alertas
@@ -10842,7 +10846,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     triggerId = '',
                     optionButtonClassName = 'ypp-btn ypp-btn-outline-secondary ypp-footer-action-menu-option',
                     getCurrentlyOpen,
-                    setCurrentlyOpen
+                    setCurrentlyOpen,
+                    store = null
                 } = config;
 
                 const wrapper = createElement('div', { className: 'ypp-footer-action-menu' });
@@ -10889,18 +10894,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         html: `${option.icon} ${option.label}`,
                         attributes: { type: 'button', role: 'menuitem' }
                     });
-                    optionButton.addEventListener('click', async (event) => {
+                    addDisposableListener(optionButton, 'click', async (event) => {
                         event.stopPropagation();
                         closeMenu();
                         await option.action();
-                    });
+                    }, {}, store);
                     list.appendChild(optionButton);
                 });
 
-                trigger.addEventListener('click', (event) => {
+                addDisposableListener(trigger, 'click', (event) => {
                     event.stopPropagation();
                     isOpen ? closeMenu() : openMenu();
-                });
+                }, {}, store);
 
                 wrapper.append(trigger, list);
                 return wrapper;
@@ -10912,6 +10917,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 triggerClassName: 'ypp-btn ypp-btn-outline-info ypp-shadow-md ypp-management-footer-item',
                 getCurrentlyOpen: getCurrentlyOpenFooterMenu,
                 setCurrentlyOpen: setCurrentlyOpenFooterMenu,
+                store: ModalDisposables,
                 options: [
                     { label: 'JSON', icon: SVG_ICONS.jsonCurlyBrackets, action: async () => await importDataFromFile() },
                     { label: 'FreeTube', icon: SVG_ICONS.freetubeIconFill, action: async () => await importFromFreeTube() }
@@ -10924,6 +10930,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 triggerClassName: 'ypp-btn ypp-btn-outline-success ypp-shadow-md ypp-management-footer-item',
                 getCurrentlyOpen: getCurrentlyOpenFooterMenu,
                 setCurrentlyOpen: setCurrentlyOpenFooterMenu,
+                store: ModalDisposables,
                 options: [
                     { label: 'JSON', icon: SVG_ICONS.jsonCurlyBrackets, action: async () => await exportDataToFile() },
                     { label: 'FreeTube', icon: SVG_ICONS.freetubeIconFill, action: async () => await exportToFreeTube() }
@@ -10937,6 +10944,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 triggerId: 'ypp-export-selected-menu-btn',
                 getCurrentlyOpen: getCurrentlyOpenFooterMenu,
                 setCurrentlyOpen: setCurrentlyOpenFooterMenu,
+                store: ModalDisposables,
                 options: [
                     {
                         label: 'JSON',
@@ -11649,6 +11657,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const activeAdWaiters = new WeakSet();
         /** @description Marca videos del miniplayer en transición de src para handoff de sesión */
         const miniplayerTransitions = new WeakSet();
+        /** @description Timer para detección diferida de miniplayer post-bootstrap */
+        let deferredMiniplayerTimer = null;
 
         /**
          * Limpia la sesión activa de un video y lo re-encola para reprocesamiento.
@@ -11880,7 +11890,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Si no hay video síncrono pero no estamos en watch, programamos reintento 
                 // ya que YouTube puede aplicar `miniplayer-is-active` en ytd-app DESPUÉS de la navegación.
                 // Programamos un reintento breve para cubrir ese gap de timing.
-                setTimeout(() => {
+                deferredMiniplayerTimer = setTimeout(() => {
+                    deferredMiniplayerTimer = null;
                     // El TTL del cache es de 125ms, por lo que a los 600ms re-evaluará el DOM garantizado.
                     const retryVideo = DOMHelpers.getMiniplayerPlayerVideo();
                     if (!retryVideo) return;
@@ -12350,6 +12361,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (previewWatchdogId) {
                 clearInterval(previewWatchdogId);
                 previewWatchdogId = null;
+            }
+
+            // Limpiar timer de miniplayer diferido (B1)
+            if (deferredMiniplayerTimer) {
+                clearTimeout(deferredMiniplayerTimer);
+                deferredMiniplayerTimer = null;
             }
 
             logLog('VideoObserverManager', `🧹 Observadores desconectados (PreserveMiniplayer: ${preserveMiniplayer})`);
@@ -13800,6 +13817,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const data = await res.json();
             return data.videoDetails?.viewCount;
         } catch (_) {
+            logWarn('fetchShortsViews', `Fallo al obtener vistas para ${vid}`);
             return null;
         }
     }
@@ -13834,6 +13852,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 null
             );
         } catch (_) {
+            logWarn('fetchPlaylistTitle', `Fallo al obtener título de playlist para ${vid}`);
             return null;
         }
     }
@@ -14288,7 +14307,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {(value: string) => void} config.onChange - Callback al cambiar la selección.
      * @returns {HTMLElement} El elemento wrapper del dropdown.
      */
-    function createCustomDropdown({ id, wrapperClass = '', initialValue, options, onChange }) {
+    function createCustomDropdown({ id, wrapperClass = '', initialValue, options, onChange, store = null }) {
         let currentValue = initialValue;
         let isOpen = false;
 
@@ -14349,7 +14368,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
             item.appendChild(createElement('span', { text: opt.label }));
 
-            item.addEventListener('click', () => {
+            addDisposableListener(item, 'click', () => {
                 if (currentValue === opt.value) { closeList(); return; }
                 currentValue = opt.value;
 
@@ -14365,7 +14384,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 closeList();
                 wrapper.dataset.value = currentValue;
                 onChange(currentValue);
-            });
+            }, {}, store);
 
             list.appendChild(item);
         }
@@ -14394,9 +14413,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (!wrapper.contains(e.target)) closeList();
         };
 
-        trigger.addEventListener('click', () => {
+        addDisposableListener(trigger, 'click', () => {
             isOpen ? closeList() : openList();
-        });
+        }, {}, store);
 
         return wrapper;
     }
@@ -14407,7 +14426,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {(value: string) => void} onChange - Callback al cambiar.
      * @returns {HTMLElement}
      */
-    function createSortSelector(currentValue, onChange) {
+    function createSortSelector(currentValue, onChange, store) {
         const wrapper = createElement('div', { className: 'ypp-range-filter-section' });
 
         const updateActive = (val) => wrapper.classList.toggle('active', val !== CONFIG.defaultFilters.orderBy);
@@ -14425,6 +14444,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 updateActive(val);
                 onChange(val);
             },
+            store,
             options: [
                 { isGroup: true, label: t('sortBy'), icon: SVG_ICONS.sortDesc },
                 { value: 'recent', label: t('mostRecent'), icon: SVG_ICONS.calendar },
@@ -14471,7 +14491,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {(value: string) => void} onChange - Callback al cambiar.
      * @returns {HTMLElement}
      */
-    function createFilterSelector(currentValue, onChange) {
+    function createFilterSelector(currentValue, onChange, store) {
         const wrapper = createElement('div', { className: 'ypp-range-filter-section' });
 
         const updateActive = (val) => wrapper.classList.toggle('active', val !== CONFIG.defaultFilters.filterBy);
@@ -14489,6 +14509,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 updateActive(val);
                 onChange(val);
             },
+            store,
             options: [
                 { value: 'all', label: t('all'), icon: SVG_ICONS.search },
                 { value: 'video', label: t('videos'), icon: SVG_ICONS.video },
@@ -15767,14 +15788,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             await setFilters({ orderBy: selected });
             updateActiveFilterBadge();
             void debouncedUpdateVideoList();
-        }));
+        }, ModalDisposables));
 
         filtersGrid.appendChild(createFilterSelector(currentFilterBy, async (selected) => {
             currentFilterBy = selected;
             await setFilters({ filterBy: selected });
             updateActiveFilterBadge();
             void debouncedUpdateVideoList();
-        }));
+        }, ModalDisposables));
 
         advancedSection.appendChild(filtersGrid);
 
@@ -18404,6 +18425,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let initializationPromise = null;
     let backupIntervalId = null;
     let isInitializationComplete = false;
+    let navigationBootstrapTimer = null;
 
     // Inicialización global (solo una vez)
     const initializeGlobal = async () => {
@@ -18432,6 +18454,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (!isInitializationComplete) {
                     logLog('handleNavigation', '⏭️ Ignorando evento de navegación: el script aún se está inicializando.');
                     return;
+                }
+
+                // Cancelar cualquier reintento de bootstrap pendiente
+                if (navigationBootstrapTimer) {
+                    clearTimeout(navigationBootstrapTimer);
+                    navigationBootstrapTimer = null;
                 }
 
                 const newPageType = getYouTubePageType();
@@ -18482,7 +18510,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (!hasActiveSession && isSamePageContext) {
                         if (typeof VideoObserverManager?.init === 'function') {
                             logLog('handleNavigation', '🔄 Programando reintento ligero de bootstrap (300ms)');
-                            setTimeout(() => {
+                            navigationBootstrapTimer = setTimeout(() => {
+                                navigationBootstrapTimer = null;
                                 // Verificar nuevamente antes de ejecutar por si hubo otra navegación
                                 const currentUrl = window.location.href;
                                 const currentResource = parseYouTubeResource(currentUrl);

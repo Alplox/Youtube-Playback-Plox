@@ -13,6 +13,10 @@
 - **`item.playlistTitle` without `escapeHTML` in template**: Added `escapeHTML()` to `item.playlistTitle` in `renderItem` template string (XSS vector).
 - **`Set` → `WeakSet` for `miniplayerTransitions`/`previewTransitions`**: Both sets only use `.add()`/`.has()`/`.delete()` with DOM element keys — no iteration — making `WeakSet` the correct choice for memory safety.
 - **`Promise.all` → `Promise.allSettled` in `batchLoadStorageData` and autoCleanup**: Changed both `Promise.all` to `Promise.allSettled` with fulfilled/rejected filtering, preventing a single rejected promise from aborting the entire batch or cleanup operation.
+- **6 raw `addEventListener` in `createFooterActionMenu` and `createCustomDropdown`**: Added `store` param to both functions with `addDisposableListener`. Callers pass `ModalDisposables`/`settingsDisposables`.
+- **3 orphaned timers without SPA navigation cleanup**: Added `deferredMiniplayerTimer` tracked in VideoObserverManager cleanup, `shortsRetryTimers` clearing in cleanup, and `navigationBootstrapTimer` with cancel on re-navigation.
+- **4 silent empty catch blocks**: Added `logWarn` to `loadTranslations` cache failure, `Storage.del` GM/IDB failures, 6 Shorts display reattachment failures, and `fetchShortsViews`/`fetchPlaylistTitle` network errors.
+- **`updatedSettings.gist.url` unescaped in template (XSS vector)**: Replaced `setInnerHTML` with `createElement` + `replaceChildren` to safely set anchor href via DOM API (avoids `escapeHTML` URL corruption).
 - **Memory leak in settings modal**: Converted raw `.addEventListener()` calls in `showSettingsUI()` to `addDisposableListener(..., settingsDisposables)` with `settingsDisposables.clear()` on modal close.
 - **Empty catch blocks in SessionFallbackManager retry, watchdog, preview fast-path, rebound seek**: Added `logWarn` to 4 empty catch blocks for debuggability.
 - **Inline preview click handler leak**: Converted raw inline listener to `addDisposableListener`.

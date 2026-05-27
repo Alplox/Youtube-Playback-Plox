@@ -5621,7 +5621,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         function enqueue(operation) {
             operationQueue = operationQueue
-                .catch(() => { })
+                .catch((_err) => { logWarn('IndexedDB', 'Error en cola de operación', _err); })
                 .then(() => operation())
                 .catch((error) => {
                     logError('Error en cola IndexedDB', error);
@@ -6066,7 +6066,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     try {
                         const videoId = getPlayerVideoId(inlinePlayer);
                         if (videoId && this.isVideoIdAnAd(videoId)) return true;
-                    } catch (_) { }
+                    } catch (_) { logWarn('AdDetector', 'Error en isNodeWithinAdContainer inline check', _); }
                 }
 
                 // --- 1. Cache para contenedores In-Feed (estáticos, no cambian dinámicamente) ---
@@ -6113,7 +6113,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             return false; // Es contenido legítimo
                         }
                     }
-                } catch (_) { }
+                } catch (_) { logWarn('AdDetector', 'Error en isVideoIdAnAd badge check', _); }
 
                 return false;
             } catch (_) {
@@ -6188,7 +6188,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         return true;
                     }
                 }
-            } catch (_) { }
+            } catch (_) { logWarn('AdDetector', 'Error en isVideoIdAnAd reverse search', _); }
 
             _adIdCache.set(videoId, { val: false, ts: now });
             return false;
@@ -8908,7 +8908,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const prev = displayClearTimeouts.get(context);
         if (prev) clearTimeout(prev);
         displayClearTimeouts.set(context, setTimeout(() => {
-            try { clearFn(); } catch (_) { }
+            try { clearFn(); } catch (_) { logWarn('DisplayManager', 'Error en scheduleDisplayClear', _); }
             displayClearTimeouts.delete(context);
         }, delayMs));
     };
@@ -9331,7 +9331,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const reanchorShortsDisplay = (message = null) => {
             if (!shortsTimeDisplay) return false;
-            try { startShortsPanelObserver(); } catch (_) { }
+            try { startShortsPanelObserver(); } catch (_) { logWarn('Shorts', 'Error en reanchorShortsDisplay.startShortsPanelObserver', _); }
 
             const activePanel = getActiveShortsControlsContainer();
             const overlayRoot = DOMHelpers.get('display:shortsOverlayRoot', () => document.querySelector(SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER), 200) || DOMHelpers.getShortsPlayer();
@@ -9447,7 +9447,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     shortsRetryTimers.forEach(t => clearTimeout(t));
                     shortsRetryTimers = [];
                     if (shortsPanelObserver) {
-                        try { shortsPanelObserver.disconnect(); } catch (_) { }
+                        try { shortsPanelObserver.disconnect(); } catch (_) { logWarn('Shorts', 'Error disconnecting shortsPanelObserver', _); }
                         shortsPanelObserver = null;
                     }
                 } else {
@@ -9676,7 +9676,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     });
                 }
             });
-            try { shortsPanelObserver.observe(document.body, { childList: true, subtree: true }); } catch (e) { }
+            try { shortsPanelObserver.observe(document.body, { childList: true, subtree: true }); } catch (e) { logWarn('Shorts', 'Error observing shorts panel', e); }
         }
         return {
             bind,
@@ -11166,8 +11166,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 btnClearSelection.disabled = size === 0;
 
-                const copyBtn = document.getElementById('ypp-playlist-copy-link-btn');
-                const openBtn = document.getElementById('ypp-playlist-open-link-btn');
+                const copyBtn = DOMHelpers.get('playlist:copyBtn', () => document.getElementById('ypp-playlist-copy-link-btn'), 5000);
+                const openBtn = DOMHelpers.get('playlist:openBtn', () => document.getElementById('ypp-playlist-open-link-btn'), 5000);
 
                 if (copyBtn) copyBtn.disabled = size === 0;
                 if (openBtn) openBtn.disabled = size === 0;
@@ -11374,7 +11374,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Refrescar estado en UIs dinámicas a través de un CustomEvent
         const selectionEvent = new CustomEvent('ypp-selection-changed');
-        const playlistArea = document.getElementById('ypp-playlist-area');
+        const playlistArea = DOMHelpers.get('playlist:area', () => document.getElementById('ypp-playlist-area'), 5000);
         if (playlistArea) playlistArea.dispatchEvent(selectionEvent);
 
         // Refrescar estado de botones en modo gestión
@@ -11749,7 +11749,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (currentSession?.type === 'preview') return;
 
                     enqueueVideo(previewVideo, 'preview');
-                } catch (_) { }
+                } catch (_) { logWarn('Preview', 'Error en preview watchdog timeout', _); }
             }, 700);
         };
 
@@ -12027,7 +12027,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (!videoElement) return;
             try {
                 videoTypeCache.delete(videoElement);
-            } catch (_) { }
+            } catch (_) { logWarn('VideoObserver', 'Error en requeueMiniplayer videoTypeCache.delete', _); }
             enqueueVideo(videoElement, 'miniplayer', 'miniplayerTransition');
         };
 
@@ -12349,13 +12349,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             pendingVideos.clear();
-
-            // No invalidar sesiones en vuelo si estamos preservando el miniplayer,
-            // ya que una sesión miniplayer puede estar arrancando justo ahora.
-            if (!preserveMiniplayer) {
-                globalNavigationId++;
-            }
-
             stopAllSessions(preserveMiniplayer);
 
             if (previewWatchdogId) {
@@ -12718,12 +12711,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
-     * ID de navegación global para evitar carreras (race conditions) en la inicialización de sesiones.
-     * Incrementado en cada cleanup de VideoObserverManager.
-     */
-    let globalNavigationId = 0;
-
-    /**
      * Inicia una sesión de seguimiento (polling) para un video.
      * @param {HTMLVideoElement} videoEl
      * @param {string} type - Contexto (watch, shorts, miniplayer, preview)
@@ -12732,7 +12719,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {string|null} playlistId - ID de la playlist (opcional)
      */
     const startProcessingSession = async (videoEl, type, videoId, player) => {
-        const navIdAtStart = globalNavigationId;
         FailSafeManager.maybeExit();
 
         if (!RouteContextResolver.isContextLocked(videoEl, type)) {
@@ -12891,139 +12877,139 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         const sessionTick = async () => {
             try {
-            const currentSession = activeProcessingSessions.get(videoEl);
-            const isLocked = RouteContextResolver.isContextLocked(videoEl, type);
+                const currentSession = activeProcessingSessions.get(videoEl);
+                const isLocked = RouteContextResolver.isContextLocked(videoEl, type);
 
-            if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized || !isLocked) {
-                const isMismatch = !isLocked && currentSession === sessionRef && !sessionRef.isFinalized;
-                const reason = isMismatch ? 'context_mismatch' : 'zombie';
+                if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized || !isLocked) {
+                    const isMismatch = !isLocked && currentSession === sessionRef && !sessionRef.isFinalized;
+                    const reason = isMismatch ? 'context_mismatch' : 'zombie';
 
-                clearInterval(intervalId);
-                if (isMismatch) {
-                    SessionOrchestrator.finalizeSession(videoEl, reason);
-                }
-                logLog('process', `🧹 Interval eliminado [${type}] - ${videoId} (Reason: ${reason})`);
-                return;
-            }
-
-            tickCount++;
-
-            // --- UI WATCHDOG ---
-            // Si el usuario usa scripts como "Engine Tamer", el DOM puede ser reemplazado post-carga.
-            // Verificamos periódicamente si nuestra UI sigue presente y la re-inyectamos si es necesario.
-            if (tickCount % THRESHOLDS.WATCHDOG_EVERY_N_TICKS === 0 && type === 'watch') {
-                const display = DOMHelpers.get('sessionTick:timeDisplay', () => document.getElementById('ypp-time-display-indicator'));
-                if (!display || !display.isConnected) {
-                    logWarn('sessionTick', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
-                    PlaybackDisplayManager.ensure(type, player);
-                }
-            }
-
-            // --- PERSISTENCE RESCUE ---
-            // Usa sessionRef.savedData (resuelto asíncronamente desde storage en fast-path).
-            // Si el video sigue en 0s pero deberíamos haber reanudado, forzamos un re-seek de último recurso.
-            const sessionSavedData = sessionRef.savedData;
-            const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
-            if (tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !isCurrentlyAd) {
-                logWarn('sessionTick', `🆘 Persistence Rescue: El video sigue en 0s tras ${tickCount}s. Reintentando resume...`);
-                PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef);
-            }
-
-            if (sessionRef.isResumePending) {
-                return;
-            }
-
-            // Kill Switch
-            const isDisconnected = !document.contains(videoEl);
-            const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
-            const currentVideoId = getPlayerVideoId(player);
-            const hasIdChanged = currentVideoId !== videoId;
-            const isHiddenGhost = (type === 'preview' || type === 'miniplayer') && !isVisiblyDisplayed(videoEl);
-
-            if (isDisconnected || isAdNow || hasIdChanged || isHiddenGhost) {
-                const session = activeProcessingSessions.get(videoEl);
-                const currentSrc = videoEl.currentSrc || videoEl.src || null;
-
-                // En previews, YouTube puede reportar IDs transitorios del player compartido
-                // sin cambiar todavía el <video src>. Evitamos cortar sesión por un único mismatch.
-                if (type === 'preview' && hasIdChanged && !isDisconnected && !isAdNow) {
-                    const hadSessionSrc = !!session?.lastKnownSrc;
-                    const hasRealSrcChange = hadSessionSrc && currentSrc && session.lastKnownSrc !== currentSrc;
-
-                    if (!hasRealSrcChange) {
-                        session.idMismatchCount = (session.idMismatchCount || 0) + 1;
-                        if (session.idMismatchCount <= 2) {
-                            return;
-                        }
+                    clearInterval(intervalId);
+                    if (isMismatch) {
+                        SessionOrchestrator.finalizeSession(videoEl, reason);
                     }
-                }
-
-                // Si el ID cambió pero el elemento está en transición (cambio de src controlado por VideoObserverManager),
-                // no terminar la sesión - dejar que el observer maneje la transición
-                if (hasIdChanged && previewTransitions.has(videoEl)) {
-                    previewTransitions.delete(videoEl);
-                    if (FailSafeManager.isSafeMode()) {
-                        SessionOrchestrator.finalizeSession(videoEl, 'safeModePreviewTransition');
-                        VideoObserverManager.enqueueWithResolver(videoEl, 'preview', 'safeModeRestart');
-                        return;
-                    }
-                    SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'previewTransition', 'intraNodeHandoff');
+                    logLog('process', `🧹 Interval eliminado [${type}] - ${videoId} (Reason: ${reason})`);
                     return;
                 }
-                if (hasIdChanged && type === 'miniplayer' && VideoObserverManager.hasMiniplayerTransition(videoEl)) {
-                    VideoObserverManager.clearMiniplayerTransition(videoEl);
-                    if (FailSafeManager.isSafeMode()) {
-                        SessionOrchestrator.finalizeSession(videoEl, 'safeModeMiniplayerTransition');
+
+                tickCount++;
+
+                // --- UI WATCHDOG ---
+                // Si el usuario usa scripts como "Engine Tamer", el DOM puede ser reemplazado post-carga.
+                // Verificamos periódicamente si nuestra UI sigue presente y la re-inyectamos si es necesario.
+                if (tickCount % THRESHOLDS.WATCHDOG_EVERY_N_TICKS === 0 && type === 'watch') {
+                    const display = DOMHelpers.get('sessionTick:timeDisplay', () => document.getElementById('ypp-time-display-indicator'));
+                    if (!display || !display.isConnected) {
+                        logWarn('sessionTick', '🔍 UI Watchdog: Detectada desaparición de controles. Re-inyectando...');
+                        PlaybackDisplayManager.ensure(type, player);
+                    }
+                }
+
+                // --- PERSISTENCE RESCUE ---
+                // Usa sessionRef.savedData (resuelto asíncronamente desde storage en fast-path).
+                // Si el video sigue en 0s pero deberíamos haber reanudado, forzamos un re-seek de último recurso.
+                const sessionSavedData = sessionRef.savedData;
+                const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
+                if (tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !isCurrentlyAd) {
+                    logWarn('sessionTick', `🆘 Persistence Rescue: El video sigue en 0s tras ${tickCount}s. Reintentando resume...`);
+                    PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef);
+                }
+
+                if (sessionRef.isResumePending) {
+                    return;
+                }
+
+                // Kill Switch
+                const isDisconnected = !document.contains(videoEl);
+                const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
+                const currentVideoId = getPlayerVideoId(player);
+                const hasIdChanged = currentVideoId !== videoId;
+                const isHiddenGhost = (type === 'preview' || type === 'miniplayer') && !isVisiblyDisplayed(videoEl);
+
+                if (isDisconnected || isAdNow || hasIdChanged || isHiddenGhost) {
+                    const session = activeProcessingSessions.get(videoEl);
+                    const currentSrc = videoEl.currentSrc || videoEl.src || null;
+
+                    // En previews, YouTube puede reportar IDs transitorios del player compartido
+                    // sin cambiar todavía el <video src>. Evitamos cortar sesión por un único mismatch.
+                    if (type === 'preview' && hasIdChanged && !isDisconnected && !isAdNow) {
+                        const hadSessionSrc = !!session?.lastKnownSrc;
+                        const hasRealSrcChange = hadSessionSrc && currentSrc && session.lastKnownSrc !== currentSrc;
+
+                        if (!hasRealSrcChange) {
+                            session.idMismatchCount = (session.idMismatchCount || 0) + 1;
+                            if (session.idMismatchCount <= 2) {
+                                return;
+                            }
+                        }
+                    }
+
+                    // Si el ID cambió pero el elemento está en transición (cambio de src controlado por VideoObserverManager),
+                    // no terminar la sesión - dejar que el observer maneje la transición
+                    if (hasIdChanged && previewTransitions.has(videoEl)) {
+                        previewTransitions.delete(videoEl);
+                        if (FailSafeManager.isSafeMode()) {
+                            SessionOrchestrator.finalizeSession(videoEl, 'safeModePreviewTransition');
+                            VideoObserverManager.enqueueWithResolver(videoEl, 'preview', 'safeModeRestart');
+                            return;
+                        }
+                        SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'previewTransition', 'intraNodeHandoff');
+                        return;
+                    }
+                    if (hasIdChanged && type === 'miniplayer' && VideoObserverManager.hasMiniplayerTransition(videoEl)) {
+                        VideoObserverManager.clearMiniplayerTransition(videoEl);
+                        if (FailSafeManager.isSafeMode()) {
+                            SessionOrchestrator.finalizeSession(videoEl, 'safeModeMiniplayerTransition');
+                            VideoObserverManager.requeueMiniplayer(videoEl);
+                            return;
+                        }
+                        SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'miniplayerTransition', 'intraNodeHandoff');
+                        logInfo('sessionTick', `🔄 Handoff de sesión [miniplayer] por transición de ID: ${videoId} → ${currentVideoId}`);
                         VideoObserverManager.requeueMiniplayer(videoEl);
                         return;
                     }
-                    SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'miniplayerTransition', 'intraNodeHandoff');
-                    logInfo('sessionTick', `🔄 Handoff de sesión [miniplayer] por transición de ID: ${videoId} → ${currentVideoId}`);
-                    VideoObserverManager.requeueMiniplayer(videoEl);
+
+                    const logReason = isDisconnected ? 'Elemento removido' :
+                        isAdNow ? 'Anuncio detectado' :
+                            hasIdChanged ? `ID cambiado: ${currentVideoId}` :
+                                `${type === 'miniplayer' ? 'Miniplayer cerrada' : 'Preview oculta'} (ghost)`;
+                    logWarn('sessionTick', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${logReason}`);
+
+                    SessionOrchestrator.finalizeSession(videoEl, logReason);
+                    if (isAdNow) {
+                        try {
+                            VideoObserverManager.waitForAdClear(videoEl, type);
+                        } catch (_) { logWarn('SessionTick', 'Error en waitForAdClear', _); }
+                    }
+                    // Seguridad extra para previews: re-encolar explícitamente si hubo cambio de ID real
+                    // y el observer de src no alcanzó a capturarlo.
+                    if (type === 'preview' && hasIdChanged && document.contains(videoEl)) {
+                        try {
+                            VideoObserverManager.bootstrap(true);
+                        } catch (_) {
+                            try { processMediaVideo(videoEl, 'preview'); } catch (_) { logWarn('SessionTick', 'Error en processMediaVideo fallback', _); }
+                        }
+                    }
                     return;
                 }
 
-                const logReason = isDisconnected ? 'Elemento removido' :
-                    isAdNow ? 'Anuncio detectado' :
-                        hasIdChanged ? `ID cambiado: ${currentVideoId}` :
-                            `${type === 'miniplayer' ? 'Miniplayer cerrada' : 'Preview oculta'} (ghost)`;
-                logWarn('sessionTick', `🛑 Deteniendo sesión [${type}] - ${videoId}. Razón: ${logReason}`);
-
-                SessionOrchestrator.finalizeSession(videoEl, logReason);
-                if (isAdNow) {
-                    try {
-                        VideoObserverManager.waitForAdClear(videoEl, type);
-                    } catch (_) { }
+                // Llamada unificada al controlador modular de guardado usando metadatos cacheados
+                const session = activeProcessingSessions.get(videoEl);
+                if (session) {
+                    session.idMismatchCount = 0;
+                    session.lastKnownSrc = videoEl.currentSrc || videoEl.src || session.lastKnownSrc || null;
                 }
-                // Seguridad extra para previews: re-encolar explícitamente si hubo cambio de ID real
-                // y el observer de src no alcanzó a capturarlo.
-                if (type === 'preview' && hasIdChanged && document.contains(videoEl)) {
-                    try {
-                        VideoObserverManager.bootstrap(true);
-                    } catch (_) {
-                        try { processMediaVideo(videoEl, 'preview'); } catch (_) { }
-                    }
+                const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session?.videoInfo);
+                if (result?.videoInfo && session) {
+                    session.videoInfo = result.videoInfo;
                 }
-                return;
-            }
-
-            // Llamada unificada al controlador modular de guardado usando metadatos cacheados
-            const session = activeProcessingSessions.get(videoEl);
-            if (session) {
-                session.idMismatchCount = 0;
-                session.lastKnownSrc = videoEl.currentSrc || videoEl.src || session.lastKnownSrc || null;
-            }
-            const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session?.videoInfo);
-            if (result?.videoInfo && session) {
-                session.videoInfo = result.videoInfo;
-            }
-            if (result?.savedData && session) {
-                session.savedData = result.savedData;
-            }
-            // Marcar que al menos un guardado real ocurrió (para que el cleanup de loading no lo borre)
-            if (result?.success && session) {
-                session.hasRealSave = true;
-            }
+                if (result?.savedData && session) {
+                    session.savedData = result.savedData;
+                }
+                // Marcar que al menos un guardado real ocurrió (para que el cleanup de loading no lo borre)
+                if (result?.success && session) {
+                    session.hasRealSave = true;
+                }
             } catch (err) {
                 logError('sessionTick', `Error en tick [${type}] ${videoId}`, err);
                 if (sessionRef) sessionRef.isResumePending = false;
@@ -13379,160 +13365,160 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (session && session.isFinalized) return;
 
             try {
-            const isForced = savedData.forceResumeTime > 0;
-            let timeToSeek = isForced ? savedData.forceResumeTime : (savedData.watchProgress || 0);
+                const isForced = savedData.forceResumeTime > 0;
+                let timeToSeek = isForced ? savedData.forceResumeTime : (savedData.watchProgress || 0);
 
-            // Si el video está completado y NO es un salto forzado por el usuario (desde el historial),
-            // determinamos el punto de reanudación según la preferencia del usuario.
-            const isCompletedResume = savedData.isCompleted && !isForced;
-            if (isCompletedResume) {
-                if (cachedSettings.resumeCompletedFromStart === true) {
-                    logInfo('PlaybackController', `🔄 Video completado detectado. Forzando reanudación desde el inicio (0s) según configuración.`);
-                    timeToSeek = 0;
-                } else if (timeToSeek <= 1) {
-                    logInfo('PlaybackController', `⏩ Video completado detectado. Usando sentinel 1.1s para forzar salto al final.`);
-                    timeToSeek = 1.1; // Valor centinela para saltar el return temprano
-                }
-            }
-
-            // Permitir reanudación si es un video completado incluso si el tiempo es 0 (siempre que pase por los checks de arriba)
-            if (timeToSeek <= 1 && !isForced && !isCompletedResume) return;
-
-            logLog('PlaybackController', `🎬 Intentando reanudar ${videoId} en ${formatTime(timeToSeek)} (${type})`);
-
-            const getExpectedDuration = () => {
-                if (session?.videoInfo?.lengthSeconds > 0) return session.videoInfo.lengthSeconds;
-                let dur = 0;
-                try {
-                    dur =
-                        player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds ||
-                        player?.getDuration?.() ||
-                        player?.getVideoData?.()?.length_seconds ||
-                        videoEl.duration;
-                } catch (e) {
-                    dur = videoEl.duration;
-                }
-                return Number(dur) || 0;
-            };
-
-            // Esperar a que el video tenga duración válida
-            const isReady = () => {
-                const dur = getExpectedDuration();
-
-                // Asegurar que el elemento de video tenga metadata (evita false positives por chache de sesión)
-                if (type === 'live' || type === 'shorts') {
-                    return dur > 0 || videoEl.readyState >= 1;
+                // Si el video está completado y NO es un salto forzado por el usuario (desde el historial),
+                // determinamos el punto de reanudación según la preferencia del usuario.
+                const isCompletedResume = savedData.isCompleted && !isForced;
+                if (isCompletedResume) {
+                    if (cachedSettings.resumeCompletedFromStart === true) {
+                        logInfo('PlaybackController', `🔄 Video completado detectado. Forzando reanudación desde el inicio (0s) según configuración.`);
+                        timeToSeek = 0;
+                    } else if (timeToSeek <= 1) {
+                        logInfo('PlaybackController', `⏩ Video completado detectado. Usando sentinel 1.1s para forzar salto al final.`);
+                        timeToSeek = 1.1; // Valor centinela para saltar el return temprano
+                    }
                 }
 
-                return isFinite(dur) && dur > 0 && videoEl.readyState >= 1;
-            };
+                // Permitir reanudación si es un video completado incluso si el tiempo es 0 (siempre que pase por los checks de arriba)
+                if (timeToSeek <= 1 && !isForced && !isCompletedResume) return;
 
-            if (!isReady()) {
-                logLog('PlaybackController', '⏳ Esperando condiciones óptimas para seek...');
+                logLog('PlaybackController', `🎬 Intentando reanudar ${videoId} en ${formatTime(timeToSeek)} (${type})`);
 
-                // Notificar al usuario que estamos esperando datos (solo en modo automático)
-                if (!cachedSettings?.manualSaveMode) {
-                    notifySeekOrProgress(0, 'seek', { videoType: type, videoEl, isLoading: true });
+                const getExpectedDuration = () => {
+                    if (session?.videoInfo?.lengthSeconds > 0) return session.videoInfo.lengthSeconds;
+                    let dur = 0;
+                    try {
+                        dur =
+                            player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds ||
+                            player?.getDuration?.() ||
+                            player?.getVideoData?.()?.length_seconds ||
+                            videoEl.duration;
+                    } catch (e) {
+                        dur = videoEl.duration;
+                    }
+                    return Number(dur) || 0;
+                };
+
+                // Esperar a que el video tenga duración válida
+                const isReady = () => {
+                    const dur = getExpectedDuration();
+
+                    // Asegurar que el elemento de video tenga metadata (evita false positives por chache de sesión)
+                    if (type === 'live' || type === 'shorts') {
+                        return dur > 0 || videoEl.readyState >= 1;
+                    }
+
+                    return isFinite(dur) && dur > 0 && videoEl.readyState >= 1;
+                };
+
+                if (!isReady()) {
+                    logLog('PlaybackController', '⏳ Esperando condiciones óptimas para seek...');
+
+                    // Notificar al usuario que estamos esperando datos (solo en modo automático)
+                    if (!cachedSettings?.manualSaveMode) {
+                        notifySeekOrProgress(0, 'seek', { videoType: type, videoEl, isLoading: true });
+                    }
+
+                    // Esperar sin polling: eventos del DOM + timeout como fallback
+                    // Reemplaza el anterior bucle while que llamaba getPlayerVideoId cada 500ms.
+                    try {
+                        await new Promise((resolve, reject) => {
+                            const cleanup = () => {
+                                videoEl.removeEventListener('loadedmetadata', onReady);
+                                videoEl.removeEventListener('canplay', onReady);
+                                if (timeout) clearTimeout(timeout);
+                            };
+
+                            const onReady = () => {
+                                cleanup();
+                                const currentSession = activeProcessingSessions.get(videoEl);
+                                if (session && (session.isFinalized || currentSession !== session)) {
+                                    reject(new Error('session_finalized'));
+                                    return;
+                                }
+                                resolve();
+                            };
+
+                            videoEl.addEventListener('loadedmetadata', onReady, { once: true });
+                            videoEl.addEventListener('canplay', onReady, { once: true });
+
+                            const timeout = setTimeout(() => {
+                                cleanup();
+                                resolve();
+                            }, 10000);
+                        });
+                    } catch (_) {
+                        logWarn('PlaybackController', `🛑 Abortando resume para ${videoId}: sesión invalidada o reemplazada.`);
+                        return;
+                    }
                 }
 
-                // Esperar sin polling: eventos del DOM + timeout como fallback
-                // Reemplaza el anterior bucle while que llamaba getPlayerVideoId cada 500ms.
-                try {
-                    await new Promise((resolve, reject) => {
-                        const cleanup = () => {
-                            videoEl.removeEventListener('loadedmetadata', onReady);
-                            videoEl.removeEventListener('canplay', onReady);
-                            if (timeout) clearTimeout(timeout);
-                        };
-
-                        const onReady = () => {
-                            cleanup();
-                            const currentSession = activeProcessingSessions.get(videoEl);
-                            if (session && (session.isFinalized || currentSession !== session)) {
-                                reject(new Error('session_finalized'));
-                                return;
-                            }
-                            resolve();
-                        };
-
-                        videoEl.addEventListener('loadedmetadata', onReady, { once: true });
-                        videoEl.addEventListener('canplay', onReady, { once: true });
-
-                        const timeout = setTimeout(() => {
-                            cleanup();
-                            resolve();
-                        }, 10000);
-                    });
-                } catch (_) {
-                    logWarn('PlaybackController', `🛑 Abortando resume para ${videoId}: sesión invalidada o reemplazada.`);
+                // Verificación final justo antes de aplicar el seek
+                if (videoId !== (player ? getPlayerVideoId(player) : null)) {
+                    logWarn('PlaybackController', `🛑 Cancelando seek para ${videoId}: ID ya no coincide.`);
                     return;
                 }
-            }
 
-            // Verificación final justo antes de aplicar el seek
-            if (videoId !== (player ? getPlayerVideoId(player) : null)) {
-                logWarn('PlaybackController', `🛑 Cancelando seek para ${videoId}: ID ya no coincide.`);
-                return;
-            }
+                if (isReady()) {
+                    const finalDuration = getExpectedDuration();
 
-            if (isReady()) {
-                const finalDuration = getExpectedDuration();
+                    // Si la duración es 0 o inválida (común en Shorts inicial o Lives), confiar en timeToSeek
+                    let safeTime = timeToSeek;
 
-                // Si la duración es 0 o inválida (común en Shorts inicial o Lives), confiar en timeToSeek
-                let safeTime = timeToSeek;
+                    // Si el video está completado y el progreso guardado es bajo (reset accidental o carga inicial)
+                    // y NO queremos volver a empezar (resumeCompletedFromStart es false),
+                    // entonces saltamos al final para que YouTube siga con la lista.
+                    const shouldSeekToEnd = savedData.isCompleted && timeToSeek <= 1.5 && !cachedSettings.resumeCompletedFromStart && !isForced;
 
-                // Si el video está completado y el progreso guardado es bajo (reset accidental o carga inicial)
-                // y NO queremos volver a empezar (resumeCompletedFromStart es false),
-                // entonces saltamos al final para que YouTube siga con la lista.
-                const shouldSeekToEnd = savedData.isCompleted && timeToSeek <= 1.5 && !cachedSettings.resumeCompletedFromStart && !isForced;
-
-                if (shouldSeekToEnd && finalDuration > 0) {
-                    safeTime = Math.max(0, finalDuration - 0.5);
-                    logLog('PlaybackController', `⏩ Video completado detectado con progreso bajo. Saltando al final (${formatTime(safeTime)}) para mantener flujo.`);
-                } else if (finalDuration > 0 && safeTime >= finalDuration) {
-                    safeTime = Math.max(0, finalDuration - 1);
-                }
-
-                try {
-                    // Aplicar seek mediante API si está disponible, sino directo al elemento
-                    if (typeof player?.seekTo === 'function') {
-                        player.seekTo(safeTime, true);
-                    } else {
-                        videoEl.currentTime = safeTime;
+                    if (shouldSeekToEnd && finalDuration > 0) {
+                        safeTime = Math.max(0, finalDuration - 0.5);
+                        logLog('PlaybackController', `⏩ Video completado detectado con progreso bajo. Saltando al final (${formatTime(safeTime)}) para mantener flujo.`);
+                    } else if (finalDuration > 0 && safeTime >= finalDuration) {
+                        safeTime = Math.max(0, finalDuration - 1);
                     }
-                    logLog('PlaybackController', `✅ Seek aplicado exitosamente a ${formatTime(safeTime)}`);
 
-                    // Marcar el tiempo esperado y el momento de la reanudación para evitar "backwards jumps" falsos durante carga
-                    videoEl.dataset.lastSavedTime = safeTime.toString();
-                    videoEl.dataset.lastResumedTime = safeTime.toString();
-                    videoEl.dataset.lastResumeTimestamp = Date.now().toString();
-                    videoEl.dataset.resumeRetries = '0';
-
-                    // Notificar al usuario (Toast/PlaybackBar)
-                    notifySeekOrProgress(safeTime, 'seek', { videoType: type, isForced: savedData.forceResumeTime > 0, videoEl });
-
-                    // --- PERSISTENCE CHECK ---
-                    // En cuentas logueadas, YouTube puede intentar forzar su propio progreso (native resume).
-                    // Verificamos 800ms después si el tiempo se mantuvo o si saltó hacia atrás.
-                    createSessionTimeout(session, () => {
-                        const currentSession = activeProcessingSessions.get(videoEl);
-                        if (session && (session.isFinalized || currentSession !== session)) return;
-
-                        const currentTime = videoEl.currentTime;
-                        // Si el tiempo saltó hacia atrás más de 5 segundos respecto a lo que pedimos reanudar
-                        if (safeTime > 10 && currentTime < (safeTime - 5)) {
-                            logWarn('PlaybackController', `🔄 Detectado salto hacia atrás tras resume (${formatTime(safeTime)} -> ${formatTime(currentTime)}). Reintentando persistencia...`);
-                            if (typeof player?.seekTo === 'function') {
-                                player.seekTo(safeTime, true);
-                            } else {
-                                videoEl.currentTime = safeTime;
-                            }
+                    try {
+                        // Aplicar seek mediante API si está disponible, sino directo al elemento
+                        if (typeof player?.seekTo === 'function') {
+                            player.seekTo(safeTime, true);
+                        } else {
+                            videoEl.currentTime = safeTime;
                         }
-                    }, 800);
-                } catch (e) {
-                    logError('PlaybackController', '❌ Error al aplicar seek:', e);
+                        logLog('PlaybackController', `✅ Seek aplicado exitosamente a ${formatTime(safeTime)}`);
+
+                        // Marcar el tiempo esperado y el momento de la reanudación para evitar "backwards jumps" falsos durante carga
+                        videoEl.dataset.lastSavedTime = safeTime.toString();
+                        videoEl.dataset.lastResumedTime = safeTime.toString();
+                        videoEl.dataset.lastResumeTimestamp = Date.now().toString();
+                        videoEl.dataset.resumeRetries = '0';
+
+                        // Notificar al usuario (Toast/PlaybackBar)
+                        notifySeekOrProgress(safeTime, 'seek', { videoType: type, isForced: savedData.forceResumeTime > 0, videoEl });
+
+                        // --- PERSISTENCE CHECK ---
+                        // En cuentas logueadas, YouTube puede intentar forzar su propio progreso (native resume).
+                        // Verificamos 800ms después si el tiempo se mantuvo o si saltó hacia atrás.
+                        createSessionTimeout(session, () => {
+                            const currentSession = activeProcessingSessions.get(videoEl);
+                            if (session && (session.isFinalized || currentSession !== session)) return;
+
+                            const currentTime = videoEl.currentTime;
+                            // Si el tiempo saltó hacia atrás más de 5 segundos respecto a lo que pedimos reanudar
+                            if (safeTime > 10 && currentTime < (safeTime - 5)) {
+                                logWarn('PlaybackController', `🔄 Detectado salto hacia atrás tras resume (${formatTime(safeTime)} -> ${formatTime(currentTime)}). Reintentando persistencia...`);
+                                if (typeof player?.seekTo === 'function') {
+                                    player.seekTo(safeTime, true);
+                                } else {
+                                    videoEl.currentTime = safeTime;
+                                }
+                            }
+                        }, 800);
+                    } catch (e) {
+                        logError('PlaybackController', '❌ Error al aplicar seek:', e);
+                    }
                 }
-            }
             } catch (err) {
                 logError('PlaybackController', `❌ Error en resume para ${videoId}`, err);
             }
@@ -14647,7 +14633,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     inputMax.value = max;
                     updateActive(min, max);
                     onChange(min, max);
-                } catch (_) { }
+                } catch (_) { logWarn('Dropdown', 'Error en range onChange', _); }
             }
         });
         dropdownRef = dropdown;
@@ -15149,7 +15135,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     function showEmptyState(container) {
         const loadingIndicator = container.querySelector('.ypp-skeleton-container');
-        const scrollerEl = document.getElementById('ypp-virtual-scroller-container');
+        const scrollerEl = DOMHelpers.get('vsc:container', () => document.getElementById('ypp-virtual-scroller-container'), 5000);
         if (loadingIndicator) loadingIndicator.style.display = 'none';
         if (scrollerEl) scrollerEl.style.display = 'none';
         if (virtualScroller) {
@@ -15169,7 +15155,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const statsEl = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
         if (statsEl) {
             setInnerHTML(statsEl, `<span>0 ${t('videos')}</span><span id="ypp-storage-usage" class="ypp-storage-usage"></span>`);
-            try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
+            try { updateStorageUsageIndicator().catch(err => { logWarn('StorageUI', 'Error en updateStorageUsageIndicator', err); }); } catch (_) { logWarn('StorageUI', 'Error calling updateStorageUsageIndicator', _); }
         }
     }
 
@@ -15194,7 +15180,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         scroller.itemGap = itemGap;
         scroller.updateItems(virtualItems);
         requestAnimationFrame(() => {
-            const el = document.getElementById('ypp-virtual-scroller-container');
+            const el = DOMHelpers.get('vsc:container', () => document.getElementById('ypp-virtual-scroller-container'), 5000);
             if (el) el.scrollTop = scrollTop;
         });
         try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
@@ -15221,7 +15207,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         container.appendChild(statsBar);
 
         DOMHelpers.removeExact('ui:storageUsage');
-        try { await updateStorageUsageIndicator(); } catch (_) { }
+        try { await updateStorageUsageIndicator(); } catch (_) { logWarn('StorageUI', 'Error en createVirtualScroller updateStorageUsageIndicator', _); }
         if (!listContainer) return null;
 
         const scrollerContainer = createElement('div', {
@@ -15390,7 +15376,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         });
 
         const virtualItems = buildVirtualItems(filteredItems);
-        const scrollerEl = document.getElementById('ypp-virtual-scroller-container');
+        const scrollerEl = DOMHelpers.get('vsc:container', () => document.getElementById('ypp-virtual-scroller-container'), 5000);
         const isGridMode = cachedSavedVideosModalSettings?.displayOptions?.viewMode === 'grid';
         const virtualItemGap = isGridMode ? 12 : 0;
 
@@ -15989,124 +15975,136 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     async function handleForceTimeAction(videoId) {
-        const info = await Storage.get(videoId);
+        try {
+            const info = await Storage.get(videoId);
 
-        if (!info) {
-            logWarn('handleForceTimeAction', `No se encontró información para el video ${videoId}`);
-            return;
+            if (!info) {
+                logWarn('handleForceTimeAction', `No se encontró información para el video ${videoId}`);
+                return;
+            }
+
+            let duration = normalizeSeconds(info.lengthSeconds) || 0;
+
+            let promptText = info.forceResumeTime
+                ? `${t('enterStartTimeOrEmpty')}:`
+                : `${t('enterStartTime')}:`;
+
+            if (duration > 0) {
+                promptText += `\n[0 - ${formatTime(duration)}]`;
+            }
+
+            const timeStr = prompt(promptText, info.forceResumeTime ? formatTime(normalizeSeconds(info.forceResumeTime)) : '');
+            if (timeStr === null) return;
+
+            const timeSec = parseTimeToSeconds(timeStr);
+            if (timeSec > 0 && duration > 0 && timeSec >= duration) {
+                showFloatingToast(`${SVG_ICONS.warning} ${t('invalidFormat')}`);
+                return;
+            }
+
+            if (timeSec > 0) {
+                info.forceResumeTime = timeSec;
+                showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds(timeSec))}`);
+            } else {
+                delete info.forceResumeTime;
+                showFloatingToast(`${SVG_ICONS.check} ${t('fixedTimeRemoved')}`);
+            }
+
+            await Storage.set(videoId, info);
+
+            PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: !!info.forceResumeTime, timeValue: info.forceResumeTime || 0 });
+
+            await updateVideoList();
+        } catch (err) {
+            logError('handleForceTimeAction', 'Error en handleForceTimeAction', err);
         }
-
-        let duration = normalizeSeconds(info.lengthSeconds) || 0;
-
-        let promptText = info.forceResumeTime
-            ? `${t('enterStartTimeOrEmpty')}:`
-            : `${t('enterStartTime')}:`;
-
-        if (duration > 0) {
-            promptText += `\n[0 - ${formatTime(duration)}]`;
-        }
-
-        const timeStr = prompt(promptText, info.forceResumeTime ? formatTime(normalizeSeconds(info.forceResumeTime)) : '');
-        if (timeStr === null) return;
-
-        const timeSec = parseTimeToSeconds(timeStr);
-        if (timeSec > 0 && duration > 0 && timeSec >= duration) {
-            showFloatingToast(`${SVG_ICONS.warning} ${t('invalidFormat')}`);
-            return;
-        }
-
-        if (timeSec > 0) {
-            info.forceResumeTime = timeSec;
-            showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds(timeSec))}`);
-        } else {
-            delete info.forceResumeTime;
-            showFloatingToast(`${SVG_ICONS.check} ${t('fixedTimeRemoved')}`);
-        }
-
-        await Storage.set(videoId, info);
-
-        // Sincronizar UI de reproducción activa
-        PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: !!info.forceResumeTime, timeValue: info.forceResumeTime || 0 });
-
-        await updateVideoList();
     }
 
     async function handleUnlinkPlaylistAction(videoId) {
-        if (!confirm(t('confirmRemoveFromPlaylist'))) return;
-        const data = await Storage.get(videoId);
-        if (data) {
-            data.lastViewedPlaylistId = null;
-            data.lastViewedPlaylistType = '';
-            data.lastViewedPlaylistItemId = null;
-            await Storage.set(videoId, data);
-            showFloatingToast(`${SVG_ICONS.check} ${t('playlistAssociationRemoved')}`);
-            await updateVideoList();
+        try {
+            if (!confirm(t('confirmRemoveFromPlaylist'))) return;
+            const data = await Storage.get(videoId);
+            if (data) {
+                data.lastViewedPlaylistId = null;
+                data.lastViewedPlaylistType = '';
+                data.lastViewedPlaylistItemId = null;
+                await Storage.set(videoId, data);
+                showFloatingToast(`${SVG_ICONS.check} ${t('playlistAssociationRemoved')}`);
+                await updateVideoList();
+            }
+        } catch (err) {
+            logError('handleUnlinkPlaylistAction', 'Error en handleUnlinkPlaylistAction', err);
         }
     }
 
     async function handleDeleteEntryAction(videoId, titleCache) {
-        const title = escapeHTML(titleCache);
+        try {
+            const title = escapeHTML(titleCache);
 
-        // Cargar info original por si deshace
-        const itemInfo = await Storage.get(videoId);
+            const itemInfo = await Storage.get(videoId);
 
-        if (itemInfo?.isProtected) {
-            showFloatingToast(`${SVG_ICONS.warning} ${t('protectedVideoWarning')}`);
-            return;
-        }
-
-        const deleteFromStorage = async () => {
-            await Storage.del(videoId);
-            return true;
-        };
-
-        const undoDelete = async () => {
-            if (!itemInfo) return;
-            await Storage.set(videoId, itemInfo);
-            await updateVideoList();
-            // Restaurar estado de tiempo fijo en UI si existía
-            PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: !!itemInfo.forceResumeTime, timeValue: itemInfo.forceResumeTime || 0 });
-        };
-
-        await deleteFromStorage();
-        // Limpiar estado de tiempo fijo en UI si el video estaba activo
-        PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: false, timeValue: 0 });
-        PlaybackDisplayManager.syncSavedState({ videoId, isSaved: false });
-        await updateVideoList();
-
-        showFloatingToast(`${SVG_ICONS.trash} "${title}" ${t('deleted')}`, 10000, {
-            action: {
-                label: t('undo'),
-                callback: undoDelete
+            if (itemInfo?.isProtected) {
+                showFloatingToast(`${SVG_ICONS.warning} ${t('protectedVideoWarning')}`);
+                return;
             }
-        });
+
+            const deleteFromStorage = async () => {
+                await Storage.del(videoId);
+                return true;
+            };
+
+            const undoDelete = async () => {
+                if (!itemInfo) return;
+                await Storage.set(videoId, itemInfo);
+                await updateVideoList();
+                PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: !!itemInfo.forceResumeTime, timeValue: itemInfo.forceResumeTime || 0 });
+            };
+
+            await deleteFromStorage();
+            PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: false, timeValue: 0 });
+            PlaybackDisplayManager.syncSavedState({ videoId, isSaved: false });
+            await updateVideoList();
+
+            showFloatingToast(`${SVG_ICONS.trash} "${title}" ${t('deleted')}`, 10000, {
+                action: {
+                    label: t('undo'),
+                    callback: undoDelete
+                }
+            });
+        } catch (err) {
+            logError('handleDeleteEntryAction', 'Error en handleDeleteEntryAction', err);
+        }
     }
 
     async function handleToggleProtectionAction(videoId) {
-        const info = await Storage.get(videoId);
+        try {
+            const info = await Storage.get(videoId);
 
-        if (!info) {
-            logWarn('handleToggleProtectionAction', `No se encontró información para el video ${videoId}`);
-            return;
-        }
-
-        info.isProtected = !info.isProtected;
-        await Storage.set(videoId, info);
-
-        // Sincronizar sesiones activas para evitar que cachedSavedData obsoleto
-        // sobreescriba isProtected=false en el próximo guardado automático.
-        for (const session of activeProcessingSessions.values()) {
-            if (session.lastVideoId === videoId && session.savedData) {
-                session.savedData.isProtected = info.isProtected;
+            if (!info) {
+                logWarn('handleToggleProtectionAction', `No se encontró información para el video ${videoId}`);
+                return;
             }
+
+            info.isProtected = !info.isProtected;
+            await Storage.set(videoId, info);
+
+            // Sincronizar sesiones activas para evitar que cachedSavedData obsoleto
+            // sobreescriba isProtected=false en el próximo guardado automático.
+            for (const session of activeProcessingSessions.values()) {
+                if (session.lastVideoId === videoId && session.savedData) {
+                    session.savedData.isProtected = info.isProtected;
+                }
+            }
+
+            const msg = info.isProtected
+                ? `${SVG_ICONS.shieldYesFill} ${t('protected')}`
+                : `${SVG_ICONS.shieldOff} ${t('unprotected')}`;
+            showFloatingToast(msg);
+
+            await updateVideoList();
+        } catch (err) {
+            logError('handleToggleProtectionAction', 'Error en handleToggleProtectionAction', err);
         }
-
-        const msg = info.isProtected
-            ? `${SVG_ICONS.shieldYesFill} ${t('protected')}`
-            : `${SVG_ICONS.shieldOff} ${t('unprotected')}`;
-        showFloatingToast(msg);
-
-        await updateVideoList();
     }
 
     /**
@@ -18003,7 +18001,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         GM_registerMenuCommand(`⚙️ ${t('settings')}`, async () => {
             try {
                 if (!document || !document.body) {
-                    setTimeout(() => { try { showSettingsUI(); } catch (_) { } }, 0);
+                    setTimeout(() => { try { showSettingsUI(); } catch (_) { logWarn('MenuCommands', 'Error en showSettingsUI delayed', _); } }, 0);
                 } else {
                     await showSettingsUI();
                 }
@@ -18066,7 +18064,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const currentMigration = await GM_getValue(MIGRATION_KEY, 0);
                     await GM_setValue(MIGRATION_KEY, Math.max(currentMigration, parseInt(legacyGMFlag, 10) || 0));
                     if (typeof GM_deleteValue === 'function') {
-                        try { await GM_deleteValue('ypp_migration_freetube_format_version'); } catch (_) { }
+                        try { await GM_deleteValue('ypp_migration_freetube_format_version'); } catch (_) { logWarn('Cleanup', 'Error deleting ypp_migration_freetube_format_version', _); }
                     } else {
                         await GM_setValue('ypp_migration_freetube_format_version', null);
                     }
@@ -18075,8 +18073,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Rescate de configuraciones huérfanas y purgas seguras
                 if (typeof GM_listValues === 'function' && typeof GM_deleteValue === 'function') {
-                    try { await GM_deleteValue('YT_PLAYBACK_PLOX_idb_migrated'); } catch (_) { }
-                    try { await GM_deleteValue('YT_PLAYBACK_PLOX_translations_cache_v1'); } catch (_) { }
+                    try { await GM_deleteValue('YT_PLAYBACK_PLOX_idb_migrated'); } catch (_) { logWarn('Cleanup', 'Error deleting YT_PLAYBACK_PLOX_idb_migrated', _); }
+                    try { await GM_deleteValue('YT_PLAYBACK_PLOX_translations_cache_v1'); } catch (_) { logWarn('Cleanup', 'Error deleting YT_PLAYBACK_PLOX_translations_cache_v1', _); }
 
                     const gmKeys = await GM_listValues();
                     const videoKeysGM = (Array.isArray(gmKeys) ? gmKeys : []).filter(k =>
@@ -18084,7 +18082,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     );
 
                     for (const gk of videoKeysGM) {
-                        try { await GM_deleteValue(gk); } catch (_) { }
+                        try { await GM_deleteValue(gk); } catch (_) { logWarn('Cleanup', `Error deleting GM key ${gk}`, _); }
                         logInfo('cleanupNonVideoData', `🧹 Clave GM legacy purgada: ${gk}`);
                     }
                 }
@@ -18137,7 +18135,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         logInfo('cleanupNonVideoData', `🧹 Clave LS legacy purgada: ${key}`);
                         if (normalized === 'idb_migrated' || normalized === 'idb_migrated_v1') {
                             localStorage.removeItem(key);
-                            try { await GM_deleteValue('YT_PLAYBACK_PLOX_idb_migrated'); } catch (_) { }
+                            try { await GM_deleteValue('YT_PLAYBACK_PLOX_idb_migrated'); } catch (_) { logWarn('Cleanup', 'Error deleting YT_PLAYBACK_PLOX_idb_migrated (LS branch)', _); }
                             continue;
                         }
 

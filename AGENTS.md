@@ -66,7 +66,7 @@ youtube-playback-plox.user.js
 ├── THRESHOLDS                  ← Global constant values
 │
 ├── Utility Layer
-│     ├── escapeHTML(str)       ← Sanitize strings for HTML
+│     ├── sanitizeHTML(str)     ← Sanitize strings for HTML (decode + escape)
 │     ├── getSafeUrl(url)       ← Anti-XSS URL validation
 │     ├── formatTime(seconds)   ← Format to MM:SS
 │     ├── parseTimeToSeconds()  ← Parse "1:23" to seconds
@@ -349,7 +349,7 @@ maintain `docs/estado_tarea.md` to allow handoff between AI agents:
 | Show toast to user               | `showFloatingToast(message, duration?, options?)` |
 | Create DOM element               | `createElement(tag, options)`                     |
 | Safe HTML injection              | `setInnerHTML(element, html)`                     |
-| Escape HTML                      | `escapeHTML(str)`                                 |
+| Sanitize HTML                    | `sanitizeHTML(str)`                               |
 | Validate URL (anti-XSS)          | `getSafeUrl(url, allowedPrefixes?)`               |
 | Format time to MM:SS             | `formatTime(seconds)`                             |
 | Parse "1:23" to seconds          | `parseTimeToSeconds(timeStr)`                     |

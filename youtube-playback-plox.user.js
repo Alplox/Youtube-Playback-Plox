@@ -5209,12 +5209,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Verificar si ya existe el estilo para evitar duplicados
         if (DOMHelpers.get('style:progressBarStyles', () => document.querySelector('#ypp-progress-bar-styles'), 10000)) {
-            logLog('injectProgressBarCSS', 'CSS ya existe, omitiendo inyección');
+            logLog('injectProgressBarCSS', 'CSS already exists, skipping injection');
             return;
         }
 
         const css = `
-            /* Barra de progreso personalizada con degradado de colores - Videos regulares */
+            /* Custom progress bar with color gradient - Regular videos */
             .ytp-progress-bar {
                 --ytp-progress-color: #ff4533;
             }
@@ -5231,34 +5231,34 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 transition: background-color 0.15s ease !important;
             }
 
-            /* Shorts - barra de progreso específica con estructura correcta */
+            /* Shorts - specific progress bar with correct structure */
             .desktopShortsPlayerControlsHost .ytPlayerProgressBarHost,
             .ytPlayerProgressBarHost {
                 --ytp-progress-color: #ff4533;
             }
 
-            /* Barra de progreso principal de shorts */
+            /* Main shorts progress bar */
             .ytProgressBarLineProgressBarPlayed {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
                 transition: background-color 0.15s ease !important;
             }
 
-            /* Barra de hover en shorts */
+            /* Hover bar in shorts */
             .ytProgressBarLineProgressBarHovered {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
                 transition: background-color 0.15s ease !important;
             }
 
-            /* Punto del seek (playhead) en shorts */
+            /* Seek point (playhead) in shorts */
             .ytProgressBarPlayheadProgressBarPlayheadDot {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
                 transition: background-color 0.15s ease !important;
             }
 
-            /* Asegurar que los estilos se apliquen sobre los de YouTube */
+            /* Ensure styles are applied over YouTube's styles */
             .ytp-progress-bar .ytp-play-progress,
             .ytp-chrome-controls .ytp-progress-bar .ytp-play-progress {
                 background: var(--ytp-progress-color) !important;
@@ -5271,7 +5271,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 background-image: none !important;
             }
 
-            /* Para el punto del seek (thumb) - regular */
+            /* For the seek point (thumb) - regular */
             .ytp-scrubber-container .ytp-scrubber {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
@@ -5290,18 +5290,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             style.textContent = css;
             document.head.appendChild(style);
 
-            logLog('injectProgressBarCSS', 'CSS inyectado para barra de progreso (regular y shorts)');
+            logLog('injectProgressBarCSS', 'CSS injected for progress bar (regular and shorts)');
         } catch (error) {
-            logError('injectProgressBarCSS', 'Error al inyectar CSS:', error);
+            logError('injectProgressBarCSS', 'Error injecting CSS:', error);
         }
     }
 
     /**
-    * Calcula el color del progreso basado en el porcentaje y el tema (rojo -> naranja -> verde)
-    * @param {number} percent - Porcentaje de progreso (0-100)
-    * @returns {string} Color en formato hexadecimal
+    * Calculates progress color based on percentage and theme (red -> orange -> green)
+    * @param {number} percent - Progress percentage (0-100)
+    * @returns {string} Color in hexadecimal format
     */
-    // Cache pre-computado de colores para optimizar rendimiento
+    // Pre-computed color cache for performance optimization
     const COLOR_CACHE = {
         light: {
             // Pre-computed key points and factors
@@ -5371,7 +5371,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     function getProgressColorForText(percent) {
-        // Usar variables CSS del sistema para mantener contraste AAA (≥7:1)
+        // Use system CSS variables to maintain AAA contrast (≥7:1)
         if (percent <= 0) return 'var(--ypp-danger-text)';
         if (percent >= (cachedSettings?.staticFinishPercent ?? 100)) return 'var(--ypp-success-text)';
 
@@ -9377,7 +9377,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         ?? document.querySelector('.ytp-left-controls')
                         ?? document.querySelector('.ytp-chrome-bottom'), 100);
 
-                    if (!timeWrapper) { logWarn('ensure/watch', '⚠️ No se encontró un contenedor válido para la inyección de UI en la barra de reproducción.'); return getDisplay(context); }
+                    if (!timeWrapper) { logWarn('ensure/watch', '⚠️ No valid container found for UI injection in playback bar.'); return getDisplay(context); }
 
                     watchTimeDisplay = createElement('div', {
                         id: 'ypp-time-display-indicator',
@@ -9416,7 +9416,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 const target = (shortsPlayerControls instanceof Element && shortsPlayerControls) || (overlayRoot instanceof Element && overlayRoot) || document.body;
                 if (shortsTimeDisplay.parentElement !== target) {
-                    try { target.appendChild(shortsTimeDisplay); } catch (_) { logWarn('display:shorts', 'Fallo al adjuntar display al target'); }
+                    try { target.appendChild(shortsTimeDisplay); } catch (_) { logWarn('display:shorts', 'Failed to attach display to target'); }
                 }
 
                 shortsTimeDisplay.classList.toggle('ypp-floating', !(shortsPlayerControls instanceof Element));
@@ -9470,7 +9470,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         /**
-         * Muestra una notificación contextual en el display activo.
+         * Shows a contextual notification in the active display.
          * @param {{context: 'watch'|'shorts'|'miniplayer'|'preview', videoEl?: HTMLVideoElement, videoId?: string, kind?: 'progress'|'seek'|'fixed'|'manual', message: string, ttlMs?: number, persistent?: boolean, isManual?: boolean}} payload
          */
         const show = (payload) => {
@@ -9489,7 +9489,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             if (context === 'shorts' && currentPageType !== 'shorts') {
-                logWarn('PlaybackDisplayManager', '⚠️ No se pudo actualizar display Shorts, currentPageType:', currentPageType);
+                logWarn('PlaybackDisplayManager', '⚠️ Could not update Shorts display, currentPageType:', currentPageType);
                 return;
             }
 
@@ -9519,7 +9519,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (isFixedTime) display.dataset.isFixedTime = 'true';
 
             if (payload.persistent || isFixedTime) {
-                // Permitir que el estado de 'loading' tenga un timeout de seguridad aunque sea persistente
+                // Allow 'loading' state to have a safety timeout even if persistent
                 if (kind !== 'loading') return;
             }
 
@@ -9540,7 +9540,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         /**
-         * Limpia un display si la identidad entregada coincide con su sesión activa.
+         * Clears a display if the provided identity matches its active session.
          * @param {'watch'|'shorts'|'miniplayer'|'preview'} context
          * @param {{videoEl?: HTMLVideoElement|null, videoId?: string|null, reason?: string}} options
          */
@@ -11589,7 +11589,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 try {
                     VideoObserverManager.enqueueWithResolver(session.videoEl, session.type, 'fallbackRetry');
                 } catch (_) {
-                    logWarn('SessionFallbackManager', `⚠️ fallbackRetry falló para ${session.lastVideoId || session.sessionId}`);
+                    logWarn('SessionFallbackManager', `⚠️ fallbackRetry failed for ${session.lastVideoId || session.sessionId}`);
                 }
                 tries++;
             }, THRESHOLDS.SESSION_FALLBACK_RETRY_MS);
@@ -11605,7 +11605,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 try {
                     VideoObserverManager.enqueueWithResolver(session.videoEl, session.type, 'fallbackWatchdog');
                 } catch (_) {
-                    logWarn('SessionFallbackManager', `⚠️ fallbackWatchdog enqueueWithResolver falló para ${session.lastVideoId || session.sessionId}`);
+                    logWarn('SessionFallbackManager', `⚠️ fallbackWatchdog enqueueWithResolver failed for ${session.lastVideoId || session.sessionId}`);
                 }
             }, watchdogMs);
 
@@ -11622,25 +11622,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // MARK: 📡 Video Observer Manager
     // ============================================================================================================
     /**
-     * Maneja la observación y procesamiento de videos de forma aislada por tipo.
+     * Handles video observation and processing in isolation by type.
      */
     const VideoObserverManager = (() => {
         let videoTypeCache = new WeakMap();
         const pendingVideos = new Set();
         let isBatchProcessing = false;
         let previewWatchdogId = null;
-        /** @description Cache de visibilidad del miniplayer para evitar querySelector excesivos */
+        /** @description Miniplayer visibility cache to avoid excessive querySelector calls */
         let isMiniplayerActive = false;
-        /** @description Registro de videos actualmente esperando que termine un anuncio para re-encolarse */
+        /** @description Record of videos currently waiting for ad completion to be re-enqueued */
         const activeAdWaiters = new WeakSet();
-        /** @description Marca videos del miniplayer en transición de src para handoff de sesión */
+        /** @description Marks miniplayer videos in src transition for session handoff */
         const miniplayerTransitions = new WeakSet();
-        /** @description Timer para detección diferida de miniplayer post-bootstrap */
+        /** @description Timer for deferred miniplayer detection post-bootstrap */
         let deferredMiniplayerTimer = null;
 
         /**
-         * Limpia la sesión activa de un video y lo re-encola para reprocesamiento.
-         * Patrón común en src-change de todos los tipos de observer.
+         * Clears the active session of a video and re-enqueues it for reprocessing.
+         * Common pattern in src-change for all observer types.
          * @param {HTMLVideoElement} videoEl
          * @param {string} type - 'watch' | 'shorts' | 'miniplayer' | 'preview'
          */
@@ -11653,8 +11653,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         /**
-         * Recorre mutaciones childList buscando elementos <video> que cumplan un predicado.
-         * Patrón común en todos los observers.
+         * Iterates through childList mutations looking for <video> elements that match a predicate.
+         * Common pattern in all observers.
          * @param {MutationRecord[]} mutations
          * @param {(v: HTMLVideoElement) => boolean} matchFn
          * @param {string} enqueueType
@@ -11673,7 +11673,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         /**
-         * Ejecuta el procesamiento de los videos encolados de forma asíncrona.
+         * Executes processing of queued videos asynchronously.
          */
         const processBatch = () => {
             if (pendingVideos.size === 0) {
@@ -11690,10 +11690,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const type = RouteContextResolver.resolveContext(video, cachedType || null);
                 if (!type || !RouteContextResolver.canProcessContext(video, type)) return;
 
-                // Si el video ya no tiene src, ignorar
+                // If video no longer has src, ignore
                 if (!video.src) return;
 
-                logInfo('VideoObserverManager', `🎥 Procesando video tipo: ${type}`, { src: video.src });
+                logInfo('VideoObserverManager', `🎥 Processing video type: ${type}`, { src: video.src });
 
                 processMediaVideo(video, type);
             });
@@ -11707,8 +11707,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         /**
-         * Garantiza que previews inline activos se re-encolen aunque MutationObserver
-         * no reporte cambio de src/DOM (caso común en reutilización de player interno).
+         * Ensures active inline previews are re-enqueued even if MutationObserver
+         * doesn't report src/DOM changes (common case in internal player reuse).
          */
         const ensurePreviewWatchdog = () => {
             if (previewWatchdogId) return;
@@ -11727,22 +11727,22 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (currentSession?.type === 'preview') return;
 
                     enqueueVideo(previewVideo, 'preview');
-                } catch (_) { logWarn('Preview', 'Error en preview watchdog timeout', _); }
+                } catch (_) { logWarn('Preview', 'Error in preview watchdog timeout', _); }
             }, 700);
         };
 
-        // Estado de espera de watch player
+        // Watch player wait state
         let watchPlayerWaitState = {                 timeoutId: null, intervalId: null, resolved: false };
 
 
         // Time configuration
-        const WATCH_PLAYER_POLL_INTERVAL = 1500; // Revisar cada 1.5s por si el Observer falla
+        const WATCH_PLAYER_POLL_INTERVAL = 1500; // Check every 1.5s in case Observer fails
         const WATCH_PLAYER_MAX_WAIT = 120000;    // Absolute maximum wait: 2 minutes (safety against navigation bugs)
 
         /**
-         * Espera reactiva a que aparezca el #movie_player en página watch.
-         * Usa Polling periódico + seguridad de tipo de página.
-         * @param {boolean} force - Si es true, fuerza re-procesamiento ignorando cache
+         * Reactive waiting for #movie_player to appear on watch page.
+         * Uses periodic polling + page type safety.
+         * @param {boolean} force - If true, forces reprocessing ignoring cache
          */
         const waitForWatchPlayerReactive = (force = false) => {
             const clearWaitState = (isResolved = false) => {
@@ -11764,13 +11764,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const existingVideo = DOMHelpers.getWatchPlayerVideo();
             if (existingVideo) {
                 if (existingVideo.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT)) {
-                    logLog('VideoObserverManager', '⏭️ Video en miniplayer, omitiendo bootstrap de watch');
+                    logLog('VideoObserverManager', '⏭️ Video in miniplayer, skipping watch bootstrap');
                 } else {
                     if (force) videoTypeCache.delete(existingVideo);
                     logInfo('VideoObserverManager', '✅ Video detectado directectamente para bootstrap');
                     enqueueVideo(existingVideo, 'watch');
                 }
-                // No necesitamos esperar nada
+                // We don't need to wait for anything
                 return;
             }
 
@@ -11802,7 +11802,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 } else {
                     // Imprimir solo cada 10 intentos (cada 15 segundos) para no hacer spam
                     if (attempts % 10 === 0) {
-                        logInfo('VideoObserverManager', `🔍 Intento N=${attempts} - Video aún no encontrado...`);
+                        logInfo('VideoObserverManager', `🔍 Attempt N=${attempts} - Video still not found...`);
                     }
                 }
                 return false;
@@ -11822,34 +11822,34 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (!watchPlayerWaitState.resolved) {
                     clearWaitState(true);
                     logWarn('VideoObserverManager',
-                        `⏱️ Timeout (${WATCH_PLAYER_MAX_WAIT / 1000}s) #movie_player no encontrado`);
+                        `⏱️ Timeout (${WATCH_PLAYER_MAX_WAIT / 1000}s) #movie_player not found`);
                 }
             }, WATCH_PLAYER_MAX_WAIT);
         };
 
         /**
-         * Escanea el DOM en busca de videos existentes para procesarlos inmediatamente.
-         * Para cuando usuario carga la pagina por primera vez.
-         * @param {boolean} force - Si es true, ignora el cache para forzar el re-procesamiento (útil en navegación).
+         * Scans the DOM for existing videos to process them immediately.
+         * For when user loads the page for the first time.
+         * @param {boolean} force - If true, ignores cache to force reprocessing (useful in navigation).
          */
         const bootstrap = (force = false) => {
             const body = document.body;
             if (!body) return;
 
-            logInfo('VideoObserverManager', `🔍 Realizando bootstrap de videos existentes...${force ? ' (FORZADO)' : ''}`);
+            logInfo('VideoObserverManager', `🔍 Performing bootstrap of existing videos...${force ? ' (FORCED)' : ''}`);
 
             // Detect if we are on a channel livestream page
             const urlResource = parseYouTubeResource(window.location.href);
             const isChannelLivestream = urlResource &&
                 (urlResource.type === 'live' && !urlResource.id && urlResource.channelId);
 
-            // 1. Buscar video en Watch o livestreams de canal
+            // 1. Search for video in Watch or channel livestreams
             if (currentPageType === 'watch' || isChannelLivestream) {
                 logInfo('VideoObserverManager', `🎯 Procesando video: pageType=${currentPageType}, isChannelLivestream=${!!isChannelLivestream}`);
                 waitForWatchPlayerReactive(force);
             }
 
-            // 2. Buscar video en Shorts
+            // 2. Search for video in Shorts
             if (currentPageType === 'shorts') {
                 const shortsVideo = DOMHelpers.getShortsPlayerVideo();
                 if (shortsVideo) {
@@ -11858,8 +11858,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             }
 
-            // 3. Buscar video en Miniplayer
-            // Siempre buscamos miniplayer si existe, independientemente de currentPageType, 
+            // 3. Search for video in Miniplayer
+            // Always search for miniplayer if it exists, regardless of currentPageType,
             // to cover sync gaps during SPA navigation.
             const miniplayerVideo = DOMHelpers.getMiniplayerPlayerVideo();
             if (miniplayerVideo) {
@@ -11868,21 +11868,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             } else if (currentPageType !== 'watch') {
                 // If no sync video but not on watch, schedule retry
                 // since YouTube can apply `miniplayer-is-active` on ytd-app AFTER navigation.
-                // Programamos un reintento breve para cubrir ese gap de timing.
+                // We schedule a short retry to cover that timing gap.
                 deferredMiniplayerTimer = setTimeout(() => {
                     deferredMiniplayerTimer = null;
                     // Cache TTL is 125ms, so at 600ms it will re-evaluate the DOM guaranteed.
                     const retryVideo = DOMHelpers.getMiniplayerPlayerVideo();
                     if (!retryVideo) return;
-                    logLog('VideoObserverManager', '📱 Miniplayer detectado en reintento post-bootstrap, encolando...');
+                    logLog('VideoObserverManager', '📱 Miniplayer detected in post-bootstrap retry, enqueuing...');
                     videoTypeCache.delete(retryVideo);
                     isMiniplayerActive = true;
                     enqueueVideo(retryVideo, 'miniplayer');
                 }, 600);
             }
 
-            // 4. Buscar video tipo Preview (Home / Search)
-            // Solo cuando no estamos en watch/shorts y no hay miniplayer activo.
+            // 4. Search for Preview type video (Home / Search)
+            // Only when we're not on watch/shorts and there's no active miniplayer.
             if (currentPageType !== 'shorts' && currentPageType !== 'watch' && !DOMHelpers.getMiniplayerPlayer()) {
                 const previewVideo = DOMHelpers.getInlinePreviewPlayerVideo();
                 if (previewVideo) {
@@ -11893,8 +11893,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         /**
-         * Registra un monitor de recuperación para re-encolar videos al salir de estado de anuncio.
-         * Se activa tanto para anuncios reales como para falsos positivos temporales de detección.
+         * Registers a recovery monitor to re-enqueue videos when exiting ad state.
+         * Activates for both real ads and temporary detection false positives.
          * @param {HTMLVideoElement} videoElement
          * @param {string} type
          */
@@ -11926,18 +11926,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
 
                 const isStillAd = AdDetector.isNodeWithinAdContainer(videoElement);
-                logLog('VideoObserverManager', `🔍 Ad recovery check [${type}]: aun en anuncio = ${isStillAd}`);
+                logLog('VideoObserverManager', `🔍 Ad recovery check [${type}]: still in ad = ${isStillAd}`);
 
                 if (!isStillAd) {
                     cleanup();
-                    logInfo('VideoObserverManager', `✅ Video [${type}] liberado de anuncios, re-evaluando...`);
+                    logInfo('VideoObserverManager', `✅ Video [${type}] cleared from ads, re-evaluating...`);
                     enqueueVideo(videoElement, type);
                 }
             };
 
             videoElement.addEventListener('timeupdate', onAdWait);
             videoElement.addEventListener('play', onAdWait);
-            // Fallback: cubrir casos donde no hay eventos (ej. pausa/buffering tras falso positivo)
+            // Fallback: cover cases where there are no events (e.g. pause/buffering after false positive)
             intervalId = setInterval(onAdWait, 1000);
             logInfo('VideoObserverManager', `⏰ Ad recovery started for [${type}] with events and interval`);
 
@@ -11947,9 +11947,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         /**
          * Enqueues a video for processing.
-         * @param {HTMLVideoElement} videoElement - El video a encolar.
-         * @param {string} type - El tipo de video (watch, shorts, miniplayer, preview).
-         * @param {string} triggerSource - La fuente que disparó el encolamiento (observer, navigation, etc.).
+         * @param {HTMLVideoElement} videoElement - The video to enqueue.
+         * @param {string} type - The video type (watch, shorts, miniplayer, preview).
+         * @param {string} triggerSource - The source that triggered the enqueue (observer, navigation, etc.).
          */
         const enqueueVideo = (videoElement, type, triggerSource = 'observer') => {
             if (!videoElement) return;
@@ -17334,12 +17334,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     /* Cache para URLs de miniaturas validadas para evitar re-validaciones durante el scroll */
     const thumbUrlCache = new SimpleLRUCache(500);
 
-    /**
-     * Valida de forma asíncrona la mejor miniatura disponible para un video.
-     * YouTube devuelve una imagen de 120px en lugar de 404 para archivos inexistentes.
-     * @param {string} videoId - ID del video.
-     * @returns {Promise<string>} - URL de la mejor miniatura validada.
-     */
+/**
+      * Asynchronously validates the best available thumbnail for a video.
+      * YouTube returns a 120px image instead of 404 for non-existent files.
+      * @param {string} videoId - Video ID.
+      * @returns {Promise<string>} - URL of the best validated thumbnail.
+      */
     async function getValidatedThumbnail(videoId) {
         if (!videoId) return '';
         const cached = thumbUrlCache.get(videoId);
@@ -17351,7 +17351,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         return new Promise((resolve) => {
             const img = new Image();
             img.onload = () => {
-                // Si naturalWidth > 120, maxresdefault existe
+                // If naturalWidth > 120, maxresdefault exists
                 const url = img.naturalWidth > 120 ? maxResWebp : hqDefault;
                 thumbUrlCache.set(videoId, url);
                 resolve(url);
@@ -17361,7 +17361,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 resolve(hqDefault);
             };
             img.src = maxResWebp;
-            // Timeout de seguridad
+            // Safety timeout
             setTimeout(() => {
                 if (!img.complete) {
                     img.src = '';
@@ -17514,7 +17514,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         } = info;
 
         // Safety margin to consider a video as "completed"
-        // Si faltan menos de 0.75 segundos, ya se considera “terminado”
+        // If less than 0.75 seconds remain, it's already considered “terminado”
         const EPSILON = 0.75;
 
         // Validate duration
@@ -18407,12 +18407,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // Global initialization (only once)
     const initializeGlobal = async () => {
         if (initializationPromise) {
-            logInfo('initializeGlobal', '⏳ Inicialización en progreso, esperando...');
+            logInfo('initializeGlobal', '⏳ Initialization in progress, waiting...');
             return await initializationPromise;
         }
 
         initializationPromise = (async () => {
-            logInfo('initializeGlobal', '🚀 Iniciando inicialización global...');
+            logInfo('initializeGlobal', '🚀 Starting global initialization...');
             let hadLanguageInStorage = false;
             let loadedSettings = null;
             let loadedSettingsMeta = null;
@@ -18420,20 +18420,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             // --- Configure navigation and API events ---
             /**
-             * Maneja eventos de navegación y actualizaciones de la API para sincronizar el estado.
-             * Se usa una versión debounced para evitar ejecuciones redundantes cuando múltiples
-             * eventos (ej. navegación + API ready) disparan casi simultáneamente.
+             * Handles navigation events and API updates to synchronize state.
+             * Uses a debounced version to avoid redundant executions when multiple
+             * events (e.g. navigation + API ready) fire almost simultaneously.
              *
-             * Aunque los observadores manejan la detección de videos, esta función asegura
-             * que el tipo de página y el ID actual estén sincronizados.
+             * Although observers handle video detection, this function ensures
+             * that the page type and current ID are synchronized.
              */
             const handleNavigation = () => {
                 if (!isInitializationComplete) {
-                    logLog('handleNavigation', '⏭️ Ignorando evento de navegación: el script aún se está inicializando.');
+                    logLog('handleNavigation', '⏭️ Ignoring navigation event: script is still initializing.');
                     return;
                 }
 
-                // Cancelar cualquier reintento de bootstrap pendiente
+                // Cancel any pending bootstrap retry
                 if (navigationBootstrapTimer) {
                     clearTimeout(navigationBootstrapTimer);
                     navigationBootstrapTimer = null;
@@ -18448,7 +18448,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Refined Navigation Guard:
                 // We only ignore if the ID matches AND we already have an active session for that ID in the main context.
                 // This allows that if the first initialization failed due to race-condition (stale Player API),
-                // los eventos subsiguientes puedan reintentar el bootstrap.
+                // subsequent events can retry the bootstrap.
                 let hasActiveSession = false;
                 let hasActiveMiniplayerSession = false;
                 let hasActivePreviewSession = false;
@@ -18471,8 +18471,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const isSameVideo = currentVideoId === lastHandledVideoId;
 
                 // Loop Guard & SPA Recovery:
-                // Para videos normales: Si el ID coincide Y (tenemos sesión activa O es el mismo video/página que ya intentamos)
-                // Para livestreams: Si no hay ID pero es la misma página y tenemos sesión activa O es livestream de canal
+                // For regular videos: If the ID matches AND (we have an active session OR it's the same video/page we already tried)
+                // For livestreams: If no ID but it's the same page and we have an active session OR it's a channel livestream
                 const urlResource = parseYouTubeResource(window.location.href);
                 const isChannelLivestream = urlResource &&
                     (urlResource.type === 'live' && !urlResource.id && urlResource.channelId);
@@ -18481,15 +18481,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     (isChannelLivestream && (hasActiveSession || isSamePageContext))) {
 
                     const identifier = currentVideoId || `livestream:${urlResource?.channelId}`;
-                    logLog('handleNavigation', `Ignorando reinicio redundante para ${identifier} (${newPageType}). Sesión activa: ${hasActiveSession}`);
+                    logLog('handleNavigation', `Ignoring redundant restart for ${identifier} (${newPageType}). Active session: ${hasActiveSession}`);
 
-                    // Si no hay sesión activa pero es el mismo contexto, intentamos un bootstrap ligero
+                    // If no active session but it's the same context, we try a lightweight bootstrap
                     if (!hasActiveSession && isSamePageContext) {
                         if (typeof VideoObserverManager?.init === 'function') {
-                            logLog('handleNavigation', '🔄 Programando reintento ligero de bootstrap (300ms)');
+                            logLog('handleNavigation', '🔄 Scheduling lightweight bootstrap retry (300ms)');
                             navigationBootstrapTimer = setTimeout(() => {
                                 navigationBootstrapTimer = null;
-                                // Verificar nuevamente antes de ejecutar por si hubo otra navegación
+                                // Check again before executing in case there was another navigation
                                 const currentUrl = window.location.href;
                                 const currentResource = parseYouTubeResource(currentUrl);
                                 const stillSameContext = currentVideoId ?
@@ -18505,41 +18505,41 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     return;
                 }
 
-                // En navegación no-watch, si ya hay miniplayer activo preservable y no cambió el tipo de página,
-                // evitar reinicialización forzada para no re-aplicar seek innecesariamente.
+                // In non-watch navigation, if there's already a preservable active miniplayer and the page type hasn't changed,
+                // avoid forced reinitialization to prevent unnecessary seek re-application.
                 if (!currentVideoId && newPageType !== 'watch' && newPageType === lastHandledPageType && hasActiveMiniplayerSession) {
                     logLog('handleNavigation', `Ignorando reinicio: Miniplayer activo preservado (${newPageType})`);
                     return;
                 }
 
-                // Evitar teardown/reinit redundante en Home/Browse mientras una sesión preview está activa:
-                // yt-helper-api-ready puede refire sin cambio real de ruta y matar la sesión en curso.
+                // Avoid redundant teardown/reinit in Home/Browse while a preview session is active:
+                // yt-helper-api-ready can refire without actual route change and kill the current session.
                 if (!currentVideoId && newPageType === lastHandledPageType && hasActivePreviewSession) {
                     logLog('handleNavigation', `Ignorando reinicio: Preview activo preservado (${newPageType})`);
                     return;
                 }
 
-                // Actualizar trackers para la próxima navegación
+                // Update trackers for the next navigation
                 lastHandledVideoId = currentVideoId;
                 lastHandledPageType = newPageType;
 
                 logInfo('handleNavigation', `currentPageType: ${currentPageType} - URL Actual: ${window.location.href}`);
 
-                // Solo preservamos el miniplayer si NO vamos a la página 'watch'
+                // Only preserve miniplayer if we're NOT going to the 'watch' page
                 const preserveMiniplayer = currentPageType !== 'watch';
 
-                // Limpiar cachés de DOM para asegurar que el siguiente procesamiento use elementos frescos
+                // Clear DOM caches to ensure next processing uses fresh elements
                 DOMHelpers.clearAll();
 
-                // Reinicializar observers; forzar bootstrap solo cuando no estamos preservando miniplayer.
-                // Si preserveMiniplayer=true, los observers existentes del miniplayer y su sesión deben mantener continuidad.
+                // Reinitialize observers; force bootstrap only when we're not preserving miniplayer.
+                // If preserveMiniplayer=true, existing miniplayer observers and its session must maintain continuity.
                 const shouldForceBootstrap = !preserveMiniplayer;
 
-                // Evitar cleanup destructivo solo si ya estábamos en un contexto que no es watch y seguimos en uno que no es watch,
-                // y hay una sesión de miniplayer que preservar.
-                // Excepción: cuando entramos a shorts, siempre recrear observadores porque YouTube
-                // reemplaza el contenedor #shorts-player en cada navegación SPA, dejando el observer
-                // anterior huérfano en un elemento detached.
+                // Avoid destructive cleanup only if we were already in a non-watch context and still in a non-watch context,
+                // and there's a miniplayer session to preserve.
+                // Exception: when entering shorts, always recreate observers because YouTube
+                // replaces the #shorts-player container on each SPA navigation, leaving the previous observer
+                // orphaned in a detached element.
                 const skipCleanup = preserveMiniplayer && lastHandledPageType !== 'watch' && hasActiveMiniplayerSession && newPageType !== 'shorts';
 
                 if (typeof VideoObserverManager?.clearCache === 'function') VideoObserverManager.clearCache();
@@ -18548,11 +18548,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             const debouncedNavigation = debounce(handleNavigation, 100);
 
-            // 1. Escuchar eventos estándar de YouTube
+            // 1. Listen for standard YouTube events
             addDisposableListener(window, 'yt-navigate-finish', debouncedNavigation);
             addDisposableListener(document, 'yt-page-data-updated', debouncedNavigation);
 
-            // 2. Inicializar YouTube Helper API y escuchar sus actualizaciones "silenciosas"
+            // 2. Initialize YouTube Helper API and listen for its "silent" updates
             try {
                 const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : (globalThis ?? window);
 
@@ -18568,7 +18568,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
 
                 if (YTHelper) {
-                    // Registrar listener persistente que ahora comparte el mismo flujo debounced
+                    // Register persistent listener that now shares the same debounced flow
                     addDisposableListener(YTHelper.eventTarget, 'yt-helper-api-ready', () => {
                         logInfo('YTHelper', '🆕 Notificación de Video Listo/Actualizado recibida');
                         debouncedNavigation();
@@ -18585,22 +18585,22 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 logError('YTHelper', 'Error durante inicializacion YouTube Helper API: ' + error);
             }
 
-            // 3. Limpiar recursos cuando la página se cierra para prevenir memory leaks
+            // 3. Clean up resources when page closes to prevent memory leaks
             addDisposableListener(window, 'unload', () => {
                 cleanupGlobalListeners();
                 cleanupThemeObserver();
                 logLog('initializeGlobal', '🧹 Cleanup de recursos al cerrar página');
             });
 
-            // --- Cargar traducciones ---
+            // --- Load translations ---
             try {
                 [externalTranslations, loadedSettingsMeta] = await Promise.all([
                     loadTranslations().catch((err) => {
-                        logError('initializeGlobal', '❌ Error al cargar traducciones:', err);
+                        logError('initializeGlobal', '❌ Error loading translations:', err);
                         return null;
                     }),
                     getSettingsWithMeta().catch((err) => {
-                        logError('initializeGlobal', '❌ Error al cargar settings:', err);
+                        logError('initializeGlobal', '❌ Error loading settings:', err);
                         return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
                     })
                 ]);

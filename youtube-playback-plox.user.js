@@ -5820,7 +5820,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 try {
                     await IndexedDBAdapter.put(key, serialized);
                 } catch (err) {
-                    logWarn('storageAsync', `Error writing ${key} to IndexedDB, using fallback: `, err);
+                    storageCache.delete(key);
+                    logWarn('storageAsync', `Error writing ${key} to IndexedDB, cache reverted: `, err);
                     // Throw the error so the upper-level handler can catch it
                     throw err;
                 }
@@ -7064,6 +7065,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 for (const key of validKeys) {
                     // Normalize data before saving to ensure Format A
+                    const normalized = normalizeVideoData(data[key], key);
 
                     // Validate value has minimum video structure after normalization
                     if (normalized && typeof normalized === 'object' && normalized.videoId) {
@@ -7244,7 +7246,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         return resolve(false);
                     }
 
-                    const repoInfo = JSON.parse(repoResponse.responseText);
+                    let repoInfo;
+                    try {
+                        repoInfo = JSON.parse(repoResponse.responseText);
+                    } catch (parseErr) {
+                        logError('backupToGithubRepository', 'Invalid JSON response (possible redirect/rate-limit):', parseErr);
+                        if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Invalid response)`);
+                        return resolve(false);
+                    }
                     if (!repoInfo.private) {
                         logError('backupToGithubRepository', 'Repository is NOT private.');
                         if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubRepoPrivacyError')}`);
@@ -7259,7 +7268,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         onload: (fileResponse) => {
                             let sha = null;
                             if (fileResponse.status === 200) {
-                                sha = JSON.parse(fileResponse.responseText).sha;
+                                try {
+                                    sha = JSON.parse(fileResponse.responseText).sha;
+                                } catch (_) { /* sha stays null, file will be created */ }
                             }
 
                             // 3. Upload/update the file
@@ -7868,6 +7879,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const jsonObjects = [];
 
             // 1. Try parsing as direct JSON or JSON-L
+            const trimmed = text.trim();
             if (trimmed.startsWith('[') && (trimmed.endsWith(']') || trimmed.includes(']'))) {
                 try {
                     // Extract only the array part if there's garbage around it (common in binaries)
@@ -13005,7 +13017,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const target = Number(savedData.watchProgress || 0);
         const current = Number(videoEl.currentTime || 0);
         const isPlaying = !videoEl.paused && !videoEl.ended && videoEl.readyState >= 2;
-        if (isPlaying && target > 1 && Math.abs(current - target) <= 3) {
+        if (isPlaying && target > 1.5 && Math.abs(current - target) <= 1.5) {
             return true;
         }
 

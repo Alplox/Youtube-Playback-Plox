@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.10-2
+// @version      0.0.11
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -233,7 +233,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.10-2';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.11';
 
     /**
      * @typedef {Object} YPPState
@@ -1543,7 +1543,21 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             REEL_METAPANEL_CONTAINER: 'ytReelPlayerOverlayViewModelMetadataContainerMetapanel',
             MINIPLAYER_VISIBLE: 'ytdMiniplayerComponentVisible',
             INLINE_PREVIEW_UI: 'ytp-inline-preview-ui',
-            INLINE_PREVIEW_OVERLAY: 'ytd-thumbnail-overlay-inline-playback-renderer'
+            INLINE_PREVIEW_OVERLAY: 'ytd-thumbnail-overlay-inline-playback-renderer',
+            YTP_PROGRESS_BAR: 'ytp-progress-bar',
+            YTP_PLAY_PROGRESS: 'ytp-play-progress',
+            YTP_HOVER_PROGRESS: 'ytp-hover-progress',
+            YTP_SCRUBBER_CONTAINER: 'ytp-scrubber-container',
+            YTP_SCRUBBER: 'ytp-scrubber',
+            YTP_SCRUBBER_BUTTON: 'ytp-scrubber-button',
+            YTP_CHROME_CONTROLS: 'ytp-chrome-controls',
+            YTP_LIVE: 'ytp-live',
+            YTP_LIVE_BADGE: 'ytp-live-badge',
+            YT_PROGRESS_BAR_PLAYED: 'ytProgressBarLineProgressBarPlayed',
+            YT_PROGRESS_BAR_HOVERED: 'ytProgressBarLineProgressBarHovered',
+            YT_PROGRESS_BAR_PLAYHEAD_DOT: 'ytProgressBarPlayheadProgressBarPlayheadDot',
+            YT_PLAYER_PROGRESS_BAR_HOST: 'ytPlayerProgressBarHost',
+            DESKTOP_SHORTS_PLAYER_CONTROLS_HOST: 'desktopShortsPlayerControlsHost'
         },
         ids: {
             PRIMARY_INNER: 'primary-inner',
@@ -1673,6 +1687,47 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                 playing: compiled.ATTRS.INLINE_PLAYING,
                 hidden: compiled.ATTRS.INLINE_HIDDEN
             },
+            progressBar: (() => {
+                const c = compiled.CLASSES;
+                const regularSurfaces = [
+                    c.YTP_PLAY_PROGRESS,
+                    c.YTP_HOVER_PROGRESS,
+                    `${c.YTP_SCRUBBER_CONTAINER} ${c.YTP_SCRUBBER}`,
+                    c.YTP_SCRUBBER_BUTTON
+                ];
+                const shortsSurfaces = [
+                    c.YT_PROGRESS_BAR_PLAYED,
+                    c.YT_PROGRESS_BAR_HOVERED,
+                    c.YT_PROGRESS_BAR_PLAYHEAD_DOT
+                ];
+                return {
+                    regular: {
+                        bar: c.YTP_PROGRESS_BAR,
+                        playProgress: c.YTP_PLAY_PROGRESS,
+                        hoverProgress: c.YTP_HOVER_PROGRESS,
+                        scrubber: `${c.YTP_SCRUBBER_CONTAINER} ${c.YTP_SCRUBBER}`,
+                        scrubberButton: c.YTP_SCRUBBER_BUTTON
+                    },
+                    shorts: {
+                        played: c.YT_PROGRESS_BAR_PLAYED,
+                        hovered: c.YT_PROGRESS_BAR_HOVERED,
+                        playheadDot: c.YT_PROGRESS_BAR_PLAYHEAD_DOT,
+                        host: c.YT_PLAYER_PROGRESS_BAR_HOST,
+                        hostInDesktopControls: `${c.DESKTOP_SHORTS_PLAYER_CONTROLS_HOST} ${c.YT_PLAYER_PROGRESS_BAR_HOST}`
+                    },
+                    regularSurfaces,
+                    regularClearTargets: [c.YTP_PROGRESS_BAR, ...regularSurfaces],
+                    shortsSurfaces,
+                    shortsHosts: [c.YT_PLAYER_PROGRESS_BAR_HOST, `${c.DESKTOP_SHORTS_PLAYER_CONTROLS_HOST} ${c.YT_PLAYER_PROGRESS_BAR_HOST}`],
+                    resetTargets: [
+                        c.YTP_PROGRESS_BAR,
+                        c.YTP_PLAY_PROGRESS,
+                        c.YTP_HOVER_PROGRESS,
+                        ...shortsSurfaces,
+                        c.YT_PLAYER_PROGRESS_BAR_HOST
+                    ]
+                };
+            })(),
             // Utilities
             concat: (...parts) => parts.join(''),
             join: (...parts) => parts.join(' '),
@@ -5169,33 +5224,327 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
     // MARK: 🎨 Progress Bar Style
     // ============================================================================================================
+    /** @type {Record<'watch'|'miniplayer'|'shorts', { color: string|null, container: Element|null, videoId: string|null }>} */
+    const progressGradientState = {
+        watch: { color: null, container: null, videoId: null },
+        miniplayer: { color: null, container: null, videoId: null },
+        shorts: { color: null, container: null, videoId: null }
+    };
+
     /**
-    * Applies a color gradient to the YouTube player progress bar using CSS
-    * @param {number} currentTime - Current video time in seconds
-    * @param {number} duration - Total video duration in seconds
-    * @param {string} type - Video type ('shorts', 'watch')
-    */
-    let _lastProgressColorWatch = null;
-    let _lastProgressColorShorts = null;
-    function updateProgressBarGradient(currentTime, duration, type = 'watch') {
-        if (!cachedSettings.enableProgressBarGradient) return;
-        if (!duration || duration <= 0) return;
-        if (type === 'live') return;
+     * Clears every context entry in progressGradientState.
+     */
+    const clearAllProgressGradientState = () => {
+        for (const key of Object.keys(progressGradientState)) {
+            const state = progressGradientState[key];
+            state.color = null;
+            state.container = null;
+            state.videoId = null;
+        }
+    };
+
+    /**
+     * Mirrors gradient memoization on every context that shares the same DOM container
+     * (YouTube reuses one #movie_player between watch and miniplayer).
+     * @param {Element} container
+     * @param {string} progressColor
+     * @param {string|null} videoId
+     */
+    const syncProgressGradientStateForContainer = (container, progressColor, videoId, primaryKey) => {
+        const primary = progressGradientState[primaryKey];
+        if (!primary) return;
+        primary.container = container;
+        primary.color = progressColor;
+        primary.videoId = videoId;
+
+        for (const key of Object.keys(progressGradientState)) {
+            if (key === primaryKey) continue;
+            const state = progressGradientState[key];
+            if (state.container === container) {
+                state.color = progressColor;
+                state.videoId = videoId;
+            }
+        }
+    };
+
+    /**
+     * Resolves the player root for watch/miniplayer gradient painting.
+     * @param {'watch'|'miniplayer'|'shorts'} stateKey
+     * @param {Element|null} [playerHint=null]
+     * @returns {Element|null}
+     */
+    const resolvePlayerRootForGradient = (stateKey, playerHint = null) => {
+        if (playerHint instanceof Element) return playerHint;
+        if (stateKey === 'miniplayer') return DOMHelpers.getMiniplayerPlayer();
+        if (stateKey === 'watch') return DOMHelpers.getWatchPlayer();
+        return null;
+    };
+
+    /**
+     * Clears inline gradient styles from a regular player root.
+     * @param {Element} playerRoot
+     */
+    const clearProgressColorFromPlayerRoot = (playerRoot) => {
+        if (!(playerRoot instanceof Element)) return;
+        playerRoot.style.removeProperty('--ytp-progress-color');
+        const selectors = SELECTORS.progressBar.regularClearTargets.join(',');
+        playerRoot.querySelectorAll(selectors).forEach(el => {
+            el.style.removeProperty('--ytp-progress-color');
+            el.style.removeProperty('background');
+            el.style.removeProperty('background-color');
+            el.style.removeProperty('background-image');
+        });
+    };
+
+    /**
+     * Paints progress color on regular player surfaces (variable + direct background).
+     * YouTube often keeps the injected stylesheet default (#ff4533) unless play-progress
+     * gets an explicit inline background.
+     * @param {Element} playerRoot - #movie_player (or html5-video-player)
+     * @param {string} progressColor
+     * @returns {Element|null} Anchor element for memoization
+     */
+    const applyProgressColorToPlayerRoot = (playerRoot, progressColor) => {
+        if (!(playerRoot instanceof Element)) return null;
+
+        playerRoot.style.setProperty('--ytp-progress-color', progressColor, 'important');
+
+        const progressBars = playerRoot.querySelectorAll(SELECTORS.progressBar.regular.bar);
+        progressBars.forEach(bar => {
+            bar.style.setProperty('--ytp-progress-color', progressColor, 'important');
+        });
+
+        playerRoot.querySelectorAll(SELECTORS.progressBar.regularSurfaces.join(',')).forEach(el => {
+            el.style.setProperty('background', progressColor, 'important');
+            el.style.setProperty('background-color', progressColor, 'important');
+            el.style.setProperty('background-image', 'none', 'important');
+        });
+
+        return progressBars[0] ?? playerRoot;
+    };
+
+    /**
+     * Paints progress color on Shorts progress surfaces.
+     * @param {string} progressColor
+     * @returns {Element|null}
+     */
+    const applyProgressColorToShortsSurfaces = (progressColor) => {
+        const hosts = document.querySelectorAll(SELECTORS.progressBar.shortsHosts.join(','));
+        hosts.forEach(host => {
+            host.style.setProperty('--ytp-progress-color', progressColor, 'important');
+        });
+
+        const surfaces = document.querySelectorAll(SELECTORS.progressBar.shortsSurfaces.join(','));
+        surfaces.forEach(el => {
+            el.style.setProperty('--ytp-progress-color', progressColor, 'important');
+            el.style.setProperty('background', progressColor, 'important');
+            el.style.setProperty('background-color', progressColor, 'important');
+            el.style.setProperty('background-image', 'none', 'important');
+        });
+
+        return surfaces[0] ?? hosts[0] ?? null;
+    };
+
+    /**
+     * Repaints the visible watch player bar (used after miniplayer → watch expand).
+     */
+    const repaintWatchProgressBarFromActivePlayer = () => {
+        const watchVideo = DOMHelpers.getWatchPlayerVideo();
+        const watchPlayer = DOMHelpers.getWatchPlayer();
+        if (!watchVideo || !watchPlayer) return;
+        const videoId = getPlayerVideoId(watchPlayer);
+        const duration = watchPlayer.getDuration?.() || watchVideo.duration || 0;
+        if (duration > 0) {
+            updateProgressBarGradient(watchVideo.currentTime, duration, 'watch', videoId, {
+                force: true,
+                playerHint: watchPlayer
+            });
+        }
+    };
+
+    /**
+     * Schedules a forced gradient repaint after layout settles (SPA player handoff).
+     * @param {'watch'|'miniplayer'|'shorts'} type
+     * @param {HTMLVideoElement} videoEl
+     * @param {Element|null} player
+     * @param {string|null} videoId
+     */
+    const scheduleProgressBarGradientRepaint = (type, videoEl, player, videoId) => {
+        const paint = () => {
+            const duration = player?.getDuration?.() || videoEl?.duration || 0;
+            if (duration > 0 && videoEl) {
+                updateProgressBarGradient(videoEl.currentTime, duration, type, videoId, {
+                    force: true,
+                    playerHint: player
+                });
+            }
+        };
+        requestAnimationFrame(() => requestAnimationFrame(paint));
+    };
+
+    /**
+     * Detects whether the active playback should skip VOD-style progress bar coloring.
+     * Live sessions use `type: 'watch'` in the session, so `type === 'live'` alone is insufficient.
+     * @param {HTMLVideoElement|null} videoEl
+     * @param {object|Element|null} player
+     * @param {string|null} videoId
+     * @param {object|null} [session=null]
+     * @returns {boolean}
+     */
+    function isLivePlaybackForGradient(videoEl, player, videoId, session = null) {
+        const activeSession = session ?? (videoEl ? activeProcessingSessions.get(videoEl) : null);
+        if (activeSession?.videoInfo?.isLive) return true;
+
+        const playerRoot = player instanceof Element
+            ? player
+            : (videoEl?.closest(SELECTORS.player.movie) ?? null);
+
+        if (playerRoot?.classList.contains(SELECTORS.RAW.classes.YTP_LIVE) && isVisiblyDisplayed(playerRoot?.querySelector(SELECTORS.RAW.classes.YTP_LIVE))) return true;
+        if (playerRoot?.querySelector(SELECTORS.CLASSES.YTP_LIVE_BADGE) && isVisiblyDisplayed(playerRoot?.querySelector(SELECTORS.CLASSES.YTP_LIVE_BADGE))) return true;
+
+        try {
+            const videoData = typeof player?.getVideoData === 'function' ? player.getVideoData() : null;
+            if (videoData?.isLive) return true;
+        } catch (e) {
+            logWarn('isLivePlaybackForGradient', 'Error getting video data', e)
+        }
+
+        if (YTHelper?.video?.id === videoId && YTHelper?.video?.isCurrentlyLive) return true;
+
+        const urlResource = parseYouTubeResource(window.location.href);
+        if (urlResource?.type === 'live') {
+            if (!urlResource.id || urlResource.id === videoId) return true;
+            if (!videoId && urlResource.channelId) return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Applies a color gradient to the YouTube player progress bar using CSS.
+     * @param {number} currentTime - Current video time in seconds
+     * @param {number} duration - Total video duration in seconds
+     * @param {string} type - Video type ('shorts', 'watch', 'miniplayer')
+     * @param {string|null} [videoId=null] - Active video ID; invalidates cache on change
+     * @param {{ force?: boolean, playerHint?: Element|null }} [options]
+     */
+    function updateProgressBarGradient(currentTime, duration, type = 'watch', videoId = null, options = {}) {
+        if (!cachedSettings.enableProgressBarGradient || type === 'live' || !duration || duration <= 0) return;
+
+        const { force = false, playerHint = null } = options;
+
+        if (isLivePlaybackForGradient(null, playerHint, videoId)) {
+            resetProgressBarGradient('all');
+            return;
+        }
+        const stateKey = progressGradientState[type] ? type : 'watch';
+        const state = progressGradientState[stateKey];
+
+        if (stateKey === 'watch' && DOMHelpers.getMiniplayerElementActive()) {
+            return;
+        }
 
         const percent = Math.min(100, Math.round((currentTime / duration) * 100));
         const progressColor = getProgressColor(percent);
 
-        const isShorts = type === 'shorts';
-        const lastColor = isShorts ? _lastProgressColorShorts : _lastProgressColorWatch;
-        if (progressColor === lastColor) return;
-        if (isShorts) { _lastProgressColorShorts = progressColor; } else { _lastProgressColorWatch = progressColor; }
-
-        const container = isShorts
-            ? DOMHelpers.get('shorts:progressHost', () => document.querySelector('.desktopShortsPlayerControlsHost .ytPlayerProgressBarHost, .ytPlayerProgressBarHost'), 50)
-            : DOMHelpers.get('video:progressContainer', () => document.querySelector('.ytp-progress-bar'), 50);
-        if (container) {
-            container.style.setProperty('--ytp-progress-color', progressColor, 'important');
+        if (state.container && !state.container.isConnected) {
+            clearAllProgressGradientState();
         }
+
+        let container = null;
+        let playerRoot = null;
+
+        if (stateKey === 'shorts') {
+            container = document.querySelector(SELECTORS.progressBar.shorts.played)
+                || document.querySelector(SELECTORS.progressBar.shorts.hostInDesktopControls);
+        } else {
+            playerRoot = resolvePlayerRootForGradient(stateKey, playerHint);
+            if (!playerRoot) {
+                clearAllProgressGradientState();
+                return;
+            }
+            container = playerRoot.querySelector(SELECTORS.progressBar.regular.bar) ?? playerRoot;
+        }
+
+        if (!container) {
+            clearAllProgressGradientState();
+            return;
+        }
+
+        const containerChanged = container !== state.container;
+        const colorUnchanged = progressColor === state.color;
+        const sameVideo = videoId && state.videoId === videoId;
+
+        if (!force && !containerChanged && colorUnchanged && sameVideo) return;
+
+        if (stateKey === 'shorts') {
+            container = applyProgressColorToShortsSurfaces(progressColor) ?? container;
+        } else {
+            container = applyProgressColorToPlayerRoot(playerRoot, progressColor) ?? container;
+        }
+
+        syncProgressGradientStateForContainer(container, progressColor, videoId ?? state.videoId, stateKey);
+
+        const probe = container.closest?.(SELECTORS.player.movie) ?? container;
+        const playProgress = probe?.querySelector?.(SELECTORS.progressBar.regular.playProgress);
+        const probeBg = playProgress?.style?.getPropertyValue('background-color')
+            || playProgress?.style?.getPropertyValue('background')
+            || container.style?.getPropertyValue('--ytp-progress-color');
+        logLog(
+            'updateProgressBarGradient',
+            `🎨 [${stateKey}] ${videoId ?? '?'} @ ${percent}% → ${progressColor} (inline: ${probeBg || 'n/a'})`
+        );
+    }
+
+    /**
+     * Refreshes the progress bar gradient for an active session (seek / save fast-path).
+     * @param {HTMLVideoElement} videoEl
+     * @param {object|null} player
+     * @param {string} type
+     * @param {string} videoId
+     * @param {{ force?: boolean }} [options]
+     */
+    function refreshProgressBarGradientForSession(videoEl, player, type, videoId, options = {}) {
+        if (!videoEl || !cachedSettings.enableProgressBarGradient) return;
+        const session = activeProcessingSessions.get(videoEl);
+        if (isLivePlaybackForGradient(videoEl, player, videoId, session)) {
+            resetProgressBarGradient('all');
+            return;
+        }
+        const currentTime = videoEl.currentTime
+            ?? (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
+        const duration = videoEl.duration
+            ?? (typeof player?.getDuration === 'function' ? player.getDuration() : 0);
+        if (!duration || duration <= 0 || !isFinite(currentTime) || currentTime < 0) return;
+        updateProgressBarGradient(currentTime, duration, type, videoId, {
+            force: options.force ?? true,
+            playerHint: player
+        });
+    }
+
+    /**
+     * Clears progress-bar gradient cache and inline styles for the given context(s).
+     * @param {string} type - 'watch' | 'miniplayer' | 'shorts' | 'all'
+     */
+    function resetProgressBarGradient(type = 'watch') {
+        clearAllProgressGradientState();
+
+        try {
+            document.querySelectorAll(SELECTORS.player.movie).forEach(player => {
+                clearProgressColorFromPlayerRoot(player);
+            });
+            document.querySelectorAll(SELECTORS.progressBar.resetTargets.join(',')).forEach(el => {
+                if (!el?.style) return;
+                el.style.removeProperty('--ytp-progress-color');
+                el.style.removeProperty('background');
+                el.style.removeProperty('background-color');
+                el.style.removeProperty('background-image');
+            });
+        } catch (e) {
+            logWarn('resetProgressBarGradient', 'Error resetting progress bar gradient', e)
+        }
+
+        logLog('resetProgressBarGradient', `🧹 Gradient reset for [${type}]`);
     }
 
     // Inject custom CSS for the YouTube progress bar (regular videos and Shorts)
@@ -5212,71 +5561,68 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return;
         }
 
+        const pb = SELECTORS.progressBar.regular;
+        const sh = SELECTORS.progressBar.shorts;
         const css = `
             /* Custom progress bar with color gradient - Regular videos */
-            .ytp-progress-bar {
+            ${pb.bar} {
                 --ytp-progress-color: #ff4533;
             }
 
-            .ytp-play-progress {
+            ${pb.playProgress} {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
                 transition: background-color 0.15s ease !important;
             }
 
-            .ytp-hover-progress {
+            ${pb.hoverProgress} {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
                 transition: background-color 0.15s ease !important;
             }
 
             /* Shorts - specific progress bar with correct structure */
-            .desktopShortsPlayerControlsHost .ytPlayerProgressBarHost,
-            .ytPlayerProgressBarHost {
+            ${sh.hostInDesktopControls},
+            ${sh.host} {
                 --ytp-progress-color: #ff4533;
             }
 
-            /* Main shorts progress bar */
-            .ytProgressBarLineProgressBarPlayed {
+            ${sh.played} {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
                 transition: background-color 0.15s ease !important;
             }
 
-            /* Hover bar in shorts */
-            .ytProgressBarLineProgressBarHovered {
+            ${sh.hovered} {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
                 transition: background-color 0.15s ease !important;
             }
 
-            /* Seek point (playhead) in shorts */
-            .ytProgressBarPlayheadProgressBarPlayheadDot {
+            ${sh.playheadDot} {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
                 transition: background-color 0.15s ease !important;
             }
 
-            /* Ensure styles are applied over YouTube's styles */
-            .ytp-progress-bar .ytp-play-progress,
-            .ytp-chrome-controls .ytp-progress-bar .ytp-play-progress {
+            ${pb.bar} ${pb.playProgress},
+            ${SELECTORS.CLASSES.YTP_CHROME_CONTROLS} ${pb.bar} ${pb.playProgress} {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
             }
 
-            .ytp-progress-bar .ytp-hover-progress,
-            .ytp-chrome-controls .ytp-progress-bar .ytp-hover-progress {
+            ${pb.bar} ${pb.hoverProgress},
+            ${SELECTORS.CLASSES.YTP_CHROME_CONTROLS} ${pb.bar} ${pb.hoverProgress} {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
             }
 
-            /* For the seek point (thumb) - regular */
-            .ytp-scrubber-container .ytp-scrubber {
+            ${pb.scrubber} {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
             }
 
-            .ytp-scrubber-button {
+            ${pb.scrubberButton} {
                 background: var(--ytp-progress-color) !important;
                 background-image: none !important;
             }
@@ -11474,7 +11820,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const isContextLocked = (videoEl, expectedContext) => {
             if (!expectedContext) return false;
             const resolvedContext = resolveContext(videoEl, expectedContext);
-            return resolvedContext === expectedContext && canProcessContext(videoEl, expectedContext);
+            if (resolvedContext === expectedContext && canProcessContext(videoEl, expectedContext)) return true;
+            const reason = !resolvedContext ? 'resolveReturnedNull'
+                : resolvedContext !== expectedContext ? `contextMismatch(resolved:${resolvedContext}≠expected:${expectedContext})`
+                    : `canProcessFailed(${getIneligibilityReason(videoEl, expectedContext)})`;
+            logWarn('isContextLocked', `🔓 Not locked: ${reason} for [${expectedContext}]`);
+            return false;
         };
 
         return {
@@ -11985,6 +12336,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             pendingVideos.add(videoElement);
 
             if (!isBatchProcessing) {
+                isBatchProcessing = true;
                 setTimeout(processBatch, 0);
             }
         };
@@ -12126,8 +12478,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (m.attributeName === 'miniplayer-is-active') {
                         const wasActive = isMiniplayerActive;
                         isMiniplayerActive = m.target.hasAttribute('miniplayer-is-active');
+                        if (!wasActive && isMiniplayerActive) {
+                            resetProgressBarGradient('all');
+                            DOMHelpers.removeExact('watchPlayer');
+                            DOMHelpers.removeExact('miniplayerPlayer');
+                            DOMHelpers.removeExact('watch:progressContainer');
+                            DOMHelpers.removeExact('miniplayer:progressContainer');
+                            for (const [el, sess] of activeProcessingSessions.entries()) {
+                                if (sess.type === 'watch' && !sess.isFinalized) {
+                                    SessionOrchestrator.finalizeSession(el, 'miniplayerActivated');
+                                }
+                            }
+                        }
                         if (wasActive && !isMiniplayerActive) {
                             PlaybackDisplayManager.destroy('miniplayer');
+                            resetProgressBarGradient('all');
+                            DOMHelpers.removeExact('watchPlayer');
+                            DOMHelpers.removeExact('miniplayerPlayer');
+                            DOMHelpers.removeExact('watch:progressContainer');
+                            DOMHelpers.removeExact('miniplayer:progressContainer');
+                            requestAnimationFrame(() => requestAnimationFrame(repaintWatchProgressBarFromActivePlayer));
                         }
                         return;
                     }
@@ -12564,6 +12934,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (session.abortController) session.abortController.abort();
             clearSessionTimeouts(session);
             PlaybackDisplayManager.release(session.type, { videoEl, videoId: session.lastVideoId });
+            resetProgressBarGradient('all');
             SessionFallbackManager.clear(videoEl);
             activeProcessingSessions.delete(videoEl);
             SessionTelemetry.emit('routingDecision', {
@@ -12573,6 +12944,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 sessionId: session.sessionId,
                 transitionToken: session.transitionToken
             });
+
+            // Recovery: if session died due to transient context_mismatch and the video
+            // is still connected to the DOM, schedule a re-enqueue to resume tracking.
+            if (reason === 'context_mismatch' && videoEl.isConnected && document.contains(videoEl)) {
+                logLog('SessionOrchestrator', `🔄 Scheduling re-enqueue after context_mismatch for [${session.type}] - ${session.lastVideoId}`);
+                setTimeout(() => {
+                    if (!activeProcessingSessions.has(videoEl)) {
+                        VideoObserverManager.enqueueWithResolver(videoEl, session.type, 'contextMismatchRecovery');
+                    }
+                }, 500);
+            }
         };
 
         const handoffSession = (videoEl, toVideoId, reason = 'srcChanged', handoffMode = 'intraNodeHandoff') => {
@@ -12717,8 +13099,32 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             SessionOrchestrator.finalizeSession(videoEl, 'preStartCleanup');
         }
 
+        // Finalize any other active session in this context playing a different video
+        // (e.g. miniplayer video change leaving a zombie session on another <video> node).
+        for (const [el, sess] of activeProcessingSessions.entries()) {
+            if (el === videoEl || sess.isFinalized) continue;
+            if (sess.type === type && sess.lastVideoId !== videoId) {
+                SessionOrchestrator.finalizeSession(el, 'supersededByNewVideo');
+            }
+            if (sess.type !== type && sess.lastVideoId === videoId) {
+                SessionOrchestrator.finalizeSession(el, 'contextHandoff');
+            }
+        }
+
         // Proactively clear any previous messages or visual state (SPA zombies)
         PlaybackDisplayManager.clear(type);
+        resetProgressBarGradient(type);
+        // Evict the stale progress-container AND player cache entries for this context.
+        // Both caches are required:
+        // - progressCacheKey: target of querySelector for progress bar
+        // - playerCacheKey: parent player element that may have stale DOM reference
+        // Without both evictions, updateProgressBarGradient could receive a stale cached player
+        // from the previous context (e.g., watch player still cached from miniplayer), causing
+        // incorrect element selection and residual color application.
+        const progressCacheKey = type === 'miniplayer' ? 'miniplayer:progressContainer' : (type === 'shorts' ? 'shorts:progressHost' : 'watch:progressContainer');
+        const playerCacheKey = type === 'miniplayer' ? 'miniplayerPlayer' : (type === 'shorts' ? 'shortsPlayer' : 'watchPlayer');
+        DOMHelpers.removeExact(progressCacheKey);
+        DOMHelpers.removeExact(playerCacheKey);
         logLog('UI', `🧹 Total playback message cleanup performed`);
 
         const startResult = SessionOrchestrator.startSession(videoEl, type, videoId, player, 'startProcessingSession');
@@ -12757,6 +13163,41 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             viewCount: 0,
             lengthSeconds: player?.getDuration?.() || videoEl.duration || 0
         };
+
+        const isLiveSession = isLivePlaybackForGradient(videoEl, player, videoId, sessionRef);
+        if (isLiveSession) {
+            resetProgressBarGradient('all');
+        } else {
+            const startDuration = sessionRef.videoInfo.lengthSeconds;
+            if (startDuration > 0) {
+                updateProgressBarGradient(videoEl.currentTime, startDuration, type, videoId, {
+                    force: true,
+                    playerHint: player
+                });
+            }
+            scheduleProgressBarGradientRepaint(type, videoEl, player, videoId);
+
+            const handleSeekingForGradient = () => {
+                if (activeProcessingSessions.get(videoEl) !== sessionRef || sessionRef.isFinalized) return;
+                if (isLivePlaybackForGradient(videoEl, player, videoId, sessionRef)) return;
+                if (sessionRef.seekGradientRaf) cancelAnimationFrame(sessionRef.seekGradientRaf);
+                sessionRef.seekGradientRaf = requestAnimationFrame(() => {
+                    sessionRef.seekGradientRaf = null;
+                    refreshProgressBarGradientForSession(videoEl, player, type, videoId);
+                });
+            };
+            const handleSeekedForGradient = () => {
+                if (activeProcessingSessions.get(videoEl) !== sessionRef || sessionRef.isFinalized) return;
+                if (isLivePlaybackForGradient(videoEl, player, videoId, sessionRef)) return;
+                refreshProgressBarGradientForSession(videoEl, player, type, videoId);
+                scheduleProgressBarGradientRepaint(type, videoEl, player, videoId);
+            };
+            const seekListenerOptions = sessionRef.abortController
+                ? { signal: sessionRef.abortController.signal }
+                : undefined;
+            addDisposableListener(videoEl, 'seeking', handleSeekingForGradient, seekListenerOptions);
+            addDisposableListener(videoEl, 'seeked', handleSeekedForGradient, seekListenerOptions);
+        }
 
         sessionRef.isResumePending = true;
         getSavedVideoData(videoId, fastPlaylistId).then(async savedData => {
@@ -12840,6 +13281,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             sessionRef.videoInfo[key] = value;
                         }
                     }
+                    if (freshInfo.isLive) {
+                        resetProgressBarGradient('all');
+                    }
                 }
 
                 logInfo('process', `💾 Metadata cached in background for [${type}] - ${videoId}`);
@@ -12859,14 +13303,33 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized || !isLocked) {
                     const isMismatch = !isLocked && currentSession === sessionRef && !sessionRef.isFinalized;
+
+                    // Grace period: tolerate transient context mismatches (e.g. DOM rebuild during seek).
+                    // If the video element is still in the DOM, allow up to 3 consecutive mismatches (~3s)
+                    // before killing the session. This prevents premature session death during YouTube SPA transitions.
+                    if (isMismatch && document.contains(videoEl)) {
+                        sessionRef.contextMismatchCount = (sessionRef.contextMismatchCount || 0) + 1;
+                        if (sessionRef.contextMismatchCount <= 3) {
+                            logWarn('sessionTick', `⏳ Context mismatch tolerance (${sessionRef.contextMismatchCount}/3) for [${type}] - ${videoId}`);
+                            return;
+                        }
+                    }
+
                     const reason = isMismatch ? 'context_mismatch' : 'zombie';
 
                     clearInterval(intervalId);
-                    if (isMismatch) {
+                    sessionRef.intervalId = null;
+                    if (!sessionRef.isFinalized && activeProcessingSessions.get(videoEl) === sessionRef) {
                         SessionOrchestrator.finalizeSession(videoEl, reason);
                     }
                     logLog('process', `🧹 Interval cleared [${type}] - ${videoId} (Reason: ${reason})`);
                     return;
+                }
+
+                // Context recovered: reset mismatch counter
+                if (sessionRef.contextMismatchCount > 0) {
+                    logLog('sessionTick', `✅ Context recovered for [${type}] - ${videoId} after ${sessionRef.contextMismatchCount} transient mismatch(es)`);
+                    sessionRef.contextMismatchCount = 0;
                 }
 
                 tickCount++;
@@ -13474,6 +13937,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         // Notify user (Toast/PlaybackBar)
                         notifySeekOrProgress(safeTime, 'seek', { videoType: type, isForced: savedData.forceResumeTime > 0, videoEl });
 
+                        if (finalDuration > 0 && !isLivePlaybackForGradient(videoEl, player, videoId, session)) {
+                            updateProgressBarGradient(safeTime, finalDuration, type, videoId, {
+                                force: true,
+                                playerHint: player
+                            });
+                            scheduleProgressBarGradientRepaint(type, videoEl, player, videoId);
+                        }
+
                         // --- PERSISTENCE CHECK ---
                         // On logged-in accounts, YouTube may try to force its own progress (native resume).
                         // Check 800ms later if the time held or jumped backward.
@@ -13555,6 +14026,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const timeSinceResume = Date.now() - lastResumeTs;
 
                 const diff = currentTime - lastSavedTime;
+
+                const isLiveSave = videoInfo?.isLive || isLivePlaybackForGradient(videoEl, player, videoId, session);
+                if (isLiveSave) {
+                    resetProgressBarGradient('all');
+                } else if (Math.abs(diff) >= CONFIG.minSeekDiff || options.isManual) {
+                    refreshProgressBarGradientForSession(videoEl, player, type, videoId);
+                }
 
                 // --- PROTECTION: Anti-Native Resume Overwrite ---
                 // If we just resumed less than 10 seconds ago and current time is much lower
@@ -13642,8 +14120,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Determine final type (LIVE wins all)
                 const finalType = videoInfo.isLive ? 'live' : actualType;
 
-                // Update progress bar color gradient
-                updateProgressBarGradient(currentTime, duration, finalType);
+                if (!isLiveSave) {
+                    updateProgressBarGradient(currentTime, duration, type, videoId, { playerHint: player });
+                }
 
                 // Check if save is enabled for this final type for AUTO mode
                 const saveSetting = TYPE_CONFIG[finalType]?.saveSetting;
@@ -18495,6 +18974,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                     currentResource?.type === 'live' && currentResource?.channelId === urlResource?.channelId;
 
                                 if (stillSameContext) {
+                                    resetProgressBarGradient('all');
                                     VideoObserverManager.init(true, false, true);
                                 }
                             }, 300);

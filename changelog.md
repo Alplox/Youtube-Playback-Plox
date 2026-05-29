@@ -1,7 +1,8 @@
-# 0.0.10-2
+# 0.0.11
 
-### Fixed
-
+- **Session killed by transient `context_mismatch` after user seek**: Fixed a bug where seeking forward in a video caused the session to be permanently killed by `context_mismatch` in `sessionTick`. During a seek, YouTube can briefly rebuild the player DOM, causing `videoEl.closest('#movie_player')` to momentarily return `null`. The `RouteContextResolver.resolveContext()` scoring system then assigns -999 to all contexts, `isContextLocked()` returns false, and the session is finalized with no recovery. The fix introduces: (1) a grace period of 3 consecutive ticks (~3s) for transient `context_mismatch` when the video element is still in the DOM, (2) a `contextMismatchRecovery` re-enqueue in `finalizeSession` that reschedules tracking after 500ms if the video is still connected, and (3) diagnostic logging in `isContextLocked` to identify the exact failure reason (`resolveReturnedNull`, `contextMismatch`, or `canProcessFailed`).
+- **Duplicate sessions and UI buttons from double `processBatch` scheduling**: Fixed a bug where two rapid `src` change events from YouTube's MutationObserver both scheduled separate `setTimeout(processBatch, 0)` calls because `isBatchProcessing` was only checked (not set) at scheduling time. Both timers fired, both found the video in `pendingVideos`, creating two simultaneous sessions for the same video with duplicate save intervals and duplicate player bar buttons. The fix sets `isBatchProcessing = true` immediately in `enqueueVideo` when scheduling the timer, preventing double scheduling. The existing `queueMicrotask(processBatch)` at the end of `processBatch` already handles remaining queued videos correctly.
+- **Progress bar gradient stability and context-transition fixes**: Resolved multiple issues where the YouTube progress bar gradient failed to update, leaked colors between videos, lagged after seeks, or broke during Watch ↔ Miniplayer ↔ Live transitions. The solution unified gradient/cache state handling across contexts, added reliable live playback detection to disable coloring on livestreams, ensured immediate repainting on seeks and session changes, cleared stale DOM/player caches and inline styles during transitions, tracked `videoId` and DOM node changes to force correct reapplication, finalized zombie/superseded sessions, and improved player/container lookup logic so the correct progress bar is always repainted even when YouTube replaces or remaps player elements dynamically.
 - **`sessionTick` async callback without try/catch**: Wrapped entire `sessionTick` body in try/catch with `logError` to prevent floating rejections from the `setInterval` callback.
 - **`getSavedVideoData().then()` without `.catch()`**: Added `.catch()` with `logError` to the `getSavedVideoData` promise chain in `startProcessingSession`, preventing unhandled promise rejection.
 - **`PlaybackController.resume()` without try/catch**: Wrapped main resume logic (after early returns) in try/catch with `logError`, catching unexpected errors during the async setup.
@@ -56,12 +57,12 @@
 - **`dedupeByKey` memory leak in SessionOrchestrator**: Replaced unbounded `Map` with FIFO-bounded eviction (max 500 entries): expired entries (>450ms) are deleted on access, and the oldest insertion is evicted when the limit is reached.
 - **Notification flicker in playback bar**: Fixed a race condition where the 2.5s "loading state cleanup" timeout (designed to clear the loading spinner) would prematurely remove the real progress notification, causing it to disappear for ~1s until the next save tick re-showed it. The timeout now skips clearing if at least one successful save has already occurred, preventing the visual flicker.
 
-### Added
+## Added
 
 - **`delay(ms)` utility function**: Replaced 7 instances of `await new Promise(r => setTimeout(r, N))` with named `delay(N)` calls for readability.
 - **Toast `onDismiss` Lifecycle Hook**: Extended `showFloatingToast` and `fadeAndRemoveToast` with an optional `onDismiss` callback that fires exactly once when a toast is removed by any mechanism (X button, timeout, action click, or programmatic removal). Used to guarantee cleanup of transient state like undo snapshots and auto-cleanup backups.
 
-### Changed
+## Changed
 
 - **Magic numbers → `THRESHOLDS`**: Replaced raw numeric constants in `isFinished` guard, shield threshold, watchdog interval, persistence rescue, loading cleanup delay, preview fast-path tempo, and session fallback retry delay.
 - **Miniplayer observer split into two single-responsibility observers**: Separated the overloaded miniplayer MutationObserver (which observed both `ytd-miniplayer` and `ytd-app` with different configs in the same callback) into `observers.miniplayerState` (only `ytd-app` + `miniplayer-is-active` attribute, ultra-light 3-line callback) and `observers.miniplayer` (only `ytd-miniplayer` + `[src, childList]`, no mixed concerns). Eliminates redundant callback invocations: `miniplayerState` only fires when `miniplayer-is-active` changes on `ytd-app`, `miniplayer` only fires for actual DOM changes in `ytd-miniplayer`. Multi-signal fallback (`DOMHelpers.getMiniplayerElementActive()`) remains as race-condition cover in the video observer.
@@ -106,11 +107,11 @@
 
 # 0.0.10-1
 
-### Added
+## Added
 
 - **Scrollbar Customization**: Added options in the Saved Videos toolbar to customize scrollbars. #34
 
-### Changed
+## Changed
 
 - **CSS Optimizations**:
   - Replaced `transition: all` with specific properties (background-color, color, transform, opacity) to prevent heavy animations and unnecessary GPU overhead.
@@ -119,7 +120,7 @@
 
 # 0.0.10
 
-### Added
+## Added
 
 - **Quick Access Markdown Export**: Added a new `"qa-markdown"` action button to Quick Access slots. This action formats and copies the specific video's metadata and progress to the clipboard as Obsidian-compatible Markdown.
 - **Trusted Types Enforcement**: Hardened the script's Trusted Types policy by replacing the passthrough with a strict whitelist-based sanitizer for all dynamic HTML insertions.
@@ -140,7 +141,7 @@
 - **Manual Save Hybrid Mode**: Added a new sub-option to "Manual Save Mode" that allows automatic saving to resume after a video is manually saved or if it was previously saved in the database. #49
 - **Time Display Refactor**: Modularized the playback notification system by separating message construction, notification kind determination, and visual surface resolution into semantic helpers. This ensures consistent UI behavior across Watch, Shorts, Miniplayer, and Inline Previews regardless of media type.
 
-### Fixed
+## Fixed
 
 - **Double-Escaping Prevention**: Fixed HTML entity double-escaping for titles, authors, and playlists in the saved videos modal. The script now transparently decodes pre-escaped YouTube data before applying safe single-escaping, resolving entity display bugs like `&amp;` or `&#39;` while maintaining maximum XSS protection.
 - **Mobile Layout & Sizing**: Implemented a responsive layout for the "Saved Videos" modal on small screens and mobile devices (max-width: 600px). #47
@@ -155,7 +156,7 @@
 - **Navigation Session Deadlock**: Resolved a loop where stale `watch` sessions would keep running after navigation to a non-watch page, preventing new `miniplayer` sessions from starting due to context stickiness. Implemented session self-termination upon context mismatch in `startProcessingSession` and refined `handleNavigation` to ensure proper cleanup when leaving the `watch` context.
 - **Livestream Channel URLs**: Fixed bug where livestreams accessed via channel URLs like `https://www.youtube.com/@CHANNEL/live` would not save playback progress. The issue was caused by ID mismatch validation failing because these URLs don't contain video IDs. Updated `parseYouTubeResource()` to recognize `/@handle/live` and `/channel/*/live` patterns, and modified the watch context resolver to trust the player's video ID when the URL doesn't contain one.
 
-### Changed
+## Changed
 
 - **Selector Infrastructure Refactor**: Replaced scattered selector constants (`ELEMENTS`, `CLASSES`, `IDs`, `ATTRIBUTES`) with a centralized `SELECTOR_DEFINITIONS` architecture and automatic selector compilation system.
   - **Semantic Selector API**: Added hierarchical selector accessors such as `SELECTORS.player.movie` and `SELECTORS.shorts.container` to improve readability and reduce direct dependency on raw selector groups.
@@ -181,7 +182,7 @@
 
 # 0.0.9-15
 
-### Fixed
+## Fixed
 
 - **old-youtube-player**: Implemented a fallback style if a user has userscripts that remove Delhi classes, restoring the pill button group visibility in the progress bar. https://github.com/Alplox/Youtube-Playback-Plox/issues/46#issuecomment-4366541757
 - **Observer Duplication**: Removed duplicate MutationObserver from `waitForWatchPlayerReactive` function that was causing race conditions and duplicate video processing. The function now uses only polling and timeout mechanisms, while DOM mutation detection is handled exclusively by the main observer system in `initObservers`.
@@ -189,21 +190,21 @@
 
 # 0.0.9-14
 
-### Fixed
+## Fixed
 
 - **Watch Player Detection - Reactive Observer**: Replaced polling-based detection with a hybrid MutationObserver approach for Watch player bootstrap. When `#movie_player` is not found on a watch page, the script now uses a reactive MutationObserver to detect the player immediately when it appears, plus a 4-second safety timeout. #46
 
-### Changed
+## Changed
 
 - **YouTube Helper API**: Re-added support for YouTube Helper API, using a more unified method to detect the presence of the API. (The API may spit out some minor errors, but they are not a problem as they don't/shouldn't break the script)
 
-### Added
+## Added
 
 - **Spotify Quick Access**: Added a new button to open/search for a saved video in Spotify. (This was a personal userscript that I decided to share here so I can deprecate it.)
 
 # 0.0.9-13
 
-### Fixed
+## Fixed
 
 - **instanceof Element**: Added verification instanceof Element to prevent DOM errors
 - **Shorts Ad Detection Fix**: Fixed a bug where ads in Shorts were not being detected and were saved as regular shorts. The root cause was a 250ms cache in `AdDetector.isNodeWithinAdContainer` that stored the result of the initial check (which only verified in-feed ad containers). When the `ad-created` class appeared dynamically on the Shorts player AFTER the first check but WITHIN the 250ms cache window, subsequent calls would return the cached `false` result, allowing ads to bypass detection. Fixed by moving all player class checks (`ad-created`, `ad-showing`, `ad-interrupting`) to execute BEFORE the cache lookup, ensuring these dynamic classes are always checked fresh without cache interference.
@@ -213,7 +214,7 @@
 - **UI Robustness**: Added fallback selectors (`.ytp-left-controls`) for the progress bar.
 - **Resume Robustness**: Implemented post-seek persistence verification (800ms) and anti-overwrite protection to prevent YouTube's native resume from overwriting YPP history for users logged in into their Youtube accounts.
 
-### Changed
+## Changed
 
 - **Logging System**: `logLog` now uses `console.log` instead of `console.debug` for better visibility in environments where `debug` output is filtered. Added grouping methods (`logGroup`, `logGroupEnd`) to improve log organization in the console.
 - **GitHub Backup Optimization**: Added pre-check before scheduling backup intervals to avoid unnecessary 5-minute polling when autoBackup is disabled or no valid token is configured. The script now verifies `autoBackup + token` presence for both Gist and Repository before creating any intervals.
@@ -221,13 +222,13 @@
 
 # 0.0.9-12
 
-### Fixed
+## Fixed
 
 - **Initial Load Race Condition in `handleNavigation`**: Fixed a redundant session teardown cycle that occurred on every hard page load. The `handleNavigation` guard was checking `newPageType === lastHandledPageType` to skip unnecessary reinitializations, but `lastHandledPageType` starts as `null` on first load, so the check always fails and the bootstrap session was torn down and re-created. The fix introduces `isSamePageContext` which also evaluates to `true` when `lastHandledPageType === null` (first load), allowing an already-active session for the same video to be preserved without a redundant observer teardown cycle.
 
 # 0.0.9-11
 
-### Fixed
+## Fixed
 
 - **Delay of 5 seconds on Sequential Videos (Shorts)**: Fixed a bug where watching sequential videos or swiping to the next Short would cause the auto-save interval to stall for exactly 5 seconds. This was caused by the YouTube video element retaining the `lastSavedTime` of the previous video in the DOM dataset, triggering the "backward jump protection" false-positive. The fix ensures `lastSavedTime` and `lastResumedTime` dataset attributes are wiped immediately upon creating a new tracking session.
 - **Phantom 00:00 Saves & Fast-Path Race Condition**: Resolved a critical race condition where navigating via SPA could overwrite saved progress with `00:00`. Applied a strict `isResumePending` lock to block automatic `saveStatus` ticks while the asynchronous `resume()` logic awaits the player to become ready. Added specific protection to the inline preview fast-path (220ms timer) which previously bypassed initialization locks.
@@ -300,13 +301,13 @@
 
 # 0.0.9-10
 
-### Added
+## Added
 
 - **Persistent Storage**: Implemented `navigator.storage.persist()` during initialization. This protects the IndexedDB video progress database from being automatically deleted by the browser when the device runs out of disk space, ensuring a much more reliable storage and preventing unexpected data loss. (Have to be accepted by the user, depending on the browser)
 
 # 0.0.9-9
 
-### Fixed
+## Fixed
 
 - **Completion History Daily Regeneration**: Fixed a bug where the `daily` object in `completionHistory` remained empty after migration from legacy array format. Added logic in `normalizeVideoData` to regenerate `daily` counts from existing `events` when `daily` is empty but events are present.
 - **Robust Loop Tracking**: Fixed a bug where automated replays (especially in auto-looping Shorts) failed to accurately record multiple views in the same session due to narrow time reset thresholds. Implementing relative delta tracking and hybrid finish calculations now ensures seamless loop counting for shorts and normal videos of any duration.
@@ -328,7 +329,7 @@
 - **Improved Error Logging**: Added `logError` calls to critical silent catch blocks in `loadTranslations`, `getPlaylistName`, and `cleanupNonVideoData` to improve troubleshooting for failed network requests and corrupted metadata migration.
 - **Theme Detection**: Added `applyTheme()` function to set the attribute `[data-theme="dark"]` during initialization and `observeThemeChanges()` with MutationObserver to automatically update when YouTube toggles between light/dark modes.
 
-### Added
+## Added
 
 - **Playlist Clear Selection**: Added a "Clear selection" button in Playlist Creation Mode.
 - **ISO 3166**: Added `ISO_3166` to `LANGUAGE_FLAGS` values. This eliminates the use of emojis and increases compatibility with browsers that did not support them before.
@@ -342,7 +343,7 @@
 - **Button System Refactor**: Refactored the button CSS system to use CSS custom properties (`--btn-bg`, `--btn-bg-hover`, `--btn-bg-active`, `--btn-color`) for each variant.
 - **Playlist Color Refactor**: Refactored `generatePlaylistColor()` and `generatePlaylistBorderColor()` to use CSS variables from the button system (`--ypp-primary`, `--ypp-info`, `--ypp-success`, `--ypp-warning`) instead of HSL color generation. This ensures AAA contrast compliance with the new button and text color system. Background colors use `color-mix()` with 15% opacity for a soft appearance, while borders use full color for visibility.
 
-### Changed
+## Changed
 
 - **Refactor**: Migrate `completionHistory` to structured CQRS object (events/daily/total) enabling unbounded analytical metrics and O(1) sorting performance, decoupled from strict normalization processes.
 - **Asynchronous Thumbnail Skeletons**: Improved the Saved Videos modal UX by rendering video list items instantly with a skeleton layout for the thumbnail while the valid image URL loads asynchronously, preventing layout blocks and empty gaps during fast scrolling.
@@ -362,19 +363,19 @@
 - **Dedicated Selection Reset**: Added a dedicated `Clear selection` action in Management Mode and new fallback-only translation keys to explicitly indicate hidden selected items in current results.
 - **Advanced Filters UI Redesign**: Compacted the advanced filters panel from a 2-row layout into a single unified 4-column grid. Sort, Type, Views, and Percent filters now share the same row. Each filter column shows a chip-label (icon + name) above its control for clarity. Range filters (Views/Percent) are now fully inline: preset dropdown and Min–Max inputs share a single horizontal row. Removed the old external text labels in favor of consistent chip-labels across all filter columns.
 
-### Removed
+## Removed
 
 - **Legacy Settings**: Removed the obsolete `alertStyle` and `hideTimestamp` settings in favor of the new granular flags.
 
 # 0.0.9-8
 
-### Fixed
+## Fixed
 
 - **GitHub Settings Undefined**: Fixed a `TypeError` ("can't access property 'lastSync', s is undefined") that occurred during Settings UI rendering when a legacy or partial GitHub Backup configuration lacked `gist` or `repo` properties. Now it uses a secure fallback to `CONFIG.defaultGithubSettings[type]`.
 
 # 0.0.9-7
 
-### Added
+## Added
 
 - **Pre-Migration JSON Backup**: Added an automated prompt that recommends downloading a JSON backup of saved videos before executing any data structure migrations on `IndexedDB`. #22
 - **Protected Videos Feature**: Added a "Protect" option to saved videos to prevent accidental deletion. Protected videos cannot be removed through individual, bulk, or "Clear All" actions until manually unprotected. #17
@@ -389,13 +390,13 @@
 - **Completed Filter**: Added a new "Completed at least once" filter to the Saved Videos modal.
 - **Data Preservation during Import**: Updated `normalizeVideoData` to ensure the `isProtected` flag is preserved when importing JSON backups.
 
-### Fixed
+## Fixed
 
 - **Storage Quota Error Propagation**: Fixed a bug where `IndexedDBAdapter.enqueue()` silently swallowed all IndexedDB errors (including `QuotaExceededError`) by calling `.catch()` without re-throwing. This caused quota failures to never reach `Storage.set`, so the `storage_full` alert was never triggered. The fix makes `enqueue` re-throw errors so they bubble correctly to callers. Additionally, broadened quota detection in `Storage.set` to also check `err.code === 22` (the `QUOTA_EXCEEDED_ERR` numeric DOMException code) and the error message string, for cross-browser compatibility.
 - **Smart Filter Presets**: Added a "Custom" (Personalizado) state to range dropdowns that activates when manual values are entered. Also added specific tooltips (Min views, Max %, etc.) to input fields.
 - **Virtual Scroller**: When deleting a video, the virtual scroller now preserves its state, so it doesn’t automatically scroll back to the top. #26
 
-### Changed
+## Changed
 
 - **Filter Persistence Architecture**: Replaced redundant `saveFilters` and `getSavedFilters` functions with a consolidated `Filters` object. This follows the same robust pattern as the `Settings` object, ensuring consistent error handling and cross-tab synchronization.
 - **Completion History Migration (0.0.9-6 → 0.0.9-7)**: `normalizeVideoData` now automatically backfills a single `completionHistory` entry (using `timeWatched` as the legacy timestamp) for any video that was already marked as `isCompleted = true` before history tracking was introduced. This makes the "Watched X times" counter show **1** instead of blank for pre-existing completed videos, and is idempotent (runs only once per record, on the first read/write cycle post-upgrade).
@@ -405,7 +406,7 @@
 
 # 0.0.9-6
 
-### Added
+## Added
 
 - **Completion History Tracking**: Videos now record a timestamped history of every time they are watched to completion. This allows tracking repeat views and seeing exactly when a video was finished.
 - **Completion Session Toggle**: Added a "Count only once per session" toggle in Settings. If enabled, auto-looping or re-watching a video without navigating away will only count as a single completion, preventing "noise" in history for unattended PCs.
@@ -418,7 +419,7 @@
 - **CSS Cleanup**: Added vendor prefixes and removed redundant code.
 - **Updated video existence indicator behavior**: instead of changing the icon, it now changes color on hover when the video exists in the database. (#23)
 
-### Fixed
+## Fixed
 
 - **Completion Tooltip Overflow**: Fixed an issue where the completion history tooltip could overflow the screen for frequently watched videos by implementing a truncation system (limit to 10 entries + overflow count).
 - **Filter Overflow Fix**: Added `min-width: 0` to video filter grid cells and selectors to prevent layout horizontal overflow on narrow windows.
@@ -438,7 +439,7 @@
 
 # 0.0.9-5
 
-### Added
+## Added
 
 - **Manual save option**: Users can now toggle between automatic periodic saving of progress (enabled by default) and manual saving via a new save button. (#20)
 - **Navigation blocking on Previews**: Prevented YouTube from navigating to the video page when clicking on the custom buttons (modal or manual save) placed over video previews. Added `preventDefault()` to button click handlers and a dedicated click listener to the preview UI container to ensure clicks within our UI area are captured and not bubbled up to the underlying video link.
@@ -450,11 +451,11 @@
 - **Security & Privacy Safeguards**: Implemented `password` style inputs for IDs and tokens, added UI warnings against sharing credentials, and truncated IDs in console logs for privacy.
 - **UI Refinement**: Optimized the settings modal with tab-specific help guides and security warnings that dynamically update based on the active configuration tab.
 
-### Fixed
+## Fixed
 
 - **Playlist Detection on Navigation**: Fixed a bug where the playlist ID was occasionally lost (saved as `null`) during YouTube's internal navigation ("change src" events). Added a URL-based fallback to `getCascadedVideoInfo` to ensure the playlist ID is correctly extracted from the address bar if the player state is temporarily unavailable.
 
-### Changed
+## Changed
 
 - **Update script images**: New images for README files to ilustrate current version.
 - **Manual Save Mode Logic**: Refactored save functions to honor `manualSaveMode` behavior across all contexts, allowing the script to skip automatic updates when manual save is active.
@@ -464,17 +465,17 @@
 
 # 0.0.9-4
 
-### Fixed
+## Fixed
 
 - **Playback Bar Button Visibility**: Fixed an issue (#21) where the script's button in the playback bar disappeared when the "ProgressBar Gradient" option was disabled. Essential layout CSS for the modern YouTube UI (Delhi) was incorrectly bundled inside the conditional gradient function; these styles are now correctly separated and always injected.
 
 # 0.0.9-3
 
-### Added
+## Added
 
 - **Trusted Types Security Bypass**: Implemented a privileged bypass for DOM injection. Shifted from unsafe `innerHTML` to a combination of `getTrustedTypesPolicy()` and a fail-safe `GM_addElement` strategy.
 
-### Fixed
+## Fixed
 
 - **Livestream Progress Saving & UI Updates**: Fixed a bug in `saveStatus` where livestreams were skipped entirely failing an `!isFinite` HTML5 `<video>` duration check (livestreams have `Infinity` duration). Replaced the check with `isNaN()`. Additionally, resolved a logic bug where `saveStatus` requested UI updates using an artificial `videoType` of `'live'` instead of the layout's `actualType` (`'watch'`, `'preview'`, etc.), causing the progress button and toast notifications to silently fail for all livestreams.
 - **Miniplayer Session Lifecycle**: Fixed an issue where navigating to Shorts or another page (except Watch) would aggressively destroy the active miniplayer session, forcing it to reload from storage and blindly apply a `seek` that interrupted playback. The miniplayer's session is now safely preserved across non-destructive navigation events.
@@ -485,24 +486,24 @@
 - **Miniplayer Lifecycle Management**: Improved `MutationObserver` and `destroyMiniplayerTimeDisplay` to ensure clean DOM removal when the miniplayer is closed or transitioned, preventing "ghost" elements and memory leaks.
 - **Inline Preview UI Position**: Fixed an issue where the script control button on inline previews (video thumbnails on Home) was rendered off-screen or behind the red progress bar. Injected positional CSS rules (`.ypp-inline-preview-display`) with a safe `bottom` offset to ensure visibility and clickability during hover states.
 
-### Changed
+## Changed
 
 - **saveStatus & Metadata Optimization**: Eliminated redundant `videoId` assignment and harmonized `lengthSeconds` to rounded integers (using `Math.round`) across the entire save pipeline. This ensures 100% compatibility with FreeTube's data format while eliminating redundant storage updates caused by Float/Int precision discrepancies.
 
 # 0.0.9-2
 
-### Fixed
+## Fixed
 
 - **Time Restoration Regression**: Fixed an issue where the script would occasionally save a "stale" early timestamp (e.g., 00:09) shortly after successfully resuming a video at a much later point (e.g., 20:51). This was caused by YouTube's player initialization resetting the `currentTime` during load. Introduced a 3-second grace period and "backwards jump" validation to prevent these premature saves.
 
 # 0.0.9-1
 
-### Added
+## Added
 
 - **Toast Manual Close**: Added a manual close (X) button to toasts with the `keep: true` option, allowing users to dismiss non-auto-removing notifications easily.
 - Unified `TRANSLATIONS_EXPECTED_VERSION` and `SCRIPT_VERSION` in the script logic.
 
-### Fixed
+## Fixed
 
 - **Export & Clear Validation**: Added checks to `exportDataToFile`, `exportToFreeTube`, and `clearAllData` to prevent operations on empty data. A warning toast is now shown if no relevant videos are found.
 - **Toast Robustness**: Improved `showFloatingToast` to handle cases where the options object is passed as the second argument, preventing display failures when duration is omitted.
@@ -510,7 +511,7 @@
 
 # 0.0.9
 
-### Added
+## Added
 
 - **Playlist Title Fetch Fallback**: Added a last-resort fetch via Innertube `/next` endpoint to retrieve `playlistTitle` if DOM and cache methods fail. Only triggers on `watch`/`miniplayer` contexts when a `playlistId` is known but title is still missing.
 - Allow auto-closing of persistent toasts when explicit duration is provided and added shrinking life progress bar to floating toasts
@@ -520,7 +521,7 @@
 - **Extended Context Isolation**: Added specific helper contexts to eliminate repetitive queries for shorts and miniplayer elements.
 - **Centralized AdSelectors**: Updated AdSelectors to use centralized constants, eliminating string literals and improving maintainability across ad detection logic.
 
-### Changed
+## Changed
 
 - **Performance Impact**: Reduction in CPU usage during active YouTube navigation with improved memory management, enhanced robustness, and better responsiveness.
 - Separated blocking operations from non-critical background tasks.
@@ -550,7 +551,7 @@
 - **Timeout Optimization**: Reduced cleanup timeouts for quicker memory and resource release.
 - **Video Modal Event Delegation**: Completely refactored the saved videos modal to use Event Delegation and explicit Template formatting to improve response times for large lists. Supported underlying virtualized rendering for seamless integration.
 
-### Fixed
+## Fixed
 
 - **Modal Async Race Condition**: Fixed a critical race condition that threw a `TypeError` (can't access property `appendChild`, `listContainer` is null) if the saved videos modal was closed while loading data from storage.
 - Correct meta-key filtering logic to ensure metadata is stripped properly during storage initialization.
@@ -571,7 +572,7 @@
 - **Fixed zombie loop after navigation**: Prevented an infinite seek retry loop when navigating from watch to home.
 - **Theme Detection**: Fixed `ReferenceError: isLightTheme is not defined`.
 
-### Removed
+## Removed
 
 - **Removed Dead Code**: Deleted the legacy `processVideo` and `determineVideoContext` functions, significantly reducing script complexity (~5000 lines).
 - **Removed Dead Navigation Handlers**: Removed unused preparation functions and dead variables.
@@ -580,7 +581,7 @@
 
 # 0.0.8
 
-### Fixed
+## Fixed
 
 - Fixed inline preview (sticky reflow) saves being misclassified as `video` instead of `preview_*`, which caused the Saved Videos modal `preview` filter to show no results for those entries.
 - Fixed `preview_*` saves downgrading already-classified entries: if a video was already saved as `video`/`shorts`/`live`, hovering it again in homepage inline preview no longer changes its `videoType` back to `preview_*`.
@@ -710,7 +711,7 @@
   - Implemented a proactive metadata refresher in the modal that fetches missing titles for previously saved videos.
   - Further refined `getPlaylistName` with more robust DOM selectors and better YouTube JSON structure parsing.
 
-### Added
+## Added
 
 - Added storage usage indicator to the Saved Videos modal using `navigator.storage.estimate()` to show current usage vs quota (includes IndexedDB). #16
 
@@ -750,7 +751,7 @@
 
 - New translations to all language sections in translations.json
 
-### Changed
+## Changed
 
 - **Storage API**: Now fully asynchronous to support IndexedDB
   - `Storage.set/get/del/keys()` now return Promises
@@ -900,7 +901,7 @@ fix: missing country codes in metadata
 - Fixes broken links for Mix playlists (e.g., RDTAECb8D3EjE)
 - Pass `lastWatchedVideoId` to playlist items for proper URL construction
 
-### Completed Videos Filter
+## Completed Videos Filter
 
 - Add "Completed" filter option in modal to view only finished videos
 - Allows users to quickly access their watch history of completed content

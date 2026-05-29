@@ -2,7 +2,7 @@
     "__metadata__": {
         "DESCRIPTION": "Translations for the YouTube Playback Plox userscript. Done using LLMs with some minor revisions.",
         "AUTHOR": "Alplox",
-        "VERSION": "0.0.10-2",
+        "VERSION": "0.0.11",
         "GITHUB": "https://github.com/Alplox/Youtube-Playback-Plox",
         "GREASYFORK": "https://greasyfork.org/es/scripts/553387-youtube-playback-plox"
     },

@@ -7,7 +7,7 @@
 
 ## 1. What does this project do?
 
-Single file userscript (~18,800 lines) that saves and resumes YouTube playback position without login. Covers: regular videos, Shorts, Miniplayer, and Inline Previews (hover on Home).
+Single file userscript (~19,200 lines) that saves and resumes YouTube playback position without login. Covers: regular videos, Shorts, Miniplayer, and Inline Previews (hover on Home).
 
 Main file: `youtube-playback-plox.user.js`
 External dependency: `YouTube-Helper-API.js` (via `@require`)
@@ -63,7 +63,7 @@ If you need to add translations, do so only in `FALLBACK_TRANSLATIONS` inside `y
 ```
 youtube-playback-plox.user.js
 │
-├── THRESHOLDS                  ← Global constant values
+├── THRESHOLDS                  ← Global playback/session timing thresholds and safeguards
 │
 ├── Utility Layer
 │     ├── sanitizeHTML(str)     ← Sanitize strings for HTML (decode + escape)

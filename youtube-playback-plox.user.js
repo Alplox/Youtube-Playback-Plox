@@ -138,7 +138,7 @@
     // MARK: 🔍 Logger System
     // ============================================================================================================
     const L = { silent: 0, error: 1, warn: 2, info: 3, debug: 4 };
-    const level = L.debug; // Set to 'debug' to see all, or 'warn'/'error' for less.
+    const level = L.silent; // Set to 'debug' to see all, or 'warn'/'error' for less.
 
     const LOG_STYLES = {
         debug: 'color:#6a9955;',

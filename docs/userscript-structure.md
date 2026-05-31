@@ -1,5 +1,5 @@
 # Userscript Structure
-> Auto-generated on 2026-05-29 · version 0.0.11
+> Auto-generated on 2026-05-31 · version 0.0.11
 > **DO NOT EDIT MANUALLY** - regenerate with `node ./scripts/generate-structure.mjs`
 
 ---

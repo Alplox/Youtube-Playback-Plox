@@ -92,10 +92,27 @@ If something goes wrong during migration:
 
 ## Common Issues
 
+### Progress bar color after YouTube SPA video changes
+- YouTube may replace the `.ytp-progress-bar` / Shorts progress host DOM node during a video change even when the computed progress color is identical to the previous video.
+- `updateProgressBarGradient()` must treat a new progress container as requiring a fresh `--ytp-progress-color` application; color-only memoization can leave the new node at YouTube's/default color.
+- Memoization must include `videoId`, not only container reference and color - two different videos at the same percentage (e.g. both at 0%) must still trigger a repaint.
+- Do not store gradient memoization on `window` if resets clear module-scoped variables; use a single `progressGradientState` object per context.
+- While the miniplayer is active on `/watch`, do not paint the main `#movie_player` progress bar from a watch session - the bar is hidden but keeps inline `--ytp-progress-color`, which leaks when the user expands another video. Reset all gradient state on miniplayer open/close, finalize watch sessions when miniplayer activates, and schedule a forced repaint (`requestAnimationFrame` ×2) after expand.
+- Starting a new video in miniplayer must finalize any other active session of the same context (`supersededByNewVideo`); otherwise the previous video's interval can keep saving and painting the shared progress bar.
+- User seeks must call `refreshProgressBarGradientForSession()` on `seeking`/`seeked`, not only inside `saveStatus` - backward jumps after a context change often hit save guards (`player_reset_detected`, `paused_no_seek`) before the gradient block at the end of `saveStatus`.
+- Livestreams are tracked as `watch` sessions with `finalType: 'live'` - never call `updateProgressBarGradient` for live playback (`isLivePlaybackForGradient()`). DVR seek position must not be interpreted as VOD completion %. Reset gradient when live is detected via metadata or `.ytp-live` on the player.
+- `resetProgressBarGradient()` must clear **all** context entries in `progressGradientState`, not only the requested type - watch and miniplayer often share the same `.ytp-progress-bar` node.
+- Setting `--ytp-progress-color` only on `.ytp-progress-bar` may not change what you see: the injected rule defaults to `#ff4533` and YouTube paints via `.ytp-play-progress`. Always set inline `background` / `background-color` on `.ytp-play-progress` (and hover/scrubber targets) inside the active `#movie_player`.
+- YouTube can also reuse the same player element (and progress bar container) when transitioning between videos. In this case, since the container persists, it retains the inline `--ytp-progress-color` style (e.g., green for completed). The script clears this style property and resets the internal color cache variables upon starting and finalizing tracking sessions, preventing the old color from leaking into a new video.
+- When transitioning from Miniplayer to the Watch page (regular player) or vice versa, the script now uses context-aware selectors (`getWatchPlayer()` and `getMiniplayerPlayer()`) and separate cache variables (`progressGradientState.miniplayer`, `progressGradientState.watch`) to ensure it styles the correct progress bar container for that active session and does not cause cache collision or color loss. Additionally, colors are now applied immediately on session start and seek resume, avoiding any visual delay.
+
 ### Unified video processing router
 - `processMediaVideo(videoEl, type)` is now the single entry point for Watch, Shorts, Miniplayer, and Inline Preview processing.
 - Context-specific behavior lives in `PROCESS_MEDIA_VIDEO_CONFIG`. Keep SPA URL/player ID validation for Watch and Shorts, local-player ID priority for Miniplayer, and debounce/miniplayer-conflict/ad-ID checks for Preview inside those hooks.
 - Do not reintroduce separate `processWatchVideo`, `processShortsVideo`, `processMiniplayerVideo`, or `processPreviewVideo` functions unless a context needs a genuinely separate lifecycle.
+
+### Unified saving engine (v0.0.11)
+- `internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, logContext, options = {})` is the single saving interface. Do not write or restore separate `saveRegularVideo`, `saveMiniplayer`, `saveShortsVideo`, `savePreview`, or `saveLivestream` functions. All contexts are routed through `internalSaveVideoGeneric` with appropriate parameter flags.
 
 ### Playback display manager
 - `PlaybackDisplayManager` owns player button-group identity, message priority, timeout cleanup, fixed-time display state, manual-save button targeting, and seek `play` listeners for Watch, Shorts, Miniplayer, and Preview.
@@ -192,7 +209,7 @@ console.log(`Migrated: ${info.migrated}`);
 
 ### Range Filters (Views/Percent) Behavior
 - **Input Type**: These inputs use `type="text"` instead of `type="number"`.
-- **Reason**: Standard `type="number"` inputs do not expose "invalid" characters (like 'e' or letters) to the `.value` property in some browsers—they simply return an empty string. By using `type="text"`, the script can intercept these characters via the `input" event and sanitize them using `replace(/\D/g, '')`.
+- **Reason**: Standard `type="number"` inputs do not expose "invalid" characters (like 'e' or letters) to the `.value` property in some browsers-they simply return an empty string. By using `type="text"`, the script can intercept these characters via the `input" event and sanitize them using `replace(/\D/g, '')`.
 - **Mobile Support**: The attributes `inputmode="numeric"` and `pattern="[0-9]*"` are used to ensure mobile devices still display the numeric keypad.
 - **Auto-Clamping**: Leading zeros are automatically removed, and values are clamped to their respective ranges (e.g., 0-100 for percentage) after typing.
 
@@ -212,8 +229,8 @@ console.log(`Migrated: ${info.migrated}`);
 | Guard | Condition | Reason |
 |---|---|---|
 | **Session Guard** | `currentVideoId && hasActiveSession && isSamePageContext` | Skip if an active Watch/Shorts session exists for the current URL's videoId and we haven't changed page type |
-| **Miniplayer Guard** | `!currentVideoId && newPageType !== 'watch' && isSamePageContext && hasActiveMiniplayerSession` | Skip if browsing Home/Search while Miniplayer is playing — prevents killing mini session on re-fires |
-| **Preview Guard** | `!currentVideoId && isSamePageContext && hasActivePreviewSession` | Skip if a Preview (inline hover) session is active — `yt-helper-api-ready` can refire without a real route change |
+| **Miniplayer Guard** | `!currentVideoId && newPageType !== 'watch' && isSamePageContext && hasActiveMiniplayerSession` | Skip if browsing Home/Search while Miniplayer is playing - prevents killing mini session on re-fires |
+| **Preview Guard** | `!currentVideoId && isSamePageContext && hasActivePreviewSession` | Skip if a Preview (inline hover) session is active - `yt-helper-api-ready` can refire without a real route change |
 
 `isSamePageContext` is defined as:
 ```js
@@ -222,9 +239,9 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 
 ### Initial Load Race Condition (Fixed in v0.0.9-12)
 
-**Symptom in logs**: Two session cycles on every hard page load — session`:1` is aborted ~600ms after being created, and session`:2` is the real one that runs normally.
+**Symptom in logs**: Two session cycles on every hard page load - session`:1` is aborted ~600ms after being created, and session`:2` is the real one that runs normally.
 
-**Root cause — step by step**:
+**Root cause - step by step**:
 
 1. `initializeGlobal` runs → `VideoObserverManager.init()` → `bootstrap()` finds `<video>` → enqueues for Watch
 2. ~800ms later: `processBatch()` → `startProcessingSession()` → `SessionOrchestrator.startSession()` registers session`:1` in `activeProcessingSessions`

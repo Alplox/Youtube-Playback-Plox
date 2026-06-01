@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.11
+// @version      0.0.12
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -233,7 +233,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.11';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12';
 
     /**
      * @typedef {Object} YPPState
@@ -451,7 +451,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         DEFAULT_SHIELD_S: 5,
         PREVIEW_MIN_CURRENT_TIME: 0.8,
         PREVIEW_MIN_DURATION: 1,
-        WATCHDOG_EVERY_N_TICKS: 4,
+        WATCHDOG_EVERY_N_TICKS: 2,
         PERSISTENCE_RESCUE_START_TICKS: 6,
         PERSISTENCE_RESCUE_EVERY_N_TICKS: 6,
         PERSISTENCE_RESCUE_MIN_SEEK_S: 10,
@@ -5789,6 +5789,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 try {
                     return JSON.parse(storageCache.get(key));
                 } catch (_) {
+                    logWarn('StorageAsync', `Corrupted cache entry for key "${key}", removing`);
+                    storageCache.delete(key);
                     return null;
                 }
             }
@@ -6107,7 +6109,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (typeof GM_getValue === 'function') {
                         const raw = await GM_getValue(gmKey, null);
                         if (raw) {
-                            try { return JSON.parse(raw); } catch (_) { return raw; }
+                            try { return JSON.parse(raw); } catch (_) {
+                                logWarn('Storage', `Corrupted GM_* value for key "${key}", ignoring`);
+                                return null;
+                            }
                         }
                     }
                     return null;
@@ -6364,8 +6369,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          * @returns {boolean}
          */
         isNodeWithinAdContainer(node) {
+            if (!node || typeof node.closest !== 'function') return false;
+            if (!node.isConnected) return false;
             try {
-                if (!node || typeof node.closest !== 'function') return false;
 
                 // --- 0. PRIORITY check of player classes (no cache) ---
                 // Ad classes on players (ad-created, ad-showing) can appear
@@ -6451,6 +6457,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 return false;
             } catch (_) {
+                logWarn('AdDetector', 'Detection failed on outer catch, assuming not ad');
                 return false;
             }
         },
@@ -7491,17 +7498,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Generate JSON Lines (NDJSON) - each line must be a complete JSON object
                 // JSON.stringify serializes without line breaks by default, but we ensure it
                 const ndjson = exportData
-                    .map(obj => {
-                        // Ensure no internal line breaks in serialized JSON
-                        const jsonLine = JSON.stringify(obj);
-                        // Verify it's valid (debugging)
-                        if (jsonLine.includes('\n') || jsonLine.includes('\r')) {
-                            logWarn('exportToFreeTube', 'JSON with line breaks detected, cleaning...');
-                            // This should not happen with JSON.stringify, but for safety
-                            return jsonLine.replace(/\r?\n/g, '\\n');
-                        }
-                        return jsonLine;
-                    })
+                    .map(obj => JSON.stringify(obj))
                     .join('\n');
 
                 const blob = new Blob([ndjson], { type: 'application/json' });
@@ -7863,16 +7860,29 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const uint8Array = new Uint8Array(arrayBuffer);
             let text = '';
 
-            // Try UTF-8 decode first in case it's a text file (JSON-L)
-            // that arrived here as arrayBuffer
-            try {
-                const decoder = new TextDecoder('utf-8');
-                text = decoder.decode(uint8Array);
-            } catch (e) {
-                // Fallback to manual printable character extraction if decoding fails
+            // Detect SQLite binary by magic header ("SQLite format 3\000")
+            // FreeTube exports NDJSON as .db, but guard against actual SQLite files
+            const isSQLite = uint8Array.length >= 16 &&
+                uint8Array[0] === 0x53 && uint8Array[1] === 0x51 &&   // "SQ"
+                uint8Array[2] === 0x6c && uint8Array[3] === 0x69;     // "li"
+
+            if (isSQLite) {
+                logWarn('parseFreeTubeDB', 'SQLite binary detected, using heuristic character extraction');
                 for (let i = 0; i < uint8Array.length; i++) {
                     const byte = uint8Array[i];
                     text += (byte >= 32 && byte <= 126) ? String.fromCharCode(byte) : ' ';
+                }
+            } else {
+                // Normal path: UTF-8 decode (works for FreeTube NDJSON exports)
+                try {
+                    const decoder = new TextDecoder('utf-8');
+                    text = decoder.decode(uint8Array);
+                } catch (e) {
+                    // Fallback to manual printable character extraction if decoding fails
+                    for (let i = 0; i < uint8Array.length; i++) {
+                        const byte = uint8Array[i];
+                        text += (byte >= 32 && byte <= 126) ? String.fromCharCode(byte) : ' ';
+                    }
                 }
             }
 
@@ -8147,7 +8157,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Don't save if video metadata is not yet available
         // (avoids overwriting existing data with duration=0 or Infinity).
-        if (!duration || !isFinite(duration) || duration <= 0) {
+        // EXCEPTION: Live streams have no finite duration, bypass this check.
+        if (finalType !== 'live' && (!duration || !isFinite(duration) || duration <= 0)) {
             logLog(logContext, `⏳ Metadata not available (duration=${duration}), skipping save for ${videoId}`);
             return { success: false, reason: 'duration_not_ready' };
         }
@@ -9107,12 +9118,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const currentPlaylistId = extractYouTubePlaylistIdFromUrl(window.location.href);
             if (currentPlaylistId === playlistId) {
 
-                if (currentPageType !== 'watch' && currentPageType !== 'playlist') {
+                if (currentPageType !== 'watch' && currentPageType !== 'live' && currentPageType !== 'playlist') {
                     logLog('getPlaylistName', `Skipping DOM lookup - page type is "${currentPageType}"`);
                 } else {
                     let element = null;
 
-                    if (currentPageType === 'watch') {
+                    if (currentPageType === 'watch' || currentPageType === 'live') {
                         // Playlist panel in the watch-page sidebar (covers mixes and standard playlists)
                         element = DOMHelpers.get(`playlist:name:${playlistId}`, () => (
                             document.querySelector('ytd-playlist-panel-renderer #header-description h3 a') ||
@@ -11763,7 +11774,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if ((videoEl.readyState || 0) >= 2) score += 6;
             if ((videoEl.currentSrc || videoEl.src || '').length > 0) score += 4;
             if (context === 'preview' && DOMHelpers.getMiniplayerPlayer()) score -= 50;
-            if (context === 'watch' && currentPageType !== 'watch') score -= 12;
+            if (context === 'watch' && currentPageType !== 'watch' && currentPageType !== 'live') score -= 12;
             if (context === 'shorts' && currentPageType !== 'shorts') score -= 12;
             return score;
         };
@@ -11808,10 +11819,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (!videoEl.isConnected) return 'video_not_connected_to_dom';
             if (AdDetector.isNodeWithinAdContainer(videoEl)) return 'within_ad_container';
             if (context === 'preview') {
-                if (currentPageType === 'watch' || currentPageType === 'shorts') return `page_type_mismatch:${currentPageType}_blocks_preview`;
+                if (currentPageType === 'watch' || currentPageType === 'shorts' || currentPageType === 'live') return `page_type_mismatch:${currentPageType}_blocks_preview`;
                 if (isMiniplayerBlockingPreview()) return 'miniplayer_blocking_preview';
             }
-            if (context === 'watch' && currentPageType !== 'watch') {
+            if (context === 'watch' && currentPageType !== 'watch' && currentPageType !== 'live') {
                 // Allow watch context for channel livestreams
                 const urlResource = parseYouTubeResource(window.location.href);
                 const isChannelLivestream = urlResource &&
@@ -12057,7 +12068,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 logInfo('VideoObserverManager', `🎥 Processing video type: ${type}`, { src: video.src });
 
-                processMediaVideo(video, type);
+                processMediaVideo(video, type).catch(err => {
+                    logError('VideoObserverManager', `Error processing ${type} video`, err);
+                });
             });
 
             // Continue with the next batch if there are more videos
@@ -12076,7 +12089,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (previewWatchdogId) return;
             previewWatchdogId = setInterval(() => {
                 try {
-                    if (currentPageType === 'watch' || currentPageType === 'shorts') return;
+                    if (currentPageType === 'watch' || currentPageType === 'shorts' || currentPageType === 'live') return;
                     if (DOMHelpers.getMiniplayerPlayer()) return;
 
                     const previewVideo = DOMHelpers.getInlinePreviewPlayerVideo();
@@ -12142,10 +12155,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (watchPlayerWaitState.resolved) return false;
                 attempts++;
 
-                // If we are no longer in watch, abort
-                if (currentPageType !== 'watch') {
+                // If we are no longer in watch or live, abort
+                if (currentPageType !== 'watch' && currentPageType !== 'live') {
                     clearWaitState(true);
-                    logInfo('VideoObserverManager', '🚪 User left watch, stopping search');
+                    logInfo('VideoObserverManager', '🚪 User left watch/live, stopping search');
                     return false;
                 }
 
@@ -12200,14 +12213,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             logInfo('VideoObserverManager', `🔍 Performing bootstrap of existing videos...${force ? ' (FORCED)' : ''}`);
 
-            // Detect if we are on a channel livestream page
+            // Detect if we are on a livestream page (channel or direct /live/{videoId})
             const urlResource = parseYouTubeResource(window.location.href);
             const isChannelLivestream = urlResource &&
                 (urlResource.type === 'live' && !urlResource.id && urlResource.channelId);
+            const isLivePage = currentPageType === 'live';
 
-            // 1. Search for video in Watch or channel livestreams
-            if (currentPageType === 'watch' || isChannelLivestream) {
-                logInfo('VideoObserverManager', `🎯 Processing video: pageType=${currentPageType}, isChannelLivestream=${!!isChannelLivestream}`);
+            // 1. Search for video in Watch, direct live (/live/{videoId}), or channel livestreams
+            if (currentPageType === 'watch' || isLivePage || isChannelLivestream) {
+                logInfo('VideoObserverManager', `🎯 Processing video: pageType=${currentPageType}, isLivePage=${isLivePage}, isChannelLivestream=${!!isChannelLivestream}`);
                 waitForWatchPlayerReactive(force);
             }
 
@@ -12227,8 +12241,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (miniplayerVideo) {
                 if (force) videoTypeCache.delete(miniplayerVideo);
                 enqueueVideo(miniplayerVideo, 'miniplayer');
-            } else if (currentPageType !== 'watch') {
-                // If no sync video but not on watch, schedule retry
+            } else if (currentPageType !== 'watch' && !isLivePage) {
+                // If no sync video but not on watch/live, schedule retry
                 // since YouTube can apply `miniplayer-is-active` on ytd-app AFTER navigation.
                 // We schedule a short retry to cover that timing gap.
                 deferredMiniplayerTimer = setTimeout(() => {
@@ -12244,8 +12258,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             // 4. Search for Preview type video (Home / Search)
-            // Only when we're not on watch/shorts and there's no active miniplayer.
-            if (currentPageType !== 'shorts' && currentPageType !== 'watch' && !DOMHelpers.getMiniplayerPlayer()) {
+            // Only when we're not on watch/live/shorts and there's no active miniplayer.
+            if (currentPageType !== 'shorts' && currentPageType !== 'watch' && !isLivePage && !DOMHelpers.getMiniplayerPlayer()) {
                 const previewVideo = DOMHelpers.getInlinePreviewPlayerVideo();
                 if (previewVideo) {
                     if (force) videoTypeCache.delete(previewVideo);
@@ -12394,8 +12408,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             // 1. Watch selector
             observers.watch = new MutationObserver((mutations) => {
-                // Safeguard: only process as "watch" if we are actually on the watch page
-                if (currentPageType !== 'watch') return;
+                // Safeguard: only process as "watch" if we are actually on the watch or live page
+                if (currentPageType !== 'watch' && currentPageType !== 'live') return;
                 // Iterates through all mutations detected by MutationObserver
                 for (const m of mutations) {
 
@@ -12518,7 +12532,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             // Video observer: only detects src-change and childList on ytd-miniplayer
             observers.miniplayer = new MutationObserver((mutations) => {
-                if (currentPageType === 'watch') {
+                if (currentPageType === 'watch' || currentPageType === 'live') {
                     PlaybackDisplayManager.destroy('miniplayer');
                     return;
                 }
@@ -12562,8 +12576,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let lastPreviewSrc = '';
 
             observers.preview = new MutationObserver((mutations) => {
-                // Safeguard: only process as "preview" if not on shorts or watch page
-                if (currentPageType === 'shorts' || currentPageType === 'watch') return;
+                // Safeguard: only process as "preview" if not on shorts, watch, or live page
+                if (currentPageType === 'shorts' || currentPageType === 'watch' || currentPageType === 'live') return;
                 // Filter mutations that come from our own UI elements to avoid infinite loops or flickering
                 const filteredMutations = mutations.filter(m => {
                     const target = m.target;
@@ -13264,7 +13278,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // Fire-and-forget: resume does not block session setup.
                     // The wait loop was replaced by DOM events,
                     // so there is no polling of getPlayerVideoId during the wait.
-                    PlaybackController.resume(player, videoId, videoEl, savedData, type, sessionRef);
+                    PlaybackController.resume(player, videoId, videoEl, savedData, type, sessionRef)
+                        .catch(err => logError('process', `Error in resume for ${videoId}`, err));
                 }
             } else if (!savedData) {
                 PlaybackDisplayManager.syncSavedState({ videoId, isSaved: false });
@@ -13364,7 +13379,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
                 if (tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !isCurrentlyAd) {
                     logWarn('sessionTick', `🆘 Persistence Rescue: The video is still at 0s after ${tickCount}s. Retrying resume...`);
-                    PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef);
+                    PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef)
+                        .catch(err => logError('sessionTick', `Error in persistence rescue for ${videoId}`, err));
                 }
 
                 if (sessionRef.isResumePending) {
@@ -13461,6 +13477,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Mark that at least one real save occurred (so loading cleanup doesn't remove it)
                 if (result?.success && session) {
                     session.hasRealSave = true;
+                    session.silentFailureCount = 0;
+                } else if (session && result && !result.success) {
+                    const indicativeReasons = [
+                        'invalid_time_metrics', 'duration_not_ready', 'missing_video_metadata',
+                        'storage_error', 'storage_full', 'exception'
+                    ];
+                    if (indicativeReasons.includes(result.reason)) {
+                        session.silentFailureCount = (session.silentFailureCount || 0) + 1;
+                        if (session.silentFailureCount >= 8) {
+                            showFloatingToast(`⚠️ Save blocked [${type}] ${videoId}: ${result.reason}`, 5000);
+                            session.silentFailureCount = 0;
+                        }
+                    } else {
+                        session.silentFailureCount = 0;
+                    }
                 }
             } catch (err) {
                 logError('sessionTick', `Error in tick [${type}] ${videoId}`, err);
@@ -13543,18 +13574,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             getPlayer: () => DOMHelpers.getWatchPlayer(),
             afterAdCheck: () => {
                 // Safeguard: only process as Watch if the URL is actually a video.
-                // Also allow channel livestreams (@handle/live)
+                // Also allow direct live (/live/{videoId}) and channel livestreams (@handle/live)
                 const urlResource = parseYouTubeResource(window.location.href);
                 const isChannelLivestream = urlResource &&
                     (urlResource.type === 'live' && !urlResource.id && urlResource.channelId);
 
                 logLog('processMediaVideo/watch', `🔍 afterAdCheck: pageType=${currentPageType}, isChannelLivestream=${!!isChannelLivestream}, channelId=${urlResource?.channelId}`);
 
-                if (currentPageType === 'watch' || isChannelLivestream) {
+                if (currentPageType === 'watch' || currentPageType === 'live' || isChannelLivestream) {
                     logLog('processMediaVideo/watch', `✅ afterAdCheck: Allowing processing`);
                     return true;
                 }
-                logLog('processMediaVideo/watch', `⚠️ Aborting: Not on /watch or channel livestream (pageType: ${currentPageType})`);
+                logLog('processMediaVideo/watch', `⚠️ Aborting: Not on /watch, /live, or channel livestream (pageType: ${currentPageType})`);
                 return false;
             },
             resolveVideoId: (_videoEl, player) => {
@@ -13754,42 +13785,48 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {Promise<void>}
      */
     async function processMediaVideo(videoEl, type) {
-        const config = PROCESS_MEDIA_VIDEO_CONFIG[type];
-        if (!config) return;
-        if (!RouteContextResolver.isContextLocked(videoEl, type)) return;
-        if (config.beforeAdCheck && !config.beforeAdCheck(videoEl)) return;
+        try {
+            const config = PROCESS_MEDIA_VIDEO_CONFIG[type];
+            if (!config) return;
+            if (!RouteContextResolver.isContextLocked(videoEl, type)) return;
+            if (config.beforeAdCheck && !config.beforeAdCheck(videoEl)) return;
 
-        const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
-        if (isAd) {
-            logWarn(config.logScope, `🚫 Ad detected in ${type}, skipping processing.`);
-            // Ensure display is cleaned if there was a previous "loading" message hanging
-            PlaybackDisplayManager.clear(type, { videoEl });
-            if (type === 'preview') {
-                SessionOrchestrator.finalizeSession(videoEl, 'previewAdDetected');
+            const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
+            if (isAd) {
+                logWarn(config.logScope, `🚫 Ad detected in ${type}, skipping processing.`);
+                // Ensure display is cleaned if there was a previous "loading" message hanging
+                PlaybackDisplayManager.clear(type, { videoEl });
+                if (type === 'preview') {
+                    SessionOrchestrator.finalizeSession(videoEl, 'previewAdDetected');
+                }
+                return;
             }
-            return;
-        }
-        if (config.afterAdCheck && !config.afterAdCheck(videoEl)) return;
+            if (config.afterAdCheck && !config.afterAdCheck(videoEl)) return;
 
-        const player = config.getPlayer(videoEl);
-        if (!player && !config.allowMissingPlayer) {
-            if (config.missingPlayerLog) {
-                logWarn(config.logScope, config.missingPlayerLog);
+            const player = config.getPlayer(videoEl);
+            if (!player && !config.allowMissingPlayer) {
+                if (config.missingPlayerLog) {
+                    logWarn(config.logScope, config.missingPlayerLog);
+                }
+                return;
             }
-            return;
+
+            if (config.afterPlayerResolved) {
+                const shouldContinue = await config.afterPlayerResolved(videoEl, player);
+                if (!shouldContinue) return;
+            }
+
+            const videoId = config.resolveVideoId(videoEl, player);
+            if (!videoId) return;
+
+            config.initDisplay(player);
+            logInfo(config.logScope, config.startLog(videoId));
+            startProcessingSession(videoEl, type, videoId, player).catch(err => {
+                logError(config.logScope, `Error starting session for ${videoId}`, err);
+            });
+        } catch (err) {
+            logError('processMediaVideo', `Unhandled error processing ${type} video`, err);
         }
-
-        if (config.afterPlayerResolved) {
-            const shouldContinue = await config.afterPlayerResolved(videoEl, player);
-            if (!shouldContinue) return;
-        }
-
-        const videoId = config.resolveVideoId(videoEl, player);
-        if (!videoId) return;
-
-        config.initDisplay(player);
-        logInfo(config.logScope, config.startLog(videoId));
-        startProcessingSession(videoEl, type, videoId, player);
     }
 
     // ============================================================================================================
@@ -13811,7 +13848,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          * @param {object|null} session - Current session reference, used to abort if it changes.
          */
         async resume(player, videoId, videoEl, savedData, type, session = null) {
-            if (!savedData || !videoId || !videoEl) return;
+            if (!savedData || !videoId || !videoEl) {
+                logWarn('PlaybackController', `resume skipped: missing params (videoId=${videoId}, type=${type})`);
+                return;
+            }
 
             // If a session is provided, verify it's not already finalized
             if (session && session.isFinalized) return;
@@ -13997,7 +14037,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          */
         async saveStatus(player, videoEl, type, videoId, videoInfo = null, options = {}) {
             // Redundant protection: Don't process if no elements or it's an ad
-            if (!videoEl || !videoId || AdDetector.isNodeWithinAdContainer(videoEl)) return;
+            if (!videoEl || !videoId || AdDetector.isNodeWithinAdContainer(videoEl)) {
+                return { success: false, reason: 'early_exit_no_element_or_ad' };
+            }
             if (!RouteContextResolver.isContextLocked(videoEl, type)) {
                 SessionTelemetry.emit('routingDecision', {
                     decision: 'reject',
@@ -14582,7 +14624,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             if (info.title === null) {
                 let titleEl = null;
-                if (type === 'watch' && currentPageType === 'watch') {
+                if (type === 'watch' && (currentPageType === 'watch' || currentPageType === 'live')) {
                     titleEl = DOMHelpers.get(`video:titleWatch:${videoId}`, () =>
                         document.querySelector('h1.ytd-video-primary-info-renderer') ||
                         document.querySelector('yt-formatted-string.ytd-video-description-header-renderer'), 250);
@@ -14600,7 +14642,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             if (info.author === null || info.author === t('unknown')) {
                 let authorEl;
-                if (type === 'watch' && currentPageType === 'watch') {
+                if (type === 'watch' && (currentPageType === 'watch' || currentPageType === 'live')) {
                     authorEl = DOMHelpers.get(`video:authorWatch:${videoId}`, () =>
                         document.querySelector('#owner #channel-name yt-formatted-string'),
                         250
@@ -14626,7 +14668,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                 }
 
-                if (type === 'watch' && currentPageType === 'watch') {
+                if (type === 'watch' && (currentPageType === 'watch' || currentPageType === 'live')) {
                     const { videoId: videoIdFromUrl, playlistId: playlistIdFromUrl } = getYouTubeVideoContextFromUrl(window.location.href);
 
                     if (playlistIdFromUrl && videoIdFromUrl === info.videoId) {
@@ -14729,7 +14771,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Final cleanup
         info.title = info.title ?? (
-            (currentPageType === 'watch' || currentPageType === 'shorts')
+            (currentPageType === 'watch' || currentPageType === 'shorts' || currentPageType === 'live')
                 ? document.title.replace(/ - YouTube$/, '')
                 : ''
         );
@@ -19015,8 +19057,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 logInfo('handleNavigation', `currentPageType: ${currentPageType} - Current URL: ${window.location.href}`);
 
-                // Only preserve miniplayer if we're NOT going to the 'watch' page
-                const preserveMiniplayer = currentPageType !== 'watch';
+                // Only preserve miniplayer if we're NOT going to the 'watch' or 'live' page
+                const preserveMiniplayer = currentPageType !== 'watch' && currentPageType !== 'live';
 
                 // Clear DOM caches to ensure next processing uses fresh elements
                 DOMHelpers.clearAll();

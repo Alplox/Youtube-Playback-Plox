@@ -1,4 +1,11 @@
 
+
+# 0.0.12-1
+
+## Fixed
+
+- **Resume skipped after SPA back-navigation due to false `isPlayerSettingsChange`**: Fixed a race condition where navigating away and back to the same video caused the resume to be skipped. After SPA navigation, YouTube fires a `src` change on the `<video>` element as part of normal initialization. The `MutationObserver` detected this, found the just-created session with the same `videoId`, and incorrectly marked `isPlayerSettingsChange = true`. When `getSavedVideoData().then()` resolved, it saw the flag and skipped the resume. The fix adds an `isResumePending` guard: if the resume is still pending (initialization phase), the src change is not a settings change and the session is left untouched.
+
 # 0.0.12
 
 ## Fixed

@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.12
+// @version      0.0.12-1
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -233,7 +233,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-1';
 
     /**
      * @typedef {Object} YPPState
@@ -12446,6 +12446,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             // If there is an active session and the videoId is the same,
                             // it's a settings change (quality or audio improvements)
                             if (prevSession && currentVideoId && prevSession.lastVideoId === currentVideoId) {
+                                if (prevSession.isResumePending) return;
                                 logLog(
                                     'VideoObserverManager',
                                     `🎬 Watch: player settings change detected (same videoId: ${currentVideoId}), marking session`

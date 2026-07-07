@@ -1,5 +1,25 @@
 
 
+# 0.0.12-2
+
+## Added
+
+- **New setting "Respect ?t= from URL"**: When enabled, if a video URL contains `?t=` or `?start=` (e.g. `https://youtu.be/dQw4w9WgXcQ?t=10`), the saved position is not restored and the explicit URL time parameter is respected. Disabled by default. Located in General settings section. #53
+
+## Changed
+
+- **GitHub backup errors now always show toast with API message**: Removed `if (isManual)` guard from error toasts in `backupToGitHubGist` and `backupToGithubRepository`. Added `getGitHubErrorMsg()` helper that parses `response.responseText` for GitHub's JSON error message. All error paths (HTTP, network, SHA lookup, repo check) now show a toast with the API's own error description when available, falling back to a generic string.
+- **Removed dead code**: Logger `group`/`groupEnd` methods, `noop` const, `deepFreeze` recursive freeze replaced with `Object.freeze`, zombie comment blocks in `Storage.set` and modal.
+- **Simplified `formatTime`**: Removed unreachable string-parsing branches (MM:SS, HH:MM:SS). All callers pass a number. Validation reduced to `Number(input)` + range check. From ~70 lines to ~12.
+- **Simplified `isNonVideoStorageKey`**: Replaced `Object.values().some()` iteration with precomputed `Set` lookup. Merged legacy prefix checks into single line. From 19 lines to 8.
+- **Extracted `clearPlayerCache()` helper**: Replaced duplicated 4-line `DOMHelpers.removeExact` blocks in miniplayer observer with shared function.
+- **Extracted GM key helpers**: `prefixKey()`, `stripPrefix()`, `hasPrefix()` replacing 6 inline duplications of `key.startsWith('YT_PLAYBACK_PLOX_')`.
+- **Refactored `EventPreFilter`**: Object with single method → standalone `shouldDropVideoEvent()` function.
+- **Removed unused SELECTORS utilities**: `concat`, `join`, `within`, `dynamic.*`, `DOM.*` — zero call sites.
+- **Removed outer IIFE wrapper**: Main script `(() => {'use strict'; ... })()` removed — Tampermonkey already provides scope isolation.
+- **Simplified `IndexedDBAdapter.isSupported`**: IIFE with try/catch → direct `typeof` check.
+- **Youtube-Helper-API**: bump to version 1.1.1 (from 1.0.5)
+
 # 0.0.12-1
 
 ## Fixed

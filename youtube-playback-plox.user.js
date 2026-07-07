@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.12-1
+// @version      0.0.12-2
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -128,7 +128,7 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1820274/YouTube%20Helper%20API.js
+// @require      https://update.greasyfork.org/scripts/549881/1841778/YouTube%20Helper%20API.js
 // ==/UserScript==
 
 (function () {
@@ -147,35 +147,24 @@
         error: 'color:#f44747;font-weight:bold;'
     };
 
-    const noop = () => { };
-
     const resolveArgs = (args) => args.map(a => typeof a === 'function' ? a() : a);
 
     const build = (t, l) =>
         (level >= l || t === 'error')
             ? (c, ...a) => console[t](`%c[${c}]`, LOG_STYLES[t], ...resolveArgs(a))
-            : noop;
+            : () => {};
 
     window.MyScriptLogger = {
         _errorLogs: [],
-        log: (c, ...a) => {
-            if (level >= L.debug) console.log(`%c[${c}]`, LOG_STYLES.debug, ...resolveArgs(a));
-        },
+        log: build('debug', L.debug),
         debug: build('debug', L.debug),
         info: build('info', L.info),
         warn: (c, ...a) => {
             console.warn(`%c[${c}]`, LOG_STYLES.warn, ...resolveArgs(a));
-            // window.MyScriptLogger._internalPushLog(c, a);
         },
         error: (c, ...a) => {
             console.error(`%c[${c}]`, LOG_STYLES.error, ...resolveArgs(a));
             window.MyScriptLogger._internalPushLog(c, a);
-        },
-        group: (label) => {
-            if (level >= L.debug) console.group(`%c[${label}]`, LOG_STYLES.debug);
-        },
-        groupEnd: () => {
-            if (level >= L.debug) console.groupEnd();
         },
         _internalPushLog: (c, a) => {
             const timestamp = new Date().toISOString();
@@ -219,11 +208,9 @@
 })();
 
 // Shortcuts to avoid typing window.MyScriptLogger every time
-const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGroup, groupEnd: logGroupEnd } = window.MyScriptLogger;
+const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.MyScriptLogger;
 
 // --- START OF USERSCRIPT MAIN LOGIC ---
-(() => {
-    'use strict';
 
     // ============================================================================================================
     // MARK: 🛡️ Initialization Guard (SPA Safety)
@@ -233,7 +220,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-1';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-2';
 
     /**
      * @typedef {Object} YPPState
@@ -335,6 +322,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             staticFinishPercent: 95,         // Percentage from the end to consider video as completed (95% = 5% before the end)
             countOncePerSession: false,      // Count only once per session
             resumeCompletedFromStart: false, // Resume completed videos from the beginning
+            respectUrlTimeParam: false,      // Respect ?t= from URL over saved position
             autoCleanupEnabled: false,       // Automatically cleanup old history entries
             autoCleanupDays: 30,             // Number of days to keep non-protected videos
         },
@@ -587,6 +575,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             "countOncePerSessionTooltip": "If enabled, once the completion threshold is reached, replays or auto-looping will not be counted multiple times within the same session.",
             "resumeCompletedFromStart": "Resume completed videos from the start",
             "resumeCompletedFromStartTooltip": "If enabled, videos marked as completed will always start from 00:00. If disabled, they will stay at the end to allow YouTube's auto-advance to continue.",
+            "respectUrlTimeParam": "Respect ?t= from URL",
+            "respectUrlTimeParamTooltip": "If enabled, when a video URL contains ?t= or ?start=, the saved position won't be restored and the URL time will be used instead.",
             "autoCleanupEnabled": "Enable automatic history cleanup",
             "autoCleanupDays": "Cleanup videos older than (days)",
             "autoCleanupDaysDescription": "Videos that haven't been watched for more than X days (since their last watch date) will be deleted. Protected videos are excluded.",
@@ -1026,22 +1016,21 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     }
 
     // MARK: 🔧 Format Time
-    /**
-     * Format a time value (in seconds or string) to "MM:SS" or "HH:MM:SS".
+   /**
+     * Format a time value in seconds to "MM:SS" or "HH:MM:SS".
      *
-     * @param {number|string} input - Time value to format.
-     * @returns {string}
+     * @param {number|string} input - Time in seconds. Strings must contain a numeric value.
      *
      * @example
      * formatTime(65)
      * // "01:05"
      *
      * @example
-     * formatTime("5:30")
-     * // "05:30"
+     * formatTime("65")
+     * // "01:05"
      *
      * @example
-     * formatTime("1:05:30")
+     * formatTime(3930)
      * // "01:05:30"
      *
      * @example
@@ -1049,61 +1038,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
      * // "00:00"
      */
     const formatTime = (input) => {
-        let seconds;
-
-        // Direct number
-        if (typeof input === 'number' && !Number.isNaN(input)) {
-            seconds = input;
-        }
-
-        // String
-        else if (typeof input === 'string') {
-            if (input.includes(':')) {
-                const parts = input.split(':').map(part => Number(part));
-
-                // Validate parts
-                if (parts.some(Number.isNaN)) {
-                    logError('formatTime', 'Invalid time format:', input);
-                    return '00:00';
-                }
-
-                // MM:SS
-                if (parts.length === 2) {
-                    seconds = parts[0] * 60 + parts[1];
-                }
-
-                // HH:MM:SS
-                else if (parts.length === 3) {
-                    seconds =
-                        parts[0] * 3600 +
-                        parts[1] * 60 +
-                        parts[2];
-                }
-
-                else {
-                    logError('formatTime', 'Invalid time format:', input);
-                    return '00:00';
-                }
-            }
-
-            // Numeric string
-            else {
-                seconds = Number(input);
-            }
-        }
-
-        else {
-            logError('formatTime', 'Invalid input value:', input);
-            return '00:00';
-        }
-
-        // Final validation
-        if (
-            typeof seconds !== 'number' ||
-            Number.isNaN(seconds) ||
-            seconds < 0
-        ) {
-            logError('formatTime', 'Invalid seconds value:', input);
+        const seconds = Number(input);
+        if (!Number.isFinite(seconds) || seconds < 0) {
+            logError('formatTime', 'Invalid input:', input);
             return '00:00';
         }
 
@@ -1192,6 +1129,35 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
         if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
         if (typeof value === 'string') return parseTimeToSeconds(value.trim());
         return 0;
+    };
+
+    // MARK: 🔧 getUrlTimeParamSeconds
+    /**
+     * Extracts a time parameter (?t= or ?start=) from a YouTube URL
+     * and converts it to seconds. Supports raw seconds ("762") and
+     * YouTube format ("1h2m3s").
+     * @param {string} url - A YouTube URL
+     * @returns {number|null} Seconds, or null if no valid time param found
+     */
+    const getUrlTimeParamSeconds = (url) => {
+        try {
+            const u = new URL(url);
+            const raw = u.searchParams.get('t') ?? u.searchParams.get('start');
+            if (raw === null) return null;
+            const asNumber = Number(raw);
+            if (!Number.isNaN(asNumber)) return Math.max(0, asNumber);
+            const h = raw.match(/(\d+)h/);
+            const m = raw.match(/(\d+)m/);
+            const s = raw.match(/(\d+)s/);
+            if (h || m || s) {
+                return Math.max(0,
+                    (h ? parseInt(h[1], 10) * 3600 : 0) +
+                    (m ? parseInt(m[1], 10) * 60 : 0) +
+                    (s ? parseInt(s[1], 10) : 0)
+                );
+            }
+            return null;
+        } catch { return null; }
     };
 
     // MARK: ⏳ delay
@@ -1602,36 +1568,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
     });
 
     /**
-     * Robust deep freeze that handles circular references and non-object types.
-     * @param {any} obj - Object to freeze
-     * @param {WeakSet<any>} seen - WeakSet to track seen objects
-     * @returns {any} Frozen object
-     * @example
-     * // Deep freeze an object
-     * const obj = {
-     *   a: 1,
-     *   b: {
-     *     c: 2
-     *   }
-     * };
-     * const frozenObj = deepFreeze(obj);
-     * // Expected output: Frozen object
-     */
-    const deepFreeze = (obj, seen = new WeakSet()) => {
-        if (!obj || typeof obj !== 'object' || seen.has(obj)) {
-            return obj;
-        }
-
-        seen.add(obj);
-
-        for (const value of Object.values(obj)) {
-            deepFreeze(value, seen);
-        }
-
-        return Object.freeze(obj);
-    };
-
-    /**
      * Converts a string to constant case.
      * @param {string} str - String to convert
      * @returns {string} String in constant case
@@ -1728,25 +1664,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
                     ]
                 };
             })(),
-            // Utilities
-            concat: (...parts) => parts.join(''),
-            join: (...parts) => parts.join(' '),
-            within: (parent, child) => `${parent} ${child}`,
-            dynamic: {
-                byData: (name, value) => `[data-${name}="${value}"]`,
-                attrEquals: (attr, value) => `[${attr}="${value}"]`,
-                hasClass: cls => `.${cls}`
-            },
-            // DOM Helpers aware of raw attribute and class names
-            DOM: {
-                hasAttr: (el, key) => el?.hasAttribute(definitions.attrs[key]),
-                getAttr: (el, key) => el?.getAttribute(definitions.attrs[key]),
-                setAttr: (el, key, val) => el?.setAttribute(definitions.attrs[key], val),
-                removeAttr: (el, key) => el?.removeAttribute(definitions.attrs[key]),
-                hasClass: (el, key) => el?.classList.contains(definitions.classes[key]),
-                addClass: (el, key) => el?.classList.add(definitions.classes[key]),
-                removeClass: (el, key) => el?.classList.remove(definitions.classes[key])
-            },
             // Ad definitions
             ads: {
                 classes: {
@@ -1828,7 +1745,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             }
         };
 
-        return deepFreeze({
+        return Object.freeze({
             RAW: definitions,
             ...compiled,
             ...semantic
@@ -2282,7 +2199,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError, group: logGr
             ?? fallbackMsg;                            // 5. Hardcoded Fallback
 
         return replaceParams(text, normParams);
-        // return sanitizeHTML(replaceParams(text, normParams));
     }
 
     // Function to replace parameters in translations
@@ -5889,13 +5805,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const DB_NAME = 'YTPlaybackPloxDB';
         const STORE_NAME = 'savedVideos';
         const DB_VERSION = 1;
-        const isSupported = (() => {
-            try {
-                return typeof indexedDB !== 'undefined';
-            } catch (_) {
-                return false;
-            }
-        })();
+        const isSupported = typeof indexedDB !== 'undefined';
         let dbPromise = null;
         let operationQueue = Promise.resolve();
 
@@ -6037,25 +5947,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {string} key
      * @returns {boolean}
      */
+    const _OFFICIAL_NON_VIDEO_KEYS = Object.values(CONFIG.STORAGE_KEYS).reduce((set, v) => {
+        set.add(v);
+        set.add(v.replace('YT_PLAYBACK_PLOX_', ''));
+        return set;
+    }, new Set());
+
     const isNonVideoStorageKey = (key) => {
         if (typeof key !== 'string') return true;
-
-        // 1. Check against official keys in CONFIG.STORAGE_KEYS
-        // Supports both prefixed and unprefixed keys (for IDB purging)
-        const isOfficialKey = Object.values(CONFIG.STORAGE_KEYS).some(v =>
-            key === v || key === v.replace('YT_PLAYBACK_PLOX_', '')
-        );
-        if (isOfficialKey) return true;
-
-        // 2. Legacy playlists (obsolete, will be purged from IDB)
-        if (key.startsWith('playlist_meta_')) return true;
-
-        // 3. Other legacy prefixes/keys (backward compatibility filter)
-        if (key.startsWith('userSettings') || key.startsWith('userFilters') || key.startsWith('ypp_')) return true;
+        if (_OFFICIAL_NON_VIDEO_KEYS.has(key)) return true;
+        if (key.startsWith('playlist_meta_') || key.startsWith('userSettings') || key.startsWith('userFilters') || key.startsWith('ypp_')) return true;
         if (key === 'translations_cache_v1' || key === 'idb_migrated' || key === 'idb_migrated_v1') return true;
-
         return false;
     };
+
+    const GM_PREFIX = 'YT_PLAYBACK_PLOX_';
+    const prefixKey = (key) => key.startsWith(GM_PREFIX) ? key : GM_PREFIX + key;
+    const stripPrefix = (key) => key.startsWith(GM_PREFIX) ? key.slice(GM_PREFIX.length) : key;
+    const hasPrefix = (key) => key.startsWith(GM_PREFIX);
 
     const Storage = {
         /**
@@ -6065,8 +5974,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Intercept non-video keys
             if (isNonVideoStorageKey(key)) {
                 try {
-                    const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
-                    // Skip saving if it's a legacy playlist_meta_ key (silent purge on write attempt)
+                    const gmKey = prefixKey(key);                    // Skip saving if it's a legacy playlist_meta_ key (silent purge on write attempt)
                     if (key.startsWith('playlist_meta_')) return { success: true };
 
                     await GM_setValue(gmKey, JSON.stringify(value));
@@ -6105,8 +6013,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         async get(key) {
             if (isNonVideoStorageKey(key)) {
                 try {
-                    const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
-                    if (typeof GM_getValue === 'function') {
+                    const gmKey = prefixKey(key);                    if (typeof GM_getValue === 'function') {
                         const raw = await GM_getValue(gmKey, null);
                         if (raw) {
                             try { return JSON.parse(raw); } catch (_) {
@@ -6135,8 +6042,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         async del(key) {
             if (isNonVideoStorageKey(key)) {
                 try {
-                    const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
-                    if (typeof GM_deleteValue === 'function') {
+                    const gmKey = prefixKey(key);                    if (typeof GM_deleteValue === 'function') {
                         await GM_deleteValue(gmKey);
                     } else {
                         await GM_setValue(gmKey, null);
@@ -7107,6 +7013,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // MARK: ☁️ GitHub Backup
     // ============================================================================================================
 
+    const getGitHubErrorMsg = (resp) => {
+        try { return JSON.parse(resp.responseText)?.message; } catch (_) { return null; }
+    };
+
     /**
      * Backs up data to a GitHub Gist.
      */
@@ -7184,15 +7094,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         resolve(true);
                     } else {
                         logError('backupToGitHubGist', 'GitHub backup error:', response.status, response.responseText);
-                        if (isManual) {
-                            const errorMsg = response.status === 401 ? t('githubInvalidToken') : t('githubBackupError');
-                            showFloatingToast(`${SVG_ICONS.error} ${errorMsg} (${response.status})`);
-                        }
+                        const ghMsg = getGitHubErrorMsg(response);
+                        showFloatingToast(`${SVG_ICONS.error} ${ghMsg || 'GitHub error'} (${response.status})`);
                         resolve(false);
                     }
                 },
                 onerror: (err) => {
                     logError('backupToGitHubGist', 'Network error during GitHub backup:', err);
+                    showFloatingToast(`${SVG_ICONS.error} GitHub network error`);
                     resolve(false);
                 }
             });
@@ -7249,7 +7158,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 onload: (repoResponse) => {
                     if (repoResponse.status !== 200) {
                         logError('backupToGithubRepository', 'Could not access repository:', repoResponse.status);
-                        if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (${repoResponse.status})`);
+                        const ghMsg = getGitHubErrorMsg(repoResponse);
+                        showFloatingToast(`${SVG_ICONS.error} ${ghMsg || t('githubBackupError')} (${repoResponse.status})`);
                         return resolve(false);
                     }
 
@@ -7258,12 +7168,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         repoInfo = JSON.parse(repoResponse.responseText);
                     } catch (parseErr) {
                         logError('backupToGithubRepository', 'Invalid JSON response (possible redirect/rate-limit):', parseErr);
-                        if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Invalid response)`);
+                        showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Invalid response)`);
                         return resolve(false);
                     }
                     if (!repoInfo.private) {
                         logError('backupToGithubRepository', 'Repository is NOT private.');
-                        if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubRepoPrivacyError')}`);
+                        showFloatingToast(`${SVG_ICONS.error} ${t('githubRepoPrivacyError')}`);
                         return resolve(false);
                     }
 
@@ -7319,24 +7229,28 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                         resolve(true);
                                     } else {
                                         logError('backupToGithubRepository', 'Error uploading file:', putResponse.status);
-                                        if (isManual) showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (${putResponse.status})`);
+                                        const ghMsg = getGitHubErrorMsg(putResponse);
+                                        showFloatingToast(`${SVG_ICONS.error} ${ghMsg || t('githubBackupError')} (${putResponse.status})`);
                                         resolve(false);
                                     }
                                 },
                                 onerror: (err) => {
                                     logError('backupToGithubRepository', 'Network error:', err);
+                                    showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Network error)`);
                                     resolve(false);
                                 }
                             });
                         },
                         onerror: (err) => {
                             logError('backupToGithubRepository', 'Error getting SHA:', err);
+                            showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (SHA lookup failed)`);
                             resolve(false);
                         }
                     });
                 },
                 onerror: (err) => {
                     logError('backupToGithubRepository', 'Network error checking repo:', err);
+                    showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Network error)`);
                     resolve(false);
                 }
             });
@@ -8111,10 +8025,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             base.daily[day] = (base.daily[day] || 0) + 1;
             base.total += 1;
 
-            // const MAX_EVENTS = 1000;
-            // if (base.events.length > MAX_EVENTS) {
-            //     base.events.shift(); // FIFO: removes oldest if exceeding limit
-            // }
         }
 
         return base;
@@ -8344,7 +8254,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Flexible additional search
         if (!videoData) {
             const keys = (await Storage.keys?.()) || [];
-            // const altKey = keys.find(k => (k.endsWith(videoId) || k.includes(videoId)) && !isNonVideoStorageKey(k));
             const altKey = keys.find(k => k === videoId || k.endsWith(`_${videoId}`));
             if (altKey) {
                 logLog('getSavedVideoData', `✅ Video found with alternative key: ${altKey}`);
@@ -10267,6 +10176,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         { section: 'general', type: 'checkbox', key: 'showFloatingButtons', labelKey: 'showFloatingButton' },
         { section: 'general', type: 'checkbox', key: 'showHistoryButton', labelKey: 'showHistoryButton', icon: SVG_ICONS.clockRotateLeft, defaultTrue: true },
         { section: 'general', type: 'checkbox', key: 'enableProgressBarGradient', labelKey: 'enableProgressBarGradient' },
+        { section: 'general', type: 'checkbox', key: 'respectUrlTimeParam', labelKey: 'respectUrlTimeParam', tooltipKey: 'respectUrlTimeParamTooltip' },
 
         // ── Manual Saving ──
         { section: 'manual', type: 'checkbox', key: 'manualSaveMode', labelKey: 'manualSaveMode', tooltipKey: 'manualSaveModeTooltip', icon: SVG_ICONS.bookmarkOutline },
@@ -11873,15 +11783,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
     })();
 
-    const EventPreFilter = {
-        shouldDrop(videoEl) {
-            if (!videoEl) return true;
-            if (!(videoEl instanceof HTMLVideoElement)) return true;
-            if (!videoEl.isConnected) return true;
-            const src = videoEl.currentSrc || videoEl.src || '';
-            if (!src) return true;
-            return false;
-        }
+    const shouldDropVideoEvent = (videoEl) => {
+        if (!videoEl) return true;
+        if (!(videoEl instanceof HTMLVideoElement)) return true;
+        if (!videoEl.isConnected) return true;
+        const src = videoEl.currentSrc || videoEl.src || '';
+        if (!src) return true;
+        return false;
     };
 
     const FailSafeManager = (() => {
@@ -12329,7 +12237,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          */
         const enqueueVideo = (videoElement, type, triggerSource = 'observer') => {
             if (!videoElement) return;
-            if (EventPreFilter.shouldDrop(videoElement)) return;
+            if (shouldDropVideoEvent(videoElement)) return;
 
             // 1. Ad detection (Maximum priority to allow recovery)
             if (AdDetector.isNodeWithinAdContainer(videoElement)) {
@@ -12500,6 +12408,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let lastMiniplayerSrc = '';
 
             // Visibility observer: only tracks the attribute on ytd-app
+            const clearPlayerCache = () => {
+                DOMHelpers.removeExact('watchPlayer');
+                DOMHelpers.removeExact('miniplayerPlayer');
+                DOMHelpers.removeExact('watch:progressContainer');
+                DOMHelpers.removeExact('miniplayer:progressContainer');
+            };
+
             observers.miniplayerState = new MutationObserver((mutations) => {
                 for (const m of mutations) {
                     if (m.attributeName === 'miniplayer-is-active') {
@@ -12507,10 +12422,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         isMiniplayerActive = m.target.hasAttribute('miniplayer-is-active');
                         if (!wasActive && isMiniplayerActive) {
                             resetProgressBarGradient('all');
-                            DOMHelpers.removeExact('watchPlayer');
-                            DOMHelpers.removeExact('miniplayerPlayer');
-                            DOMHelpers.removeExact('watch:progressContainer');
-                            DOMHelpers.removeExact('miniplayer:progressContainer');
+                            clearPlayerCache();
                             for (const [el, sess] of activeProcessingSessions.entries()) {
                                 if (sess.type === 'watch' && !sess.isFinalized) {
                                     SessionOrchestrator.finalizeSession(el, 'miniplayerActivated');
@@ -12520,10 +12432,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (wasActive && !isMiniplayerActive) {
                             PlaybackDisplayManager.destroy('miniplayer');
                             resetProgressBarGradient('all');
-                            DOMHelpers.removeExact('watchPlayer');
-                            DOMHelpers.removeExact('miniplayerPlayer');
-                            DOMHelpers.removeExact('watch:progressContainer');
-                            DOMHelpers.removeExact('miniplayer:progressContainer');
+                            clearPlayerCache();
                             requestAnimationFrame(() => requestAnimationFrame(repaintWatchProgressBarFromActivePlayer));
                         }
                         return;
@@ -13267,6 +13176,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     logLog('process', `⏭️ Resume skipped: existing active session for ${videoId} [${type}] on another <video>`);
                     sessionRef.isResumePending = false;
                     return;
+                }
+
+                // URL time parameter guard: if user enabled the option and URL has ?t= or ?start=,
+                // skip resume to respect the explicit navigation time.
+                if (cachedSettings.respectUrlTimeParam) {
+                    const urlTimeSec = getUrlTimeParamSeconds(window.location.href);
+                    if (urlTimeSec !== null) {
+                        logLog('process', `⏭️ Resume skipped: URL has ?t= (${formatTime(urlTimeSec)}), respecting URL parameter`);
+                        sessionRef.isResumePending = false;
+                        return;
+                    }
                 }
 
                 if (savedData.watchProgress > 1 || savedData.forceResumeTime > 0 || savedData.isCompleted) {
@@ -14533,7 +14453,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // info.lastViewedPlaylistType: '' (Not assigned)
                 // info.lastViewedPlaylistItemId: null (Not assigned)
 
-                //logInfo('getCascadedVideoInfo', 'info after YTHelper.video:', { ...info });
             }
         } catch (e) {
             logError('getCascadedVideoInfo', '⚠️ Error in Level 2 (YouTube Helper API):', e);
@@ -16361,11 +16280,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         videosContainer.appendChild(listContainer);
 
         // Remove automatic storage updates (now manual with recalculate button)
-        // if (!storageUsageRefreshIntervalId) {
-        //     storageUsageRefreshIntervalId = setInterval(() => {
-        //         updateStorageUsageIndicator().catch(() => { });
-        //     }, 60_000);
-        // }
 
         const footer = createElement('div', { className: 'ypp-footer' });
 
@@ -18619,8 +18533,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         } else if (key === 'idb_migrated' || key === 'idb_migrated_v1' || key === 'YT_PLAYBACK_PLOX_idb_migrated') {
                             // Purge it silently; it is already obsolete
                         } else {
-                            const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
-                            // Convert JSON strings to native objects so GM_setValue handles them correctly
+                            const gmKey = prefixKey(key);                            // Convert JSON strings to native objects so GM_setValue handles them correctly
                             let dataToSave = data;
                             if (typeof data === 'string') {
                                 try { dataToSave = JSON.parse(data); } catch (e) { logError('cleanupNonVideoData', 'Error parsing IDB metadata:', e); }
@@ -18638,10 +18551,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const lsKeys = Object.keys(localStorage);
                 for (const key of lsKeys) {
                     // Detect any key that belongs to the script (old prefix or legacy ypp_)
-                    if (key.startsWith('YT_PLAYBACK_PLOX_') || key.startsWith('ypp_')) {
-                        const normalized = key.startsWith('YT_PLAYBACK_PLOX_')
-                            ? key.slice('YT_PLAYBACK_PLOX_'.length)
-                            : key;
+                    if (hasPrefix(key) || key.startsWith('ypp_')) {
+                        const normalized = stripPrefix(key);
 
                         logInfo('cleanupNonVideoData', `🧹 LS legacy key purged: ${key}`);
                         if (normalized === 'idb_migrated' || normalized === 'idb_migrated_v1') {
@@ -18666,8 +18577,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (isNonVideoStorageKey(normalized)) {
                             const raw = localStorage.getItem(key);
                             if (raw) {
-                                const gmKey = key.startsWith('YT_PLAYBACK_PLOX_') ? key : 'YT_PLAYBACK_PLOX_' + key;
-                                let dataToSave = raw;
+                                const gmKey = prefixKey(key);                                let dataToSave = raw;
                                 try { dataToSave = JSON.parse(raw); } catch (e) { logError('cleanupNonVideoData', 'Error parsing config LS:', e); }
                                 await GM_setValue(gmKey, dataToSave);
                                 localStorage.removeItem(key);
@@ -18679,7 +18589,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             if (raw) {
                                 try {
                                     const parsed = JSON.parse(raw);
-                                    const normalizedId = key.startsWith('YT_PLAYBACK_PLOX_') ? key.slice('YT_PLAYBACK_PLOX_'.length) : key;
+                                    const normalizedId = stripPrefix(key);
                                     const normData = normalizeVideoData(parsed, normalizedId);
                                     await StorageAsync.set(normalizedId, normData);
                                     localStorage.removeItem(key);
@@ -19303,4 +19213,3 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             logError('init', '❌ Fatal error in init():', error);
         });
     }, 0);
-})();

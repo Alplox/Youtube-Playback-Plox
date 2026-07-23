@@ -4,6 +4,11 @@
 ## Fixed
 
 - **Export/Import backup broken on mobile browsers in desktop mode**: Added `downloadBlobMobileSafe()` helper that replaces the broken `<a>.click()` download pattern with a mobile-safe fallback chain: Web Share API (iOS/Android), File System Access API (desktop Chrome/Edge), open blob in new tab (mobile fallback where user can long-press to save), then `<a>.click()` as last resort. The function now returns a status string (`'shared'`/`'saved'`/`'downloaded'`/`'failed'`) so callers show the correct toast - on mobile the user sees "select where to save from the share menu" instead of a misleading "download complete". Import menu options are now `<label>` elements that directly trigger hidden `<input type="file">` elements.
+  - Fixed `downloadBlobMobileSafe` fallback chain - when `navigator.canShare({files})` returns `false` on mobile browsers in desktop mode, the clipboard/new-tab fallbacks were skipped because `triedShare` was never set. Now correctly enables mobile fallback path when the browser reports share API presence but can't share files.
+
+## Added
+
+- **Copy to clipboard button in export menus**: Each export format (JSON, FreeTube) in the Saved Videos modal now has a copy icon next to it. Clicking the format name downloads the file; clicking the copy icon copies the raw data to clipboard. Works for both "Export All" and "Export Selected".
 
 ## Changed 
 

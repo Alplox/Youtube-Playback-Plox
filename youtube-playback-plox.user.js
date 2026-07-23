@@ -573,10 +573,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "staticFinishPercent": "Percentage to mark video as completed",
             "countOncePerSession": "Log additional completion times only once per session",
             "countOncePerSessionTooltip": "If enabled, once the completion threshold is reached, replays or auto-looping will not be counted multiple times within the same session.",
-            "resumeCompletedFromStart": "Resume completed videos from the start",
-            "resumeCompletedFromStartTooltip": "If enabled, videos marked as completed will always start from 00:00. If disabled, they will stay at the end to allow YouTube's auto-advance to continue.",
+            "copyToClipboard": "Copy to clipboard",
+            "shareToSave": "{count} items exported - select where to save from the share menu",
+            "backupCopiedToClipboard": "Backup copied to clipboard - paste it somewhere safe to save it",
+            "exportOpenedInTab": "File opened in new tab - long-press the text to save it",
             "respectUrlTimeParam": "Respect ?t= from URL",
             "respectUrlTimeParamTooltip": "If enabled, when a video URL contains ?t= or ?start=, the saved position won't be restored and the URL time will be used instead.",
+            "resumeCompletedFromStart": "Resume completed videos from the start",
+            "resumeCompletedFromStartTooltip": "If enabled, videos marked as completed will always start from 00:00. If disabled, they will stay at the end to allow YouTube's auto-advance to continue.",
             "autoCleanupEnabled": "Enable automatic history cleanup",
             "autoCleanupDays": "Cleanup videos older than (days)",
             "autoCleanupDaysDescription": "Videos that haven't been watched for more than X days (since their last watch date) will be deleted. Protected videos are excluded.",
@@ -655,9 +659,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "dataExported": "Data exported",
             "exportSelected": "Export selected",
             "itemsExported": "Exported {count} items",
-            "shareToSave": "{count} items exported - select where to save from the share menu",
-            "backupCopiedToClipboard": "Backup copied to clipboard - paste it somewhere safe to save it",
-            "exportOpenedInTab": "File opened in new tab - long-press the text to save it",
             "itemsImported": "Imported {count} items",
             "importError": "Error importing. Make sure the file is valid.",
             "exportError": "Error exporting data",
@@ -1414,6 +1415,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     await navigator.share({ files: [file], title: filename });
                     return 'shared';
                 } catch (_) { /* user cancelled or unsupported, fall through */ }
+            } else {
+                triedShare = true; // mobile browser but can't share files → enable clipboard/new-tab fallbacks
             }
         }
 
@@ -3488,6 +3491,28 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     align-items: center;
     justify-content: center;
     gap: 8px;
+}
+.ypp-footer-action-menu-option-row {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+}
+.ypp-footer-action-menu-copy {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 6px;
+    border: none;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--ypp-text-secondary);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: background 0.15s, color 0.15s;
+}
+.ypp-footer-action-menu-copy:hover {
+    background: var(--ypp-bg-hover);
+    color: var(--ypp-text-primary);
 }
 .ypp-footer-action-menu-option[disabled],
 .ypp-btn[disabled] {
@@ -7009,6 +7034,54 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             logLog('exportDataToFile', `Exported ${count} videos (${fileSizeMB.toFixed(2)}MB) - status: ${status}`);
         } catch (error) {
             logError('exportDataToFile', 'Error exporting:', error);
+            showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
+        }
+    };
+
+    /**
+     * Copies export data directly to clipboard in JSON or FreeTube format.
+     * @param {'json'|'freetube'} format - Format to copy
+     * @param {Array|null} keysToExport - Optional specific video keys to export
+     */
+    const copyExportDataToClipboard = async (format, keysToExport = null) => {
+        try {
+            let text;
+
+            if (format === 'freetube') {
+                const exportData = await exportToFreeTubeFormat(keysToExport);
+                if (!exportData || exportData.length === 0) {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
+                    return;
+                }
+                text = exportData.map(obj => JSON.stringify(obj)).join('\n');
+            } else {
+                const exportData = await getSyncData('export', keysToExport);
+                if (!exportData) {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
+                    return;
+                }
+                text = JSON.stringify(exportData, null, 2);
+            }
+
+            if (navigator.clipboard?.writeText) {
+                await navigator.clipboard.writeText(text);
+            } else {
+                const textarea = createElement('textarea', {
+                    value: text,
+                    attributes: { readonly: 'true' },
+                    styles: { position: 'fixed', opacity: '0', pointerEvents: 'none' }
+                });
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+            }
+
+            const count = format === 'freetube' ? text.split('\n').length : Object.keys(JSON.parse(text)).filter(k => k !== '__metadata__').length;
+            showFloatingToast(`${SVG_ICONS.check} ${t('backupCopiedToClipboard')}`);
+            logLog('copyExportDataToClipboard', `Copied ${count} items as ${format} to clipboard`);
+        } catch (error) {
+            logError('copyExportDataToClipboard', 'Error copying to clipboard:', error);
             showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
         }
     };
@@ -11199,7 +11272,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         closeMenu();
                         await option.action();
                     }, {}, store);
-                    list.appendChild(optionButton);
+
+                    if (option.copyAction) {
+                        const optionRow = createElement('div', { className: 'ypp-footer-action-menu-option-row' });
+                        optionButton.style.flex = '1';
+                        optionRow.appendChild(optionButton);
+                        const copyBtn = createElement('button', {
+                            className: 'ypp-footer-action-menu-copy',
+                            html: SVG_ICONS.copy,
+                            attributes: { type: 'button', title: t('copyToClipboard'), role: 'menuitem' }
+                        });
+                        addDisposableListener(copyBtn, 'click', async (event) => {
+                            event.stopPropagation();
+                            closeMenu();
+                            await option.copyAction();
+                        }, {}, store);
+                        optionRow.appendChild(copyBtn);
+                        list.appendChild(optionRow);
+                    } else {
+                        list.appendChild(optionButton);
+                    }
                 });
 
                 addDisposableListener(trigger, 'click', (event) => {
@@ -11309,8 +11401,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 setCurrentlyOpen: setCurrentlyOpenFooterMenu,
                 store: ModalDisposables,
                 options: [
-                    { label: 'JSON', icon: SVG_ICONS.jsonCurlyBrackets, action: async () => await exportDataToFile() },
-                    { label: 'FreeTube', icon: SVG_ICONS.freetubeIconFill, action: async () => await exportToFreeTube() }
+                    { label: 'JSON', icon: SVG_ICONS.jsonCurlyBrackets, action: async () => await exportDataToFile(), copyAction: async () => await copyExportDataToClipboard('json') },
+                    { label: 'FreeTube', icon: SVG_ICONS.freetubeIconFill, action: async () => await exportToFreeTube(), copyAction: async () => await copyExportDataToClipboard('freetube') }
                 ]
             });
 
@@ -11329,6 +11421,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         action: async () => {
                             if (selectedVideos.size === 0) { alert(t('selectAtLeastOne')); return; }
                             await exportDataToFile(Array.from(selectedVideos));
+                        },
+                        copyAction: async () => {
+                            if (selectedVideos.size === 0) { alert(t('selectAtLeastOne')); return; }
+                            await copyExportDataToClipboard('json', Array.from(selectedVideos));
                         }
                     },
                     {
@@ -11337,6 +11433,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         action: async () => {
                             if (selectedVideos.size === 0) { alert(t('selectAtLeastOne')); return; }
                             await exportToFreeTube(Array.from(selectedVideos));
+                        },
+                        copyAction: async () => {
+                            if (selectedVideos.size === 0) { alert(t('selectAtLeastOne')); return; }
+                            await copyExportDataToClipboard('freetube', Array.from(selectedVideos));
                         }
                     }
                 ]

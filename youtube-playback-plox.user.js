@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.12-2
+// @version      0.0.12-3
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -220,7 +220,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-2';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-3';
 
     /**
      * @typedef {Object} YPPState
@@ -655,6 +655,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "dataExported": "Data exported",
             "exportSelected": "Export selected",
             "itemsExported": "Exported {count} items",
+            "shareToSave": "{count} items exported - select where to save from the share menu",
+            "backupCopiedToClipboard": "Backup copied to clipboard - paste it somewhere safe to save it",
+            "exportOpenedInTab": "File opened in new tab - long-press the text to save it",
             "itemsImported": "Imported {count} items",
             "importError": "Error importing. Make sure the file is valid.",
             "exportError": "Error exporting data",
@@ -926,7 +929,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     // MARK: 🔧 Sanitize HTML
     /**
      * Normalizes HTML entities and escapes special characters for safe text insertion.
-     * Not a structural HTML sanitizer — use only for textual content.
+     * Not a structural HTML sanitizer - use only for textual content.
      * @param {any} str - Value to process.
      * @returns {string} Safe string for injection as HTML text.
      * @example
@@ -1389,6 +1392,73 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             // Create a new timer that will execute the function after the delay
             timer = setTimeout(() => fn(...args), delay);
         };
+    };
+
+    // MARK: 🔧 downloadBlobMobileSafe
+    /**
+     * Downloads a blob as a file, with mobile browser support.
+     * Fallback chain: Web Share API → File System Access API → <a> click → Clipboard → New tab.
+     * @param {Blob} blob - The blob to download
+     * @param {string} filename - The filename for the download
+     * @returns {Promise<'shared'|'saved'|'downloaded'|'copied'|'opened'|'failed'>} Status of the download attempt
+     */
+    const downloadBlobMobileSafe = async (blob, filename) => {
+        let triedShare = false;
+
+        // 1. Web Share API
+        if (navigator.share && navigator.canShare) {
+            const file = new File([blob], filename, { type: blob.type });
+            if (navigator.canShare({ files: [file] })) {
+                triedShare = true;
+                try {
+                    await navigator.share({ files: [file], title: filename });
+                    return 'shared';
+                } catch (_) { /* user cancelled or unsupported, fall through */ }
+            }
+        }
+
+        // 2. File System Access API - works on desktop Chrome/Edge
+        if (window.showSaveFilePicker) {
+            try {
+                const handle = await window.showSaveFilePicker({ suggestedName: filename });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                return 'saved';
+            } catch (_) { /* user cancelled or unsupported, fall through */ }
+        }
+
+        const url = URL.createObjectURL(blob);
+
+        // 3. Mobile path: clipboard first to avoid <a> navigation on iOS
+        if (triedShare) {
+            // 3a. Clipboard - stays on same page, toast is visible
+            if (navigator.clipboard?.writeText) {
+                try {
+                    await navigator.clipboard.writeText(await blob.text());
+                    setTimeout(() => URL.revokeObjectURL(url), 100);
+                    return 'copied';
+                } catch (_) { /* permission denied, fall through */ }
+            }
+            // 3b. Open in new tab - last resort on mobile
+            try {
+                const win = window.open(url, '_blank');
+                if (win) {
+                    setTimeout(() => URL.revokeObjectURL(url), 5000);
+                    return 'opened';
+                }
+            } catch (_) { /* popup blocked, fall through */ }
+        }
+
+        // 4. Desktop fallback: <a> download click (works on desktop browsers and Android Chrome)
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 100);
+        return 'downloaded';
     };
 
     // ============================================================================================================
@@ -3418,7 +3488,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     align-items: center;
     justify-content: center;
     gap: 8px;
-    width: 100%;
 }
 .ypp-footer-action-menu-option[disabled],
 .ypp-btn[disabled] {
@@ -3510,7 +3579,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     gap: var(--ypp-spacing-md);
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--ypp-bg);
+    
 }
 .ypp-settings-third-level-section {
     display: flex;
@@ -3526,7 +3595,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     gap: var(--ypp-spacing-md);
     display: flex;
     flex-direction: column;
-    border: 1px solid var(--ypp-bg);
+    
     border-top: none;
     border-radius: 0 0 6px 6px;
 }
@@ -3846,6 +3915,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     max-width: none;
     border-radius: var(--ypp-spacing-md) var(--ypp-spacing-md) 0 0;
 }
+.ypp-grid-item .ypp-thumb {
+    max-height: none;
+}
+
 .ypp-grid-item .ypp-video-checkbox {
     position: absolute;
     top: 8px;
@@ -3877,14 +3950,16 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 }
 .ypp-grid-dropdown-info {
     width: 100%;
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s ease;
+}
+.ypp-grid-dropdown-info > * {
     overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    max-height: 0;
-    transition: max-height 0.3s ease;
+    min-height: 0;
 }
 .ypp-grid-item.is-expanded .ypp-grid-dropdown-info {
-    max-height: 400px;
+    grid-template-rows: 1fr;
 }
 .ypp-grid-dropdown-info .ypp-videoWrapper {
     border: none;
@@ -3955,7 +4030,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 }
 .ypp-thumb {
     object-fit: cover;
-    border-radius: var(--ypp-spacing-md);
     margin-right: var(--ypp-spacing-sm);
     flex-shrink: 0;
     opacity: 0;
@@ -6917,96 +6991,80 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return;
             }
 
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
             const timestamp = new Date().toISOString().split('T')[0];
-            a.download = `youtube-playback-plox-v${SCRIPT_VERSION}-${filenameSuffix}-${timestamp}.json`;
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
+            const status = await downloadBlobMobileSafe(blob, `youtube-playback-plox-v${SCRIPT_VERSION}-${filenameSuffix}-${timestamp}.json`);
 
             const count = Object.keys(exportData).filter(k => k !== '__metadata__').length;
-            showFloatingToast(`${SVG_ICONS.upload} ${t('itemsExported', { count })}`);
-            logLog('exportDataToFile', `Exported ${count} videos (${fileSizeMB.toFixed(2)}MB) in native JSON format`);
+            if (status === 'failed') {
+                showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
+            } else if (status === 'shared') {
+                showFloatingToast(`${SVG_ICONS.upload} ${t('shareToSave', { count })}`);
+            } else if (status === 'copied') {
+                showFloatingToast(`${SVG_ICONS.upload} ${t('backupCopiedToClipboard')}`);
+            } else if (status === 'opened') {
+                showFloatingToast(`${SVG_ICONS.upload} ${t('exportOpenedInTab')}`);
+            } else {
+                showFloatingToast(`${SVG_ICONS.upload} ${t('itemsExported', { count })}`);
+            }
+            logLog('exportDataToFile', `Exported ${count} videos (${fileSizeMB.toFixed(2)}MB) - status: ${status}`);
         } catch (error) {
             logError('exportDataToFile', 'Error exporting:', error);
             showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
         }
     };
 
-    const importDataFromFile = async () => {
-        let inputFile = document.querySelector('#ypp-import-file');
-        if (!inputFile) {
-            inputFile = createElement('input', {
-                id: 'ypp-import-file',
-                attributes: { type: 'file', accept: '.json' },
-                style: { display: 'none' }
-            });
-            document.body.appendChild(inputFile);
-        }
+    const importDataFromFile = async (file) => {
+        try {
+            const text = await file.text();
+            const data = JSON.parse(text);
 
-        inputFile.onchange = async (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            try {
-                const text = await file.text();
-                const data = JSON.parse(text);
-
-                if (typeof data !== 'object' || data === null) {
-                    showFloatingToast(`${SVG_ICONS.error} ${t('invalidFormat')}`);
-                    return;
-                }
-
-                let importCount = 0;
-                let skipped = 0;
-
-                // Early filtering to avoid processing invalid keys
-                const validKeys = Object.keys(data).filter(key =>
-                    !key.startsWith('userSettings') &&
-                    !key.startsWith('userFilters') &&
-                    key !== '__metadata__'
-                );
-
-                if (validKeys.length === 0) {
-                    logLog('importDataFromFile', 'No valid data to import');
-                    showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
-                    return;
-                }
-
-                for (const key of validKeys) {
-                    // Normalize data before saving to ensure Format A
-                    const normalized = normalizeVideoData(data[key], key);
-
-                    // Validate value has minimum video structure after normalization
-                    if (normalized && typeof normalized === 'object' && normalized.videoId) {
-                        await Storage.set(key, normalized);
-                        importCount++;
-                    } else {
-                        logLog('importDataFromFile', `Invalid entry skipped (or missing videoId): ${key}`);
-                        skipped++;
-                    }
-                }
-
-                await updateVideoList();
-
-                if (importCount > 0) {
-                    showFloatingToast(`${SVG_ICONS.check} ${t('itemsImported', { count: importCount })} ${skipped > 0 ? ` (${skipped} ${t('omitedVideos')})` : ''}`);
-                    logLog('importDataFromFile', `Imported ${importCount} videos, ${skipped} skipped`);
-                } else {
-                    showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
-                }
-            } catch (error) {
-                logError('importDataFromFile', 'Error importing:', error);
-                showFloatingToast(`${SVG_ICONS.error} ${t('importError')}`);
-            } finally {
-                inputFile.value = '';
+            if (typeof data !== 'object' || data === null) {
+                showFloatingToast(`${SVG_ICONS.error} ${t('invalidFormat')}`);
+                return;
             }
-        };
 
-        inputFile.click();
+            let importCount = 0;
+            let skipped = 0;
+
+            // Early filtering to avoid processing invalid keys
+            const validKeys = Object.keys(data).filter(key =>
+                !key.startsWith('userSettings') &&
+                !key.startsWith('userFilters') &&
+                key !== '__metadata__'
+            );
+
+            if (validKeys.length === 0) {
+                logLog('importDataFromFile', 'No valid data to import');
+                showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
+                return;
+            }
+
+            for (const key of validKeys) {
+                // Normalize data before saving to ensure Format A
+                const normalized = normalizeVideoData(data[key], key);
+
+                // Validate value has minimum video structure after normalization
+                if (normalized && typeof normalized === 'object' && normalized.videoId) {
+                    await Storage.set(key, normalized);
+                    importCount++;
+                } else {
+                    logLog('importDataFromFile', `Invalid entry skipped (or missing videoId): ${key}`);
+                    skipped++;
+                }
+            }
+
+            await updateVideoList();
+
+            if (importCount > 0) {
+                showFloatingToast(`${SVG_ICONS.check} ${t('itemsImported', { count: importCount })} ${skipped > 0 ? ` (${skipped} ${t('omitedVideos')})` : ''}`);
+                logLog('importDataFromFile', `Imported ${importCount} videos, ${skipped} skipped`);
+            } else {
+                showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
+            }
+        } catch (error) {
+            logError('importDataFromFile', 'Error importing:', error);
+            showFloatingToast(`${SVG_ICONS.error} ${t('importError')}`);
+        }
     };
 
     // ============================================================================================================
@@ -7416,17 +7474,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     .join('\n');
 
                 const blob = new Blob([ndjson], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
                 const timestamp = new Date().toISOString().split('T')[0];
                 // Use .db extension because FreeTube sometimes expects that suffix (even if it's JSONL)
-                a.download = `youtube-playback-plox-v${SCRIPT_VERSION}-backup-${timestamp}-freetube-compatible.db`;
-                document.body.appendChild(a);
-                a.click();
-                a.remove();
-                URL.revokeObjectURL(url);
-                showFloatingToast(`${SVG_ICONS.upload} FreeTube ${t('dataExported')}`);
+                const status = await downloadBlobMobileSafe(blob, `youtube-playback-plox-v${SCRIPT_VERSION}-backup-${timestamp}-freetube-compatible.db`);
+                if (status === 'failed') {
+                    showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
+                } else if (status === 'shared') {
+                    showFloatingToast(`${SVG_ICONS.upload} ${t('shareToSave', { count: exportData.length })}`);
+                } else if (status === 'copied') {
+                    showFloatingToast(`${SVG_ICONS.upload} ${t('backupCopiedToClipboard')}`);
+                } else if (status === 'opened') {
+                    showFloatingToast(`${SVG_ICONS.upload} ${t('exportOpenedInTab')}`);
+                } else {
+                    showFloatingToast(`${SVG_ICONS.upload} FreeTube ${t('dataExported')}`);
+                }
             } catch (err) {
                 logError('exportToFreeTube', 'Error exporting to FreeTube format:', err);
                 showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
@@ -7434,135 +7495,62 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         })();
     };
 
-    const importFromFreeTube = () => {
-        let inputFile = document.querySelector('#ypp-import-freetube-file');
-        if (!inputFile) {
-            inputFile = createElement('input', {
-                id: 'ypp-import-freetube-file',
-                attributes: { type: 'file', accept: '.json, .db' },
-                style: { display: 'none' }
-            });
-            document.body.appendChild(inputFile);
+    const importFromFreeTube = async (file) => {
+        const fileName = file?.name || '';
+
+        if (file.size > 50 * 1024 * 1024) { // 50MB limit
+            const fileSizeMB = `${(file.size / (1024 * 1024)).toFixed(2)}MB`;
+            showFloatingToast(`${SVG_ICONS.error} ${t('fileTooLarge', { size: fileSizeMB })}`);
+            return;
         }
-        inputFile.onchange = async (e) => {
-            const file = e.target.files[0];
-            const fileName = file?.name || '';
-            if (!file) return;
 
-            if (file.size > 50 * 1024 * 1024) { // 50MB limit
-                const fileSizeMB = `${(file.size / (1024 * 1024)).toFixed(2)}MB`;
-                showFloatingToast(`${SVG_ICONS.error} ${t('fileTooLarge', { size: fileSizeMB })}`);
-                return;
-            }
-
-            // If this is a FreeTube .db file, it may be:
-            //  - a binary SQLite file (real .db)
-            //  - a renamed .db containing JSON or JSON Lines (observed case)
-            if (fileName.endsWith('.db')) {
-                // Try reading as text first (JSON or JSON Lines)
-                try {
-                    showFloatingToast(`${SVG_ICONS.download} ${t('importingFromFreeTube')}`);
-                    const text = await file.text();
-
-                    // Try parsing as a JSON array
-                    let data = null;
-                    try {
-                        data = JSON.parse(text);
-                    } catch (e) {
-                        // Try JSON Lines
-                        try {
-                            const lines = text.trim().split('\n').filter(l => l.trim());
-                            data = lines.map(l => JSON.parse(l));
-                        } catch (e2) {
-                            data = null;
-                        }
-                    }
-
-                    if (Array.isArray(data) && data.length > 0) {
-                        const result = await importFromFreeTubeFormat(data);
-                        await updateVideoList();
-                        if (result.imported > 0) {
-                            showFloatingToast(`${SVG_ICONS.check} ${result.imported} ${t('videosImported')}${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
-                        } else {
-                            showFloatingToast(`${SVG_ICONS.error} ${t('noVideosImported')}${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
-                        }
-                        return;
-                    }
-                    // If .db wasn't valid JSON -> try parsing as SQLite
-                    showFloatingToast(`${SVG_ICONS.download} ${t('importingFromFreeTubeAsSQLite')}`);
-                } catch (textErr) {
-                    // If reading as text fails for any reason, continue trying SQLite
-                    logLog('importFromFreeTube', 'Could not process .db as text, trying SQLite', textErr);
-                }
-
-                // Try parsing as a SQLite DB (binary)
-                try {
-                    const arrayBuffer = await file.arrayBuffer();
-                    const data = await parseFreeTubeDB(arrayBuffer);
-
-                    if (!data || data.length === 0) {
-                        showFloatingToast(`${SVG_ICONS.warning} ${t('noVideosFoundInFreeTubeDB')}`);
-                        return;
-                    }
-
-                    const result = await importFromFreeTubeFormat(data);
-                    await updateVideoList();
-
-                    if (result.imported > 0) {
-                        showFloatingToast(`${SVG_ICONS.check} ${result.imported} ${t('videosImportedFromFreeTubeDB')} ${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
-                    } else {
-                        showFloatingToast(`${SVG_ICONS.error} ${t('noVideosImportedFromFreeTubeDB')} ${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
-                    }
-                } catch (error) {
-                    logError('importFromFreeTube', 'Error procesando archivo .db:', error);
-                    showFloatingToast(`${SVG_ICONS.error} ${t('importError')}`);
-                }
-
-                return;
-            }
-
+        // If this is a FreeTube .db file, it may be:
+        //  - a binary SQLite file (real .db)
+        //  - a renamed .db containing JSON or JSON Lines (observed case)
+        if (fileName.endsWith('.db')) {
+            // Try reading as text first (JSON or JSON Lines)
             try {
-                showFloatingToast(`${SVG_ICONS.download} ${t('processingFile')}`);
+                showFloatingToast(`${SVG_ICONS.download} ${t('importingFromFreeTube')}`);
                 const text = await file.text();
 
-                // Validate file is not empty
-                if (!text.trim()) {
-                    showFloatingToast(`${SVG_ICONS.warning} ${t('fileEmpty')}`);
-                    return;
-                }
-
-                let data;
-
-                // Try parsing as standard JSON array first
+                // Try parsing as a JSON array
+                let data = null;
                 try {
                     data = JSON.parse(text);
-                } catch (standardError) {
-                    // If it fails, try parsing as JSON Lines (FreeTube format)
+                } catch (e) {
+                    // Try JSON Lines
                     try {
-                        data = [];
-                        const lines = text.trim().split('\n').filter(line => line.trim());
-
-                        for (const line of lines) {
-                            if (line.trim()) {
-                                const obj = JSON.parse(line);
-                                data.push(obj);
-                            }
-                        }
-
-                        logLog('importFromFreeTube', `Parsed as JSON Lines: ${data.length} objects found`);
-                    } catch (linesError) {
-                        throw new SyntaxError('The file does not have a valid JSON format or JSON Lines (FreeTube format)');
+                        const lines = text.trim().split('\n').filter(l => l.trim());
+                        data = lines.map(l => JSON.parse(l));
+                    } catch (e2) {
+                        data = null;
                     }
                 }
 
-                // Validate that it is an array
-                if (!Array.isArray(data)) {
-                    showFloatingToast(`${SVG_ICONS.warning} ${t('invalidFormat')}`);
+                if (Array.isArray(data) && data.length > 0) {
+                    const result = await importFromFreeTubeFormat(data);
+                    await updateVideoList();
+                    if (result.imported > 0) {
+                        showFloatingToast(`${SVG_ICONS.check} ${result.imported} ${t('videosImported')}${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
+                    } else {
+                        showFloatingToast(`${SVG_ICONS.error} ${t('noVideosImported')}${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
+                    }
                     return;
                 }
+                // If .db wasn't valid JSON -> try parsing as SQLite
+                showFloatingToast(`${SVG_ICONS.download} ${t('importingFromFreeTubeAsSQLite')}`);
+            } catch (textErr) {
+                // If reading as text fails for any reason, continue trying SQLite
+                logLog('importFromFreeTube', 'Could not process .db as text, trying SQLite', textErr);
+            }
 
-                if (data.length === 0) {
-                    showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
+            // Try parsing as a SQLite DB (binary)
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const data = await parseFreeTubeDB(arrayBuffer);
+
+                if (!data || data.length === 0) {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('noVideosFoundInFreeTubeDB')}`);
                     return;
                 }
 
@@ -7575,18 +7563,74 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     showFloatingToast(`${SVG_ICONS.error} ${t('noVideosImportedFromFreeTubeDB')} ${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
                 }
             } catch (error) {
-                logError('importFromFreeTube', 'Error importing:', error);
-                if (error instanceof SyntaxError) {
-                    showFloatingToast(`${SVG_ICONS.error} ${t('importError')}: ${sanitizeHTML(error.message)}`);
-                } else {
-                    showFloatingToast(`${SVG_ICONS.error} ${t('importError')}`);
-                }
-            } finally {
-                // Clear the input to allow selecting the same file again
-                inputFile.value = '';
+                logError('importFromFreeTube', 'Error procesando archivo .db:', error);
+                showFloatingToast(`${SVG_ICONS.error} ${t('importError')}`);
             }
-        };
-        inputFile.click();
+
+            return;
+        }
+
+        try {
+            showFloatingToast(`${SVG_ICONS.download} ${t('processingFile')}`);
+            const text = await file.text();
+
+            // Validate file is not empty
+            if (!text.trim()) {
+                showFloatingToast(`${SVG_ICONS.warning} ${t('fileEmpty')}`);
+                return;
+            }
+
+            let data;
+
+            // Try parsing as standard JSON array first
+            try {
+                data = JSON.parse(text);
+            } catch (standardError) {
+                // If it fails, try parsing as JSON Lines (FreeTube format)
+                try {
+                    data = [];
+                    const lines = text.trim().split('\n').filter(line => line.trim());
+
+                    for (const line of lines) {
+                        if (line.trim()) {
+                            const obj = JSON.parse(line);
+                            data.push(obj);
+                        }
+                    }
+
+                    logLog('importFromFreeTube', `Parsed as JSON Lines: ${data.length} objects found`);
+                } catch (linesError) {
+                    throw new SyntaxError('The file does not have a valid JSON format or JSON Lines (FreeTube format)');
+                }
+            }
+
+            // Validate that it is an array
+            if (!Array.isArray(data)) {
+                showFloatingToast(`${SVG_ICONS.warning} ${t('invalidFormat')}`);
+                return;
+            }
+
+            if (data.length === 0) {
+                showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
+                return;
+            }
+
+            const result = await importFromFreeTubeFormat(data);
+            await updateVideoList();
+
+            if (result.imported > 0) {
+                showFloatingToast(`${SVG_ICONS.check} ${result.imported} ${t('videosImportedFromFreeTubeDB')} ${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
+            } else {
+                showFloatingToast(`${SVG_ICONS.error} ${t('noVideosImportedFromFreeTubeDB')} ${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
+            }
+        } catch (error) {
+            logError('importFromFreeTube', 'Error importing:', error);
+            if (error instanceof SyntaxError) {
+                showFloatingToast(`${SVG_ICONS.error} ${t('importError')}: ${sanitizeHTML(error.message)}`);
+            } else {
+                showFloatingToast(`${SVG_ICONS.error} ${t('importError')}`);
+            }
+        }
     };
 
     // MARK: 🔄 Normalize Video Data
@@ -10462,7 +10506,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     <label class="ypp-label" style="padding: 10px 0 5px;">
                     <input type="checkbox" name="githubAutoDeleteToken" ${githubSettings.autoDeleteToken ? 'checked' : ''}>
-                    <span style="font-size: 0.9em; color: var(--ypp-text-secondary);text-wrap: auto">${t('githubAutoDeleteToken')}</span>
+                    <span style="font-size: 0.9em; color: var(--ypp-text-secondary)">${t('githubAutoDeleteToken')}</span>
                 </label>
                 </div>
 
@@ -11167,18 +11211,95 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return wrapper;
             }
 
-            const importMenu = createFooterActionMenu({
-                label: t('import'),
-                icon: SVG_ICONS.download,
-                triggerClassName: 'ypp-btn ypp-btn-outline-info ypp-shadow-md ypp-management-footer-item',
-                getCurrentlyOpen: getCurrentlyOpenFooterMenu,
-                setCurrentlyOpen: setCurrentlyOpenFooterMenu,
-                store: ModalDisposables,
-                options: [
-                    { label: 'JSON', icon: SVG_ICONS.jsonCurlyBrackets, action: async () => await importDataFromFile() },
-                    { label: 'FreeTube', icon: SVG_ICONS.freetubeIconFill, action: async () => await importFromFreeTube() }
-                ]
+            // Import menu: uses <label> elements instead of <button> so tapping an option
+            // directly triggers the hidden <input type="file"> (real user gesture, works on mobile).
+            const importJsonInput = createElement('input', {
+                id: 'ypp-import-json-input',
+                attributes: { type: 'file', accept: '.json' },
+                styles: { position: 'absolute', width: '0', height: '0', opacity: '0', overflow: 'hidden', pointerEvents: 'none' }
             });
+            const importFreetubeInput = createElement('input', {
+                id: 'ypp-import-freetube-input',
+                attributes: { type: 'file', accept: '.json, .db' },
+                styles: { position: 'absolute', width: '0', height: '0', opacity: '0', overflow: 'hidden', pointerEvents: 'none' }
+            });
+
+            const importMenuWrapper = createElement('div', { className: 'ypp-footer-action-menu' });
+            const importTrigger = createElement('button', {
+                className: 'ypp-btn ypp-btn-outline-info ypp-shadow-md ypp-management-footer-item',
+                html: `${SVG_ICONS.download} ${t('import')}`,
+                attributes: { type: 'button', 'aria-expanded': 'false' }
+            });
+            const importList = createElement('div', {
+                className: 'ypp-footer-action-menu-list ypp-d-none',
+                attributes: { role: 'menu' }
+            });
+
+            let importIsOpen = false;
+
+            const closeImportMenu = () => {
+                if (!importIsOpen) return;
+                importIsOpen = false;
+                importList.classList.add('ypp-d-none');
+                importTrigger.setAttribute('aria-expanded', 'false');
+                document.removeEventListener('click', onImportOutsideClick);
+                if (getCurrentlyOpenFooterMenu() === closeImportMenu) setCurrentlyOpenFooterMenu(null);
+            };
+
+            const onImportOutsideClick = (event) => {
+                if (!importMenuWrapper.contains(event.target)) closeImportMenu();
+            };
+
+            addDisposableListener(importTrigger, 'click', (event) => {
+                event.stopPropagation();
+                if (importIsOpen) { closeImportMenu(); return; }
+                const current = getCurrentlyOpenFooterMenu();
+                if (typeof current === 'function') current();
+                importIsOpen = true;
+                importList.classList.remove('ypp-d-none');
+                importTrigger.setAttribute('aria-expanded', 'true');
+                setCurrentlyOpenFooterMenu(closeImportMenu);
+                requestAnimationFrame(() => document.addEventListener('click', onImportOutsideClick, { once: true }));
+            }, {}, ModalDisposables);
+
+            // JSON option - <label> triggers the hidden input on tap
+            const jsonLabel = createElement('label', {
+                className: 'ypp-btn ypp-btn-outline-secondary ypp-footer-action-menu-option',
+                html: `${SVG_ICONS.jsonCurlyBrackets} JSON`,
+                attributes: { for: 'ypp-import-json-input', role: 'menuitem' }
+            });
+            addDisposableListener(jsonLabel, 'click', (event) => {
+                event.stopPropagation();
+                closeImportMenu();
+            }, {}, ModalDisposables);
+            importList.appendChild(jsonLabel);
+
+            // FreeTube option - <label> triggers the hidden input on tap
+            const freetubeLabel = createElement('label', {
+                className: 'ypp-btn ypp-btn-outline-secondary ypp-footer-action-menu-option',
+                html: `${SVG_ICONS.freetubeIconFill} FreeTube`,
+                attributes: { for: 'ypp-import-freetube-input', role: 'menuitem' }
+            });
+            addDisposableListener(freetubeLabel, 'click', (event) => {
+                event.stopPropagation();
+                closeImportMenu();
+            }, {}, ModalDisposables);
+            importList.appendChild(freetubeLabel);
+
+            // Hidden inputs: onchange processes the file
+            addDisposableListener(importJsonInput, 'change', async (e) => {
+                const file = e.target.files?.[0];
+                importJsonInput.value = '';
+                if (file) await importDataFromFile(file);
+            }, {}, ModalDisposables);
+            addDisposableListener(importFreetubeInput, 'change', async (e) => {
+                const file = e.target.files?.[0];
+                importFreetubeInput.value = '';
+                if (file) await importFromFreeTube(file);
+            }, {}, ModalDisposables);
+
+            importMenuWrapper.append(importTrigger, importList);
+            dataSection.append(importJsonInput, importFreetubeInput);
 
             const exportAllMenu = createFooterActionMenu({
                 label: `${t('export')} (${t('all')})`,
@@ -11302,7 +11423,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             managementModeContainer.append(selectionInfo);
             selectionSection.append(btnSelectAll, btnClearSelection);
-            dataSection.append(importMenu, exportAllMenu, exportSelectedMenu);
+            dataSection.append(importMenuWrapper, exportAllMenu, exportSelectedMenu);
             dangerSection.append(btnDeleteSelected, btnClearAll);
             dangerSection.append(cancelBtn);
             btnGroup.append(selectionSection, dataSection, dangerSection/* , sessionSection */);
@@ -17885,18 +18006,34 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             // Dropdown info container
             const dropdown = createElement('div', { className: 'ypp-grid-dropdown-info' });
-            // Defer rendering the actual video entry until expanded? No, better to render it directly to avoid async issues in layout.
-            // Wait, VirtualScroller renders sync/async. We can just render the info.
+            const collapseWrap = createElement('div');
             const entryEl = await createVideoEntry(item, true); // isDropdown = true
-            dropdown.appendChild(entryEl);
+            collapseWrap.appendChild(entryEl);
+            dropdown.appendChild(collapseWrap);
             gridItem.appendChild(dropdown);
 
             // Toggle expansion
+            let heightUpdateTimer = null;
+            const scheduleHeightUpdate = () => {
+                if (virtualScroller) {
+                    clearTimeout(heightUpdateTimer);
+                    heightUpdateTimer = setTimeout(() => {
+                        heightUpdateTimer = null;
+                        if (virtualScroller) virtualScroller.updateHeights();
+                    }, 320);
+                }
+            };
+            addDisposableListener(dropdown, 'transitionend', (e) => {
+                if (e.propertyName === 'grid-template-rows' && heightUpdateTimer) {
+                    clearTimeout(heightUpdateTimer);
+                    heightUpdateTimer = null;
+                    if (virtualScroller) virtualScroller.updateHeights();
+                }
+            }, {}, ModalDisposables);
+
             addDisposableListener(gridItem, 'click', (e) => {
-                // If clicked on checkbox or links, ignore dropdown toggle
                 if (e.target.closest('.ypp-video-checkbox, a, button, .ypp-saved-video-entry-action')) return;
 
-                // Toggle expansion state on the rowItem object
                 const expMode = cachedSavedVideosModalSettings?.displayOptions?.gridExpansionMode || 'single';
                 if (expMode === 'row') {
                     const allInRow = rowItem.items.map(i => i.info.videoId || i.videoId);
@@ -17914,20 +18051,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                 }
 
-                // Immediately update CSS classes for visual feedback
                 const liveRow = e.currentTarget.closest('.ypp-grid-row');
                 const rowItemsElements = (liveRow || rowEl).querySelectorAll('.ypp-grid-item');
                 rowItemsElements.forEach(el => {
                     el.classList.toggle('is-expanded', rowItem.expandedItemIds.has(el.dataset.videoId));
                 });
 
-                // Defer height recalculation until AFTER the CSS transition (300ms) so that
-                // _calculateOffsets reads the final post-transition offsetHeight, not mid-animation.
-                if (virtualScroller) {
-                    setTimeout(() => {
-                        if (virtualScroller) virtualScroller.updateHeights();
-                    }, 320);
-                }
+                scheduleHeightUpdate();
             }, {}, ModalDisposables);
 
             rowEl.appendChild(gridItem);
@@ -18785,19 +18915,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const actions = [
                     {
                         label: t('downloadBackup'),
-                        callback: () => {
+                        callback: async () => {
                             try {
                                 const jsonString = JSON.stringify(exportedDeletedData, null, 2);
                                 const blob = new Blob([jsonString], { type: 'application/json' });
-                                const url = URL.createObjectURL(blob);
-                                const a = document.createElement('a');
-                                a.href = url;
                                 const timestamp = new Date().toISOString().split('T')[0];
-                                a.download = `youtube-playback-plox-v${SCRIPT_VERSION}-auto-cleanup-${timestamp}.json`;
-                                document.body.appendChild(a);
-                                a.click();
-                                a.remove();
-                                URL.revokeObjectURL(url);
+                                const status = await downloadBlobMobileSafe(blob, `youtube-playback-plox-v${SCRIPT_VERSION}-auto-cleanup-${timestamp}.json`);
+                                if (status === 'copied') {
+                                    showFloatingToast(`${SVG_ICONS.upload} ${t('backupCopiedToClipboard')}`);
+                                } else if (status === 'opened') {
+                                    showFloatingToast(`${SVG_ICONS.upload} ${t('exportOpenedInTab')}`);
+                                }
                             } catch (e) {
                                 logError('runAutoCleanup', 'Error downloading cleanup backup:', e);
                             }

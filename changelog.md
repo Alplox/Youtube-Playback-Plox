@@ -1,4 +1,15 @@
 
+# 0.0.12-3
+
+## Fixed
+
+- **Export/Import backup broken on mobile browsers in desktop mode**: Added `downloadBlobMobileSafe()` helper that replaces the broken `<a>.click()` download pattern with a mobile-safe fallback chain: Web Share API (iOS/Android), File System Access API (desktop Chrome/Edge), open blob in new tab (mobile fallback where user can long-press to save), then `<a>.click()` as last resort. The function now returns a status string (`'shared'`/`'saved'`/`'downloaded'`/`'failed'`) so callers show the correct toast - on mobile the user sees "select where to save from the share menu" instead of a misleading "download complete". Import menu options are now `<label>` elements that directly trigger hidden `<input type="file">` elements.
+
+## Changed 
+
+- **.ypp-thumb**: Add CSS rule to fully display thumbnails in grid mode
+- **grid expand/collapse**: Replace max-height: 0/400px with grid-template-rows: 0fr/1fr, add transitionend listener for immediate scroller update, keep setTimeout as fallback for edge cases
+
 
 # 0.0.12-2
 
@@ -15,8 +26,8 @@
 - **Extracted `clearPlayerCache()` helper**: Replaced duplicated 4-line `DOMHelpers.removeExact` blocks in miniplayer observer with shared function.
 - **Extracted GM key helpers**: `prefixKey()`, `stripPrefix()`, `hasPrefix()` replacing 6 inline duplications of `key.startsWith('YT_PLAYBACK_PLOX_')`.
 - **Refactored `EventPreFilter`**: Object with single method → standalone `shouldDropVideoEvent()` function.
-- **Removed unused SELECTORS utilities**: `concat`, `join`, `within`, `dynamic.*`, `DOM.*` — zero call sites.
-- **Removed outer IIFE wrapper**: Main script `(() => {'use strict'; ... })()` removed — Tampermonkey already provides scope isolation.
+- **Removed unused SELECTORS utilities**: `concat`, `join`, `within`, `dynamic.*`, `DOM.*` - zero call sites.
+- **Removed outer IIFE wrapper**: Main script `(() => {'use strict'; ... })()` removed - Tampermonkey already provides scope isolation.
 - **Simplified `IndexedDBAdapter.isSupported`**: IIFE with try/catch → direct `typeof` check.
 - **Youtube-Helper-API**: bump to version 1.1.1 (from 1.0.5)
 
@@ -64,7 +75,7 @@
 - **`document.getElementById` without cache in `sessionTick` watchdog**: Replaced direct `document.getElementById` with `DOMHelpers.get()` for consistent DOM caching.
 - **`document.querySelectorAll` loop in `getActiveShortsControlsContainer`**: Wrapped entire function body in `DOMHelpers.get()` with 250ms TTL to cache the visible Shorts controls container, eliminating repeated 9-selector DOM loops.
 - **`item.playlistTitle` without `escapeHTML` in template**: Added `escapeHTML()` to `item.playlistTitle` in `renderItem` template string (XSS vector).
-- **`Set` → `WeakSet` for `miniplayerTransitions`/`previewTransitions`**: Both sets only use `.add()`/`.has()`/`.delete()` with DOM element keys — no iteration — making `WeakSet` the correct choice for memory safety.
+- **`Set` → `WeakSet` for `miniplayerTransitions`/`previewTransitions`**: Both sets only use `.add()`/`.has()`/`.delete()` with DOM element keys - no iteration - making `WeakSet` the correct choice for memory safety.
 - **`Promise.all` → `Promise.allSettled` in `batchLoadStorageData` and autoCleanup**: Changed both `Promise.all` to `Promise.allSettled` with fulfilled/rejected filtering, preventing a single rejected promise from aborting the entire batch or cleanup operation.
 - **6 raw `addEventListener` in `createFooterActionMenu` and `createCustomDropdown`**: Added `store` param to both functions with `addDisposableListener`. Callers pass `ModalDisposables`/`settingsDisposables`.
 - **3 orphaned timers without SPA navigation cleanup**: Added `deferredMiniplayerTimer` tracked in VideoObserverManager cleanup, `shortsRetryTimers` clearing in cleanup, and `navigationBootstrapTimer` with cancel on re-navigation.

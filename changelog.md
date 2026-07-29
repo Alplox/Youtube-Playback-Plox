@@ -10,11 +10,11 @@
 
 - **Copy to clipboard button in export menus**: Each export format (JSON, FreeTube) in the Saved Videos modal now has a copy icon next to it. Clicking the format name downloads the file; clicking the copy icon copies the raw data to clipboard. Works for both "Export All" and "Export Selected".
 
-## Changed 
+## Changed
 
 - **.ypp-thumb**: Add CSS rule to fully display thumbnails in grid mode
 - **grid expand/collapse**: Replace max-height: 0/400px with grid-template-rows: 0fr/1fr, add transitionend listener for immediate scroller update, keep setTimeout as fallback for edge cases
-
+- **Resume no longer overrides user seeks**: Added `isUserSeeking` flag per session, set automatically on detecting user-initiated seek events. Persistence Rescue, Rebound Seek, and Backward Jump Detection all check this flag before re-applying saved position. Only prevents retries - initial resume on video load still works normally.
 
 # 0.0.12-2
 

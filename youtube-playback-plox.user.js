@@ -13068,6 +13068,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 isFinalized: false,
                 isPlayerSettingsChange: false,
                 isAutoSaveAuthorized: false,
+                isUserSeeking: false,
+                _scriptSeekPending: false,
                 abortController
             };
             activeProcessingSessions.set(videoEl, session);
@@ -13345,6 +13347,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             };
             const handleSeekedForGradient = () => {
                 if (activeProcessingSessions.get(videoEl) !== sessionRef || sessionRef.isFinalized) return;
+                if (sessionRef._scriptSeekPending) {
+                    sessionRef._scriptSeekPending = false;
+                } else {
+                    sessionRef.isUserSeeking = true;
+                }
                 if (isLivePlaybackForGradient(videoEl, player, videoId, sessionRef)) return;
                 refreshProgressBarGradientForSession(videoEl, player, type, videoId);
                 scheduleProgressBarGradientRepaint(type, videoEl, player, videoId);
@@ -13519,7 +13526,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // If the video is still at 0s but we should have resumed, force a last-resort re-seek.
                 const sessionSavedData = sessionRef.savedData;
                 const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
-                if (tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !isCurrentlyAd) {
+                if (tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !isCurrentlyAd && !sessionRef.isUserSeeking) {
                     logWarn('sessionTick', `🆘 Persistence Rescue: The video is still at 0s after ${tickCount}s. Retrying resume...`);
                     PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef)
                         .catch(err => logError('sessionTick', `Error in persistence rescue for ${videoId}`, err));
@@ -14115,6 +14122,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     try {
                         // Apply seek via API if available, otherwise directly on the element
+                        if (session) session._scriptSeekPending = true;
                         if (typeof player?.seekTo === 'function') {
                             player.seekTo(safeTime, true);
                         } else {
@@ -14148,8 +14156,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                             const currentTime = videoEl.currentTime;
                             // If the time jumped backward by more than 5 seconds compared to the requested resume time
-                            if (safeTime > 10 && currentTime < (safeTime - 5)) {
+                            if (safeTime > 10 && currentTime < (safeTime - 5) && !session?.isUserSeeking) {
                                 logWarn('PlaybackController', `🔄 Backward jump detected after resume (${formatTime(safeTime)} -> ${formatTime(currentTime)}). Retrying persistence...`);
+                                if (session) session._scriptSeekPending = true;
                                 if (typeof player?.seekTo === 'function') {
                                     player.seekTo(safeTime, true);
                                 } else {
@@ -14253,11 +14262,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     // Rebound Seek: If the player sent us to the start, try to re-apply seek (max 3 times)
                     let retryCount = parseInt(videoEl.dataset.resumeRetries || '0', 10);
-                    if (retryCount < 3 && videoEl.dataset.lastResumedTime) {
+                    if (retryCount < 3 && videoEl.dataset.lastResumedTime && !session?.isUserSeeking) {
                         const targetTime = parseFloat(videoEl.dataset.lastResumedTime);
                         if (!isNaN(targetTime)) {
                             logLog('saveStatus', `🔄 Re-applying seek to ${targetTime}s due to forced YouTube reset... (Attempt ${retryCount + 1}/3)`);
                             try {
+                                if (session) session._scriptSeekPending = true;
                                 if (typeof player?.seekTo === 'function') player.seekTo(targetTime, true);
                                 else videoEl.currentTime = targetTime;
                                 videoEl.dataset.resumeRetries = (retryCount + 1).toString();

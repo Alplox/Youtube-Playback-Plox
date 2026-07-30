@@ -14,7 +14,7 @@
 
 - **.ypp-thumb**: Add CSS rule to fully display thumbnails in grid mode
 - **grid expand/collapse**: Replace max-height: 0/400px with grid-template-rows: 0fr/1fr, add transitionend listener for immediate scroller update, keep setTimeout as fallback for edge cases
-- **Resume no longer overrides user seeks**: Added `isUserSeeking` flag per session, set automatically on detecting user-initiated seek events. Persistence Rescue, Rebound Seek, and Backward Jump Detection all check this flag before re-applying saved position. Only prevents retries - initial resume on video load still works normally.
+- **Resume no longer overrides user seeks**: Added `isUserSeeking` flag per session, set automatically on detecting user-initiated seek events. Persistence Rescue, Rebound Seek, and Backward Jump Detection all check this flag before re-applying saved position. Only prevents retries - initial resume on video load still works normally. #54 - https://greasyfork.org/es/scripts/553387-youtube-playback-plox/discussions/336136
 
 # 0.0.12-2
 

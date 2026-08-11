@@ -1,4 +1,11 @@
 
+# 0.0.12-6
+
+## Added
+
+- **More debug context in copied logs header**: The "Copy Logs" output now includes `Userscript Manager` (`GM_info.scriptHandler` + `GM_info.version`), an `IDB` health line from a new `IndexedDBAdapter.diagnose()` (open OK?, store `savedVideos` present?, entry count via `store.count()`, on-disk DB version, current `navigator.storage.persisted()` grant, distinct `open FAILED (name: message)` on corruption/permission issues), and `Persistent storage` (granted/denied/unknown from the existing `navigator.storage.persist()` call, now captured instead of discarded). `getBackendInfo()` exposes `persistentStorageGranted`. `Safe Mode` (whether `FailSafeManager` has tripped - saving is disabled while active), `Active Sessions` (`activeProcessingSessions.size`, whether the session engine is running), and `Storage usage` (`navigator.storage.estimate()` in MB, to spot `QuotaExceededError` without opening `about:storage`).
+  - `YouTube Client` reads via a fallback chain because `window.yt`/`window.ytcfg` are page-world globals invisible from the userscript sandbox: `window.yt.config_` → `ytcfg.get()` → `ytcfg.data_` → `movie_player.getPlayerResponse().context.client.clientVersion` (DOM expando, reachable from any world) → regex scan of the inline `ytcfg.set(...)` script.
+
 # 0.0.12-5
 
 ## Fixed

@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.12-5
+// @version      0.0.12-6
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -220,7 +220,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-5';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-6';
 
     /**
      * @typedef {Object} YPPState
@@ -5759,6 +5759,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         let isReady = false;
         let initError = null;
         let readyPromise = null;
+        let persistentStorageGranted = null;
 
         /**
          * Initializes the async layer: detects IndexedDB, migrates data if needed, and populates cache.
@@ -5773,6 +5774,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (navigator.storage && navigator.storage.persist) {
                         try {
                             const isPersisted = await navigator.storage.persist();
+                            persistentStorageGranted = !!isPersisted;
                             logInfo(`Persistent storage: ${isPersisted ? 'GRANTED' : 'DENIED'}`);
                         } catch (persistErr) {
                             logWarn('Error requesting persistent storage:', persistErr);
@@ -5886,7 +5888,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 ready: isReady,
                 error: initError,
                 indexedDBSupported: IndexedDBAdapter.isSupported,
-                cacheSize: storageCache.size
+                cacheSize: storageCache.size,
+                persistentStorageGranted
             };
         }
 
@@ -6040,6 +6043,32 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return { entries: [], source: 'empty' };
         }
 
+        /**
+         * Reports storage health for the log header without throwing:
+         * whether the DB opens, whether the store exists, its entry count,
+         * the on-disk DB version, and the current persistent-storage grant.
+         * Distinguishes corruption/permission issues (openOk: false) from a
+         * healthy-but-empty DB (openOk: true, storePresent: true, entryCount: 0).
+         * @returns {Promise<{openOk: boolean, storePresent: boolean, entryCount: number, dbVersion: ?number, persisted: ?boolean, error: ?string}>}
+         */
+        async function diagnose() {
+            try {
+                const db = await openDatabase();
+                const storePresent = db.objectStoreNames.contains(STORE_NAME);
+                let entryCount = -1;
+                if (storePresent) {
+                    entryCount = await runInStore('readonly', (store) => store.count());
+                }
+                let persisted = null;
+                if (navigator.storage && typeof navigator.storage.persisted === 'function') {
+                    persisted = await navigator.storage.persisted();
+                }
+                return { openOk: true, storePresent, entryCount, dbVersion: db.version, persisted, error: null };
+            } catch (error) {
+                return { openOk: false, storePresent: false, entryCount: -1, dbVersion: null, persisted: null, error: `${error?.name || 'Error'}: ${error?.message || error}` };
+            }
+        }
+
         return {
             isSupported,
             bootstrap,
@@ -6052,7 +6081,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return enqueue(() => deleteEntry(key));
             },
             getAllEntries,
-            runInStore
+            runInStore,
+            diagnose
         };
     })();
 
@@ -10908,16 +10938,68 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         });
 
         // Copy Logs Logic
+        /**
+         * Best-effort InnerTube client version for the log header.
+         * window.yt / window.ytcfg are page-world globals and may be invisible
+         * from the userscript sandbox, so fall back to the player response
+         * (DOM expando, reachable from any world) and a scan of YouTube's
+         * inline ytcfg.set(...) script.
+         * @returns {string}
+         */
+        function getInnerTubeClientVersion() {
+            try {
+                if (typeof window.yt?.config_ !== 'undefined' && window.yt.config_.INNERTUBE_CLIENT_VERSION) {
+                    return window.yt.config_.INNERTUBE_CLIENT_VERSION;
+                }
+                if (typeof window.ytcfg?.get === 'function') {
+                    const viaGet = window.ytcfg.get('INNERTUBE_CLIENT_VERSION');
+                    if (viaGet) return viaGet;
+                }
+                if (typeof window.ytcfg?.data_ !== 'undefined' && window.ytcfg.data_.INNERTUBE_CLIENT_VERSION) {
+                    return window.ytcfg.data_.INNERTUBE_CLIENT_VERSION;
+                }
+                const player = typeof DOMHelpers !== 'undefined' && typeof DOMHelpers.getWatchPlayer === 'function' ? DOMHelpers.getWatchPlayer() : null;
+                const playerResponse = player && typeof player.getPlayerResponse === 'function' ? player.getPlayerResponse() : null;
+                if (playerResponse?.context?.client?.clientVersion) {
+                    return playerResponse.context.client.clientVersion;
+                }
+                for (const script of document.querySelectorAll('script')) {
+                    const match = script.textContent && script.textContent.match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)"/);
+                    if (match) return match[1];
+                }
+            } catch (_) {}
+            return 'unknown';
+        }
+
         const copyLogsBtn = bodyModalSettings.querySelector('#ypp-copy-logs-btn');
         if (copyLogsBtn) {
             addDisposableListener(copyLogsBtn, 'click', async () => {
                 const storageInfo = typeof StorageAsync !== 'undefined' ? StorageAsync.getBackendInfo() : { error: 'StorageAsync not available' };
+                const idbDiag = (typeof IndexedDBAdapter !== 'undefined' && typeof IndexedDBAdapter.diagnose === 'function')
+                    ? await IndexedDBAdapter.diagnose()
+                    : null;
+                let storageEstimate = null;
+                if (navigator.storage && typeof navigator.storage.estimate === 'function') {
+                    try {
+                        storageEstimate = await navigator.storage.estimate();
+                    } catch (_) { storageEstimate = null; }
+                }
+                const innerTubeClientVersion = getInnerTubeClientVersion();
+                const safeModeActive = (typeof FailSafeManager !== 'undefined' && typeof FailSafeManager.isSafeMode === 'function') ? FailSafeManager.isSafeMode() : null;
+                const activeSessions = (typeof activeProcessingSessions !== 'undefined') ? activeProcessingSessions.size : null;
                 const logData = [
                     `--- YouTube Playback Plox Logs ---`,
                     `Script Version: ${SCRIPT_VERSION}`,
                     `Current Settings: ${JSON.stringify(cachedSettings)}`,
                     `User Agent: ${navigator.userAgent}`,
+                    `Userscript Manager: ${typeof GM_info !== 'undefined' ? (GM_info.scriptHandler || 'Unknown') + (GM_info.version ? ` (${GM_info.version})` : '') : 'Not detected'}`,
+                    `YouTube Client: ${innerTubeClientVersion}`,
+                    `Safe Mode: ${safeModeActive === null ? 'unknown' : safeModeActive ? 'ACTIVE (saving disabled)' : 'off'}`,
+                    `Active Sessions: ${activeSessions === null ? 'unknown' : activeSessions}`,
                     `Storage Backend: ${storageInfo.indexedDBSupported ? 'IndexedDB' : 'Fallback'} (Cache: ${storageInfo.cacheSize || 0})`,
+                    `IDB: ${idbDiag ? (idbDiag.openOk ? `open OK, v${idbDiag.dbVersion ?? '?'}, store ${idbDiag.storePresent ? `'savedVideos' (${idbDiag.entryCount} entries)` : 'MISSING'}` : `open FAILED (${idbDiag.error})`) : 'diagnose unavailable'}`,
+                    `Persistent storage: ${storageInfo.persistentStorageGranted === null || storageInfo.persistentStorageGranted === undefined ? 'unknown' : storageInfo.persistentStorageGranted ? 'granted' : 'denied'}`,
+                    `Storage usage: ${storageEstimate && Number.isFinite(storageEstimate.usage) && Number.isFinite(storageEstimate.quota) ? `${(storageEstimate.usage / 1048576).toFixed(1)} / ${(storageEstimate.quota / 1048576).toFixed(1)} MB` : 'unknown'}`,
                     `Date: ${new Date().toISOString()}`,
                     `Current URL: ${window.location.href}`,
                     `----------------------------------`,

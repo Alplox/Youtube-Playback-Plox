@@ -44,6 +44,19 @@ The in-script error log and copied logs now include the error type, so you can t
 - `Error in IndexedDB queue (InvalidStateError | TransactionInactiveError)` → dead/closed connection mid-session, now self-healing via `onclose`.
 - `Error in IndexedDB queue (QuotaExceededError)` → storage full; persists after reload until data is freed. Clear via `indexedDB.deleteDatabase('YTPlaybackPloxDB')` + reload (loses saved data).
 
+#### Log header diagnostics (since 0.0.12-6)
+The copied log header now carries extra lines for triage:
+
+- `Userscript Manager: Tampermonkey vX.Y` (from `GM_info.scriptHandler` + `GM_info.version`).
+- `YouTube Client: <InnerTube version>` — correlates "stopped working" with a YouTube update.
+- `Safe Mode: ACTIVE (saving disabled)` → `FailSafeManager` tripped a loop/error guard; saves are intentionally paused until it recovers.
+- `Active Sessions: N` — if N is 0 while a video is playing, the session engine never started (detection problem, not storage).
+- `IDB: open OK, v1, store 'savedVideos' (N entries)` → storage healthy. `IDB: open OK, store MISSING` → store vanished (corruption/partial clear). `IDB: open FAILED (name: message)` → `indexedDB.open()` rejects (corruption/permissions/version lock); since the open retries on every operation, a FAILED here is persistent, not a zombie.
+- `Persistent storage: granted/denied/unknown` → result of `navigator.storage.persist()`. `diagnose()` also reads the current `navigator.storage.persisted()` state.
+- `Storage usage: X / Y MB` → `navigator.storage.estimate()`; if usage approaches quota, expect `QuotaExceededError`.
+
+Things that **cannot** be auto-detected and must be verified manually: expand the error in DevTools (F12) for the real `DOMException.name`, check `about:preferences#privacy` for Strict Tracking Protection affecting youtube.com storage, and reproduce in a clean Firefox profile / normal (non-private) window.
+
 #### Check Storage Backend Status
 ```javascript
 // In browser console:

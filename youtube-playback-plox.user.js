@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.12-3
+// @version      0.0.12-4
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -220,7 +220,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-3';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-4';
 
     /**
      * @typedef {Object} YPPState
@@ -8213,7 +8213,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }));
 
             if (storageResult && !storageResult.success) {
-                return { success: false, reason: storageResult.reason, videoId, type: 'live' };
+                return { success: false, reason: storageResult.reason, videoId, type: 'live', error: storageResult.error };
             }
             return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'live', savedData: videoData };
         }
@@ -8334,7 +8334,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }));
 
         if (storageResult && !storageResult.success) {
-            return { success: false, reason: storageResult.reason, videoId, type: finalType };
+            return { success: false, reason: storageResult.reason, videoId, type: finalType, error: storageResult.error };
         }
 
         return { success: true, videoId, watchProgress: videoData.watchProgress, type: finalType, savedData: videoData };
@@ -13635,7 +13635,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (indicativeReasons.includes(result.reason)) {
                         session.silentFailureCount = (session.silentFailureCount || 0) + 1;
                         if (session.silentFailureCount >= 8) {
-                            showFloatingToast(`⚠️ Save blocked [${type}] ${videoId}: ${result.reason}`, 5000);
+                            const errDetail = result?.error
+                                ? (typeof result.error === 'string' ? result.error : (result.error?.message || result.error?.name || ''))
+                                : '';
+                            const errSnippet = errDetail ? ` — ${errDetail.slice(0, 120)}` : '';
+                            showFloatingToast(`⚠️ Save blocked [${type}] ${videoId}: ${result.reason}${errSnippet}`, 5000);
                             session.silentFailureCount = 0;
                         }
                     } else {
@@ -14386,7 +14390,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Show an alert if storage is full
                 if (result?.reason === 'storage_full') {
-                    showFloatingToast(`${SVG_ICONS.warning} ${t('storageFull')}`, 6000, { persistent: true });
+                    const errDetail = result?.error
+                        ? (typeof result.error === 'string' ? result.error : (result.error?.message || result.error?.name || ''))
+                        : '';
+                    const errSnippet = errDetail ? ` — ${errDetail.slice(0, 120)}` : '';
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('storageFull')}${errSnippet}`, 6000, { persistent: true });
                 }
 
                 // Notify progress if the save succeeded or is manual

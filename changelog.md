@@ -1,4 +1,10 @@
 
+# 0.0.12-4
+
+## Changed
+
+- **"Save blocked" toast hid the real error detail**: The `internalSaveVideoGeneric` return paths (both live and standard) discarded the underlying `error` from `Storage.set`, so the "Save blocked: storage_error" toast only showed the generic reason. `error` is now propagated and surfaced in the toast (truncated to 120 chars) alongside the reason for both the "Save blocked" alert and the persistent "storage full" alert, so users can report the actual browser error without opening the console/modal config. #56
+
 # 0.0.12-3
 
 ## Fixed

@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.12-4
+// @version      0.0.12-5
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -169,7 +169,7 @@
         _internalPushLog: (c, a) => {
             const timestamp = new Date().toISOString();
             const errorDetails = a.map(arg => {
-                if (arg instanceof Error) return arg.stack || arg.message;
+                if (arg instanceof Error) return `${arg.name}: ${arg.message}${arg.stack ? '\n' + arg.stack : ''}`;
                 if (typeof arg === 'object') {
                     try { return JSON.stringify(arg, null, 2); }
                     catch (e) { return '[Object (Unstringifiable)]'; }
@@ -220,7 +220,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-4';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-5';
 
     /**
      * @typedef {Object} YPPState
@@ -5920,8 +5920,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             db.createObjectStore(STORE_NAME, { keyPath: 'key' });
                         }
                     };
-                    request.onsuccess = () => resolve(request.result);
-                    request.onerror = () => reject(request.error);
+                    request.onsuccess = () => {
+                        const db = request.result;
+                        // Invalidate the cached connection so the next operation
+                        // reopens it cleanly if it is closed unexpectedly
+                        // (e.g. versionchange from another tab, storage eviction).
+                        db.onclose = () => { dbPromise = null; };
+                        db.onversionchange = () => { db.close(); dbPromise = null; };
+                        resolve(db);
+                    };
+                    request.onerror = () => {
+                        // Invalidate the promise so a transient open failure
+                        // (e.g. storage locked) is retried on the next operation.
+                        // A persistent open failure (corruption/permissions)
+                        // will keep logging this distinct message.
+                        dbPromise = null;
+                        logError('IndexedDBAdapter', 'Database open failed, will retry on next operation:', request.error);
+                        reject(request.error);
+                    };
                     request.onblocked = () => logWarn('IndexedDBAdapter', 'Initialization blocked, waiting for previous tabs');
                 } catch (error) {
                     reject(error);
@@ -5969,7 +5985,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 .catch((_err) => { logWarn('IndexedDBAdapter', 'Error in operation queue', _err); })
                 .then(() => operation())
                 .catch((error) => {
-                    logError('IndexedDBAdapter', 'Error in IndexedDB queue', error);
+                    logError('IndexedDBAdapter', `Error in IndexedDB queue (${error?.name || 'UnknownError'}): ${error?.message || 'no message'}`, error);
                     throw error;
                 });
             return operationQueue;

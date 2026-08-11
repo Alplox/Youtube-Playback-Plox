@@ -1,4 +1,14 @@
 
+# 0.0.12-5
+
+## Fixed
+
+- **Saves silently stopped until page reload ("Error in IndexedDB queue")**: `IndexedDBAdapter` cached the `IDBDatabase` connection (`dbPromise`) forever. If the connection died after opening (another tab triggering a `versionchange`, storage eviction/clearing), every later `runInStore()` reused the dead connection and all transactions failed. `openDatabase()` now registers `db.onclose` and `db.onversionchange` to invalidate `dbPromise` and close politely, so the next operation reopens a fresh connection instead of failing until reload. #56
+
+## Changed
+
+- **Diagnostic logging for storage errors**: The internal error log (`MyScriptLogger._internalPushLog`) now stores `Error.name: message` plus the stack instead of only the stack, so copied/modal logs show the error type. `IndexedDBAdapter.enqueue` logs the explicit error name/message (`Error in IndexedDB queue (QuotaExceededError): ...`). `openDatabase` now invalidates `dbPromise` and logs a distinct `Database open failed` message when `indexedDB.open()` itself fails, separating open-failure (corruption/permissions/quota-at-init) from mid-session transaction failures - both used to produce the identical log line.
+
 # 0.0.12-4
 
 ## Changed

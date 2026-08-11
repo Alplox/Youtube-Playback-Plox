@@ -34,6 +34,16 @@
 
 ### Troubleshooting Storage Issues
 
+#### Zombie IndexedDB connection ("Error in IndexedDB queue")
+If a browser tab stops saving/resuming until reload and the console logs repeated `Error in IndexedDB queue ... runInStore/IndexedDBAdapter`, the cached `IDBDatabase` connection was left in a dead state (e.g. another tab triggered a `versionchange`, or storage was evicted/cleared). `openDatabase()` now registers `db.onclose`/`db.onversionchange` to invalidate `dbPromise` so the next operation reopens the connection. If this recurs with no `onclose`-related cause, check for `QuotaExceededError` (storage full - a user data problem, not a bug) - the "storage full" toast shows the real browser error since 0.0.12-4.
+
+#### Reading storage error logs (since 0.0.12-5)
+The in-script error log and copied logs now include the error type, so you can tell the failure mode from the first line:
+
+- `Database open failed` at load → `indexedDB.open()` itself fails: corruption, blocked storage permissions, or a browser bug. Check `Storage.getBackendInfo()` (`ready: false`), Firefox `about:storage` for site usage, and test with a clean profile.
+- `Error in IndexedDB queue (InvalidStateError | TransactionInactiveError)` → dead/closed connection mid-session, now self-healing via `onclose`.
+- `Error in IndexedDB queue (QuotaExceededError)` → storage full; persists after reload until data is freed. Clear via `indexedDB.deleteDatabase('YTPlaybackPloxDB')` + reload (loses saved data).
+
 #### Check Storage Backend Status
 ```javascript
 // In browser console:

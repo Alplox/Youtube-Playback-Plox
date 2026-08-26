@@ -1436,7 +1436,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 try {
                     await navigator.share({ files: [file], title: filename });
                     return 'shared';
-                } catch (_) { /* user cancelled or unsupported, fall through */ }
+                } catch (_) { logLog('downloadBlobMobileSafe', 'Web Share failed/cancelled, falling through', _); }
             } else {
                 triedShare = true; // mobile browser but can't share files → enable clipboard/new-tab fallbacks
             }
@@ -1450,7 +1450,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 await writable.write(blob);
                 await writable.close();
                 return 'saved';
-            } catch (_) { /* user cancelled or unsupported, fall through */ }
+            } catch (_) { logLog('downloadBlobMobileSafe', 'showSaveFilePicker failed/cancelled, falling through', _); }
         }
 
         const url = URL.createObjectURL(blob);
@@ -1463,7 +1463,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     await navigator.clipboard.writeText(await blob.text());
                     setTimeout(() => URL.revokeObjectURL(url), 100);
                     return 'copied';
-                } catch (_) { /* permission denied, fall through */ }
+                } catch (_) { logLog('downloadBlobMobileSafe', 'Clipboard write denied, falling through', _); }
             }
             // 3b. Open in new tab - last resort on mobile
             try {
@@ -1472,7 +1472,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     setTimeout(() => URL.revokeObjectURL(url), 5000);
                     return 'opened';
                 }
-            } catch (_) { /* popup blocked, fall through */ }
+            } catch (_) { logLog('downloadBlobMobileSafe', 'window.open blocked/failed, falling through', _); }
         }
 
         // 4. Desktop fallback: <a> download click (works on desktop browsers and Android Chrome)
@@ -7167,8 +7167,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (navigator.clipboard?.writeText) {
                 await navigator.clipboard.writeText(text);
             } else {
+                // NOTE: createElement requires `props` for element properties;
+                // a bare `value` key would be silently ignored (empty copy).
                 const textarea = createElement('textarea', {
-                    value: text,
+                    props: { value: text },
                     attributes: { readonly: 'true' },
                     styles: { position: 'fixed', opacity: '0', pointerEvents: 'none' }
                 });
@@ -7437,7 +7439,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             if (fileResponse.status === 200) {
                                 try {
                                     sha = JSON.parse(fileResponse.responseText).sha;
-                                } catch (_) { /* sha stays null, file will be created */ }
+                                } catch (_) { logLog('backupToGithubRepository', 'Could not read existing file SHA (will create new file)', _); }
                             }
 
                             // 3. Upload/update the file
@@ -8051,7 +8053,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // Extract only the array part if there's garbage around it (common in binaries)
                     const arrayMatch = trimmed.match(/\[.*\]/s);
                     if (arrayMatch) jsonObjects.push(...JSON.parse(arrayMatch[0]));
-                } catch (e) { /* continuar */ }
+                } catch (e) { logLog('parseFreeTubeDB', 'Array extraction failed, falling back to object scan', e); }
             }
 
             // 2. If that failed or is not an array, search for individual objects (NDJSON or binary scan)
@@ -8062,7 +8064,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     try {
                         const obj = JSON.parse(match[0].replace(/,\s*}/g, '}'));
                         if (obj.videoId) jsonObjects.push(obj);
-                    } catch (e) { /* ignore corrupt line/segment */ }
+                    } catch (e) { logLog('parseFreeTubeDB', 'Skipping corrupt line/segment during NDJSON scan'); }
                 }
             }
 
@@ -8681,7 +8683,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 case 'browse': return 'browse';
                 case 'search': return 'search';
             }
-        } catch { /* ytd-app data may be unavailable during navigation */ }
+        } catch (e) { logLog('getTypeFromYtApp', 'ytd-app data unavailable during navigation', e); }
 
         return null;
     }
@@ -15960,7 +15962,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const dummyStats = createElement('div', {
                 className: 'ypp-virtual-stats',
                 id: 'ypp-virtual-stats',
-                style: 'display: none;',
+                styles: { display: 'none' },
                 html: `${SVG_ICONS.spinner} ${t('loading')}...`
             });
             container.appendChild(dummyStats);
@@ -16765,7 +16767,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             html: `${SVG_ICONS.funnel} ${t('advancedFilters')}`
         });
 
-        const filterBadge = createElement('span', { className: 'ypp-active-filter-badge', style: 'display: none;' });
+        const filterBadge = createElement('span', { className: 'ypp-active-filter-badge', styles: { display: 'none' } });
         advancedToggleBtn.appendChild(filterBadge);
 
         searchContainer.appendChild(advancedToggleBtn);

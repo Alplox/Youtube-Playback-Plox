@@ -3,6 +3,10 @@
 
 ## Fixed
 
+- **Second clipboard fallback also copied nothing** (`copyExportDataToClipboard`): another `createElement('textarea', { value })` call used an unsupported option key, producing an empty copy on browsers without the Clipboard API. Found by the new `scripts/audit-lint.mjs` static checker.
+- **Advanced-filters badge was always visible / dummy stats never hidden**: two `createElement()` calls passed `style: 'display: none;'` as a string, a key that is silently ignored - elements rendered visible instead of hidden. Converted to object-based `styles`.
+- **Empty catch blocks now comply with logging conventions**: fallback-chain catches in `downloadBlobMobileSafe`, GitHub SHA lookup, FreeTube DB parser and page-type detection previously carried intent only as comments; they now emit debug-level `logLog` entries so failures are diagnosable without polluting production logs.
+
 - **`YPP.destroy` threw `ReferenceError` - teardown never ran**: `destroy()` referenced a non-existent `cleanup` identifier, so on re-injection/hot-reload the previous instance's observers, intervals, sessions and listeners were never torn down (error swallowed by the caller's try/catch). `destroy` now performs a real teardown: `VideoObserverManager.cleanup(false)` + theme observer + `GlobalDisposables.dispose()`.
 - **Init guard marked `'initialized'` before bootstrap ran**: `YPP.status` flipped to `'initialized'` thousands of lines before observers/config existed; a mid-evaluation throw left an unrecoverable half-initialized state that re-injection refused to fix ("Already initialized"). Status is now set to `'initialized'` only after full setup. Also preserved `initializationPromise` after completion so a late re-invocation can't duplicate menu commands/listeners/floating button.
 - **Ad recovery was dead code**: when a session was killed by an ad, `videoTypeCache` kept its stale entry, so the post-ad re-enqueue was silently dropped by the "already processed" guard. The cache is now invalidated before re-enqueue (ad recovery) and in the `context_mismatch` recovery timer via new `VideoObserverManager.invalidateTypeCache()`.

@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.12-6
+// @version      0.0.12-7
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
@@ -220,7 +220,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-6';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-7';
 
     /**
      * @typedef {Object} YPPState
@@ -268,14 +268,20 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         YPP.destroy = () => {
             if (YPP.instanceId !== INSTANCE_ID) return;
             try {
-                cleanup?.(false);
+                // Real teardown: stop sessions/observers, disconnect theme observer and
+                // dispose all globally tracked listeners of THIS instance. These symbols
+                // are defined later in the script but are resolved lazily here, which is
+                // safe because destroy() is only invoked after full initialization.
+                VideoObserverManager?.cleanup?.(false);
+                cleanupThemeObserver?.();
+                cleanupGlobalListeners?.();
             } finally {
                 delete window.__YPP__;
             }
         };
 
-        YPP.status = 'initialized';
-        logLog('YPP', `Initialized v${SCRIPT_VERSION}`);
+        YPP.status = 'initializing';
+        logLog('YPP', `Instance registered v${SCRIPT_VERSION}`);
     } catch (e) {
         YPP.status = 'error';
         logError('YPP', 'Initialization failed', e);
@@ -897,11 +903,15 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     if (isValid) {
                         logInfo('loadTranslations', 'External translations loaded correctly from: ' + url);
 
-                        // Cache payload asynchronously
+                        // Cache payload asynchronously.
+                        // NOTE: `version` must store the EXPECTED script version used for
+                        // validation on read. Storing the remote file's VERSION here made a
+                        // remote/script version mismatch permanently invalidate the cache,
+                        // turning the 6h TTL into dead code (refetch on every page load).
                         try {
                             await Storage.set(CACHE_KEY, {
                                 ts: Date.now(),
-                                version: candidate.VERSION ?? candidate.__metadata__?.VERSION ?? TRANSLATIONS_EXPECTED_VERSION ?? null,
+                                version: TRANSLATIONS_EXPECTED_VERSION ?? null,
                                 data: candidate
                             });
                         } catch (_) { logWarn('loadTranslations', 'Failed to cache translations on storage'); }
@@ -988,11 +998,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             .replace(/gh[pousr]_[a-zA-Z0-9]{36,255}/g, '[REDACTED_TOKEN]')
             // Other generic tokens in JSON
             .replace(/"token"\s*:\s*"[^"]+"/g, '"token": "[REDACTED]"')
-            // Gist IDs (32 hex chars) - Conservative sanitization
-            .replace(/\b[a-f0-9]{20,40}\b/g, (match) => {
-                // Redact only if it is a long hex string (GitHub IDs)
-                return match.length >= 20 ? '[REDACTED_ID]' : match;
-            });
+            // Gist IDs (32 hex chars) - Conservative sanitization.
+            // The regex already guarantees length >= 20, so no per-match branch needed.
+            .replace(/\b[a-f0-9]{20,40}\b/g, '[REDACTED_ID]');
     }
 
     // MARK: 🔧 Is Visibly Displayed
@@ -1044,7 +1052,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     const formatTime = (input) => {
         const seconds = Number(input);
         if (!Number.isFinite(seconds) || seconds < 0) {
-            logError('formatTime', 'Invalid input:', input);
+            // logWarn, not logError: recoverable UI input (e.g. live streams with
+            // Infinity duration); logError would flood the support ring buffer.
+            logWarn('formatTime', 'Invalid input:', input);
             return '00:00';
         }
 
@@ -1161,7 +1171,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 );
             }
             return null;
-        } catch { return null; }
+        } catch (e) { logWarn('getUrlTimeParamSeconds', 'URL time param parse failed', e); return null; }
     };
 
     // MARK: ⏳ delay
@@ -1181,18 +1191,26 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     */
 
     let _ttPolicy = null;
+    let _ttPolicyFailed = false;
     function getTrustedTypesPolicy() {
         if (_ttPolicy) return _ttPolicy;
+        // Memoize failure: without this, every setInnerHTML call re-attempts
+        // createPolicy, throwing and spamming the error log on each render.
+        if (_ttPolicyFailed) return null;
         if (window.trustedTypes && window.trustedTypes.createPolicy) {
-            // Name with version to avoid collisions on hot-reload or double injection
-            const policyName = `youtube-playback-plox-${(GM_info?.script?.version ?? 'x').replace(/\./g, '-')}`;
+            // Unique name suffix avoids collisions on hot-reload or double injection
+            // (a colliding policy name throws and would previously disable rendering).
+            const uniqueSuffix = globalThis.crypto?.randomUUID?.().slice(0, 8) ??
+                `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+            const policyName = `youtube-playback-plox-${(GM_info?.script?.version ?? 'x').replace(/\./g, '-')}-${uniqueSuffix}`;
             try {
                 _ttPolicy = window.trustedTypes.createPolicy(policyName, {
                     createHTML: (html) => html                 // Pass-through without sanitization: script only uses self-generated HTML
                 });
                 logInfo('getTrustedTypesPolicy', `Trusted Types policy "${policyName}" created.`);
             } catch (e) {
-                logError('getTrustedTypesPolicy', 'Failed to create policy (possibly already exists).', e);
+                _ttPolicyFailed = true;
+                logError('getTrustedTypesPolicy', 'Failed to create policy.', e);
             }
         }
         return _ttPolicy;
@@ -1203,7 +1221,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
         // Empty string: clear all children directly
         if (html === '') {
-            while (element.firstChild) element.removeChild(element.firstChild);
+            element.replaceChildren();
             return;
         }
 
@@ -1221,16 +1239,20 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 element.innerHTML = policy.createHTML(html);
                 return;
             } catch (e) {
-                logError('setInnerHTML', 'Trusted Types policy failed, using direct assignment.', e);
+                logError('setInnerHTML', 'Trusted Types policy failed, using DOMParser fallback.', e);
             }
         }
 
-        // Safe fallback: createContextualFragment + replaceChildren
-        // Avoids direct innerHTML to maintain Trusted Types compatibility
-        const range = document.createRange();
-        range.selectNodeContents(element);
-        const fragment = range.createContextualFragment(html);
-        element.replaceChildren(fragment);
+        // Safe fallback via DOMParser: unlike innerHTML= and Range.createContextualFragment,
+        // DOMParser is NOT a Trusted Types injection sink, so this path keeps working in
+        // TT-enforcing environments even when no policy could be created.
+        try {
+            const parsed = new DOMParser().parseFromString(`<body>${html}</body>`, 'text/html');
+            element.replaceChildren(...parsed.body.childNodes);
+        } catch (e) {
+            logError('setInnerHTML', 'DOMParser fallback failed; clearing content.', e);
+            element.replaceChildren();
+        }
     }
 
 
@@ -1543,7 +1565,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         if (!target) return () => { };
         target.addEventListener(type, handler, options);
         const dispose = () => target.removeEventListener(type, handler, options);
-        if (store) store.add(dispose);
+        // An explicitly-null store must not leave a listener untracked either:
+        // fall back to GlobalDisposables so every listener stays auditable.
+        const targetStore = store ?? GlobalDisposables;
+        targetStore.add(dispose);
         return dispose;
     }
 
@@ -1874,10 +1899,18 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
         /**
          * Check if a value exists in the cache.
+         * Refreshes recency (MRU bump) to stay consistent with get(): otherwise a
+         * has()+get() pattern could evict a hot key.
          * @param {string} key 
          * @returns {boolean}
          */
-        has(key) { return this.cache.has(key); }
+        has(key) {
+            if (!this.cache.has(key)) return false;
+            const value = this.cache.get(key);
+            this.cache.delete(key);
+            this.cache.set(key, value);
+            return true;
+        }
 
         /**
          * Delete a value from the cache.
@@ -1927,6 +1960,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         const DEFAULT_TTL_MS = 125;
 
         /**
+         * Hard cap for any cache entry lifetime (ms), used by the opportunistic sweep.
+         * Entries older than this are evicted even if their key is never re-read.
+         * @type {number}
+         */
+        const MAX_ENTRY_TTL_MS = 5000;
+
+        /**
          * Get a cached value or recalculate it if expired.
          * @template T
          * @param {string} key - Unique cache key.
@@ -1948,8 +1988,22 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             // Calculate the value
             const value = getter();
 
-            // Store it in the cache
-            cache.set(key, { ts: now, value });
+            // Opportunistic sweep: drop expired entries so detached elements and
+            // dynamic keys don't accumulate for the whole page lifetime.
+            if (cache.size > 64) {
+                for (const [k, e] of cache) {
+                    if ((now - e.ts) > MAX_ENTRY_TTL_MS) cache.delete(k);
+                }
+            }
+
+            // Don't cache nullish results: during SPA transitions a getter legitimately
+            // returns null until YouTube mounts the node; caching that absence would
+            // serve null for the full TTL and delay detection after navigation.
+            if (value !== null && value !== undefined) {
+                cache.set(key, { ts: now, value });
+            } else {
+                cache.delete(key);
+            }
 
             return value;
         };
@@ -2044,14 +2098,17 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                         return null;
                     }
 
-                    logInfo('DOMHelpers', {
+                    // Lazy thunk: the logger supports functions and skips evaluation when
+                    // silenced. Passing an eager object executed 3 querySelectors + a full
+                    // querySelectorAll('video') on every call even with logging disabled.
+                    logInfo('DOMHelpers', () => ({
                         isWatchPage: isWatchPage,
                         watchContainer: !!watchContainer,
                         playerInContainer: !!watchContainer?.querySelector(SELECTORS.player.movie),
                         moviePlayer: !!document.querySelector(SELECTORS.player.movie),
                         fallbackPlayer: !!document.querySelector(SELECTORS.CLASSES.HTML5_VIDEO_PLAYER),
                         videos: document.querySelectorAll('video').length
-                    });
+                    }));
 
                     return player;
                 }),
@@ -3405,8 +3462,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     -webkit-appearance: textfield;
     appearance: textfield;
     /* Remove arrows in Chrome/Safari */
-    &::outer-spin-button,
-    &::inner-spin-button {
+    &::-webkit-outer-spin-button,
+    &::-webkit-inner-spin-button {
+        -webkit-appearance: none;
         margin: 0;
     }
     &:focus {
@@ -3511,8 +3569,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     transition: background 0.15s, color 0.15s;
 }
 .ypp-footer-action-menu-copy:hover {
-    background: var(--ypp-bg-hover);
-    color: var(--ypp-text-primary);
+    /* Use defined tokens: --ypp-bg-hover / --ypp-text-primary don't exist anywhere */
+    background: var(--ypp-bg-secondary-hover);
+    color: var(--ypp-text);
 }
 .ypp-footer-action-menu-option[disabled],
 .ypp-btn[disabled] {
@@ -4541,7 +4600,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 }
 .ypp-github-tab {
     flex: 1;
-    padding: 8px;
     text-align: center;
     cursor: pointer;
     border-radius: 6px 6px 0 0;
@@ -4660,15 +4718,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         border-color: var(--ypp-primary);
         background: var(--ypp-bg-secondary);
         color: var(--ypp-text);
-        &::input-placeholder {
-            color: var(--ypp-text);
-        }
         &::placeholder {
             color: var(--ypp-text);
         }
-    }
-    &::input-placeholder {
-        color: var(--ypp-text-secondary);
     }
     &::placeholder {
         color: var(--ypp-text-secondary);
@@ -4788,18 +4840,6 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     font-weight: bold;
     text-transform: uppercase;
 }
-/* .ypp-support-options {
-    border-top: 1px solid var(--ypp-border);
-    font-size: 1.4rem;
-    color: var(--ypp-text);
-    background: var(--ypp-bg-secondary);
-    /* display: flex;
-    flex-direction: column;
-    gap: var(--ypp-spacing-md); */
-    background: var(--ypp-border);
-    border-radius: 6px;
-    padding: 10px;
-} */
 .ypp-management-footer-container {
     display: flex;
     flex-direction: column;
@@ -6186,13 +6226,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          */
         async del(key) {
             if (isNonVideoStorageKey(key)) {
+                // Hoisted above the try: referencing it inside the catch used to throw
+                // a ReferenceError (block-scoped), turning a logged warning into an
+                // unhandled rejection for callers awaiting Storage.del().
+                const gmKey = prefixKey(key);
                 try {
-                    const gmKey = prefixKey(key);                    if (typeof GM_deleteValue === 'function') {
+                    if (typeof GM_deleteValue === 'function') {
                         await GM_deleteValue(gmKey);
                     } else {
                         await GM_setValue(gmKey, null);
                     }
-                } catch (_) { logWarn('Storage', `Failed to delete GM key "${gmKey}"`); }
+                } catch (_) { logWarn('Storage', `Failed to delete GM key "${gmKey}"`, _); }
                 // If the key existed in IDB (legacy), also delete it for cleanup
                 try { await StorageAsync.del(key); } catch (_) { logWarn('Storage', `Failed to delete IDB legacy key "${key}"`); }
                 return;
@@ -6550,7 +6594,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 _lastAdResult = null;
                 return null;
-            } catch (_) {
+            } catch (e) {
+                logWarn('AdDetector', 'findVisibleAdUi query failed', e);
                 return null;
             }
         },
@@ -6841,7 +6886,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             const { startIdx, endIdx } = this._getVisibleRange();
 
-            // Cleanup: remove items outside range
+            // Cleanup: remove items rendered outside the visible range (plus buffer).
+            // Without this eviction, scrolling a long list renders and retains EVERY
+            // item subtree until the modal closes, defeating the virtualization.
+            for (const [idx, el] of this.renderedItems) {
+                if (idx < startIdx - this.bufferSize || idx >= endIdx + this.bufferSize) {
+                    if (!this.renderingItems.has(idx)) {
+                        el.remove();
+                        this.renderedItems.delete(idx);
+                    }
+                }
+            }
 
             // Render: add new items
             const renderPromises = [];
@@ -6898,7 +6953,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 this.renderedItems.set(index, el);
 
             } catch (err) {
-                logError('[VirtualScroller] Error rendering item:', index, err);
+                logError('VirtualScroller', `Error rendering item ${index}`, err);
             } finally {
                 this.renderingItems.delete(index);
             }
@@ -7246,35 +7301,53 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     'Content-Type': 'application/json'
                 },
                 data: JSON.stringify(gistData),
+                timeout: 60000,
                 onload: async (response) => {
-                    if (response.status >= 200 && response.status < 300) {
+                    // Wrap everything: an uncaught exception here (invalid JSON body,
+                    // missing result.id, storage failure) would leave the promise
+                    // unresolved forever and stall the whole auto-backup chain.
+                    try {
+                        if (response.status >= 200 && response.status < 300) {
 
-                        const result = JSON.parse(response.responseText);
+                            const result = JSON.parse(response.responseText);
+                            if (!result || typeof result.id !== 'string') {
+                                throw new Error('Malformed GitHub response: missing gist id');
+                            }
 
-                        // Update the current object for UI feedback if the modal is open
-                        // Persist sync metadata
-                        let storedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
-                        if (!storedSettings.gist) storedSettings.gist = {};
+                            // Update the current object for UI feedback if the modal is open
+                            // Persist sync metadata
+                            let storedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+                            if (!storedSettings.gist) storedSettings.gist = {};
 
-                        storedSettings.gist.id = result.id;
-                        storedSettings.gist.url = result.html_url;
-                        storedSettings.gist.lastSync = Date.now();
+                            storedSettings.gist.id = result.id;
+                            storedSettings.gist.url = result.html_url;
+                            storedSettings.gist.lastSync = Date.now();
 
-                        // Auto-remove token if applicable
-                        if (fullSettings.autoDeleteToken) {
-                            storedSettings.gist.token = '';
+                            // Auto-remove token if applicable
+                            if (fullSettings.autoDeleteToken) {
+                                storedSettings.gist.token = '';
+                            }
+
+                            await Storage.set(CONFIG.STORAGE_KEYS.github, storedSettings);
+
+                            logInfo('backupToGitHubGist', 'GitHub backup successful:', result.id.slice(0, 10) + '...');
+                            resolve(true);
+                        } else {
+                            logError('backupToGitHubGist', 'GitHub backup error:', response.status);
+                            const ghMsg = getGitHubErrorMsg(response);
+                            showFloatingToast(`${SVG_ICONS.error} ${sanitizeHTML(ghMsg) || 'GitHub error'} (${response.status})`);
+                            resolve(false);
                         }
-
-                        await Storage.set(CONFIG.STORAGE_KEYS.github, storedSettings);
-
-                        logInfo('backupToGitHubGist', 'GitHub backup successful:', result.id.slice(0, 10) + '...');
-                        resolve(true);
-                    } else {
-                        logError('backupToGitHubGist', 'GitHub backup error:', response.status, response.responseText);
-                        const ghMsg = getGitHubErrorMsg(response);
-                        showFloatingToast(`${SVG_ICONS.error} ${ghMsg || 'GitHub error'} (${response.status})`);
+                    } catch (err) {
+                        logError('backupToGitHubGist', 'Error processing GitHub response:', err);
+                        showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')}`);
                         resolve(false);
                     }
+                },
+                ontimeout: () => {
+                    logWarn('backupToGitHubGist', 'GitHub backup request timed out');
+                    showFloatingToast(`${SVG_ICONS.error} GitHub timeout`);
+                    resolve(false);
                 },
                 onerror: (err) => {
                     logError('backupToGitHubGist', 'Network error during GitHub backup:', err);
@@ -7369,12 +7442,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                             // 3. Upload/update the file
                             const commitMessage = `YouTube Playback Plox Backup v${SCRIPT_VERSION} - ${new Date().toLocaleDateString()}`;
-                            const jsonString = JSON.stringify(data, null, 2);
+                            // Chunked binary conversion: char-by-char concatenation on a
+                            // multi-MB backup allocates ~20M intermediate strings and can
+                            // freeze the main thread for seconds.
                             const encoder = new TextEncoder();
                             const uint8Array = encoder.encode(jsonString);
                             let binaryString = '';
-                            for (let i = 0; i < uint8Array.length; i++) {
-                                binaryString += String.fromCharCode(uint8Array[i]);
+                            const CHUNK_SIZE = 0x8000;
+                            for (let i = 0; i < uint8Array.length; i += CHUNK_SIZE) {
+                                binaryString += String.fromCharCode.apply(
+                                    null,
+                                    uint8Array.subarray(i, i + CHUNK_SIZE)
+                                );
                             }
                             const contentBase64 = btoa(binaryString);
 
@@ -8425,6 +8504,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         if (videoData) {
+            // Guard against corrupted records: spreading a primitive (e.g. a stored
+            // string) would silently produce garbage like {0:'a', 1:'b'} that passes
+            // all downstream truthiness checks.
+            if (typeof videoData !== 'object') {
+                logWarn('getSavedVideoData', `Corrupted (non-object) record for ${videoId}, ignoring`);
+                return null;
+            }
             // NORMALIZATION: Ensure standard fields are always returned
             // so consumers (like initPlaybackBar) don't have to deal with fallbacks
             return {
@@ -8638,6 +8724,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (path.startsWith('/feed/subscriptions')) return 'subscriptions';
                 break;
             case 64: // '@' - handle-based channel URL
+                // Vanity livestream URLs (/@handle/live) must be checked BEFORE the
+                // early 'channel' return, otherwise the generic /live check below is
+                // unreachable for handle-based pages.
+                if (path.endsWith('/live') || path.includes('/live/')) return 'live';
                 return 'channel';
             case 99: // 'c' - /channel/ or /c/ (deprecated custom URLs)
                 if (path.startsWith('/channel/')) {
@@ -9240,6 +9330,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 GM_xmlhttpRequest({
                     method: 'GET',
                     url: `https://www.youtube.com/playlist?list=${playlistId}`,
+                    // Mandatory: without ontimeout the promise would pend forever and
+                    // poison pendingPlaylistRequests (every later call for this ID
+                    // would reuse the never-settling promise until page reload).
+                    timeout: 15000,
+                    ontimeout() {
+                        logWarn('getPlaylistName', `Playlist name request timed out for ${playlistId}`);
+                        resolve(playlistId);
+                    },
                     onload(response) {
                         try {
                             const html = response.responseText;
@@ -9456,14 +9554,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     /**
      * Determines the semantic notification type.
-     * @param {{ isSeek: boolean, isForced: boolean, saveResult: any }} params
-     * @returns {'fixed'|'seek'|'manual'|'progress'}
+     * @param {{ isSeek: boolean, isForced: boolean, saveResult: any, isLoading?: boolean }} params
+     * @returns {'fixed'|'seek'|'manual'|'progress'|'error'}
      */
     function getPlaybackNotificationKind({ isSeek, isForced, saveResult, isLoading }) {
         if (isLoading) return 'loading';
         if (isForced) return 'fixed';
         if (isSeek) return 'seek';
-        if (saveResult?.isManual) return 'manual';
+        if (saveResult?.isManual) {
+            // A FAILED manual save must surface as an error, not as a success message
+            // (the guard upstream intentionally lets it through to inform the user).
+            return saveResult?.success ? 'manual' : 'error';
+        }
         return 'progress';
     }
 
@@ -9493,7 +9595,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const timeStr = formatTime(normalizeSeconds(time));
 
         let message = "";
-        if (showAlertIcon) message += icon + " ";
+        if (showAlertIcon) message += (kind === 'error' ? SVG_ICONS.x : icon) + " ";
         if (showAlertText) message += baseText;
         if (showAlertTime && canShowTime && !isLoading) {
             if (showAlertText) message += ": " + timeStr;
@@ -9806,7 +9908,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (resolvedPlayer) {
                     const playerContainer = resolvedPlayer;
                     destroy('miniplayer');
-                    if (hasTimeDisplayMessage(watchTimeDisplay)) return getDisplay(context);
+                    // isConnected check: YouTube can rebuild player controls leaving the
+                    // old display detached; without this we'd keep serving a dead node.
+                    if (hasTimeDisplayMessage(watchTimeDisplay) && watchTimeDisplay.isConnected) return getDisplay(context);
                     if (watchTimeDisplay) { watchTimeDisplay.remove(); watchTimeDisplay = null; }
 
                     const timeWrapper = DOMHelpers.get('player:timeWrapper', () =>
@@ -9875,7 +9979,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const resolvedPlayer = player || DOMHelpers.getMiniplayerElementActive() || DOMHelpers.getMiniplayerPlayer();
                 if (resolvedPlayer) {
                     const playerContainer = resolvedPlayer;
-                    if (hasTimeDisplayMessage(miniplayerTimeDisplay)) return getDisplay(context);
+                    if (hasTimeDisplayMessage(miniplayerTimeDisplay) && miniplayerTimeDisplay.isConnected) return getDisplay(context);
                     if (miniplayerTimeDisplay) { miniplayerTimeDisplay.remove(); miniplayerTimeDisplay = null; }
 
                     const controls = playerContainer.querySelector('.ytp-time-wrapper') || playerContainer.querySelector('.ytp-left-controls') || DOMHelpers.get('display:miniplayerTimeWrapper', () => document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper'), 200) || DOMHelpers.get('display:miniplayerLeftControls', () => document.querySelector('ytd-miniplayer-player-container .ytp-left-controls'), 200);
@@ -9893,7 +9997,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const resolvedPlayer = player || DOMHelpers.getInlinePreviewPlayer();
                 if (resolvedPlayer) {
                     const previewPlayerEl = resolvedPlayer;
-                    if (hasTimeDisplayMessage(inlinePreviewTimeDisplay)) return getDisplay(context);
+                    if (hasTimeDisplayMessage(inlinePreviewTimeDisplay) && inlinePreviewTimeDisplay.isConnected) return getDisplay(context);
                     if (inlinePreviewTimeDisplay) { inlinePreviewTimeDisplay.remove(); inlinePreviewTimeDisplay = null; }
 
                     inlinePreviewTimeDisplay = createElement('div', { id: 'ypp-inline-preview-time-display', className: 'ypp-time-display ypp-inline-preview-time-display' });
@@ -10076,6 +10180,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const checkPoints = [500, 1000, 2000, 4000, 8000];
             checkPoints.forEach(ms => {
                 const timer = setTimeout(() => {
+                    // Guard: if the user left Shorts before the panel was found, stop
+                    // retrying; otherwise ensure() could anchor the display off-Shorts.
+                    if (currentPageType !== 'shorts') { stopShortsPanelObserver(); return; }
                     const panel = getActiveShortsControlsContainer();
                     if (panel) ensure('shorts');
                 }, ms);
@@ -10086,6 +10193,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (!isShortsPanelTicking) {
                     isShortsPanelTicking = true;
                     requestAnimationFrame(() => {
+                        if (currentPageType !== 'shorts') {
+                            // Left Shorts: tear down the body-wide observer to avoid
+                            // perpetual mutation processing on other pages.
+                            stopShortsPanelObserver();
+                            isShortsPanelTicking = false;
+                            return;
+                        }
                         const panel = getActiveShortsControlsContainer();
                         if (panel && (shortsTimeDisplay?.parentElement !== panel || shortsTimeDisplay?.classList.contains('ypp-floating'))) {
                             ensure('shorts');
@@ -10095,6 +10209,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             });
             try { shortsPanelObserver.observe(document.body, { childList: true, subtree: true }); } catch (e) { logWarn('startShortsPanelObserver', 'Error observing shorts panel', e); }
+        }
+
+        /**
+         * Stops the Shorts metapanel observer and all pending retry timers.
+         * @private
+         */
+        function stopShortsPanelObserver() {
+            shortsRetryTimers.forEach(t => clearTimeout(t));
+            shortsRetryTimers = [];
+            if (shortsPanelObserver) {
+                try { shortsPanelObserver.disconnect(); } catch (_) { logWarn('stopShortsPanelObserver', 'Error disconnecting shortsPanelObserver', _); }
+                shortsPanelObserver = null;
+            }
         }
         return {
             bind,
@@ -10117,7 +10244,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const toastTimeouts = new WeakMap();
 
     function createToastContainer() {
-        return DOMHelpers.get('ui:toastContainer', () => {
+        let container = DOMHelpers.get('ui:toastContainer', () => {
             const existing = document.querySelector('.ypp-toast-container');
             if (existing) return existing;
 
@@ -10126,6 +10253,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             logLog('createToastContainer', 'Contenedor de toasts creado');
             return newContainer;
         }, 3000);
+
+        // Guard against a stale cache hit serving a detached container (it may have been
+        // removed from the DOM after its last toast faded out). Without this check, new
+        // toasts would be appended to a disconnected node and never become visible.
+        if (container && !container.isConnected) {
+            DOMHelpers.removeExact('ui:toastContainer');
+            container = createToastContainer();
+        }
+        return container;
     }
 
     /**
@@ -10168,9 +10304,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (toast.isConnected) {
                     toast.remove();
                 }
-                // If the container is empty, remove it
+                // If the container is empty, remove it and invalidate its DOM cache entry
                 if (container && container.children.length === 0) {
                     container.remove();
+                    DOMHelpers.removeExact('ui:toastContainer');
                 }
             };
 
@@ -10210,10 +10347,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (!toast) {
                 toast = createElement('div', { className: 'ypp-toast persistent sombra' });
                 container.appendChild(toast);
+            } else if (toastTimeouts.has(toast)) {
+                // The previous use scheduled a fade-out; cancel it so the reused toast
+                // is not removed mid-display by a stale timer.
+                clearTimeout(toastTimeouts.get(toast));
+                toastTimeouts.delete(toast);
             }
-            // Reset content and style
+            // Reset content, style and dismissal state
             setInnerHTML(toast, '');
             toast.style.opacity = '1';
+            toast.style.pointerEvents = '';
+            toast._yppDismissed = false;
+            toast._yppOnDismiss = null;
         } else {
             toast = createElement('div', { className: 'ypp-toast sombra' });
             if (options.action) toast.classList.add('has-action');
@@ -10700,9 +10845,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 createElement('button', {
                     className: 'ypp-btn ypp-btn-circle ypp-btn-outline-danger',
                     id: 'btn-close-settings',
-                    ariaLabel: t('close'),
+                    // NOTE: createElement has no `ariaLabel` key; it must go in attributes
+                    attributes: { type: 'button', 'aria-label': t('close') },
                     title: t('close'),
-                    type: 'button',
                     html: SVG_ICONS.close,
                     onClickEvent: closeModal
                 })
@@ -10827,7 +10972,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const viewBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-outline-primary ypp-shadow-md',
             html: `${SVG_ICONS.clockRotateLeft} ${t('savedVideos')}`,
-            onClickEvent: async () => { overlay.remove(); await showSavedVideosList(); }
+            // Must go through closeModal() (not a bare overlay.remove()): otherwise
+            // settings listeners leak and body overflow stays locked (scroll blocked).
+            onClickEvent: async () => { closeModal(); await showSavedVideosList(); }
         });
         const saveBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-success ypp-shadow-md',
@@ -10967,7 +11114,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const match = script.textContent && script.textContent.match(/"INNERTUBE_CLIENT_VERSION":"([^"]+)"/);
                     if (match) return match[1];
                 }
-            } catch (_) {}
+            } catch (e) { logWarn('getInnerTubeClientVersion', 'Client version probe failed', e); }
             return 'unknown';
         }
 
@@ -11355,8 +11502,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     list.classList.remove('ypp-d-none');
                     trigger.setAttribute('aria-expanded', 'true');
                     setCurrentlyOpen(closeMenu);
-                    // Defer so the current click does not close it immediately
-                    requestAnimationFrame(() => document.addEventListener('click', onOutsideClick, { once: true }));
+                    // Defer so the current click does not close it immediately.
+                    // Persistent listener (no {once:true}): a single click anywhere used
+                    // to disarm it, leaving the menu stuck open against later outside clicks.
+                    requestAnimationFrame(() => {
+                        if (isOpen) document.addEventListener('click', onOutsideClick);
+                    });
                 };
 
                 options.forEach((option) => {
@@ -11449,7 +11600,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 importList.classList.remove('ypp-d-none');
                 importTrigger.setAttribute('aria-expanded', 'true');
                 setCurrentlyOpenFooterMenu(closeImportMenu);
-                requestAnimationFrame(() => document.addEventListener('click', onImportOutsideClick, { once: true }));
+                // Persistent listener (no {once:true}) so later outside clicks keep closing it
+                requestAnimationFrame(() => {
+                    if (importIsOpen) document.addEventListener('click', onImportOutsideClick);
+                });
             }, {}, ModalDisposables);
 
             // JSON option - <label> triggers the hidden input on tap
@@ -11895,9 +12049,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             // Fallback for older browsers or without permissions
             try {
+                // NOTE: createElement only supports `props` (element properties) and
+                // `styles` (object). Unknown keys like `value`/`style` are silently
+                // ignored, which previously produced an empty, visible textarea and a
+                // false "copied" success state.
                 const textarea = createElement('textarea', {
-                    value: text,
-                    style: 'position: fixed; opacity: 0; pointer-events: none;'
+                    props: { value: text },
+                    styles: {
+                        position: 'fixed',
+                        opacity: '0',
+                        pointerEvents: 'none'
+                    }
                 });
                 document.body.appendChild(textarea);
                 textarea.select();
@@ -12144,6 +12306,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
         };
 
+        /**
+         * Records a benign/expected condition (e.g. routine duplicate enqueues from
+         * observer+watchdog racing on the same video, or legitimate concurrent
+         * previews). Emits telemetry but deliberately does NOT count toward safe mode:
+         * counting these caused spurious safe-mode entries during normal browsing.
+         * @param {string} type - Counter label (telemetry only)
+         * @param {string} reason - Detail for telemetry
+         */
+        const note = (type, reason) => {
+            logLog('FailSafeManager', `${type}: ${reason}`);
+        };
+
         const maybeExit = () => {
             if (!safeModeStart) return;
             if (getTotal() === 0 && (Date.now() - safeModeStart) > STABLE_EXIT_MS) {
@@ -12157,6 +12331,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         return {
             isSafeMode: () => !!safeModeStart,
             track,
+            note,
             maybeExit
         };
     })();
@@ -12246,9 +12421,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          */
         const resetSessionAndEnqueue = (videoEl, type) => {
             videoTypeCache.delete(videoEl);
-            const prevSession = activeProcessingSessions.get(videoEl);
-            if (prevSession?.intervalId) clearInterval(prevSession.intervalId);
-            activeProcessingSessions.delete(videoEl);
+            // Full teardown through the orchestrator (AGENTS.md mandate): aborts the
+            // session AbortController, clears pending session timeouts and display
+            // state. The previous manual teardown left signal-bound listeners and
+            // timeouts alive forever because nothing ever finalized that session.
+            // Safe to reference here: only executed after full script evaluation.
+            if (activeProcessingSessions.has(videoEl)) {
+                SessionOrchestrator.finalizeSession(videoEl, 'srcChange');
+            }
             enqueueVideo(videoEl, type);
         };
 
@@ -12534,6 +12714,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (!isStillAd) {
                     cleanup();
                     logInfo('VideoObserverManager', `✅ Video [${type}] cleared from ads, re-evaluating...`);
+                    // Invalidate the type cache so the re-enqueue below is not silently
+                    // dropped by enqueueVideo's "already processed for this type" guard.
+                    videoTypeCache.delete(videoElement);
                     enqueueVideo(videoElement, type);
                 }
             };
@@ -12997,6 +13180,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             waitForAdClear: scheduleAdRecovery,
             requeueMiniplayer,
             enqueueWithResolver,
+            /**
+             * Invalidates the cached context type for a video element so a
+             * subsequent enqueueVideo/enqueueWithResolver is not dropped by the
+             * "already processed" guard (used by session recovery paths).
+             * @param {HTMLVideoElement} videoElement
+             */
+            invalidateTypeCache: (videoElement) => videoTypeCache.delete(videoElement),
             hasMiniplayerTransition: (videoElement) => miniplayerTransitions.has(videoElement),
             clearMiniplayerTransition: (videoElement) => miniplayerTransitions.delete(videoElement)
         };
@@ -13134,13 +13324,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             const existing = activeProcessingSessions.get(videoEl);
             if (existing && existing.type === context && existing.lastVideoId === videoId && existing.state !== 'finalized') {
-                FailSafeManager.track('duplicateSession', 'sameIdentity');
+                // Routine duplicate enqueue (observer + watchdog + debounce racing on the
+                // same video): informational only, NOT a failure signal for safe mode.
+                FailSafeManager.note('duplicateSession', 'sameIdentity');
                 return { accepted: false, reason: 'alreadyActive', session: existing };
             }
             const activeByContext = Array.from(activeProcessingSessions.values()).filter(session => session.type === context && !session.isFinalized).length;
             const maxByContext = context === 'preview' ? 2 : 1;
             if (activeByContext >= maxByContext) {
-                FailSafeManager.track('invariantViolation', `maxSessions:${context}`);
+                // Not enforced as a hard rejection: concurrent previews are legitimate
+                // while scrolling the grid. Informational telemetry only.
+                FailSafeManager.note('invariantViolation', `maxSessions:${context}`);
             }
 
             transitionTokenCounter += 1;
@@ -13208,12 +13402,28 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 logLog('SessionOrchestrator', `🔄 Scheduling re-enqueue after context_mismatch for [${session.type}] - ${session.lastVideoId}`);
                 setTimeout(() => {
                     if (!activeProcessingSessions.has(videoEl)) {
+                        // Invalidate the type cache: without this, enqueueWithResolver resolves
+                        // the same (cached) type and the re-enqueue is silently dropped.
+                        VideoObserverManager.invalidateTypeCache(videoEl);
                         VideoObserverManager.enqueueWithResolver(videoEl, session.type, 'contextMismatchRecovery');
                     }
                 }, 500);
             }
         };
 
+        /**
+         * Hands off the current session for a video element to a new video ID.
+         * NOTE: This intentionally does NOT insert a replacement session into
+         * activeProcessingSessions. A half-built session (no intervalId/tick loop)
+         * would block startProcessingSession via its same-identity guard, leaving
+         * the video untracked. Instead, we finalize and let the caller re-enqueue
+         * through the normal observer pipeline, which builds a complete session.
+         * @param {HTMLVideoElement} videoEl
+         * @param {string} toVideoId - Video ID being handed off to (telemetry only)
+         * @param {string} reason - Transition reason
+         * @param {string} handoffMode - Handoff mode label for telemetry
+         * @returns {null} Always null - callers must re-enqueue explicitly.
+         */
         const handoffSession = (videoEl, toVideoId, reason = 'srcChanged', handoffMode = 'intraNodeHandoff') => {
             const prev = activeProcessingSessions.get(videoEl);
             if (!prev || prev.isFinalized) return null;
@@ -13224,10 +13434,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 handoffMode,
                 context: prev.type,
                 sessionId: prev.sessionId,
-                transitionToken: prev.transitionToken
+                transitionToken: prev.transitionToken,
+                toVideoId
             });
             finalizeSession(videoEl, `${reason}:${handoffMode}`);
-            return startSession(videoEl, prev.type, toVideoId, prev.player, handoffMode).session || null;
+            return null;
         };
 
         return {
@@ -13392,9 +13603,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Clear ephemeral DOM data so it doesn't leak to subsequent videos if YT reuses the <video> tag
         // This is especially useful in Shorts where the DOM is aggressively reused.
+        // (lastSavedTime/lastResumedTime are intentionally REMOVED, not initialized:
+        // their absence yields the correct defaults at parse time.)
         videoEl.dataset.sessionStartTime = Date.now().toString();
-        videoEl.dataset.lastSavedTime = '-1';
-        videoEl.dataset.lastResumedTime = '0';
         delete videoEl.dataset.lastSavedTime;
         delete videoEl.dataset.lastResumedTime;
 
@@ -13669,6 +13880,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             return;
                         }
                         SessionOrchestrator.handoffSession(videoEl, currentVideoId, 'previewTransition', 'intraNodeHandoff');
+                        // Session was finalized (no zombie replacement): re-enqueue through the
+                        // normal pipeline so a complete session is built for the new video.
+                        VideoObserverManager.enqueueWithResolver(videoEl, 'preview', 'postHandoffRestart');
                         return;
                     }
                     if (hasIdChanged && type === 'miniplayer' && VideoObserverManager.hasMiniplayerTransition(videoEl)) {
@@ -14316,6 +14530,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 session.isSaving = true;
             }
 
+            // Throttle marker captured before the async save; restored on failure so
+            // the next tick retries instead of silently throttling the lost progress.
+            let previousSavedTime;
+
             try {
                 const currentTime = videoEl.currentTime || (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
                 const duration = videoEl.duration || (typeof player?.getDuration === 'function' ? player.getDuration() : 0);
@@ -14392,7 +14610,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                 }
 
-                // Register last successfully saved time BEFORE the async operation to block fast ticks
+                // Register last saved time BEFORE the async operation to block fast ticks
+                // during the await. If the save ultimately FAILS, the previous value is
+                // restored below so the next tick retries instead of silently throttling
+                // the failed progress away.
+                previousSavedTime = videoEl.dataset.lastSavedTime;
                 videoEl.dataset.lastSavedTime = currentTime.toString();
 
                 // Throttled Metadata Refresh: Avoid unnecessary fetches each tick (min cooldown 30s)
@@ -14504,9 +14726,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
 
                 if (result) result.videoInfo = videoInfo;
+                // Roll back the throttle marker on failure so the next tick retries
+                // (otherwise a transient storage error would be silently swallowed by
+                // the "time_not_changed" diff check while time advances slowly).
+                if (result && !result.success && previousSavedTime !== undefined) {
+                    videoEl.dataset.lastSavedTime = previousSavedTime;
+                }
                 return result;
             } catch (e) {
                 logError('PlaybackController', `❌ Unexpected error saving ${videoId}:`, e);
+                // Restore throttle marker so the failed progress is retried on next tick
+                if (previousSavedTime !== undefined) {
+                    videoEl.dataset.lastSavedTime = previousSavedTime;
+                }
                 return { success: false, reason: 'exception', error: e.message };
             } finally {
                 if (session) session.isSaving = false;
@@ -14640,9 +14872,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // and we are not in a context that can provide more info (like watch with new URL),
                 // we can return early.
                 const hasPlaylistInfo = !!info.playlistTitle;
-                if (hasPlaylistInfo || (!info.lastViewedPlaylistId && type === 'shorts')) {
+                // Guard: a cached playlist association is only valid if the CURRENT URL
+                // still matches it. Otherwise a standalone viewing within the TTL would
+                // inherit the playlist from an unrelated previous visit.
+                const currentPlaylistId = typeof extractYouTubePlaylistIdFromUrl === 'function'
+                    ? extractYouTubePlaylistIdFromUrl(window.location.href)
+                    : null;
+                const playlistStillValid = hasPlaylistInfo &&
+                    (!info.lastViewedPlaylistId || !currentPlaylistId || info.lastViewedPlaylistId === currentPlaylistId);
+                if (playlistStillValid || (!info.lastViewedPlaylistId && type === 'shorts')) {
                     return { ...info };
                 }
+                // Stale playlist data: drop it and continue the cascade for fresh metadata
+                info.playlistTitle = null;
             }
         }
 
@@ -15150,8 +15392,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             list.classList.remove('hidden');
             trigger.setAttribute('aria-expanded', 'true');
             triggerChevron.classList.add('open');
-            // Defer so the current click doesn't immediately close it
-            requestAnimationFrame(() => document.addEventListener('click', onOutsideClick, { once: true }));
+            // Defer so the current click doesn't immediately close it.
+            // Persistent listener (no {once:true}): a single click inside the wrapper
+            // used to disarm the outside-click closer and leave the list stuck open.
+            requestAnimationFrame(() => {
+                if (isOpen) document.addEventListener('click', onOutsideClick);
+            });
         };
 
         const closeList = () => {
@@ -15950,7 +16196,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const el = DOMHelpers.get('vsc:container', () => document.getElementById('ypp-virtual-scroller-container'), 5000);
             if (el) el.scrollTop = scrollTop;
         });
-        try { updateStorageUsageIndicator().catch(() => { }); } catch (_) { }
+        try { updateStorageUsageIndicator().catch((err) => logWarn('StorageUI', 'Storage usage indicator failed', err)); } catch (err) { logWarn('StorageUI', 'Storage usage indicator failed', err); }
     }
 
     /**
@@ -18638,8 +18884,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return;
         }
 
-        // Save data for possible undo
+        // Save data for possible undo.
+        // Reuse the FIRST listing: taking a second snapshot after the confirm() gap
+        // created a TOCTOU window where a video auto-saved in between would be
+        // deleted without being part of the undo snapshot (unrecoverable loss).
         const allKeys = await Storage.keys();
+        if (allKeys.length === 0) {
+            showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
+            return;
+        }
         clearedData = {};
         let skippedProtected = 0;
         let skippedNull = 0;
@@ -18782,11 +19035,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         GM_registerMenuCommand(`📚 ${t('viewAllHistory')}`, async () => {
             // Save filters and wait for completion
             await setFilters({ filterBy: 'all', searchQuery: '' });
-            try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error opening history list:', e); }
+            // Await the async call: a bare try/catch cannot catch promise rejections
+            try { await showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error opening history list:', e); }
         });
         GM_registerMenuCommand(`✅ ${t('viewCompletedVideos')}`, async () => {
             await setFilters({ filterBy: 'completed' });
-            try { showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error opening completed list:', e); }
+            try { await showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error opening completed list:', e); }
         });
     }
 
@@ -18972,6 +19226,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
                 let migrated = 0;
                 let batchCount = 0;
+                let failedKeys = 0;
 
                 const videoKeys = allIDBKeys.filter(k => !isNonVideoStorageKey(k));
                 for (const key of videoKeys) {
@@ -19010,6 +19265,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             }
                         }
                     } catch (e) {
+                        failedKeys++;
                         logError('cleanupNonVideoData', `Error normalizing key ${key}:`, e);
                     }
 
@@ -19018,10 +19274,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                 }
 
-                await GM_setValue(MIGRATION_KEY, MIGRATION_VERSION);
-                logInfo('cleanupNonVideoData', `✅ Normalization completed: ${migrated} videos updated`);
-                if (migrated > 0) {
-                    showFloatingToast(`${SVG_ICONS.check} ${t('migrationComplete', { migrated: migrated })}`, 10000);
+                // Only mark the migration as complete when every key was normalized.
+                // Bumping the version despite failures would permanently skip the
+                // failed keys (the version guard prevents any retry on next startup),
+                // leaving them in a legacy schema forever.
+                if (failedKeys > 0) {
+                    logWarn('cleanupNonVideoData', `⚠️ Migration finished with ${failedKeys} failed key(s); version NOT bumped so they are retried next startup.`);
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('migrationComplete', { migrated: migrated })} (${failedKeys} failed, will retry)`, 10000);
+                } else {
+                    await GM_setValue(MIGRATION_KEY, MIGRATION_VERSION);
+                    logInfo('cleanupNonVideoData', `✅ Normalization completed: ${migrated} videos updated`);
+                    if (migrated > 0) {
+                        showFloatingToast(`${SVG_ICONS.check} ${t('migrationComplete', { migrated: migrated })}`, 10000);
+                    }
                 }
             } else if (lastMigrationVersion < MIGRATION_VERSION) {
                 // No keys in IDB, still update migration version to avoid future unnecessary checks
@@ -19535,7 +19800,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 logError('initializeGlobal', '❌ Error initializing VideoObserverManager:', error);
             }
 
-            initializationPromise = null;
+            // Mark the global instance as fully initialized ONLY after observers,
+            // commands, styles, theme and backup scheduling have been set up.
+            // Until this point a re-injection will correctly re-initialize instead of
+            // bailing out with "Already initialized" against a half-initialized state.
+            YPP.status = 'initialized';
+            logLog('YPP', `Initialized v${SCRIPT_VERSION}`);
+
+            // Preserve the resolved promise so any late re-invocation of initializeGlobal
+            // returns immediately instead of re-running the whole bootstrap
+            // (duplicate menu commands, listeners, floating button...).
         })();
 
         return await initializationPromise;

@@ -362,3 +362,31 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 ### Technical Distinction
 - **Notification Kinds**: Notifications are now semantically categorized as `fixed` (user-defined), `seek` (automatic resume), `manual` (user-triggered save), or `progress` (periodic auto-save).
 - **Persistence Rescue Bugfix**: `forceResumeTime` is now strictly reserved for user-defined fixed start times. Technical re-seeks (like the rescue mechanism that recovers from 0s stalls) no longer "manufacture" a `forceResumeTime`, preventing the UI from incorrectly showing stopwatch/pin icons for videos that were simply completed.
+
+## Session Lifecycle & Silent Failures (v0.0.12-7)
+
+### Handoff = finalize + re-enqueue, never a manual session
+- **Rule**: `SessionOrchestrator.handoffSession()` only finalizes the previous session. It must NEVER insert a replacement session into `activeProcessingSessions` directly: a session without `intervalId`/tick loop would be accepted by the same-identity guard in `startProcessingSession` and the video would be tracked by a session that saves nothing.
+- **Recovery paths must invalidate `videoTypeCache`**: `enqueueVideo` silently drops re-enqueues when the cache already maps the element to the same type (ad recovery, `context_mismatch` timer). Use `VideoObserverManager.invalidateTypeCache(videoEl)` before re-enqueueing.
+
+### Save throttle marker is transactional
+- `videoEl.dataset.lastSavedTime` is written BEFORE the async save (blocks fast ticks during the await) but restored on failure/exception. If you add new early-failure return paths after that write point, restore the marker or the failed progress will never retry.
+
+### TrustedTypes in setInnerHTML
+- Both `innerHTML=` AND `Range.createContextualFragment` are TT sinks. The only enforcement-safe fallback is DOMParser + `replaceChildren`. Policy creation failure is memoized (`_ttPolicyFailed`) with a randomized policy name suffix; do not revert to a deterministic name (collides on hot-reload).
+
+### DOMHelpers does not cache absence
+- Nullish getter results are not cached: during SPA transitions YouTube legitimately has no player mounted for a while; caching null would delay detection by up to the TTL. Entries older than 5s are swept opportunistically.
+
+### Migration version bump is conditional
+- `cleanupNonVideoData` only writes `MIGRATION_KEY` when zero keys failed. If you see repeated migration toasts on every startup, some key is failing normalization - check logs for `Error normalizing key`, do NOT force-bump the version.
+
+## UI Dropdowns & Toasts (v0.0.12-7)
+
+- **Outside-click closers**: never register document click closers with `{ once: true }`; the first click anywhere (including inside the menu) disarms them and the menu gets stuck open. Use a persistent listener removed by the close function.
+- **Toast container cache**: the container element is removed from the DOM when its last toast fades out; its `DOMHelpers` entry must be invalidated at the same time or new toasts render into a detached node (invisible for up to the TTL).
+- **createElement option keys**: only `className/id/text/html/onClickEvent/events/attributes/props/styles/children/store` are supported. Unknown keys like `value`, `style` or `ariaLabel` are silently discarded - use `props`, object `styles`, and `attributes['aria-label']`.
+
+## Metadata Cache & Playlists
+
+- The 5-minute metadata cache may hold playlist association from a previous visit. The early-return path validates it against the current URL playlist and drops stale associations instead of attaching an unrelated playlist to a standalone view.

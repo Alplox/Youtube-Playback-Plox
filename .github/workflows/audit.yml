@@ -1,0 +1,33 @@
+name: Audit
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Syntax check (userscript)
+        run: node --check youtube-playback-plox.user.js
+
+      - name: AGENTS.md rule lint + release consistency
+        run: node scripts/audit-lint.mjs
+
+      - name: Validate translations
+        run: node scripts/validate-translations.mjs
+
+      - name: Structure doc is up to date
+        run: |
+          node scripts/generate-structure.mjs
+          git diff --exit-code docs/userscript-structure.md || \
+            (echo "::error::docs/userscript-structure.md is stale. Run: node scripts/generate-structure.mjs" && exit 1)

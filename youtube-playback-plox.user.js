@@ -3824,6 +3824,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     display: flex;
     flex-direction: column;
 }
+#video-list-container.ypp-list-loading {
+    /* While the listing resolves there is no scroller holding the height, so the
+       container would collapse and shrink the modal. Reserve it up front: the
+       skeleton is only an overlay and must never drive layout.
+       .ypp-virtual-stats keeps its own z-index (10) so the spinner stays on top. */
+    min-height: min(60vh, 560px);
+}
 #ypp-virtual-scroller-container {
     flex-grow: 1;
     overflow-y: auto;
@@ -18715,13 +18722,29 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
-     * Manages the skeleton loading overlay for the video list.
+     * Shows the skeleton loading overlay for the video list.
+     * The skeleton is ALWAYS an absolute overlay: while loading, the container
+     * height comes from the `.ypp-list-loading` class, never from the placeholder.
+     * A skeleton in normal flow would make the modal height depend on the
+     * placeholder, producing a collapse/re-expand pulse once the real list lands.
      * @param {HTMLElement} container - listContainer
      * @returns {HTMLElement} loadingIndicator element
      */
     function showLoadingState(container) {
-        const scrollerElCheck = document.getElementById('ypp-virtual-scroller-container');
+        const scrollerElCheck = DOMHelpers.get('vsc:container', () => document.getElementById('ypp-virtual-scroller-container') ?? null, 0);
         let loadingIndicator = container.querySelector('.ypp-skeleton-container');
+
+        // A scroller whose element is gone from the DOM cannot be updated nor
+        // reused: drop it so initVirtualScroller builds a fresh one.
+        if (virtualScroller && !scrollerElCheck) {
+            virtualScroller.destroy?.();
+            virtualScroller = null;
+        }
+
+        // Without a scroller the container may still hold an empty/error state.
+        if (!scrollerElCheck) {
+            setInnerHTML(container, '');
+        }
 
         if (!loadingIndicator) {
             loadingIndicator = createElement('div', {
@@ -18744,35 +18767,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
         }
 
-        if (!virtualScroller || !scrollerElCheck) {
-            if (virtualScroller) {
-                virtualScroller.destroy?.();
-                virtualScroller = null;
-            }
-            setInnerHTML(container, '');
-            const dummyStats = createElement('div', {
-                className: 'ypp-virtual-stats',
-                id: 'ypp-virtual-stats',
-                styles: { display: 'none' },
-                html: `${SVG_ICONS.spinner} ${t('loading')}...`
-            });
-            container.appendChild(dummyStats);
-            container.appendChild(loadingIndicator);
-        } else {
-            loadingIndicator.style.cssText = `
-                position: absolute;
-                top: 35px; left: 0; right: 0; bottom: 0;
-                background: var(--ypp-bg);
-                z-index: 5;
-                overflow: hidden;
-            `;
-            if (!loadingIndicator.parentElement) container.appendChild(loadingIndicator);
-            loadingIndicator.style.display = 'flex';
-            const statsEl = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
-            if (statsEl) {
-                statsEl.style.display = 'flex';
-                setInnerHTML(statsEl, `${SVG_ICONS.spinner} ${t('loading')}...`);
-            }
+        container.classList.add('ypp-list-loading');
+        loadingIndicator.style.cssText = `
+            position: absolute;
+            top: 35px; left: 0; right: 0; bottom: 0;
+            background: var(--ypp-bg);
+            z-index: 5;
+            overflow: hidden;
+        `;
+        if (!loadingIndicator.parentElement) container.appendChild(loadingIndicator);
+        loadingIndicator.style.display = 'flex';
+
+        if (!container.querySelector('#ypp-virtual-stats')) {
+            container.appendChild(createElement('div', { className: 'ypp-virtual-stats', id: 'ypp-virtual-stats' }));
+        }
+        const statsEl = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
+        if (statsEl) {
+            statsEl.style.display = 'flex';
+            setInnerHTML(statsEl, `${SVG_ICONS.spinner} ${t('loading')}...`);
         }
         return loadingIndicator;
     }
@@ -18947,6 +18959,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     function showEmptyState(container) {
         const loadingIndicator = container.querySelector('.ypp-skeleton-container');
+        container.classList.remove('ypp-list-loading');
         const scrollerEl = DOMHelpers.get('vsc:container', () => document.getElementById('ypp-virtual-scroller-container'), 5000);
         if (loadingIndicator) loadingIndicator.style.display = 'none';
         if (scrollerEl) scrollerEl.style.display = 'none';
@@ -18982,6 +18995,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             virtualScroller.destroy();
             virtualScroller = null;
         }
+        container.classList.remove('ypp-list-loading');
         DOMHelpers.removeExact('vsc:container');
         setInnerHTML(container, `<div class="ypp-empty-state-composed">${SVG_ICONS.error}<h3>${sanitizeHTML(t('unknownError'))}</h3></div>`);
     }
@@ -19004,6 +19018,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
         const loadingIndicator = DOMHelpers.get('list:skeletonContainer', () => document.querySelector('.ypp-skeleton-container'), 200);
         if (loadingIndicator) loadingIndicator.style.display = 'none';
+        scroller.container?.closest('#video-list-container')?.classList.remove('ypp-list-loading');
         scroller.itemGap = itemGap;
         scroller.updateItems(virtualItems);
         requestAnimationFrame(() => {
@@ -19024,20 +19039,31 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {Promise<{scroller: import('./virtual-scroller.js').VirtualScroller, scrollerContainer: HTMLElement}>}
      */
     async function initVirtualScroller(container, virtualItems, count, itemGap, isCurrent = () => true) {
+        // The skeleton overlay and the reserved container height must survive the
+        // await below: clearing them first would collapse the modal for the whole
+        // duration of the storage-usage lookup.
         const loadingIndicator = container.querySelector('.ypp-skeleton-container');
-        if (loadingIndicator) loadingIndicator.remove();
-        setInnerHTML(container, '');
-
-        const statsBar = createElement('div', {
-            className: 'ypp-virtual-stats',
-            id: 'ypp-virtual-stats',
-            html: `<span>${count} ${t('videos')}</span><span id="ypp-storage-usage" class="ypp-storage-usage"></span>`
-        });
-        container.appendChild(statsBar);
+        const statsHtml = `<span>${count} ${t('videos')}</span><span id="ypp-storage-usage" class="ypp-storage-usage"></span>`;
+        const existingStatsBar = container.querySelector('#ypp-virtual-stats');
+        if (existingStatsBar) {
+            existingStatsBar.style.display = 'flex';
+            setInnerHTML(existingStatsBar, statsHtml);
+        } else {
+            container.appendChild(createElement('div', {
+                className: 'ypp-virtual-stats',
+                id: 'ypp-virtual-stats',
+                html: statsHtml
+            }));
+        }
 
         DOMHelpers.removeExact('ui:storageUsage');
         try { await updateStorageUsageIndicator(); } catch (_) { logWarn('StorageUI', 'Error on createVirtualScroller updateStorageUsageIndicator', _); }
         if (!isCurrent() || listContainer !== container || !container.isConnected) return null;
+
+        // A destroyed scroller leaves its container element behind: drop it so the
+        // new scroller is the only #ypp-virtual-scroller-container in the DOM.
+        container.querySelector('#ypp-virtual-scroller-container')?.remove();
+        DOMHelpers.removeExact('vsc:container');
 
         const scrollerContainer = createElement('div', {
             id: 'ypp-virtual-scroller-container',
@@ -19103,6 +19129,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             }
         });
+
+        // The scroller now owns the container height: the loading placeholder and
+        // the reserved height can be released without collapsing the modal.
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
+        container.classList.remove('ypp-list-loading');
+
         return { scroller, scrollerContainer };
     }
 

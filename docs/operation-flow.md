@@ -199,7 +199,7 @@ Shared pipeline:
 Context-specific hooks:
 
 | Context | Player | Critical behavior |
-|---|---|---|
+| --- | --- | --- |
 | `watch` | `DOMHelpers.getWatchPlayer()` | Requires `currentPageType === 'watch'` and player videoId matching URL ID. |
 | `shorts` | `DOMHelpers.getShortsPlayer()` | Requires `currentPageType === 'shorts'` and player videoId matching URL ID. |
 | `miniplayer` | `DOMHelpers.getMiniplayerPlayer()` | Allows missing player long enough to log inactive state; clears stale `playerVideoIdCache`; prioritizes local player ID over Helper API ID. |
@@ -368,7 +368,7 @@ If eligible, it:
 Then it delegates by final type:
 
 | Final type | Save path |
-|---|---|
+| --- | --- |
 | `live` | `internalSaveVideoGeneric(..., 'live', ...)` |
 | `shorts` | `internalSaveVideoGeneric(..., 'shorts', ...)` |
 | `preview` | `internalSaveVideoGeneric(..., 'preview', ...)` |
@@ -442,7 +442,7 @@ When debugging a missing save, inspect in this order:
 ## Component Responsibility Summary
 
 | Component | Owns | Does not own |
-|---|---|---|
+| --- | --- | --- |
 | `initializeGlobal()` | One-time startup, settings, storage init, global listeners | Per-video session logic |
 | `handleNavigation()` | SPA route synchronization and observer reinitialization policy | Saving progress directly |
 | `VideoObserverManager` | DOM observation, bootstrap, enqueue, ad recovery | Deciding saved record shape |

@@ -302,7 +302,7 @@ if (!userVersion) {
     }
     if (existsSync(CHANGELOG_FILE)) {
         const changelog = readFileSync(CHANGELOG_FILE, 'utf8');
-        const headingRe = /^#\s+(.+)$/gm;
+        const headingRe = /^#{1,2}\s+(.+)$/gm;
         const found = [...changelog.matchAll(headingRe)].map(h => h[1].trim());
         if (!found.includes(userVersion)) {
             errors.push(`V02 changelog.md has no "# ${userVersion}" entry for the current @version`);

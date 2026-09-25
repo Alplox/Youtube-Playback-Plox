@@ -5,6 +5,7 @@
 
 ### Fixed
 
+- **Saved-videos modal no longer resizes while loading**: the skeleton is always an absolute overlay and the list container reserves its height through `.ypp-list-loading`, so the modal no longer collapses while the storage listing and the storage-usage lookup resolve, then re-expands when the virtual scroller takes over. First render and refreshes now share a single loading path.
 - **Complete exports during active playback**: JSON, FreeTube and storage-usage paths now capture IndexedDB data in one readonly transaction and merge fresh GM mirrors by `timeWatched`. Ordinary progress saves wait behind the short capture instead of invalidating the export; malformed records or incomplete IDB/GM enumeration still fail closed.
 - **Tombstone and inventory safety**: an ambiguous GM tombstone no longer erases a surviving IDB record, reads never issue a second destructive delete after observing absence, writes re-read before marker repair, deletes finish mirror cleanup after a committed primary delete, and complete key inventories use strict IDB row validation.
 - **Durable operation error boundaries**: aborted IDB deletes are reported as uncommitted, tombstone-backed deletions broadcast the tombstone state, timed-out GM mutations quarantine their key until a successful read, and GM set/delete/list/probe operations are timeout-bounded so a stalled provider cannot hold the durable queue indefinitely.

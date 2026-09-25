@@ -13,7 +13,7 @@ The main path covers:
 - Unified entry point `processMediaVideo()`.
 - Creation, control and cleanup of sessions with `SessionOrchestrator`.
 - Initial resume and periodic saves with `PlaybackController`.
-- Final persistence through specialized save helpers and `Storage`.
+- Final persistence through `internalSaveVideoGeneric()` and `Storage`/`StorageAsync`.
 
 The contexts supported by this flow are `watch`, `shorts`, `miniplayer` and `preview`.
 
@@ -50,7 +50,7 @@ sequenceDiagram
     PCS->>SO: transitionState(active)
     PCS->>PC: interval -> saveStatus(...)
     PC->>PC: validate time, context, settings, metadata
-    PC->>Store: saveRegularVideo/saveShortsVideo/savePreview/saveMiniplayer/saveLivestream
+    PC->>Store: internalSaveVideoGeneric -> StorageAsync/Storage
 ```
 
 ## Phase 1: Initial Load
@@ -100,8 +100,8 @@ This is the main guard against YouTube SPA churn causing repeated teardown, dupl
 
 - `videoTypeCache`: `WeakMap<HTMLVideoElement, type>` to dedupe element/type pairs.
 - `pendingVideos`: `Set<HTMLVideoElement>` batch queue.
-- `activeAdWaiters`: `WeakSet` for videos waiting for ad state to clear.
-- `miniplayerTransitions`: `Set` because miniplayer handoff needs iteration-like state.
+- `activeAdWaiters`: `WeakMap` for videos waiting for ad state to clear.
+- `miniplayerTransitions`: `WeakSet` for videos in a miniplayer handoff.
 - Four MutationObservers: Watch, Shorts, Miniplayer, Preview.
 
 ### Bootstrap
@@ -149,7 +149,7 @@ Preview observer:
 
 `enqueueVideo(videoElement, type, triggerSource)` applies the first hard filters:
 
-1. `EventPreFilter.shouldDrop()` rejects non-video, disconnected, or src-less elements.
+1. `shouldDropVideoEvent()` rejects non-video, disconnected, or src-less elements.
 2. `RouteContextResolver.canProcessContext()` checks page/context eligibility.
 3. `AdDetector.isNodeWithinAdContainer()` blocks ads and schedules `scheduleAdRecovery()`.
 4. `videoTypeCache` prevents redundant enqueue for the same element/type.
@@ -213,7 +213,7 @@ This structure removes duplicated start logic while keeping the fragile YouTube-
 
 Before creating a session it:
 
-- Captures `globalNavigationId`.
+- Captures the session identity and verifies it after every asynchronous boundary.
 - Lets `FailSafeManager` exit safe mode if stable.
 - Confirms context lock.
 - Avoids duplicate sessions for the same element/type/video.
@@ -276,9 +276,8 @@ It rejects duplicate starts using:
 
 `handoffSession(videoEl, toVideoId, reason, mode)`:
 
-- Marks the old session as transitioning.
-- Finalizes it.
-- Starts a new session for the same context and new videoId.
+- Marks the old session as transitioning and finalizes it.
+- Does not insert a replacement; the caller re-enqueues through the normal processing pipeline.
 
 ## Phase 7: Resume and Metadata
 
@@ -304,7 +303,7 @@ After the metadata await, the mandatory async-session checks run:
 
 - `activeProcessingSessions.get(videoEl) === sessionRef`
 - `!sessionRef.isFinalized`
-- `navIdAtStart === globalNavigationId`, except miniplayer has a deliberate navigation exception.
+- Any destructive epoch/commit guard still belongs to the active runtime.
 
 If the session survived, metadata is merged into `sessionRef.videoInfo`.
 
@@ -319,7 +318,7 @@ max(cachedSettings.minSecondsBetweenSaves || 1, 1) * 1000
 Each tick:
 
 1. Self-destructs if the active session is gone, replaced, or finalized.
-2. Runs Watch UI watchdog every fourth tick.
+2. Runs the Watch UI watchdog every `THRESHOLDS.WATCHDOG_EVERY_N_TICKS` ticks.
 3. Runs Persistence Rescue at tick 6 if a resume should have happened but playback is still near `0s`.
 4. Returns early while `sessionRef.isResumePending`.
 5. Evaluates kill-switch conditions:
@@ -368,13 +367,13 @@ If eligible, it:
 
 Then it delegates by final type:
 
-| Final type | Save function |
+| Final type | Save path |
 |---|---|
-| `live` | `saveLivestream(...)` |
-| `shorts` | `saveShortsVideo(...)` |
-| `preview` | `savePreview(...)` |
-| `watch` | `saveRegularVideo(...)` |
-| `miniplayer` | `saveMiniplayer(...)` |
+| `live` | `internalSaveVideoGeneric(..., 'live', ...)` |
+| `shorts` | `internalSaveVideoGeneric(..., 'shorts', ...)` |
+| `preview` | `internalSaveVideoGeneric(..., 'preview', ...)` |
+| `watch` | `internalSaveVideoGeneric(..., 'watch', ...)` |
+| `miniplayer` | `internalSaveVideoGeneric(..., 'miniplayer', ...)` |
 
 Preview additionally resolves `preview_watch` vs `preview_shorts` using a per-element dataset cache.
 
@@ -382,7 +381,7 @@ Successful results update manual-save UI, notify progress, attach `videoInfo` to
 
 ## Phase 10: Persistence Boundary
 
-The specialized save functions build the normalized video record and write through the storage layer. The project rule is that storage operations are async and must be awaited.
+`internalSaveVideoGeneric()` builds the normalized video record and writes through `StorageAsync`/`Storage`. The project rule is that storage operations are async and must be awaited.
 
 At this point the session pipeline has already provided:
 
@@ -395,6 +394,12 @@ At this point the session pipeline has already provided:
 - Ad/context/session safety checks.
 
 The storage write is therefore the last step, not the place where routing is decided.
+
+## Backup and Storage-Usage Boundary
+
+Exports do not perform one `Storage.get()` transaction per video. `Storage.getCompleteVideoSnapshot()` waits for already-submitted durable operations, reserves the same queue only long enough to capture the complete IDB rows and fresh GM inventory, then releases it before parsing and mirror reads. JSON, FreeTube and exact script-usage calculations consume this immutable capture; serialization and file/network work happen afterward. A GM tombstone removes a key only when no IDB value survives; an ambiguous tombstone never erases a potentially newer IDB record.
+
+A normal playback save is therefore either before the snapshot cut or proceeds after the short queued capture. IDB/GM enumeration, malformed rows and unreadable fallback values still fail closed. A read that observes a tombstone never performs a second destructive IDB delete, and a post-commit primary delete always finishes mirror cleanup. GM provider operations are bounded and timed-out mutations quarantine their key until a successful read. Pre-migration continues only for a persisted backup status (`shared`, `saved`, `downloaded` or `copied`); an `opened` tab is not treated as a completed backup. Unavailable browser storage estimates remain unknown rather than becoming `0 B`. The revision check is only a bounded cross-tab contention retry around the queued cut; it is not a reason to reject a backup after an ordinary value update.
 
 ## Recovery Paths
 
@@ -417,7 +422,7 @@ When a video is blocked as an ad before or during a session:
 
 ### Safe Mode
 
-`FailSafeManager` tracks repeated invalid transitions, duplicate sessions, and invariant violations. Under repeated instability it enters safe mode, where complex transition handoffs degrade to finalize-and-requeue behavior.
+`FailSafeManager` counts invalid transitions and real invariant violations; routine duplicate enqueues and concurrent previews are telemetry-only. Under repeated instability it enters safe mode, where selected transition branches degrade to finalize-and-requeue behavior.
 
 ## Practical Debugging Path
 
@@ -432,7 +437,7 @@ When debugging a missing save, inspect in this order:
 7. Did `getCascadedVideoInfo()` await invalidate the session before interval creation?
 8. Did the save interval self-destruct because the session was replaced or finalized?
 9. Did `PlaybackController.saveStatus()` reject due to context mismatch, invalid metrics, resume protection, paused state, missing metadata, or disabled settings?
-10. Did the specialized save function return `storage_full` or another storage-layer failure?
+10. Did `internalSaveVideoGeneric()` return `storage_full` or another storage-layer failure?
 
 ## Component Responsibility Summary
 
@@ -448,4 +453,4 @@ When debugging a missing save, inspect in this order:
 | `PlaybackDisplayManager` | Player button groups, notifications, display identity, fixed-time/saved UI sync, message cleanup | Save eligibility or storage writes |
 | `PlaybackController.resume()` | Applying saved seek safely | Creating sessions |
 | `PlaybackController.saveStatus()` | Save eligibility and delegation | Observing YouTube DOM |
-| Specialized save helpers | Persisting normalized entries | Routing context or session control |
+| `internalSaveVideoGeneric()` | Normalizing and persisting entries | Routing context or session control |

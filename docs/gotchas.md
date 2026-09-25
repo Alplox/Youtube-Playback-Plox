@@ -13,19 +13,18 @@
 - **Ad/Script Pause**: Observers are active watchers, but they will respect global pause states (like during ads) before attempting to save to storage.
 - **Abortable Listeners**: Each session has its own `AbortController`. Event listeners added during a session are automatically removed when the session ends.
 
-## Storage Backend Migration (IndexedDB)
+## Storage Backend Migration (IndexedDB + GM)
 
 ### What Changed
-- The script now uses **IndexedDB** as the primary storage backend instead of localStorage
-- This provides much larger storage capacity and prevents "storage.set full" errors
-- Existing data is automatically migrated on first run
-- localStorage is preserved as a fallback/backup
+- The script uses **IndexedDB** as the primary video backend and **GM storage** as the durable fallback/bridge.
+- GM video writes are reconciled with IDB by `timeWatched`; a cache-only success is never treated as persistence.
+- Legacy `localStorage` entries are rescued/cleaned during migration, but localStorage is not the runtime fallback.
 
 ### Migration Behavior
-- **First run**: Script detects existing localStorage/GM data and migrates it to IndexedDB
-- **Migration flag**: `__ypp_idb_migrated__` is set to prevent repeated migrations
-- **No data loss**: Original localStorage entries are kept until you manually clear them
-- **Fallback**: If IndexedDB is unavailable, script falls back to localStorage
+- **First run**: Script detects legacy localStorage/GM data and migrates eligible video records to IndexedDB.
+- **Migration flag**: The consolidated `YT_PLAYBACK_PLOX_migrationVersion` key prevents repeated normalization only after all keys succeed.
+- **No data loss**: Legacy source entries are retained until their migration/backup step is confirmed.
+- **Fallback**: If IndexedDB is unavailable or fails, video data is written to GM storage when the manager exposes it.
 
 ### Schema Migration (v5)
 - **Automatic Type Normalization**: Legacy `videoType` values ('watch', 'regular') are automatically converted to 'video' or 'shorts'.
@@ -40,7 +39,7 @@ If a browser tab stops saving/resuming until reload and the console logs repeate
 #### Reading storage error logs (since 0.0.12-5)
 The in-script error log and copied logs now include the error type, so you can tell the failure mode from the first line:
 
-- `Database open failed` at load → `indexedDB.open()` itself fails: corruption, blocked storage permissions, or a browser bug. Check `Storage.getBackendInfo()` (`ready: false`), Firefox `about:storage` for site usage, and test with a clean profile.
+- `Database open failed` at load → `indexedDB.open()` itself fails: corruption, blocked storage permissions, or a browser bug. Check the copied log header/`StorageAsync.getBackendInfo()` when available, Firefox `about:storage` for site usage, and test with a clean profile.
 - `Error in IndexedDB queue (InvalidStateError | TransactionInactiveError)` → dead/closed connection mid-session, now self-healing via `onclose`.
 - `Error in IndexedDB queue (QuotaExceededError)` → storage full; persists after reload until data is freed. Clear via `indexedDB.deleteDatabase('YTPlaybackPloxDB')` + reload (loses saved data).
 
@@ -49,7 +48,7 @@ The copied log header now carries extra lines for triage:
 
 - `Userscript Manager: Tampermonkey vX.Y` (from `GM_info.scriptHandler` + `GM_info.version`).
 - `YouTube Client: <InnerTube version>` — correlates "stopped working" with a YouTube update.
-- `Safe Mode: ACTIVE (saving disabled)` → `FailSafeManager` tripped a loop/error guard; saves are intentionally paused until it recovers.
+- `Safe Mode: ACTIVE` → `FailSafeManager` detected repeated invalid transitions/invariant failures. It changes selected transition branches to safer finalize-and-requeue behavior; it is not a global storage kill switch.
 - `Active Sessions: N` — if N is 0 while a video is playing, the session engine never started (detection problem, not storage).
 - `IDB: open OK, v1, store 'savedVideos' (N entries)` → storage healthy. `IDB: open OK, store MISSING` → store vanished (corruption/partial clear). `IDB: open FAILED (name: message)` → `indexedDB.open()` rejects (corruption/permissions/version lock); since the open retries on every operation, a FAILED here is persistent, not a zombie.
 - `Persistent storage: granted/denied/unknown` → result of `navigator.storage.persist()`. `diagnose()` also reads the current `navigator.storage.persisted()` state.
@@ -58,31 +57,23 @@ The copied log header now carries extra lines for triage:
 Things that **cannot** be auto-detected and must be verified manually: expand the error in DevTools (F12) for the real `DOMException.name`, check `about:preferences#privacy` for Strict Tracking Protection affecting youtube.com storage, and reproduce in a clean Firefox profile / normal (non-private) window.
 
 #### Check Storage Backend Status
-```javascript
-// In browser console:
-Storage.getBackendInfo()
-```
+The internal storage layer exposes diagnostics through the copied log header. If debugging in a console context where the userscript scope is available, use `StorageAsync.getBackendInfo()` (not the public `Storage` wrapper):
+
 This returns:
-- `ready`: Whether StorageAsync is initialized
+- `ready`: Whether `StorageAsync` is initialized
 - `indexedDBSupported`: Browser IndexedDB support
-- `cacheSize`: Number of items in memory cache
-- `migrated`: Whether migration has occurred
+- `activeBackend`: `idb`, `gm`, or an initialization fallback state
+- `durableFallback`: Whether GM is currently the durable backend
+- `cacheSize`: Number of items in the bounded memory cache
 
 #### Force Re-migration
-If you need to re-migrate data:
-```javascript
-// Clear migration flag
-localStorage.removeItem('YT_PLAYBACK_PLOX___idb_migrated__');
-// Reload the page to trigger migration
-```
+If you need to re-run normalization, reset the consolidated GM migration key in a userscript-manager storage editor, then reload. Do not delete video records just to trigger migration.
 
 #### Clear IndexedDB (Reset)
 ```javascript
-// Delete the entire IndexedDB database
+// Destructive: export first, then delete the entire IndexedDB database.
 indexedDB.deleteDatabase('YTPlaybackPloxDB');
-// Clear migration flag
-localStorage.removeItem('YT_PLAYBACK_PLOX___idb_migrated__');
-// Reload page
+// Reload page; GM fallback/migration data is reconciled on startup.
 ```
 
 ### Performance Notes
@@ -104,14 +95,14 @@ localStorage.removeItem('YT_PLAYBACK_PLOX___idb_migrated__');
 - **Chrome/Edge**: Full IndexedDB support
 - **Firefox**: Full IndexedDB support
 - **Safari**: IndexedDB supported, but may have lower quotas
-- **Private mode**: IndexedDB may be disabled; fallback to localStorage
+- **Private mode**: IndexedDB may be disabled; video writes use GM storage when available
 
 ### Data Recovery
 If something goes wrong during migration:
-1. Your original data is still in localStorage
-2. Use browser dev tools to export localStorage entries
-3. Clear migration flag and reload to re-migrate
-4. Or use the Import/Export feature to restore data
+1. Export a JSON backup before changing storage.
+2. Inspect legacy localStorage/GM entries only as migration sources; they are not the current runtime store.
+3. Reset the consolidated migration key and reload to retry normalization.
+4. Use the Import/Export feature to restore data if normalization cannot complete.
 
 ## Common Issues
 
@@ -150,13 +141,13 @@ If something goes wrong during migration:
 - Check **Settings → Enable saving for → Miniplayer videos**
 - When disabled, videos playing in miniplayer are treated as non-saveable.
 - **UI Update (Fixed in 0.0.9-3)**: Previously, navigating to the Shorts page would freeze the miniplayer time display. The script now allows concurrent UI updates for both contexts.
-- **Session Recovery on Video Change (Fixed in 0.0.9-11)**: YouTube can change the miniplayer's active video without mutating the `<video>` element's `src` attribute (API-driven swap). The interval kill-switch detects `hasIdChanged` and kills the session, but the MutationObserver's src-change path never fires → no re-enqueue. The fix adds a `reenqueueForType()` bridge in `VideoObserverManager` so the kill-switch can self-heal by re-enqueueing the element for the new video.
+- **Session Recovery on Video Change (Fixed in 0.0.9-11)**: YouTube can change the miniplayer's active video without mutating the `<video>` element's `src` attribute (API-driven swap). The interval kill-switch detects `hasIdChanged` and kills the session, but the MutationObserver's src-change path never fires → no re-enqueue. The fix adds the `requeueMiniplayer()` bridge in `VideoObserverManager` so the kill-switch can self-heal by re-enqueueing the element for the new video.
 - **Anti Re-Seek Cooldown (Fixed in 0.0.9-11)**: `shouldSkipResumeForActivePlayback()` To prevent annoying playback jumps during rapid navigation (e.g. going from Search to Home while the Miniplayer is active), the script enforces a **5-second cooldown** for `resume()` attempts on the same video element.
 
 ### "Storage.set full" Errors
 - **Before**: Required manual cleanup or caused data loss
-- **Now**: Should not occur with IndexedDB
-- **If it happens**: Check `Storage.getBackendInfo()` - likely falling back to localStorage
+- **Now**: Should not occur with IndexedDB, but GM fallback can also report quota errors
+- **If it happens**: Check the copied log header / `StorageAsync.getBackendInfo()` and free space in the active backend.
 
 ### Slow Initial Load
 - **Cause**: Migration of existing data to IndexedDB
@@ -164,13 +155,13 @@ If something goes wrong during migration:
 - **Large datasets**: Migration may take a few seconds
 
 ### Data Not Persisting
-- **Check**: IndexedDB is enabled (`Storage.getBackendInfo().indexedDBSupported`)
+- **Check**: IndexedDB support and the active backend in the copied log header
 - **Check**: No errors in console during save operations
 - **Try**: Reload page and check if data persists
 
 ### Import/Export Issues
 - **Format**: Still uses JSON/FreeTube formats
-- **Storage**: Now saves to IndexedDB instead of localStorage
+- **Storage**: Saves to IndexedDB with GM fallback; legacy localStorage is only a migration source
 - **Compatibility**: Existing exports still work
 
 ## Advanced Usage
@@ -189,11 +180,11 @@ if (adapter.isSupported) {
 
 ### Storage Statistics
 ```javascript
-// Get storage info
-const info = Storage.getBackendInfo();
-console.log(`Backend: ${info.indexedDBSupported ? 'IndexedDB' : 'localStorage'}`);
+// Internal userscript scope; the copied log header exposes the same values.
+const info = StorageAsync.getBackendInfo();
+console.log(`Backend: ${info.activeBackend}`);
+console.log(`Durable fallback: ${info.durableFallback}`);
 console.log(`Cache size: ${info.cacheSize} items`);
-console.log(`Migrated: ${info.migrated}`);
 ```
 ### FreeTube Integration
 
@@ -323,7 +314,7 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 ## Safety & Stability (FailSafeManager)
 
 ### Safe Mode
-- **What it is**: A protective state that triggers if the script detects an abnormal number of session errors, duplicate starts, or navigation invariants in a short period (e.g., during a YouTube site update that breaks selectors).
+- **What it is**: A protective state that triggers if the script detects repeated invalid session transitions or navigation invariant failures in a short period (e.g., during a YouTube site update that breaks selectors). Routine duplicate enqueues are telemetry-only.
 - **Behavior**: When active, the script may throttle session starts or logs structured telemetry to help diagnose the issue. 
 - **Indicator**: You might see `[safeModeEntered]` in the browser console logs.
 - **Recovery**: The script attempts to exit Safe Mode automatically after 45 seconds of stability. If it persists, a page reload is recommended.
@@ -385,8 +376,34 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 
 - **Outside-click closers**: never register document click closers with `{ once: true }`; the first click anywhere (including inside the menu) disarms them and the menu gets stuck open. Use a persistent listener removed by the close function.
 - **Toast container cache**: the container element is removed from the DOM when its last toast fades out; its `DOMHelpers` entry must be invalidated at the same time or new toasts render into a detached node (invisible for up to the TTL).
+- **Menu command teardown**: `GM_unregisterMenuCommand` is optional at runtime. The main userscript grants it, but a manager that installs from the metadata-only update file may not expose it; old commands can then remain until the manager removes them.
 - **createElement option keys**: only `className/id/text/html/onClickEvent/events/attributes/props/styles/children/store` are supported. Unknown keys like `value`, `style` or `ariaLabel` are silently discarded - use `props`, object `styles`, and `attributes['aria-label']`.
 
 ## Metadata Cache & Playlists
 
 - The 5-minute metadata cache may hold playlist association from a previous visit. The early-return path validates it against the current URL playlist and drops stale associations instead of attaching an unrelated playlist to a standalone view.
+
+## Durable storage, imports and async ownership (v0.0.13)
+
+- **Never treat an in-memory write as persistence**: if IndexedDB is unsupported or fails, `StorageAsync` uses GM storage and exposes `activeBackend`/`durableFallback` in diagnostics. IDB and GM values are compared by `timeWatched`; do not reintroduce a cache-only success path.
+- **Raw migration keys are different from video keys**: `StorageAsync.rawKeys()` includes legacy metadata/GM keys for cleanup. Ordinary `StorageAsync.keys()` intentionally returns video keys only, so migration must use the raw API.
+- **Import concurrency**: imports read with strict error propagation, merge with newest-wins, and batch IDB writes. GM has no multi-key transaction; a failed GM batch can be partial, so callers must inspect the returned result and not assume atomicity.
+- **Session identity after await**: any async resume/save/metadata operation started by a session must compare `activeProcessingSessions.get(videoEl)` with the captured session before applying UI or writing. A stale result is `stale_session`, not a successful save.
+- **Same-node context changes**: a reused `<video>` can change from Watch to Miniplayer (or another context) without changing its video ID. `startProcessingSession()` must finalize that old session before putting the replacement in `activeProcessingSessions`; skipping this leaves the old interval running while the Map points at the new session.
+- **Durable mutation ordering**: `StorageAsync` serializes writes, batches and deletes within one runtime, and reads wait for the current mutation tail. This prevents an in-flight save from finishing after a replacement save/delete or merging an older completion history. Import batches re-read and merge inside that queue; delete/restore operations also recheck the expected `timeWatched`. It is not a distributed compare-and-swap: separate tabs still require IDB/GM reconciliation and can briefly disagree.
+- **Exports are snapshot captures, not revision equality**: `storageCacheRevision` is a cache-invalidation signal, not a durable database revision. `getCompleteVideoSnapshot()` reserves the durable queue only for the serialized IDB rows and fresh GM inventory, then parses/merges after releasing it; a same-tab save therefore occurs before or after the capture instead of aborting it. Do not restore the old keys-plus-thousands-of-`Storage.get()` loop or compare the global cache revision after capture.
+- **Tombstones are ambiguous across tabs**: a GM tombstone with a surviving IDB record must not delete that record; reads never issue a second delete after observing IDB absence, and explicit writes re-read before attempting marker repair. Once an IDB delete commits, finish GM cleanup even if the session guard becomes stale, otherwise the mirror can resurrect the record; tombstone-backed deletions must broadcast both fallback presence and deletion state.
+- **Complete enumeration is fail-closed**: `keys({ requireComplete: true })`, `rawKeys()` and complete snapshots use strict IDB row validation and must reject when `GM_listValues` is missing, errors, or returns a non-array while GM storage APIs exist. A listed GM key that cannot be read is not a confirmed absence. A supported IDB that has not completed an inventory is also unknown, not empty. Complete inventories must not seed from the bounded LRU.
+- **The LRU is not a storage inventory**: exact script usage must use a complete durable snapshot. A failed usage calculation or unavailable `navigator.storage.estimate()` must render an unknown/error value instead of returning and caching `0`, which would misreport a large database as empty. Storage mutations invalidate the usage cache.
+- **Storage provider operations are bounded**: all GM reads, writes, deletes, listings and batch probes use timeouts/overall deadlines so a stalled userscript-manager promise cannot hold initialization, settings, migration, a durable queue or a backup open indefinitely; timed-out mutations quarantine their key until a successful read.
+- **Pre-migration backups must be persisted**: `opened` only means a blob tab was opened. Structural migration may continue only for `shared`, `saved`, `downloaded` or `copied` backup statuses.
+- **Backend read errors are not absence**: a failed IDB read with no confirmed GM record must reject strict reads; callers must not turn an unavailable primary into a new record or resume from zero.
+- **Fallback writes are newest-wins**: before replacing a GM mirror, compare `timeWatched`; a newer mirror is preserved and returned as the canonical session record.
+- **GM deletion capability**: when a manager lacks `GM_deleteValue`, the script writes an explicit GM tombstone sentinel instead of a bare `null`; the normal metadata grant uses `GM_deleteValue`.
+- **Hot reload ownership**: every initialization stage must call `assertActiveInstance()` after awaiting external work. The replacement `window.__YPP__` object is the ownership token; a detached promise must not create observers, modals or backup timers. Same-version reinjection intentionally destroys and replaces the old instance. Runtime toasts and recovery actions are tracked separately so teardown cancels their timers/listeners without invoking destructive callbacks.
+- **Grid item ownership**: a virtual item that is evicted must dispose its row store. The same applies to rebuilt toolbars, overflow menus and toasts; attaching a listener to a node without a lifecycle store retains detached UI until page unload.
+- **Display ownership**: playback split-button/manual-save listeners belong to a per-display `DisposableStore`, not `GlobalDisposables`; destroy the store before removing a display node. Preview debounce markers and delayed gradient repaints must carry an instance/session token so a hot reload or context handoff cannot mutate the replacement UI.
+- **Saved-video render generations**: `savedVideosModalGeneration` protects modal lifetime, but concurrent refreshes within one modal also need `savedVideosRenderGeneration`. Ignore stale results after every storage await and destroy a late `VirtualScroller` instead of attaching it to a newer render.
+- **Body scroll ownership**: Settings and History may overlap while Settings hides History. Use the shared owner set (`acquireBodyOverflow`/`releaseBodyOverflow`) so closing one modal does not restore `body.style.overflow` while the other still owns the lock.
+- **Thumbnail probe**: the visible `<img>` is the probe and fallback target. A hidden probe image doubles network work; do not require `isConnected` before assigning a URL because virtual rows are built before insertion.
+- **Focus ownership**: when Settings hides History, only the top modal handles Escape/Tab. The History key handler yields while `settingsModalCleanup` is active, and the shared body-overflow owner restores the original value only after the last modal releases it.

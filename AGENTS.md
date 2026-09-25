@@ -30,10 +30,6 @@ Look before creating. Reuse what already exists:
 | Category            | Real name in code                                                             |
 | ------------------- | ----------------------------------------------------------------------------- |
 | Compiled selectors  | `SELECTORS.IDS`, `SELECTORS.CLASSES`, `SELECTORS.ELEMENTS`, `SELECTORS.ATTRS` |
-| ID constants        | `IDs` (object)                                                                |
-| Class constants     | `CLASSES` (object)                                                            |
-| Attribute constants | `ATTRIBUTES` (object)                                                         |
-| Element constants   | `ELEMENTS` (object)                                                           |
 | DOM cache with TTL  | `DOMHelpers.get(key, getter, ttlMs)`                                          |
 | Playback controller | `PlaybackController`                                                          |
 | Async storage       | `StorageAsync` / `Storage`                                                    |
@@ -107,7 +103,7 @@ youtube-playback-plox.user.js
 │     └── isContextLocked(videoEl, expectedContext)  ← Final validation
 │
 │   Session safety pipeline:
-├── EventPreFilter              ← Discards invalid events before processing
+├── shouldDropVideoEvent()      ← Discards invalid events before processing
 ├── FailSafeManager             ← Detects loops/errors and activates safe mode
 ├── SessionTelemetry            ← Structured logging of routing decisions
 ├── SessionFallbackManager      ← Watchdog for sessions that don't start
@@ -182,7 +178,7 @@ SELECTORS.ATTRS.MINIPLAYER_ACTIVE     → '[miniplayer-is-active]'
 ```
 VideoObserverManager detects <video> with src
         ↓
-EventPreFilter.shouldDrop() - discards if invalid
+shouldDropVideoEvent() - discards if invalid
         ↓
 RouteContextResolver.canProcessContext() - validates context
         ↓
@@ -190,7 +186,7 @@ AdDetector.isNodeWithinAdContainer() - discards if ad
         ↓
 enqueueVideo(videoEl, type)
         ↓
-processBatch() → process[Watch|Shorts|Miniplayer|Preview]Video()
+processBatch() → processMediaVideo(videoEl, type)
         ↓
 SessionOrchestrator.startSession() - creates session with unique token
         ↓
@@ -231,7 +227,7 @@ FORBIDDEN: `var`
 - `DisposableStore` for clean, grouped lifecycle tracking. Use:
   - `.clear()` to flush and execute registered disposables while keeping the store active (ideal for view resets/transitions).
   - `.dispose()` to flush disposables and permanently deactivate the store (ideal for final cleanups).
-- `cleanupAll()` / `closeModalVideos()` when navigating (cleans listeners)
+- `closeModalVideos()` / per-view `DisposableStore.clear()` when navigating (cleans listeners)
 
 **Safe HTML:** always `setInnerHTML(element, html)` - never `.innerHTML =`
 
@@ -359,5 +355,5 @@ maintain `docs/estado_tarea.md` to allow handoff between AI agents:
 | Create disposable store          | `new DisposableStore()`                           |
 | Debounce a function              | `debounce(fn, delayMs)`                           |
 | Async delay                      | `delay(ms)`                                       |
-| Threshold constants              | `THRESHOLDS.MIN_SAVE_INTERVAL_MS` etc.            |
+| Threshold constants              | `THRESHOLDS` and `CONFIG.minSecondsBetweenSaves`    |
 | SVG icons                        | `SVG_ICONS.{name}`                                |

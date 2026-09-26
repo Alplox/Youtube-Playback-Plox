@@ -467,3 +467,10 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 - **Body scroll ownership**: Settings and History may overlap while Settings hides History. Use the shared owner set (`acquireBodyOverflow`/`releaseBodyOverflow`) so closing one modal does not restore `body.style.overflow` while the other still owns the lock.
 - **Thumbnail probe**: the visible `<img>` is the probe and fallback target. A hidden probe image doubles network work; do not require `isConnected` before assigning a URL because virtual rows are built before insertion.
 - **Focus ownership**: when Settings hides History, only the top modal handles Escape/Tab. The History key handler yields while `settingsModalCleanup` is active, and the shared body-overflow owner restores the original value only after the last modal releases it.
+
+## Dev tooling: pnpm (v0.0.13)
+
+- **Single package manager**: commands are `pnpm install`, `pnpm run <script>` (`lint`, `lint:syntax`, `validate:translations`, `structure`, `audit`). Do not use `npm install`/`npm run`; mixing managers desyncs lockfiles.
+- **`pnpm-lock.yaml` is versioned, `node_modules/` is not**: CI runs `pnpm install --frozen-lockfile`, so any `package.json` change without a regenerated lockfile fails the build by design.
+- **Zero-dependency lockfile is expected**: the repo ships no npm dependencies (only `node scripts/*.mjs`), so `pnpm-lock.yaml` contains just `lockfileVersion` + an empty importer. Do not delete it as "empty".
+- **Pinned toolchain**: `packageManager: pnpm@11.20.0` + `engines: node>=20` + `.npmrc` `engine-strict=true`. With Corepack enabled (`corepack enable`), the correct pnpm activates automatically.

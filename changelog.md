@@ -37,6 +37,10 @@
 - **Modal/observer teardown**: backdrop clicks close History correctly, stale modal callbacks cannot release a replacement scroll lock, Shorts/observer animation frames are canceled or identity-checked, actual observer targets are tracked, and menu commands are unregistered on hot reload.
 - **Undo/action lifecycle**: toast close/timeout events are held while an action is running; Clear All, selected-delete, auto-cleanup and entry-delete undo use immutable snapshots and do not overwrite newer local progress.
 
+### Changed
+
+- **Dev tooling migrated from npm to pnpm**: `package.json` declares `packageManager: pnpm@11.20.0` with `engines: node>=20`, the `audit` script uses `pnpm run`, CI installs with `pnpm install --frozen-lockfile` (via `pnpm/action-setup@v4` + pnpm cache), `.npmrc` enforces `engine-strict=true`, `.gitignore` covers `node_modules/` and `pnpm-debug.log*`, and `pnpm-lock.yaml` is versioned. `package.json` version synced to `0.0.13` (matches `@version`, the only authority). No changes to `youtube-playback-plox.user.js`.
+
 ## 0.0.12-7
 
 ### Fixed

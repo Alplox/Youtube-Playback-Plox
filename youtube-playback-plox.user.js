@@ -129,7 +129,11 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1841778/YouTube%20Helper%20API.js
+// YouTube-Helper-API.js was removed as a dependency (see docs/gotchas.md):
+// its trackPlaybackProgress() handler re-read appState.player.videoElement on
+// every timeupdate tick, which throws an uncaught TypeError once the player has
+// no video element (ads, Miniplayer teardown, bfcache pageshow). The library is
+// not patchable from here because YouTubeDataManager is private to its IIFE.
 // ==/UserScript==
 
 (function () {
@@ -747,6 +751,27 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "invalidFormat": "Invalid format",
             "invalidJson": "Invalid JSON",
             "invalidDatabase": "Invalid database",
+            "importNotJson": "This file is not a JSON backup",
+            "importLooksLikeFreeTube": "This looks like a FreeTube export. Use the FreeTube import option.",
+            "storageCorruptRecords": "{count} unreadable row(s) skipped. Use Repair storage in Manage videos.",
+            "storageDamageTitle": "{count} damaged row(s)",
+            "storageDamageSummary": "{total} damaged rows: {empty} without stored data, {unreadable} unreadable",
+            "storageDamageSummaryEmpty": "{total} damaged rows without stored data",
+            "storageDamageRepairTitle": "Convert the damaged rows back to the current format",
+            "storageDamageReportTitle": "Download a report of the damaged rows",
+            "storageRepairConvertPrompt": "{count} saved row(s) could not be read. Convert them back to the current format now?",
+            "storageRepairConverted": "{count} row(s) converted and restored",
+            "storageRepairNothingConverted": "No row could be converted automatically",
+            "storageRepairReportPrompt": "{count} row(s) hold no recoverable data. Download a report of them before deciding what to do?",
+            "storageRepairDeletePrompt": "Delete the {count} row(s) that hold no recoverable data? They cannot be reconstructed afterwards. GM mirrors are never deleted.",
+            "storageRepairFailed": "Storage repair failed",
+            "exportDamageReport": "Report",
+            "storageDamageExported": "Damage report exported ({count} rows)",
+            "storageDamageNone": "There are no damaged rows",
+            "repairStorage": "Repair storage",
+            "repairStorageConfirm": "Delete {count} unreadable row(s)? Empty rows hold no data. GM mirrors are never deleted.",
+            "repairStorageDone": "{count} unreadable record(s) removed",
+            "repairStorageFailed": "{count} unreadable record(s) could not be removed",
             "noValidVideos": "No valid videos found to import",
             "fileTooLarge": "File is too large ({size}MB, max {limit}MB)",
             "fileTooLargeGist": "File is too large for Gist ({size}MB, max {limit}MB)",
@@ -4833,6 +4858,31 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     padding: 2px 6px;
     border-radius: var(--ypp-spacing-sm);
 }
+.ypp-storage-damage {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ypp-warning);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.ypp-storage-damage-btn {
+    background: var(--ypp-bg-secondary);
+    color: var(--ypp-warning);
+    border: 1px solid var(--ypp-warning);
+    border-radius: var(--ypp-spacing-sm);
+    padding: 2px 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.ypp-storage-damage-btn:hover:not(:disabled) {
+    background: var(--ypp-warning);
+    color: var(--ypp-bg);
+}
+.ypp-storage-damage-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
+}
 /* GitHub Backup tabs */
 .ypp-github-tabs {
     display: flex;
@@ -6052,6 +6102,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const locallyDeletedKeys = new Set();
     /** @type {Set<string>} Keys whose GM fallback is currently a tombstone marker. */
     const gmTombstoneKeys = new Set();
+    /**
+     * @type {Map<string, {key: string, reason: string, valueType: string, detectedAt: number}>}
+     * Durable records that exist but cannot be read. They are excluded from
+     * enumeration instead of failing it, stay visible in the log header and
+     * can only be removed by the explicit repair action.
+     */
+    const quarantinedRecords = new Map();
+    let quarantineNoticeScheduled = false;
+    let quarantineNoticeShown = false;
+    let quarantineOverflowReported = false;
+    const MAX_QUARANTINED_RECORDS = 5000;
     const MAX_LOCAL_TOMBSTONES = 2000;
 
     /**
@@ -6234,6 +6295,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const STORAGE_SNAPSHOT_MAX_ATTEMPTS = 3;
         const STORAGE_SNAPSHOT_RETRY_DELAY_MS = 50;
         const STORAGE_SNAPSHOT_BATCH_SIZE = 50;
+        /** Progress log interval (in records) for long batch merges. */
+        const STORAGE_BATCH_PROGRESS_INTERVAL = 500;
 
         /**
          * Serializes durable operations in this runtime so a save that started
@@ -6306,6 +6369,146 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         function isStorageProviderError(error) {
             return error?.name === 'TimeoutError' || /GM (fallback|mirror|storage)/i.test(String(error?.message || ''));
         }
+
+        /**
+         * Shows at most one notice per runtime when unreadable records are
+         * detected, so a corrupt database cannot flood the console or the
+         * user with one message per row.
+         * @returns {void}
+         */
+        function scheduleQuarantineNotice() {
+            if (quarantineNoticeScheduled || quarantineNoticeShown || quarantinedRecords.size === 0) return;
+            quarantineNoticeScheduled = true;
+            queueMicrotask(() => {
+                quarantineNoticeScheduled = false;
+                if (quarantineNoticeShown || quarantinedRecords.size === 0) return;
+                quarantineNoticeShown = true;
+                const records = [...quarantinedRecords.values()];
+                const total = records.length;
+                const emptyRows = records.filter(({ kind }) => kind === 'empty').length;
+                const malformed = total - emptyRows;
+                const sample = records.slice(0, 5)
+                    .map(({ key, kind }) => `${key} (${kind})`)
+                    .join(', ');
+                logWarn(
+                    'StorageAsync',
+                    `${total} unreadable row(s) excluded from the saved-videos list: ${emptyRows} empty, ${malformed} unreadable. Sample: ${sample}${total > 5 ? ', …' : ''}`
+                );
+                if (emptyRows > 0) {
+                    logWarn('StorageAsync', 'Empty rows carry no record: their videos must be restored from a JSON/FreeTube backup or a GitHub backup');
+                }
+                try {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('storageCorruptRecords', { count: total })}`);
+                } catch (error) {
+                    logWarn('StorageAsync', 'Could not show the unreadable-records notice', error);
+                }
+            });
+        }
+
+        /**
+         * Registers an unreadable durable row so listing, enumeration and
+         * exports keep working around it instead of failing closed.
+         * @param {string} key - Video storage key.
+         * @param {string} reason - Diagnostic reason.
+         * @param {string} [valueType] - Detected value type.
+         * @param {'empty'|'malformed'} [kind] - Empty leftover or unreadable value.
+         * @returns {boolean} True when the key was newly quarantined.
+         */
+        function registerQuarantinedRecord(key, reason, valueType = 'unknown', kind = 'malformed') {
+            if (typeof key !== 'string' || !key || quarantinedRecords.has(key)) return false;
+            if (quarantinedRecords.size >= MAX_QUARANTINED_RECORDS) {
+                if (!quarantineOverflowReported) {
+                    quarantineOverflowReported = true;
+                    logWarn('StorageAsync', `Quarantine registry reached ${MAX_QUARANTINED_RECORDS} entries; further unreadable rows are skipped without being tracked`);
+                }
+                return false;
+            }
+            quarantinedRecords.set(key, { key, reason, valueType, kind, detectedAt: Date.now() });
+            scheduleQuarantineNotice();
+            return true;
+        }
+
+        /**
+         * Marks a record error as quarantined so callers can treat an
+         * unreadable primary row as "no readable record" instead of as an
+         * unavailable backend (which must still fail closed).
+         * @param {string} key - Video storage key.
+         * @param {Error} error - Record error raised while reading the key.
+         * @returns {void}
+         */
+        function quarantineRecordError(key, error) {
+            registerQuarantinedRecord(key, error?.message || 'unreadable record');
+            error.quarantined = true;
+        }
+
+        /**
+         * Lists the unreadable rows detected in this runtime.
+         * @returns {Array<{key: string, reason: string, valueType: string, kind: string, detectedAt: number}>} Quarantine details.
+         */
+        function getQuarantinedRecords() {
+            return [...quarantinedRecords.values()];
+        }
+
+        /**
+         * Persists rows that enumeration managed to convert back into valid
+         * records. Runs outside the enumeration itself so listings and exports
+         * never wait for the write-back.
+         * @param {Array<{key: string, value: string, strategy: string}>} repairs - Converted rows.
+         * @returns {Promise<void>}
+         */
+        async function persistRepairedRows(repairs) {
+            if (!Array.isArray(repairs) || repairs.length === 0) return;
+            if (!IndexedDBAdapter.isSupported || !canUseIDB()) return;
+            return enqueueDurableOperation(async () => {
+                try {
+                    await IndexedDBAdapter.bulkPut(repairs);
+                    markIDBAvailable();
+                    activeBackend = 'idb';
+                    const repairedKeys = repairs.map(({ key }) => key);
+                    repairedKeys.forEach((key) => quarantinedRecords.delete(key));
+                    invalidateSessionSavedData(new Set(repairedKeys));
+                    storageCache.clear();
+                    isBatchStorageCacheValid = false;
+                    cachedBatchStorageData = null;
+                    broadcastStorageChange('*', false, null, false, repairedKeys);
+                    logInfo('StorageAsync', `Converted ${repairedKeys.length} damaged record(s) back to the current format`);
+                } catch (error) {
+                    markIDBUnavailable();
+                    logWarn('StorageAsync', 'Could not persist converted records', error);
+                }
+            });
+        }
+
+        /**
+         * Builds a damage report for the rows that enumeration could not
+         * convert, so the user can inspect or archive them before deleting.
+         * @returns {{summary: Object, entries: Array<Object>}} Report payload.
+         */
+        function buildStorageDamageReport() {
+            const records = getQuarantinedRecords();
+            const emptyRows = records.filter(({ kind }) => kind === 'empty');
+            const malformedRows = records.filter(({ kind }) => kind !== 'empty');
+            return {
+                summary: {
+                    version: SCRIPT_VERSION,
+                    date: new Date().toISOString(),
+                    report: 'storage-damage',
+                    totalUnreadableRows: records.length,
+                    rowsWithoutStoredValue: emptyRows.length,
+                    rowsWithUnreadableValue: malformedRows.length,
+                    note: 'Rows listed here were excluded from the saved-videos list and from exports. '
+                        + 'A row without a stored value cannot be reconstructed: restore those videos from a backup.'
+                },
+                entries: records.map(({ key, kind, reason, valueType, detectedAt }) => ({
+                    videoId: key,
+                    kind,
+                    reason,
+                    valueType,
+                    detectedAt: new Date(detectedAt).toISOString()
+                }))
+            };
+        }
+
         /** Marks IDB temporarily unavailable and schedules a later retry. */
         const markIDBUnavailable = () => {
             idbUnavailableForSession = true;
@@ -6729,12 +6932,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let idbError = IndexedDBAdapter.isSupported && !canUseIDB()
                 ? new Error('IndexedDB is temporarily unavailable; primary presence is unknown')
                 : null;
+            // Raw primary value, kept outside the try so the repair path can
+            // tell "no stored value at all" from "unparseable stored value".
+            let primaryRawValue;
             if (IndexedDBAdapter.isSupported && canUseIDB()) {
                 try {
                     const storeResult = await IndexedDBAdapter.runInStore('readonly', (store) => store.get(key));
                     const raw = storeResult && Object.prototype.hasOwnProperty.call(storeResult, 'value')
                         ? storeResult.value
                         : storeResult?.result?.value;
+                    primaryRawValue = raw;
                     if (storageRevisionChanged(key, startingRevision)) {
                         if (retryCount < 2) return get(key, { retryCount: retryCount + 1, skipQueue });
                         throw new Error(`Storage changed repeatedly while reading ${key}`);
@@ -6824,12 +7031,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         }
                         activeBackend = idbUnavailableForSession ? 'gm' : 'idb';
                         knownGMFallbackKeys.add(key);
+                        // The mirror supplied a readable record, so the
+                        // primary row is no longer a lost/unknown entry.
+                        if (quarantinedRecords.delete(key)) isBatchStorageCacheValid = false;
                         storageCache.set(key, JSON.stringify(fallbackValue));
                         return fallbackValue;
                     }
 
                     activeBackend = 'idb';
                     knownGMFallbackKeys.delete(key);
+                    // A row that stores no value resolves as absent, so it is
+                    // no longer an unreadable entry to report.
+                    quarantinedRecords.delete(key);
                     return null;
                 } catch (error) {
                     const isRevisionContention = /Storage changed repeatedly/.test(error?.message || '');
@@ -6837,6 +7050,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const isProviderError = isStorageProviderError(error);
                     if (!isRevisionContention && !isRecordCorruption && !isProviderError) markIDBUnavailable();
                     idbError = error;
+                    if (isRecordCorruption && !isRevisionContention && !allowPrimitive) {
+                        // The row exists but holds no readable record. Track it
+                        // so the strict listing path can skip this one key
+                        // instead of failing for every saved video.
+                        quarantineRecordError(key, error);
+                    }
                     logWarn('StorageAsync', `Error reading ${key} from IndexedDB; trying GM fallback`, error);
                 }
             }
@@ -6868,13 +7087,37 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // A failed primary read is not proof that the record is absent.
                 // Only return null when the primary read succeeded; otherwise
                 // propagate the backend failure so strict callers do not treat
-                // an unavailable IDB as an empty database.
+                // an unavailable IDB as an empty database. An unreadable row
+                // is the one exception: it provably carries no usable record,
+                // so it resolves as absent and stays in the quarantine list.
                 if (idbError && fallbackValue === null) {
+                    if (idbError.quarantined === true) {
+                        knownGMFallbackKeys.delete(key);
+                        storageCache.delete(key);
+                        return null;
+                    }
                     throw idbError;
                 }
                 activeBackend = 'gm';
                 if (fallbackValue !== null) {
                     knownGMFallbackKeys.add(key);
+                    // A readable mirror record supersedes the quarantine.
+                    if (quarantinedRecords.delete(key)) isBatchStorageCacheValid = false;
+                    // A primary row that stores no value at all (legacy/partial
+                    // write) is provably empty, so the readable mirror can
+                    // repair it without losing anything.
+                    if (idbError?.quarantined === true && typeof primaryRawValue !== 'string' &&
+                        IndexedDBAdapter.isSupported && canUseIDB()) {
+                        try {
+                            await IndexedDBAdapter.put(key, JSON.stringify(fallbackValue));
+                            markIDBAvailable();
+                            activeBackend = 'idb';
+                            logWarn('StorageAsync', `Repaired the unreadable record "${key}" from its GM mirror`);
+                        } catch (repairError) {
+                            markIDBUnavailable();
+                            logWarn('StorageAsync', `Could not repair the unreadable record "${key}" from its GM mirror`, repairError);
+                        }
+                    }
                     storageCache.set(key, JSON.stringify(fallbackValue));
                 } else {
                     knownGMFallbackKeys.delete(key);
@@ -6949,6 +7192,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (hasGMFallback) knownGMFallbackKeys.add(key);
                     else knownGMFallbackKeys.delete(key);
                     locallyDeletedKeys.delete(key);
+                    // A successful write replaces any unreadable row.
+                    quarantinedRecords.delete(key);
                     storageCache.set(key, effectiveSerialized);
                     invalidateSessionSavedData(key);
                     isBatchStorageCacheValid = false;
@@ -6968,6 +7213,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             activeBackend = 'gm';
             knownGMFallbackKeys.add(key);
             locallyDeletedKeys.delete(key);
+            // A readable mirror record supersedes any unreadable primary row.
+            quarantinedRecords.delete(key);
             storageCache.set(key, effectiveSerialized);
             invalidateSessionSavedData(key);
             isBatchStorageCacheValid = false;
@@ -7008,7 +7255,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // introducing a second queue or a distributed CAS.
                 if (typeof mergeEntry === 'function') {
                     const mergedEntries = [];
-                    for (const entry of serializedEntries) {
+                    const totalEntries = serializedEntries.length;
+                    for (const [entryIndex, entry] of serializedEntries.entries()) {
                         assertCommitAllowed();
                         const current = await get(entry.key, { skipQueue: true });
                         assertCommitAllowed();
@@ -7016,16 +7264,22 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         const decision = await mergeEntry({ key: entry.key, current, incoming });
                         if (decision?.skip) {
                             skippedKeys.push(entry.key);
-                            continue;
+                        } else {
+                            const value = decision && typeof decision === 'object' &&
+                                Object.prototype.hasOwnProperty.call(decision, 'value')
+                                ? decision.value
+                                : decision;
+                            if (!value || typeof value !== 'object') {
+                                throw new TypeError(`Import merge returned no record for "${entry.key}"`);
+                            }
+                            mergedEntries.push({ key: entry.key, serialized: JSON.stringify(value) });
                         }
-                        const value = decision && typeof decision === 'object' &&
-                            Object.prototype.hasOwnProperty.call(decision, 'value')
-                            ? decision.value
-                            : decision;
-                        if (!value || typeof value !== 'object') {
-                            throw new TypeError(`Import merge returned no record for "${entry.key}"`);
+                        // Re-reading every record before writing makes a large
+                        // import a long, silent operation: report progress so it
+                        // is not mistaken for a freeze.
+                        if ((entryIndex + 1) % STORAGE_BATCH_PROGRESS_INTERVAL === 0 || entryIndex + 1 === totalEntries) {
+                            logInfo('setMany', `Merge progress: ${entryIndex + 1}/${totalEntries} records read`);
                         }
-                        mergedEntries.push({ key: entry.key, serialized: JSON.stringify(value) });
                     }
                     serializedEntries = mergedEntries;
                 }
@@ -7037,7 +7291,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 if (IndexedDBAdapter.isSupported && canUseIDB()) {
                     try {
-                        await IndexedDBAdapter.bulkPut(serializedEntries);
+                        // Canonical row shape: the adapter also tolerates
+                        // `{key, serialized}`, but never store `undefined`.
+                        await IndexedDBAdapter.bulkPut(serializedEntries.map(({ key, serialized }) => ({ key, value: serialized })));
                         assertCommitAllowed();
                         const reconciliation = await reconcileGMFallbacksAfterIDB(serializedEntries);
                         assertCommitAllowed();
@@ -7053,6 +7309,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             if (knownGMFallbackKeys.has(key)) knownGMFallbackKeys.add(key);
                             else knownGMFallbackKeys.delete(key);
                             locallyDeletedKeys.delete(key);
+                            // A batch write replaces any unreadable row.
+                            quarantinedRecords.delete(key);
                             storageCache.set(key, reconciledByKey.get(key) || serialized);
                         }
                         invalidateSessionSavedData(new Set(serializedEntries.map(({ key }) => key)));
@@ -7306,6 +7564,132 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         /**
+         * Converts the quarantined rows back into the current record format
+         * instead of discarding them. Rows without any recoverable payload
+         * stay quarantined and are reported so the user can archive them or
+         * delete them explicitly afterwards.
+         * @param {{commitGuard?: (() => boolean)|null}} [options] - Commit guard.
+         * @returns {Promise<{repaired: Array<{key: string, strategy: string}>, unrepairable: string[], failed: string[]}>} Repair outcome.
+         */
+        async function repairQuarantinedRecords({ commitGuard = null } = {}) {
+            await initialize();
+            const targets = [...quarantinedRecords.keys()];
+            if (targets.length === 0) return { repaired: [], unrepairable: [], failed: [] };
+            if (!IndexedDBAdapter.isSupported || !canUseIDB()) {
+                return { repaired: [], unrepairable: targets, failed: targets };
+            }
+
+            const cancelled = typeof commitGuard === 'function' && !commitGuard();
+            if (cancelled) {
+                logWarn('StorageAsync', 'Storage repair cancelled before converting any row');
+                return { repaired: [], unrepairable: targets, failed: [] };
+            }
+
+            let outcome;
+            try {
+                outcome = await IndexedDBAdapter.repairEntries(targets);
+                markIDBAvailable();
+                activeBackend = 'idb';
+            } catch (error) {
+                markIDBUnavailable();
+                logError('StorageAsync', 'Could not convert the damaged records', error);
+                return { repaired: [], unrepairable: targets, failed: targets };
+            }
+
+            const repairedKeys = outcome.repaired.map(({ key }) => key);
+            repairedKeys.forEach((key) => quarantinedRecords.delete(key));
+            if (repairedKeys.length > 0) {
+                invalidateSessionSavedData(new Set(repairedKeys));
+                storageCache.clear();
+                isBatchStorageCacheValid = false;
+                cachedBatchStorageData = null;
+                broadcastStorageChange('*', false, null, false, repairedKeys);
+                logInfo('StorageAsync', `Storage repair converted ${repairedKeys.length} row(s)`);
+            }
+            // Rows that could not be converted stay registered, so the damage
+            // report and the optional cleanup still see them.
+            return {
+                repaired: outcome.repaired.map(({ key, strategy }) => ({ key, strategy })),
+                unrepairable: outcome.unrepairable,
+                failed: []
+            };
+        }
+
+        /**
+         * Removes the rows left unrepairable by `repairQuarantinedRecords()`.
+         * Nothing is removed implicitly: this is the explicit cleanup behind the
+         * repair flow, offered only after the user saw the damage report. GM
+         * mirrors are never deleted, because a mirror can be the only readable
+         * copy of a record.
+         * @param {{commitGuard?: (() => boolean)|null}} [options] - Commit guard.
+         * @returns {Promise<{purged: string[], failed: string[]}>} Purge outcome.
+         */
+        async function purgeQuarantinedRecords({ commitGuard = null } = {}) {
+            await initialize();
+            const records = [...quarantinedRecords.values()];
+            const emptyRowKeys = records.filter(({ kind }) => kind === 'empty').map(({ key }) => key);
+            const unreadableKeys = records.filter(({ kind }) => kind !== 'empty').map(({ key }) => key);
+            const purged = [];
+            const failed = [];
+
+            if (emptyRowKeys.length > 0) {
+                const aborted = typeof commitGuard === 'function' && !commitGuard();
+                if (aborted) {
+                    logWarn('StorageAsync', 'Repair cancelled before removing the empty rows');
+                    return { purged, failed: [...emptyRowKeys, ...unreadableKeys] };
+                }
+                try {
+                    await IndexedDBAdapter.bulkDelete(emptyRowKeys);
+                    markIDBAvailable();
+                    activeBackend = 'idb';
+                    const deletedSet = new Set(emptyRowKeys);
+                    emptyRowKeys.forEach((key) => quarantinedRecords.delete(key));
+                    invalidateSessionSavedData(deletedSet);
+                    storageCache.clear();
+                    isBatchStorageCacheValid = false;
+                    cachedBatchStorageData = null;
+                    broadcastStorageChange('*', false, null, true, null, emptyRowKeys);
+                    purged.push(...emptyRowKeys);
+                    logInfo('StorageAsync', `Repair removed ${emptyRowKeys.length} empty row(s) in one transaction`);
+                } catch (error) {
+                    markIDBUnavailable();
+                    logError('StorageAsync', `Could not remove ${emptyRowKeys.length} empty row(s)`, error);
+                    failed.push(...emptyRowKeys);
+                }
+            }
+
+            for (const key of unreadableKeys) {
+                try {
+                    const result = await del(key, { cleanupFallback: true, commitGuard });
+                    if (result?.success || result?.durableDeleted) {
+                        quarantinedRecords.delete(key);
+                        purged.push(key);
+                        continue;
+                    }
+                    failed.push(key);
+                    logWarn('StorageAsync', `Repair could not confirm the deletion of "${key}"`);
+                } catch (error) {
+                    if (error?.primaryDeleted === true || error?.durableDeleted === true) {
+                        // The unreadable row is gone; a newer GM mirror was
+                        // preserved on purpose.
+                        quarantinedRecords.delete(key);
+                        purged.push(key);
+                        continue;
+                    }
+                    failed.push(key);
+                    logError('StorageAsync', `Could not purge quarantined record "${key}"`, error);
+                }
+            }
+            if (purged.length > 0) {
+                storageCache.clear();
+                isBatchStorageCacheValid = false;
+                cachedBatchStorageData = null;
+                logInfo('StorageAsync', `Repair removed ${purged.length} unreadable row(s)`);
+            }
+            return { purged, failed };
+        }
+
+        /**
          * Lists video keys from the durable backends and in-memory cache.
          * @param {{requireComplete?: boolean}} [options] - Require all durable sources.
          * @returns {Promise<string[]>} Unique video storage keys.
@@ -7318,9 +7702,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let gmComplete = !hasAnyGMStorageApi();
 
             if (IndexedDBAdapter.isSupported && canUseIDB()) {
+                const repairedRows = [];
                 try {
-                    const entries = await IndexedDBAdapter.getAllEntries({ strict: requireComplete });
+                    const entries = await IndexedDBAdapter.getAllEntries({
+                        strict: requireComplete,
+                        onUnreadable: ({ key, reason, valueType, kind }) =>
+                            registerQuarantinedRecord(key, reason, valueType, kind),
+                        onRepaired: (repair) => repairedRows.push(repair)
+                    });
                     for (const entry of entries) resultKeys.add(entry.key);
+                    if (repairedRows.length > 0) await persistRepairedRows(repairedRows);
                     idbComplete = true;
                     markIDBAvailable();
                 } catch (error) {
@@ -7375,9 +7766,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let gmComplete = !hasAnyGMStorageApi();
 
             if (IndexedDBAdapter.isSupported && canUseIDB()) {
+                const repairedRows = [];
                 try {
-                    const entries = await IndexedDBAdapter.getAllEntries({ strict: true });
+                    const entries = await IndexedDBAdapter.getAllEntries({
+                        strict: true,
+                        onUnreadable: ({ key, reason, valueType, kind }) =>
+                            registerQuarantinedRecord(key, reason, valueType, kind),
+                        onRepaired: (repair) => repairedRows.push(repair)
+                    });
                     for (const entry of entries) resultKeys.add(entry.key);
+                    if (repairedRows.length > 0) await persistRepairedRows(repairedRows);
                     idbComplete = true;
                     markIDBAvailable();
                 } catch (error) {
@@ -7443,6 +7841,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         gmInventoryComplete = false;
                         const capturedEntries = [];
                         const capturedGMKeys = [];
+                        // Declared here (not inside the IDB branch) because the
+                        // captured result is returned after the queue cut.
+                        const repairedRows = [];
 
                         if (IndexedDBAdapter.isSupported) {
                             if (!canUseIDB()) {
@@ -7450,7 +7851,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             }
                             let entries;
                             try {
-                                entries = await IndexedDBAdapter.getAllEntries({ strict: true, validateJson: false });
+                                // Rows that can be converted are returned as
+                                // normal entries (so the capture stays complete)
+                                // and written back right after the queue cut.
+                                entries = await IndexedDBAdapter.getAllEntries({
+                                    strict: true,
+                                    validateJson: false,
+                                    onUnreadable: ({ key, reason, valueType, kind }) =>
+                                        registerQuarantinedRecord(key, reason, valueType, kind),
+                                    onRepaired: (repair) => repairedRows.push(repair)
+                                });
                                 markIDBAvailable();
                             } catch (error) {
                                 if (!isStorageRecordError(error)) markIDBUnavailable();
@@ -7498,7 +7908,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             error.snapshotContended = true;
                             throw error;
                         }
-                        return { capturedEntries, capturedGMKeys, gmInventoryEnumerated };
+                        return { capturedEntries, capturedGMKeys, gmInventoryEnumerated, repairedRows };
                     });
                 } catch (error) {
                     if (!error?.snapshotContended || attempt === STORAGE_SNAPSHOT_MAX_ATTEMPTS) throw error;
@@ -7517,10 +7927,34 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // must not make an otherwise valid backup fail.
                     gmInventoryComplete = false;
                     const snapshot = new Map();
+                    let snapshotRowsSkipped = 0;
                     for (const entry of captured.capturedEntries) {
-                        snapshot.set(entry.key, parseStoredRecord(entry.value));
+                        try {
+                            snapshot.set(entry.key, parseStoredRecord(entry.value));
+                        } catch (error) {
+                            // A row whose payload does not decode into a
+                            // record must not invalidate the whole backup.
+                            snapshotRowsSkipped += 1;
+                            registerQuarantinedRecord(
+                                entry.key,
+                                `captured row is not a record (${error?.name || 'Error'})`,
+                                'string',
+                                'malformed'
+                            );
+                        }
+                    }
+                    if (snapshotRowsSkipped > 0) {
+                        logWarn('StorageAsync', `Snapshot skipped ${snapshotRowsSkipped} row(s) that are not valid records`);
                     }
                     captured.capturedEntries.length = 0;
+
+                    // The converted rows are already part of this immutable
+                    // snapshot; write them back now that the queue is released.
+                    if (captured.repairedRows.length > 0) {
+                        persistRepairedRows(captured.repairedRows)
+                            .catch((error) => logWarn('StorageAsync', 'Deferred record conversion failed', error));
+                        captured.repairedRows.length = 0;
+                    }
 
                     const fallbackKeys = captured.capturedGMKeys;
                     if (fallbackKeys.length > 0 && typeof GM_getValue !== 'function') {
@@ -7547,6 +7981,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             const fallbackRecord = parseStoredRecord(rawValue);
                             const selected = pickNewerDurableRecord(snapshot.get(key) || null, fallbackRecord);
                             snapshot.set(key, selected.record);
+                            // The mirror is readable, so this key is no longer
+                            // an unreadable primary row.
+                            quarantinedRecords.delete(key);
                             knownGMFallbackKeys.add(key);
                         }
                     }
@@ -7585,6 +8022,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             keys,
             rawKeys,
             getCompleteVideoSnapshot,
+            getQuarantinedRecords,
+            buildStorageDamageReport,
+            repairQuarantinedRecords,
+            purgeQuarantinedRecords,
             getBackendInfo
         };
     })();
@@ -7700,43 +8141,263 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         /**
-         * Normalizes raw IndexedDB rows and optionally rejects malformed data.
-         * @param {*} rawEntries - Raw result of IDBObjectStore.getAll().
-         * @param {{strict?: boolean, validateJson?: boolean}} [options] - Validation policy.
-         * @returns {Array<{key: string, value: string, updatedAt: number}>} Normalized rows.
+         * Describes a stored value for quarantine diagnostics.
+         * @param {*} value - Raw IndexedDB value.
+         * @returns {string} Human-readable type description.
          */
-        function sanitizeEntries(rawEntries, { strict = false, validateJson = strict } = {}) {
+        function describeStoredValueType(value) {
+            if (value === null) return 'null';
+            if (value === undefined) return 'undefined';
+            if (Array.isArray(value)) return 'array';
+            return typeof value;
+        }
+
+        /**
+         * Reports whether a row carries any stored value at all. A row written
+         * with `value: undefined` holds no record, so it can never be read,
+         * exported or resumed: it is an empty leftover, not a damaged record.
+         * @param {*} rawValue - Raw IndexedDB value.
+         * @returns {boolean} True when the row stores nothing.
+         */
+        function isEmptyStoredValue(rawValue) {
+            return rawValue === undefined || rawValue === null;
+        }
+
+        /**
+         * Fields that identify a stored value as a video record. Used to avoid
+         * "repairing" arbitrary junk into a phantom entry.
+         */
+        const RECORD_FIELD_HINTS = [
+            'videoId', 'timeWatched', 'currentTime', 'duration', 'title',
+            'channelName', 'channelId', 'thumbnail', 'isCompleted',
+            'forceResumeTime', 'completionHistory', 'viewCount'
+        ];
+
+        /**
+         * Converts an arbitrary structured-clone value into a JSON-safe copy,
+         * dropping cycles and coercing values JSON cannot represent.
+         * @param {*} value - Value to convert.
+         * @param {WeakSet} [seen] - Already visited objects (cycle guard).
+         * @returns {*} JSON-safe copy, or undefined when the value is dropped.
+         */
+        function sanitizeToJsonSafe(value, seen = new WeakSet()) {
+            if (value === null) return null;
+            const valueType = typeof value;
+            if (valueType === 'string' || valueType === 'boolean') return value;
+            if (valueType === 'number') return Number.isFinite(value) ? value : null;
+            if (valueType === 'bigint') return value.toString();
+            if (valueType !== 'object') return undefined;
+            if (seen.has(value)) return undefined;
+            seen.add(value);
+            if (value instanceof Date) return value.toISOString();
+            if (Array.isArray(value)) {
+                return value.map((item) => {
+                    const safeItem = sanitizeToJsonSafe(item, seen);
+                    return safeItem === undefined ? null : safeItem;
+                });
+            }
+            if (typeof Map !== 'undefined' && value instanceof Map) {
+                const fromMap = {};
+                for (const [mapKey, mapValue] of value.entries()) {
+                    const safeValue = sanitizeToJsonSafe(mapValue, seen);
+                    if (safeValue !== undefined) fromMap[String(mapKey)] = safeValue;
+                }
+                return fromMap;
+            }
+            if (typeof Set !== 'undefined' && value instanceof Set) {
+                return [...value].map((item) => {
+                    const safeItem = sanitizeToJsonSafe(item, seen);
+                    return safeItem === undefined ? null : safeItem;
+                });
+            }
+            const plain = {};
+            for (const [entryKey, entryValue] of Object.entries(value)) {
+                const safeValue = sanitizeToJsonSafe(entryValue, seen);
+                if (safeValue !== undefined) plain[entryKey] = safeValue;
+            }
+            return plain;
+        }
+
+        /**
+         * Attempts to convert an unreadable stored value into a valid JSON
+         * record so the row can be repaired in place instead of discarded.
+         * Conservative by design: nothing is invented. A value that does not
+         * already look like a record is reported as unrepairable.
+         * @param {*} rawValue - Raw IndexedDB value.
+         * @param {string} key - Video storage key (fallback `videoId`).
+         * @returns {{value: string, strategy: string}|null} Repair payload or null.
+         */
+        function attemptStoredValueRepair(rawValue, key) {
+            if (isEmptyStoredValue(rawValue)) return null;
+
+            if (typeof rawValue === 'string') {
+                const cleaned = rawValue.replace(/^\uFEFF/, '').trim();
+                if (!cleaned) return null;
+                let parsed = null;
+                try {
+                    parsed = JSON.parse(cleaned);
+                } catch (error) {
+                    parsed = null;
+                }
+                // Legacy writers sometimes double-encoded the payload, so a
+                // parsed string literal is decoded once more.
+                if (typeof parsed === 'string') {
+                    try {
+                        parsed = JSON.parse(parsed);
+                    } catch (decodeError) {
+                        logWarn('IndexedDBAdapter', `Could not decode the double-encoded value of "${key}"`, decodeError);
+                        return null;
+                    }
+                }
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+                if (!RECORD_FIELD_HINTS.some((field) => Object.prototype.hasOwnProperty.call(parsed, field))) return null;
+                const record = typeof parsed.videoId === 'string' && parsed.videoId ? parsed : { ...parsed, videoId: key };
+                try {
+                    return { value: JSON.stringify(record), strategy: 'recovered-json' };
+                } catch (error) {
+                    logWarn('IndexedDBAdapter', `Recovered value of "${key}" is not serializable`, error);
+                    return null;
+                }
+            }
+
+            if (typeof rawValue === 'object') {
+                const sanitized = sanitizeToJsonSafe(rawValue);
+                if (!sanitized || typeof sanitized !== 'object' || Array.isArray(sanitized)) return null;
+                if (!RECORD_FIELD_HINTS.some((field) => Object.prototype.hasOwnProperty.call(sanitized, field))) return null;
+                const record = typeof sanitized.videoId === 'string' && sanitized.videoId
+                    ? sanitized
+                    : { ...sanitized, videoId: key };
+                try {
+                    return { value: JSON.stringify(record), strategy: 'sanitized-object' };
+                } catch (error) {
+                    logWarn('IndexedDBAdapter', `Sanitized value of "${key}" is not serializable`, error);
+                    return null;
+                }
+            }
+
+            // A bare primitive (number/boolean) carries no record fields, so
+            // converting it would invent data that never existed.
+            return null;
+        }
+
+        /**
+         * Normalizes raw IndexedDB rows, converting unreadable values back into
+         * valid records when possible.
+         *
+         * Three outcomes per row:
+         * - readable: normalized as before.
+         * - repairable: converted in place, reported through `onRepaired` and
+         *   returned so listing/exports keep seeing the record.
+         * - unrepairable: reported through `onUnreadable` and skipped, so a
+         *   single damaged row cannot invalidate the whole enumeration.
+         *
+         * Without `onUnreadable`, unrepairable rows keep failing closed.
+         * @param {*} rawEntries - Raw result of IDBObjectStore.getAll().
+         * @param {{strict?: boolean, validateJson?: boolean, onUnreadable?: Function|null, onRepaired?: Function|null, allowRepair?: boolean}} [options] - Validation policy.
+         * @returns {Array<{key: string, value: string, updatedAt: number, repaired?: string}>} Normalized rows.
+         */
+        function sanitizeEntries(rawEntries, {
+            strict = false,
+            validateJson = strict,
+            onUnreadable = null,
+            onRepaired = null,
+            allowRepair = true
+        } = {}) {
             if (!Array.isArray(rawEntries)) {
                 if (strict) throw new TypeError('IndexedDB getAll did not return an array');
                 return [];
             }
 
             const entries = [];
+            const pushEntry = (entry, value, repairedStrategy) => {
+                if (typeof onRepaired === 'function') {
+                    onRepaired({ key: entry.key, value, strategy: repairedStrategy });
+                }
+                entries.push({
+                    key: entry.key,
+                    value,
+                    updatedAt: Number.isFinite(entry.updatedAt) ? entry.updatedAt : Date.now(),
+                    repaired: repairedStrategy
+                });
+            };
+
             rawEntries.forEach((entry, index) => {
                 if (!entry || typeof entry.key !== 'string') {
                     if (strict) throw new TypeError(`Malformed IndexedDB entry at index ${index}`);
                     return;
                 }
 
+                // Rows without any stored value are empty leftovers; rows with
+                // an unreadable value still carry data worth converting.
+                const kind = isEmptyStoredValue(entry.value) ? 'empty' : 'malformed';
                 let value = null;
+                let valueType = 'unknown';
+                let failure = null;
                 try {
-                    if (typeof entry.value === 'string') value = entry.value;
-                    else if (entry.value && typeof entry.value === 'object') value = JSON.stringify(entry.value);
+                    if (typeof entry.value === 'string') {
+                        value = entry.value;
+                        valueType = 'string';
+                    } else if (entry.value && typeof entry.value === 'object') {
+                        valueType = describeStoredValueType(entry.value);
+                        value = JSON.stringify(entry.value);
+                        valueType = 'object';
+                    } else {
+                        valueType = describeStoredValueType(entry.value);
+                    }
                 } catch (error) {
-                    if (strict) {
-                        throw new TypeError(`Could not serialize IndexedDB entry "${entry.key}"`, { cause: error });
-                    }
+                    value = null;
+                    failure = { type: 'serialize', cause: error };
                 }
-                if (typeof value !== 'string') {
-                    if (strict) throw new TypeError(`Malformed IndexedDB value for key "${entry.key}"`);
-                    return;
-                }
-                if (validateJson) {
+
+                if (!failure && typeof value === 'string' && validateJson) {
                     try {
-                        JSON.parse(value);
+                        const parsed = JSON.parse(value);
+                        // A record is always a plain object. Arrays and
+                        // primitives would blow up later in
+                        // `parseStoredRecord()`, so they are treated as damaged
+                        // here instead of failing halfway through a backup.
+                        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                            failure = { type: 'shape' };
+                        }
                     } catch (error) {
-                        throw new TypeError(`Malformed IndexedDB JSON for key "${entry.key}"`, { cause: error });
+                        failure = { type: 'json', cause: error };
                     }
+                }
+
+                if (typeof value !== 'string' && !failure) {
+                    failure = { type: 'value' };
+                }
+
+                if (failure) {
+                    const repair = allowRepair ? attemptStoredValueRepair(entry.value, entry.key) : null;
+                    if (repair) {
+                        pushEntry(entry, repair.value, repair.strategy);
+                        return;
+                    }
+                    if (typeof onUnreadable === 'function') {
+                        onUnreadable({
+                            key: entry.key,
+                            reason: kind === 'empty'
+                                ? 'row stores no value'
+                                : `unreadable stored value (${valueType})`,
+                            valueType,
+                            kind
+                        });
+                        return;
+                    }
+                    if (strict) {
+                        if (failure.type === 'serialize') {
+                            throw new TypeError(`Could not serialize IndexedDB entry "${entry.key}"`, { cause: failure.cause });
+                        }
+                        if (failure.type === 'json') {
+                            throw new TypeError(`Malformed IndexedDB JSON for key "${entry.key}"`, { cause: failure.cause });
+                        }
+                        if (failure.type === 'shape') {
+                            throw new TypeError(`Malformed IndexedDB record for key "${entry.key}"`);
+                        }
+                        throw new TypeError(`Malformed IndexedDB value for key "${entry.key}"`);
+                    }
+                    return;
                 }
 
                 entries.push({
@@ -7750,12 +8411,53 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         /**
          * Reads all rows from the IndexedDB store in one readonly transaction.
-         * @param {{strict?: boolean, validateJson?: boolean}} [options] - Strict row/JSON policy.
-         * @returns {Promise<Array<{key: string, value: string, updatedAt: number}>>} Stored rows.
+         * @param {{strict?: boolean, validateJson?: boolean, onUnreadable?: Function|null, onRepaired?: Function|null, allowRepair?: boolean}} [options] - Strict row/JSON policy.
+         * @returns {Promise<Array<{key: string, value: string, updatedAt: number, repaired?: string}>>} Stored rows.
          */
-        function getAllEntries({ strict = false, validateJson = strict } = {}) {
+        function getAllEntries({ strict = false, validateJson = strict, onUnreadable = null, onRepaired = null, allowRepair = true } = {}) {
             return runInStore('readonly', (store) => store.getAll())
-                .then(rawEntries => sanitizeEntries(rawEntries, { strict, validateJson }));
+                .then(rawEntries => sanitizeEntries(rawEntries, { strict, validateJson, onUnreadable, onRepaired, allowRepair }));
+        }
+
+        /**
+         * Re-reads the given keys and converts the damaged rows in place
+         * instead of discarding them. Writes happen in a single transaction
+         * after the readonly capture, so enumeration is never blocked.
+         * @param {string[]} keys - Keys to inspect.
+         * @returns {Promise<{repaired: Array<{key: string, value: string, strategy: string}>, unrepairable: string[]}>} Repair outcome.
+         */
+        async function repairEntries(keys = []) {
+            if (!keys.length) return { repaired: [], unrepairable: [] };
+            const wanted = new Set(keys);
+            // `runInStore` only captures the last request result, so read the
+            // store once and filter instead of issuing one request per key.
+            const allRows = await runInStore('readonly', (store) => store.getAll());
+            const rowsByKey = new Map();
+            (Array.isArray(allRows) ? allRows : []).forEach((row) => {
+                if (row && typeof row.key === 'string' && wanted.has(row.key)) rowsByKey.set(row.key, row);
+            });
+            const repaired = [];
+            const unrepairable = [];
+            keys.forEach((key) => {
+                const row = rowsByKey.get(key);
+                if (!row) {
+                    unrepairable.push(key);
+                    return;
+                }
+                const repair = attemptStoredValueRepair(row.value, row.key);
+                if (repair) repaired.push({ key: row.key, value: repair.value, strategy: repair.strategy });
+                else unrepairable.push(key);
+            });
+            if (repaired.length > 0) {
+                await runInStore('readwrite', (store) => {
+                    let lastRequest = null;
+                    repaired.forEach(({ key, value }) => {
+                        lastRequest = store.put({ key, value, updatedAt: Date.now() });
+                    });
+                    return lastRequest;
+                });
+            }
+            return { repaired, unrepairable };
         }
 
         function putEntry(key, value) {
@@ -7766,11 +8468,51 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return runInStore('readwrite', (store) => store.delete(key));
         }
 
-        function bulkPut(entries = []) {
-            if (!entries.length) return Promise.resolve();
+        /**
+         * Deletes several keys in a single readwrite transaction.
+         * @param {string[]} keys - Keys to delete.
+         * @returns {Promise<void>}
+         */
+        function bulkDelete(keys = []) {
+            if (!keys.length) return Promise.resolve();
             return runInStore('readwrite', (store) => {
                 let lastRequest = null;
-                entries.forEach(({ key, value }) => {
+                keys.forEach((key) => {
+                    lastRequest = store.delete(key);
+                });
+                return lastRequest;
+            });
+        }
+
+        /**
+         * Writes several records in one transaction.
+         * Accepts both `{key, value}` and `{key, serialized}` entries so a
+         * shape mismatch can never store a record with an undefined value
+         * (which used to make every imported record unreadable in IDB).
+         * @param {Array<{key: string, value?: string, serialized?: string}>} entries - Records to store.
+         * @returns {Promise<void>}
+         */
+        function bulkPut(entries = []) {
+            if (!entries.length) return Promise.resolve();
+            const skippedKeys = [];
+            const normalizedEntries = [];
+            entries.forEach((entry) => {
+                const value = typeof entry?.value === 'string'
+                    ? entry.value
+                    : (typeof entry?.serialized === 'string' ? entry.serialized : null);
+                if (typeof entry?.key !== 'string' || !entry.key || value === null) {
+                    if (entry?.key) skippedKeys.push(entry.key);
+                    return;
+                }
+                normalizedEntries.push({ key: entry.key, value });
+            });
+            if (skippedKeys.length > 0) {
+                logError('IndexedDBAdapter', `Bulk write skipped ${skippedKeys.length} entry(ies) without a serializable value`, skippedKeys.slice(0, 10));
+            }
+            if (normalizedEntries.length === 0) return Promise.resolve();
+            return runInStore('readwrite', (store) => {
+                let lastRequest = null;
+                normalizedEntries.forEach(({ key, value }) => {
                     lastRequest = store.put({ key, value, updatedAt: Date.now() });
                 });
                 return lastRequest;
@@ -7833,7 +8575,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (!isSupported) return Promise.resolve();
                 return enqueue(() => deleteEntry(key));
             },
+            bulkDelete: (keys) => {
+                if (!isSupported || !keys?.length) return Promise.resolve();
+                return enqueue(() => bulkDelete(keys));
+            },
             getAllEntries,
+            repairEntries,
             runInStore,
             diagnose
         };
@@ -7963,6 +8710,52 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return await StorageAsync.getCompleteVideoSnapshot(keysToExport);
             } catch (error) {
                 logError('Storage', 'Storage.getCompleteVideoSnapshot: Error capturing video records', error);
+                throw error;
+            }
+        },
+
+        /**
+         * Lists durable rows that exist but cannot be read.
+         * @returns {Array<{key: string, reason: string, valueType: string, kind: string, detectedAt: number}>} Quarantine details.
+         */
+        getQuarantinedRecords() {
+            return StorageAsync.getQuarantinedRecords();
+        },
+
+        /**
+         * Builds the damage report for rows that could not be converted, so
+         * they can be archived before anything is removed.
+         * @returns {{summary: Object, entries: Array<Object>}} Report payload.
+         */
+        getStorageDamageReport() {
+            return StorageAsync.buildStorageDamageReport();
+        },
+
+        /**
+         * Converts damaged rows back into the current record format instead of
+         * discarding them. Rows without a recoverable payload stay listed.
+         * @param {{commitGuard?: (() => boolean)|null}} [options] - Commit guard.
+         * @returns {Promise<{repaired: Array<Object>, unrepairable: string[], failed: string[]}>} Repair outcome.
+         */
+        async repairQuarantinedRecords(options = {}) {
+            try {
+                return await StorageAsync.repairQuarantinedRecords(options);
+            } catch (error) {
+                logError('Storage', 'Storage.repairQuarantinedRecords: conversion failed', error);
+                throw error;
+            }
+        },
+
+        /**
+         * Deletes the unreadable records after explicit user confirmation.
+         * @param {{commitGuard?: (() => boolean)|null}} [options] - Commit guard.
+         * @returns {Promise<{purged: string[], failed: string[]}>} Purge outcome.
+         */
+        async purgeQuarantinedRecords(options = {}) {
+            try {
+                return await StorageAsync.purgeQuarantinedRecords(options);
+            } catch (error) {
+                logError('Storage', 'Storage.purgeQuarantinedRecords: repair failed', error);
                 throw error;
             }
         },
@@ -9014,6 +9807,150 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
+     * Downloads a report of the rows that enumeration could not convert, so
+     * the user can inspect or archive them before anything is removed.
+     * @returns {Promise<boolean>} True when the report was delivered.
+     */
+    const exportStorageDamageReport = async () => {
+        try {
+            const report = Storage.getStorageDamageReport();
+            if (!report?.entries?.length) {
+                showFloatingToast(`${SVG_ICONS.check} ${t('storageDamageNone')}`);
+                return true;
+            }
+            const jsonString = JSON.stringify(report, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const timestamp = new Date().toISOString().split('T')[0];
+            const status = await downloadBlobMobileSafe(
+                blob,
+                `youtube-playback-plox-v${SCRIPT_VERSION}-storage-damage-${timestamp}.json`
+            );
+            if (status === 'failed') {
+                showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
+                return false;
+            }
+            showFloatingToast(`${SVG_ICONS.upload} ${t('storageDamageExported', { count: report.entries.length })}`);
+            logLog('exportStorageDamageReport', `Exported a damage report with ${report.entries.length} row(s) - status: ${status}`);
+            return true;
+        } catch (error) {
+            logError('exportStorageDamageReport', 'Error exporting the damage report:', error);
+            showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
+            return false;
+        }
+    };
+
+    /**
+     * Guided repair flow for damaged durable rows.
+     *
+     * 1. Converts every row that can be converted back to the current format.
+     * 2. Offers a downloadable report of whatever remains.
+     * 3. Deletes the remaining rows only on an explicit confirmation, and
+     *    never touches GM mirrors.
+     *
+     * @param {HTMLElement|null} [trigger] - Button that started the flow.
+     * @returns {Promise<void>}
+     */
+    const runStorageRepairFlow = async (trigger = null) => {
+        const damaged = Storage.getQuarantinedRecords();
+        if (damaged.length === 0) {
+            showFloatingToast(`${SVG_ICONS.check} ${t('storageDamageNone')}`);
+            return;
+        }
+        if (trigger) trigger.disabled = true;
+        try {
+            const shouldConvert = confirm(t('storageRepairConvertPrompt', { count: damaged.length }));
+            let unrepairable = damaged.length;
+            if (shouldConvert) {
+                const result = await Storage.repairQuarantinedRecords({
+                    commitGuard: () => isInstanceActive()
+                });
+                const repairedCount = Array.isArray(result?.repaired) ? result.repaired.length : 0;
+                unrepairable = Array.isArray(result?.unrepairable) ? result.unrepairable.length : 0;
+                if (repairedCount > 0) {
+                    showFloatingToast(`${SVG_ICONS.check} ${t('storageRepairConverted', { count: repairedCount })}`);
+                } else {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('storageRepairNothingConverted')}`);
+                }
+            }
+
+            if (unrepairable > 0 && confirm(t('storageRepairReportPrompt', { count: unrepairable }))) {
+                await exportStorageDamageReport();
+            }
+            if (unrepairable > 0 && confirm(t('storageRepairDeletePrompt', { count: unrepairable }))) {
+                storageDestructiveEpoch += 1;
+                const purge = await Storage.purgeQuarantinedRecords({
+                    commitGuard: () => isInstanceActive()
+                });
+                const purgedCount = Array.isArray(purge?.purged) ? purge.purged.length : 0;
+                const failedCount = Array.isArray(purge?.failed) ? purge.failed.length : 0;
+                if (purgedCount > 0) {
+                    showFloatingToast(`${SVG_ICONS.check} ${t('repairStorageDone', { count: purgedCount })}`);
+                }
+                if (failedCount > 0) {
+                    logError('runStorageRepairFlow', `${failedCount} damaged row(s) could not be removed`);
+                    showFloatingToast(`${SVG_ICONS.error} ${t('repairStorageFailed', { count: failedCount })}`);
+                }
+            }
+        } catch (error) {
+            logError('runStorageRepairFlow', 'Storage repair failed', error);
+            showFloatingToast(`${SVG_ICONS.error} ${t('storageRepairFailed')}`);
+        } finally {
+            if (trigger) trigger.disabled = false;
+            if (Storage.getQuarantinedRecords().length === 0) {
+                // Nothing damaged left: drop both entry points.
+                DOMHelpers.get('repair:btn', () => document.getElementById('ypp-repair-storage-btn'), 0)?.remove();
+            }
+            renderStorageDamageNotice();
+            await updateVideoList();
+        }
+    };
+
+    /**
+     * Renders (or hides) the damaged-rows notice inside the saved-videos list
+     * header, so the affected keys are visible without opening the console.
+     * @returns {void}
+     */
+    const renderStorageDamageNotice = () => {
+        const statsBar = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
+        if (!statsBar) return;
+        let notice = statsBar.querySelector('#ypp-storage-damage');
+        const damaged = Storage.getQuarantinedRecords();
+        if (damaged.length === 0) {
+            if (notice) notice.remove();
+            return;
+        }
+        if (!notice) {
+            notice = createElement('span', { className: 'ypp-storage-damage', id: 'ypp-storage-damage' });
+            statsBar.appendChild(notice);
+        }
+        const emptyRows = damaged.filter(({ kind }) => kind === 'empty').length;
+        const unreadable = damaged.length - emptyRows;
+        const details = unreadable > 0
+            ? `${t('storageDamageSummary', { total: damaged.length, empty: emptyRows, unreadable })}`
+            : t('storageDamageSummaryEmpty', { total: damaged.length });
+        const repairBtn = createElement('button', {
+            className: 'ypp-storage-damage-btn',
+            html: t('repairStorage'),
+            attributes: { type: 'button', title: t('storageDamageRepairTitle') }
+        });
+        addDisposableListener(repairBtn, 'click', async (event) => {
+            event.stopPropagation();
+            await runStorageRepairFlow(repairBtn);
+        }, {}, ModalDisposables);
+        const reportBtn = createElement('button', {
+            className: 'ypp-storage-damage-btn',
+            html: t('exportDamageReport'),
+            attributes: { type: 'button', title: t('storageDamageReportTitle') }
+        });
+        addDisposableListener(reportBtn, 'click', async (event) => {
+            event.stopPropagation();
+            await exportStorageDamageReport();
+        }, {}, ModalDisposables);
+        setInnerHTML(notice, `<span title="${sanitizeHTML(details)}">${SVG_ICONS.warning} ${sanitizeHTML(t('storageDamageTitle', { count: damaged.length }))}</span>`);
+        notice.append(repairBtn, reportBtn);
+    };
+
+    /**
      * Copies export data directly to clipboard in JSON or FreeTube format.
      * @param {'json'|'freetube'} format - Format to copy
      * @param {Array|null} keysToExport - Optional specific video keys to export
@@ -9126,6 +10063,92 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         return { data: merged, usedIncoming: true, changed: true };
     }
 
+    /** @type {string[]} Keys that may wrap the record map in a third-party export. */
+    const IMPORT_WRAPPER_KEYS = ['data', 'videos', 'records', 'items', 'savedVideos', 'export', 'backup'];
+
+    /**
+     * Guesses the shape of an import file from its leading characters.
+     * @param {string} text - Raw file content.
+     * @returns {string} One of `empty`, `html`, `json-array`, `json-object`, `text`.
+     */
+    function detectImportFormat(text) {
+        const trimmed = text.trimStart();
+        if (!trimmed) return 'empty';
+        if (/^<(?:!doctype|html|\?xml)/i.test(trimmed)) return 'html';
+        if (trimmed.startsWith('[')) return 'json-array';
+        if (trimmed.startsWith('{')) return 'json-object';
+        return 'text';
+    }
+
+    /**
+     * Checks whether an object holds at least one importable video record.
+     * @param {Object} candidate - Parsed object to inspect.
+     * @returns {boolean} True when at least one usable record key exists.
+     */
+    function hasImportableRecords(candidate) {
+        if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false;
+        return Object.keys(candidate).some((key) => {
+            if (key === '__metadata__' || key.startsWith('userSettings') || key.startsWith('userFilters')) return false;
+            if (isNonVideoStorageKey(key)) return false;
+            const value = candidate[key];
+            return !!value && typeof value === 'object';
+        });
+    }
+
+    /**
+     * Detects a FreeTube database export, which only the FreeTube importer
+     * understands. Native backups are flat maps keyed by video id and can
+     * never carry a `videos` array.
+     * @param {*} parsed - Parsed JSON payload.
+     * @returns {boolean} True when the payload is a FreeTube export.
+     */
+    function looksLikeFreeTubeExport(parsed) {
+        return !!parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Array.isArray(parsed.videos);
+    }
+
+    /**
+     * Parses a native JSON backup tolerantly: a UTF-8 BOM and surrounding
+     * whitespace are ignored, arrays of records are indexed by `videoId` and a
+     * single wrapper object is unwrapped. Wrong files (HTML pages, FreeTube
+     * exports, empty documents) are reported with a usable reason instead of a
+     * raw `JSON.parse` exception.
+     * @param {string} text - Raw file content.
+     * @returns {{ok: boolean, data?: Object, format: string, hint?: string, error?: Error}} Parse outcome.
+     */
+    function parseImportPayload(text) {
+        const cleaned = String(text || '').replace(/^\uFEFF/, '').trim();
+        const format = detectImportFormat(cleaned);
+        if (format === 'empty') return { ok: false, format, hint: 'empty' };
+        if (format === 'html') return { ok: false, format, hint: 'html' };
+
+        let parsed;
+        try {
+            parsed = JSON.parse(cleaned);
+        } catch (error) {
+            return { ok: false, format, hint: 'json', error };
+        }
+
+        if (looksLikeFreeTubeExport(parsed)) return { ok: false, format, hint: 'freetube' };
+
+        if (Array.isArray(parsed)) {
+            const byVideoId = {};
+            parsed.forEach((record) => {
+                if (!record || typeof record !== 'object') return;
+                const videoId = typeof record.videoId === 'string' ? record.videoId.trim() : '';
+                if (videoId) byVideoId[videoId] = record;
+            });
+            return Object.keys(byVideoId).length > 0
+                ? { ok: true, data: byVideoId, format: 'json-array' }
+                : { ok: false, format, hint: 'empty' };
+        }
+
+        if (!parsed || typeof parsed !== 'object') return { ok: false, format, hint: 'json' };
+
+        const wrapperKey = IMPORT_WRAPPER_KEYS.find((key) => hasImportableRecords(parsed[key]));
+        if (wrapperKey) return { ok: true, data: parsed[wrapperKey], format: `${format}/${wrapperKey}` };
+        return { ok: true, data: parsed, format };
+    }
+
     /**
      * Imports a native JSON backup without regressing newer local records.
      * @param {File} file - Selected JSON backup.
@@ -9142,7 +10165,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             !selectedDeleteInFlight;
         try {
             const text = await file.text();
-            const data = JSON.parse(text);
+            const parsedImport = parseImportPayload(text);
+            if (!parsedImport.ok) {
+                if (parsedImport.hint === 'freetube') {
+                    logWarn('importDataFromFile', 'The selected file is a FreeTube export; it needs the FreeTube importer');
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('importLooksLikeFreeTube')}`);
+                } else if (parsedImport.format === 'html') {
+                    logWarn('importDataFromFile', 'The selected file is an HTML document, not a backup');
+                    showFloatingToast(`${SVG_ICONS.error} ${t('importNotJson')}`);
+                } else if (parsedImport.hint === 'empty') {
+                    logWarn('importDataFromFile', 'The selected file contains no importable records');
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
+                } else {
+                    logError('importDataFromFile', `Could not parse the selected file as JSON: ${parsedImport.error?.message || 'unknown error'}`, parsedImport.error);
+                    showFloatingToast(`${SVG_ICONS.error} ${t('importNotJson')}`);
+                }
+                return;
+            }
+            const data = parsedImport.data;
+            logLog('importDataFromFile', `Import payload accepted (${parsedImport.format})`);
 
             if (typeof data !== 'object' || data === null) {
                 showFloatingToast(`${SVG_ICONS.error} ${t('invalidFormat')}`);
@@ -9294,85 +10335,110 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return resolve(false);
             }
 
-            const url = gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists';
-            const method = gistId ? 'PATCH' : 'POST';
+            const headers = {
+                'Authorization': `token ${cleanToken}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            };
+            const payload = JSON.stringify(gistData);
 
-            GM_xmlhttpRequest({
-                method: method,
-                url: url,
-                headers: {
-                    'Authorization': `token ${cleanToken}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                data: JSON.stringify(gistData),
-                timeout: 60000,
-                onload: async (response) => {
-                    // Wrap everything: an uncaught exception here (invalid JSON body,
-                    // missing result.id, storage failure) would leave the promise
-                    // unresolved forever and stall the whole auto-backup chain.
-                    try {
-                        if (response.status >= 200 && response.status < 300) {
-
-                            const result = JSON.parse(response.responseText);
-                            if (!result || typeof result.id !== 'string') {
-                                throw new Error('Malformed GitHub response: missing gist id');
-                            }
-
-                            // Update the current object for UI feedback if the modal is open
-                            // Persist sync metadata
-                            if (!isInstanceActive()) {
-                                resolve(false);
-                                return;
-                            }
-                            let storedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
-                            if (!isInstanceActive()) {
-                                resolve(false);
-                                return;
-                            }
-                            if (!storedSettings.gist) storedSettings.gist = {};
-
-                            storedSettings.gist.id = result.id;
-                            storedSettings.gist.url = result.html_url;
-                            storedSettings.gist.lastSync = Date.now();
-
-                            // Auto-remove token if applicable
-                            if (modeSettings.autoDeleteToken ?? fullSettings.autoDeleteToken) {
-                                storedSettings.gist.token = '';
-                            }
-
-                            const settingsResult = await Storage.set(CONFIG.STORAGE_KEYS.github, storedSettings, {
-                                commitGuard: () => isInstanceActive()
-                            });
-                            if (!settingsResult?.success) {
-                                throw settingsResult?.error || new Error(settingsResult?.reason || 'storage_error');
-                            }
-
-                            logInfo('backupToGitHubGist', 'GitHub backup successful:', result.id.slice(0, 10) + '...');
-                            resolve(true);
-                        } else {
-                            logError('backupToGitHubGist', 'GitHub backup error:', response.status);
+            /**
+             * Sends one Gist request and always settles the outer promise.
+             * @param {'POST'|'PATCH'} method - HTTP method.
+             * @param {string} url - GitHub API endpoint.
+             * @param {string} description - Log context for failures.
+             * @returns {void}
+             */
+            const sendGistRequest = (method, url, description) => {
+                GM_xmlhttpRequest({
+                    method: method,
+                    url: url,
+                    headers: headers,
+                    data: payload,
+                    timeout: 60000,
+                    onload: async (response) => {
+                        // Wrap everything: an uncaught exception here (invalid JSON body,
+                        // missing result.id, storage failure) would leave the promise
+                        // unresolved forever and stall the whole auto-backup chain.
+                        try {
                             const ghMsg = getGitHubErrorMsg(response);
-                            showFloatingToast(`${SVG_ICONS.error} ${sanitizeHTML(ghMsg) || 'GitHub error'} (${response.status})`);
+                            if (response.status >= 200 && response.status < 300) {
+
+                                const result = JSON.parse(response.responseText);
+                                if (!result || typeof result.id !== 'string') {
+                                    throw new Error('Malformed GitHub response: missing gist id');
+                                }
+
+                                // Update the current object for UI feedback if the modal is open
+                                // Persist sync metadata
+                                if (!isInstanceActive()) {
+                                    resolve(false);
+                                    return;
+                                }
+                                let storedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+                                if (!isInstanceActive()) {
+                                    resolve(false);
+                                    return;
+                                }
+                                if (!storedSettings.gist) storedSettings.gist = {};
+
+                                storedSettings.gist.id = result.id;
+                                storedSettings.gist.url = result.html_url;
+                                storedSettings.gist.lastSync = Date.now();
+
+                                // Auto-remove token if applicable
+                                if (modeSettings.autoDeleteToken ?? fullSettings.autoDeleteToken) {
+                                    storedSettings.gist.token = '';
+                                }
+
+                                const settingsResult = await Storage.set(CONFIG.STORAGE_KEYS.github, storedSettings, {
+                                    commitGuard: () => isInstanceActive()
+                                });
+                                if (!settingsResult?.success) {
+                                    throw settingsResult?.error || new Error(settingsResult?.reason || 'storage_error');
+                                }
+
+                                logInfo('backupToGitHubGist', 'GitHub backup successful:', result.id.slice(0, 10) + '...');
+                                resolve(true);
+                            } else if (method === 'PATCH' && response.status === 404) {
+                                // The stored gist id is gone (deleted, or owned by
+                                // another token). Creating a fresh secret gist keeps
+                                // the automatic backup alive and reports the real cause
+                                // if the token itself lacks access.
+                                logWarn(
+                                    'backupToGitHubGist',
+                                    `Stored gist is not reachable (404${ghMsg ? `: ${ghMsg}` : ''}); creating a new one`
+                                );
+                                sendGistRequest('POST', 'https://api.github.com/gists', 'create');
+                            } else {
+                                logError('backupToGitHubGist', `GitHub backup error: ${response.status}${ghMsg ? ` - ${ghMsg}` : ''}`, response.responseText);
+                                showFloatingToast(`${SVG_ICONS.error} ${sanitizeHTML(ghMsg) || 'GitHub error'} (${response.status})`);
+                                resolve(false);
+                            }
+                        } catch (err) {
+                            logError('backupToGitHubGist', `Error processing ${description} response:`, err);
+                            showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')}`);
                             resolve(false);
                         }
-                    } catch (err) {
-                        logError('backupToGitHubGist', 'Error processing GitHub response:', err);
-                        showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')}`);
+                    },
+                    ontimeout: () => {
+                        logWarn('backupToGitHubGist', `GitHub backup request timed out (${description})`);
+                        showFloatingToast(`${SVG_ICONS.error} GitHub timeout`);
+                        resolve(false);
+                    },
+                    onerror: (err) => {
+                        logError('backupToGitHubGist', `Network error during GitHub backup (${description}):`, err);
+                        showFloatingToast(`${SVG_ICONS.error} GitHub network error`);
                         resolve(false);
                     }
-                },
-                ontimeout: () => {
-                    logWarn('backupToGitHubGist', 'GitHub backup request timed out');
-                    showFloatingToast(`${SVG_ICONS.error} GitHub timeout`);
-                    resolve(false);
-                },
-                onerror: (err) => {
-                    logError('backupToGitHubGist', 'Network error during GitHub backup:', err);
-                    showFloatingToast(`${SVG_ICONS.error} GitHub network error`);
-                    resolve(false);
-                }
-            });
+                });
+            };
+
+            if (gistId) {
+                sendGistRequest('PATCH', `https://api.github.com/gists/${gistId}`, 'update');
+            } else {
+                sendGistRequest('POST', 'https://api.github.com/gists', 'create');
+            }
         });
     };
 
@@ -13570,6 +14636,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const idbDiag = (typeof IndexedDBAdapter !== 'undefined' && typeof IndexedDBAdapter.diagnose === 'function')
                     ? await IndexedDBAdapter.diagnose()
                     : null;
+                const quarantinedRecords = typeof Storage?.getQuarantinedRecords === 'function'
+                    ? Storage.getQuarantinedRecords()
+                    : [];
+                const emptyQuarantinedRows = quarantinedRecords.filter(({ kind }) => kind === 'empty').length;
+                const unreadableQuarantinedRows = quarantinedRecords.length - emptyQuarantinedRows;
                 let storageEstimate = null;
                 if (navigator.storage && typeof navigator.storage.estimate === 'function') {
                     try {
@@ -13593,6 +14664,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     `Active Sessions: ${activeSessions === null ? 'unknown' : activeSessions}`,
                     `Storage Backend: ${storageInfo.activeBackend || (storageInfo.indexedDBSupported ? 'IndexedDB' : 'Fallback')} (Cache: ${storageInfo.cacheSize || 0})`,
                     `IDB: ${idbDiag ? (idbDiag.openOk ? `open OK, v${idbDiag.dbVersion ?? '?'}, store ${idbDiag.storePresent ? `'savedVideos' (${idbDiag.entryCount} entries)` : 'MISSING'}` : `open FAILED (${idbDiag.error})`) : 'diagnose unavailable'}`,
+                    `IDB quarantine: ${quarantinedRecords.length === 0 ? 'none' : `${quarantinedRecords.length} unreadable row(s) excluded from the list: ${emptyQuarantinedRows} empty, ${unreadableQuarantinedRows} unreadable (${quarantinedRecords.slice(0, 10).map(({ key }) => key).join(', ')}${quarantinedRecords.length > 10 ? ', …' : ''})`}`,
                     `Persistent storage: ${storageInfo.persistentStorageGranted === null || storageInfo.persistentStorageGranted === undefined ? 'unknown' : storageInfo.persistentStorageGranted ? 'granted' : 'denied'}`,
                     `Storage usage: ${storageEstimate && Number.isFinite(storageEstimate.usage) && Number.isFinite(storageEstimate.quota) ? `${(storageEstimate.usage / 1048576).toFixed(1)} / ${(storageEstimate.quota / 1048576).toFixed(1)} MB` : 'unknown'}`,
                     `Date: ${new Date().toISOString()}`,
@@ -14302,6 +15374,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 onClickEvent: async () => { await clearAllData(); }
             });
 
+            // Only rendered when unreadable durable rows were detected, so
+            // the repair entry stays invisible on healthy installations.
+            const quarantinedAtBuild = Storage.getQuarantinedRecords();
+            const btnRepairStorage = quarantinedAtBuild.length > 0
+                ? createElement('button', {
+                    id: 'ypp-repair-storage-btn',
+                    className: 'ypp-btn ypp-btn-outline-warning ypp-shadow-md ypp-management-footer-item',
+                    html: `${SVG_ICONS.warning} ${t('repairStorage')} (${quarantinedAtBuild.length})`,
+                    attributes: { type: 'button' },
+                    onClickEvent: async () => {
+                        await runStorageRepairFlow(btnRepairStorage);
+                    }
+                })
+                : null;
+
 
             const cancelBtn = createElement('button', {
                 className: 'ypp-btn ypp-btn-secondary ypp-shadow-md ypp-management-footer-item',
@@ -14314,6 +15401,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             managementModeContainer.append(selectionInfo);
             selectionSection.append(btnSelectAll, btnClearSelection);
             dataSection.append(importMenuWrapper, exportAllMenu, exportSelectedMenu);
+            if (btnRepairStorage) dataSection.append(btnRepairStorage);
             dangerSection.append(btnDeleteSelected, btnClearAll);
             dangerSection.append(cancelBtn);
             btnGroup.append(selectionSection, dataSection, dangerSection/* , sessionSection */);
@@ -17749,9 +18837,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             level1Warnings.push(`Error in Level 1: ${e.message}`);
         }
 
-        // 🔵 Level 2: YouTube Helper API
+        // 🔵 Level 2: YouTube Helper API (optional, no longer a dependency)
         try {
-            if (YTHelper?.video?.id === videoId) {
+            if (YTHelper && YTHelper.video?.id === videoId) {
                 // info.videoId: videoId (already comes from function parameters and was already checked to reach this point)
                 info.title = info.title ?? YTHelper.video.title;
                 info.author = info.author ?? YTHelper.video.channel;
@@ -18997,7 +20085,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
         container.classList.remove('ypp-list-loading');
         DOMHelpers.removeExact('vsc:container');
-        setInnerHTML(container, `<div class="ypp-empty-state-composed">${SVG_ICONS.error}<h3>${sanitizeHTML(t('unknownError'))}</h3></div>`);
+        // Point at the repair entry when unreadable records are the cause, so
+        // the user is not left with an unexplained empty list.
+        const quarantined = Storage.getQuarantinedRecords();
+        const detail = quarantined.length > 0
+            ? `<p>${sanitizeHTML(t('storageCorruptRecords', { count: quarantined.length }))}</p>`
+            : '';
+        setInnerHTML(container, `<div class="ypp-empty-state-composed">${SVG_ICONS.error}<h3>${sanitizeHTML(t('unknownError'))}</h3>${detail}</div>`);
     }
 
     /**
@@ -19461,6 +20555,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         `;
 
         setInnerHTML(el, html);
+
+        // The damaged-rows notice lives next to the storage usage line.
+        try {
+            renderStorageDamageNotice();
+        } catch (error) {
+            logWarn('StorageUI', 'Could not render the damaged-rows notice', error);
+        }
 
         // Add listener to recalculate button
         const recalcBtn = el.querySelector('.ypp-recalculate-storage-btn');
@@ -22056,11 +23157,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         let failedDeletes = 0;
         let skippedConflicts = 0;
         for (const [key, value] of Object.entries(pendingDeletion)) {
+            // Declared outside the re-read block: it guards the delete call
+            // below, which happens after that try/catch.
+            let snapshotTime = Number(value?.timeWatched || 0);
             try {
                 const latest = await Storage.get(key, { throwOnError: true });
                 if (!commitGuard()) return;
                 const latestTime = Number(latest?.timeWatched || 0);
-                const snapshotTime = Number(value?.timeWatched || 0);
                 if (latest?.isProtected === true || latestTime > snapshotTime) {
                     skippedConflicts++;
                     logWarn('clearAllData', `Skipped deletion of newer/protected record "${key}"`);
@@ -22965,19 +24068,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             addDisposableListener(window, 'yt-navigate-finish', navigationDebounce);
             addDisposableListener(document, 'yt-page-data-updated', navigationDebounce);
 
-            // 2. Initialize YouTube Helper API and listen for its "silent" updates
+            // 2. Optional YouTube Helper API support.
+            // The library is no longer a dependency (@require removed: its
+            // trackPlaybackProgress() throws an uncaught TypeError when the
+            // player has no video element). It is still honoured if another
+            // script injects it into the page, purely as an extra metadata
+            // source; nothing here depends on it.
             try {
                 const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : (globalThis ?? window);
 
                 if (typeof youtubeHelperApi !== 'undefined') {
                     YTHelper = youtubeHelperApi;
-                    logInfo('YTHelper', '✅ Reference to YouTube Helper API obtained youtubeHelperApi');
+                    logInfo('YTHelper', 'Optional YouTube Helper API detected (youtubeHelperApi)');
                 } else if (typeof targetWindow.youtubeHelperApi !== 'undefined') {
                     YTHelper = targetWindow.youtubeHelperApi;
-                    logInfo('YTHelper', '✅ Reference to YouTube Helper API obtained targetWindow.youtubeHelperApi');
+                    logInfo('YTHelper', 'Optional YouTube Helper API detected (unsafeWindow.youtubeHelperApi)');
                 } else if (targetWindow.youtubeHelperRegistry?.instances?.size > 0) {
                     YTHelper = Array.from(targetWindow.youtubeHelperRegistry.instances.values())[0];
-                    logInfo('YTHelper', '✅ Reference to YouTube Helper API obtained targetWindow.youtubeHelperRegistry');
+                    logInfo('YTHelper', 'Optional YouTube Helper API detected (youtubeHelperRegistry)');
                 }
 
                 if (YTHelper) {
@@ -22987,15 +24095,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         navigationDebounce?.();
                     });
 
-                    // YTHelper.debug.enabled = true;
-                    // YTHelper.debug.level = 3;
-
                     logInfo('YTHelper', 'Registered persistent listener for yt-helper-api-ready');
                 } else {
-                    logError('YTHelper', 'Reference to YouTube Helper API not obtained');
+                    logLog('YTHelper', 'YouTube Helper API not present; using the player API and DOM metadata sources');
                 }
             } catch (error) {
-                logError('YTHelper', 'Error during YouTube Helper API initialization: ' + error);
+                logWarn('YTHelper', 'Optional YouTube Helper API integration skipped', error);
             }
 
             // 3. Clean up resources when page closes to prevent memory leaks

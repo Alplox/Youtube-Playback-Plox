@@ -11,8 +11,13 @@
   "scripts": {
     "lint": "node scripts/audit-lint.mjs",
     "lint:syntax": "node --check youtube-playback-plox.user.js",
+    "lint:scope": "node scripts/scope-check.mjs",
     "structure": "node scripts/generate-structure.mjs",
     "validate:translations": "node scripts/validate-translations.mjs",
-    "audit": "pnpm run lint:syntax && pnpm run lint && pnpm run validate:translations"
+    "audit": "pnpm run lint:syntax && pnpm run lint && pnpm run lint:scope && pnpm run validate:translations"
+  },
+  "devDependencies": {
+    "acorn": "8.14.0",
+    "eslint-scope": "8.2.0"
   }
 }

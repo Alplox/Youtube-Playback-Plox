@@ -50,6 +50,67 @@ The in-script error log and copied logs now include the error type, so you can t
 - `Error in IndexedDB queue (InvalidStateError | TransactionInactiveError)` → dead/closed connection mid-session, now self-healing via `onclose`.
 - `Error in IndexedDB queue (QuotaExceededError)` → storage full; persists after reload until data is freed. Clear via `indexedDB.deleteDatabase('YTPlaybackPloxDB')` + reload (loses saved data).
 
+#### YouTube-Helper-API was removed as a dependency (0.0.13)
+
+`YouTube-Helper-API.js` (GreasyFork 549881) is **no longer** loaded via `@require`. Its `trackPlaybackProgress()` captured `appState.player.videoElement` for the guard but re-read the global inside the `timeupdate` handler:
+
+```js
+const videoElement = YouTubeDataManager.appState.player.videoElement;   // guard ok
+if (!videoElement || …currentTrackedVideoElement === videoElement) return;
+const updateProgress = () => { …appState.player.videoElement.currentTime; };   // throws
+```
+
+`appState.player.videoElement` is reassigned from `playerObject?.querySelector('video')` (line ~1013), so it becomes `undefined` as soon as the player has no container - during ads, Miniplayer teardown or a bfcache `pageshow`. The registered listener then throws `Uncaught TypeError: can't access property "currentTime" … videoElement is undefined` on **every** tick (chain: `pageshow` -> `handlePageshowEvent` -> `handlePlayerUpdate` -> `_processPlayerUpdate` -> `trackPlaybackProgress`).
+
+- The stack is attributed to the userscript URL, not to `base.js`, because `@require` code is concatenated into the same evaluated wrapper. That is how to tell an upstream error from ours.
+- Not fixable from here: `YouTubeDataManager` is a module-private `const` inside the library's IIFE and `ApiManager.publicApi` exposes only `debug`, `EVENTS`, `eventTarget` and data getters. Last published version is 1.1.1 (2026-06-03) and still contains the bug.
+- Functional damage was nil: the throwing handler only feeds `appState.video.realCurrentProgress`, which this script never reads. It was console noise plus wasted CPU (and 78 KB parsed on every page load).
+
+What is lost without the library (all were already optional):
+
+- `getCascadedVideoInfo()` level 2 fallback for `title`/`channel`/`viewCount`/`description`/`playlistId`/`lengthSeconds` when the player API and the DOM both fail.
+- `YTHelper.video.isCurrentlyLive` as a live fallback; `details.isLive`, `internalData.isLive` and context/DOM detection remain.
+- The third navigation trigger `yt-helper-api-ready`; `yt-navigate-finish` and `yt-page-data-updated` already cover SPA navigation.
+
+If another script injects the library into the page, the integration still detects it (`youtubeHelperApi`, `unsafeWindow.youtubeHelperApi`, `youtubeHelperRegistry`) and uses it purely as an extra metadata source. Absence is a `logLog`, not an error.
+
+#### Block-scoped values used outside their block (since 0.0.13)
+
+The script is one ~19k-line IIFE, so a `const` declared inside an `if`/`try` block is invisible to the code after that block. Both of these were plain `ReferenceError`s at runtime that `node --check` and `audit-lint.mjs` cannot see:
+
+- `repairedRows` in `StorageAsync.getCompleteVideoSnapshot()` was declared inside the `if (IndexedDBAdapter.isSupported)` branch but returned by the queued capture callback after the branch. Every export/backup threw `ReferenceError: repairedRows is not defined`.
+- `snapshotTime` in `performClearAllData()` was declared inside the re-read `try` but passed to `Storage.del()` after it. The `ReferenceError` was swallowed by the surrounding `catch`, so **"delete all data" reported every key as failed and deleted nothing**.
+
+Rules of thumb:
+
+- Declare a value in the scope that *uses* it, even when its only producer is a nested branch.
+- A `ReferenceError` raised while evaluating arguments lands in the surrounding `catch` and looks like an unrelated failure - check the logged error name before assuming the operation itself is at fault.
+- `node scripts/scope-check.mjs` (part of `pnpm run audit` and of CI) parses the file with acorn + eslint-scope and fails on any reference that does not resolve in scope. Names probed with `typeof x !== 'undefined'` (optional integrations such as `youtubeHelperApi`) are allow-listed; extend it with `--allow name1,name2` if a new optional global shows up.
+
+#### Unreadable records are quarantined, not fatal (since 0.0.13)
+
+`Malformed IndexedDB value for key "<id>"` / `Malformed IndexedDB JSON for key "<id>"` means a row in `savedVideos` exists but its value cannot be read (not a string, not a serializable object, or not valid JSON). Before 0.0.13 that single row failed the whole `getAll()` transaction, so `keys()` returned `Cannot enumerate a complete video key set from durable storage` (saved-videos modal shows only the error state) and `getSyncData()` failed, killing every export and GitHub backup for the whole database.
+
+> **Known source of mass corruption (fixed in 0.0.13):** `setMany()` produced `{key, serialized}` entries while `IndexedDBAdapter.bulkPut()` destructured `{key, value}`, so **every imported record** was written as `{key, value: undefined, updatedAt}`. Imports never create a GM mirror (`reconcileGMFallbacksAfterIDB()` only refreshes mirrors that already exist, and `set()` mirrors only keys that already had one), so **that payload is unrecoverable from storage** - it must come back from a JSON/FreeTube export or a GitHub backup. Symptom: thousands of `row stores no value` / `unsupported stored value type "undefined"` keys, exports and Gist backups dead while playback of the remaining records seemed fine. After the fix, `bulkPut()` accepts both shapes, `setMany()` passes the canonical `{key, value}`, and rows that already store nothing are reported as `empty` and cleaned in one transaction by "Repair storage".
+
+Current behaviour:
+
+- `IndexedDBAdapter.getAllEntries({ onUnreadable, onRepaired })` classifies every row:
+  - **readable** → normalized as before.
+  - **repairable** → converted by `attemptStoredValueRepair()` and returned as a normal entry, so listings/exports keep seeing the record; `onRepaired` collects it and `persistRepairedRows()` writes it back in one transaction after the enumeration (deferred past the queue cut for exports). Strategies: `recovered-json` (BOM/whitespace/double-encoded payload) and `sanitized-object` (cycles, `BigInt`, `Date`, `Map`/`Set`).
+  - **unrepairable** → reported through `onUnreadable` and skipped, so one damaged row cannot invalidate the whole enumeration. Without a reporter the historical fail-closed behaviour is preserved.
+- Nothing is invented: a value is only accepted when it already looks like a record (`RECORD_FIELD_HINTS`), so a bare number or `{foo:'bar'}` stays unrepairable instead of becoming a phantom entry.
+- Rows with no stored value at all are `kind: 'empty'`. They cannot be converted (there is no payload); the only recovery is a backup import, which overwrites them by key.
+- `Storage.get()` marks a malformed read with `error.quarantined` and resolves `null` **only** when there is no GM mirror. A readable mirror supersedes the quarantine and rewrites a primary row that stores no value at all; a real backend failure (unavailable IDB, GM timeout) still throws for strict callers.
+- Quarantining never logs one line per row: a single aggregated warning plus one toast per runtime, with the empty/unreadable split and a 5-key sample.
+- **UI**: while any row is damaged, the saved-videos header shows `⚠ N damaged row(s)` with **Repair storage** and **Report** buttons (`.ypp-storage-damage`), and *Manage videos* adds a `Repair storage (N)` entry. `runStorageRepairFlow()` converts first, then offers the downloadable `storage-damage` report (`buildStorageDamageReport()` / `exportStorageDamageReport()`: every affected key with kind, reason and detection time), and only asks about deleting what remains afterwards. GM mirrors are never deleted.
+- A successful save, a read that restores the mirror into IDB, or a read that resolves an empty row as absent clears the quarantine entry.
+- `IDB quarantine: none | N unreadable row(s) excluded from the list: E empty, M unreadable (...)` in the copied log header.
+
+#### Gist backup 404 (since 0.0.13)
+
+`GitHub backup error: 404` on `PATCH /gists/{id}` means the stored gist id no longer exists or belongs to another token. The backup now retries once as `POST /gists` (creating a new secret gist and persisting its id). If that second request also fails, the toast/log carries GitHub's own message - typically a token without the `gist` scope, which GitHub also answers with 404.
+
 #### Log header diagnostics (since 0.0.12-6)
 
 The copied log header now carries extra lines for triage:
@@ -59,6 +120,7 @@ The copied log header now carries extra lines for triage:
 - `Safe Mode: ACTIVE` → `FailSafeManager` detected repeated invalid transitions/invariant failures. It changes selected transition branches to safer finalize-and-requeue behavior; it is not a global storage kill switch.
 - `Active Sessions: N` — if N is 0 while a video is playing, the session engine never started (detection problem, not storage).
 - `IDB: open OK, v1, store 'savedVideos' (N entries)` → storage healthy. `IDB: open OK, store MISSING` → store vanished (corruption/partial clear). `IDB: open FAILED (name: message)` → `indexedDB.open()` rejects (corruption/permissions/version lock); since the open retries on every operation, a FAILED here is persistent, not a zombie.
+- `IDB quarantine: none | N unreadable record(s): ...` → rows skipped during enumeration; the rest of the database still lists, exports and backs up (see "Unreadable records are quarantined, not fatal").
 - `Persistent storage: granted/denied/unknown` → result of `navigator.storage.persist()`. `diagnose()` also reads the current `navigator.storage.persisted()` state.
 - `Storage usage: X / Y MB` → `navigator.storage.estimate()`; if usage approaches quota, expect `QuotaExceededError`.
 
@@ -87,6 +149,8 @@ If you need to re-run normalization, reset the consolidated GM migration key in 
 indexedDB.deleteDatabase('YTPlaybackPloxDB');
 // Reload page; GM fallback/migration data is reconciled on startup.
 ```
+
+Do **not** use this to recover from unreadable IDB rows: rows that hold data are still recoverable (convert them with **Repair storage** or restore them from their GM mirror), and deleting the database drops the primary copies.
 
 ### Performance Notes
 

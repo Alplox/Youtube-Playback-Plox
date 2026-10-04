@@ -1780,7 +1780,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
          * Allows the store to be reused.
          */
         clear() {
-            for (const disposable of this._disposables) {
+            // Iterate a snapshot: disposers returned by addDisposableListener()
+            // remove themselves from this Set while running.
+            for (const disposable of [...this._disposables]) {
                 try {
                     if (typeof disposable === 'function') disposable();
                     else if (disposable && typeof disposable.dispose === 'function') disposable.dispose();
@@ -1827,7 +1829,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         // An explicitly-null store must not leave a listener untracked either:
         // fall back to GlobalDisposables so every listener stays auditable.
         const targetStore = store ?? GlobalDisposables;
-        let dispose = () => {
+        // Separate binding: assigning the self-retiring wrapper back into `dispose`
+        // would make it call itself from inside its own body.
+        const removeListener = () => {
             target.removeEventListener(type, handler, options);
         };
         const selfRetiringDispose = () => {
@@ -1835,10 +1839,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             // race cleanup) long before the store itself is torn down. Leaving the
             // closure in the Set would retain the target element for as long as the
             // store lives, which for GlobalDisposables means the whole page session.
-            dispose();
+            removeListener();
             targetStore.remove(selfRetiringDispose);
         };
-        dispose = selfRetiringDispose;
         targetStore.add(selfRetiringDispose);
         return selfRetiringDispose;
     }
@@ -5753,6 +5756,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             );
         };
         const paint = () => {
+            if (expectedSession) expectedSession.seekGradientRaf = null;
             if (!isCurrentSession()) return;
             const duration = player?.getDuration?.() || videoEl?.duration || 0;
             if (duration > 0 && videoEl) {
@@ -5762,7 +5766,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 });
             }
         };
-        requestAnimationFrame(() => requestAnimationFrame(paint));
+        // Route through the session's seekGradientRaf slot when a session owns
+        // this repaint, so finalizeSession() can cancel it. Without this the
+        // nested rAF escaped session teardown (one orphan per seeked event).
+        if (expectedSession && !expectedSession.isFinalized) {
+            try {
+                if (expectedSession.seekGradientRaf) cancelAnimationFrame(expectedSession.seekGradientRaf);
+            } catch (e) { logWarn('scheduleProgressBarGradientRepaint', 'Error cancelling previous repaint', e); }
+            expectedSession.seekGradientRaf = requestAnimationFrame(() => requestAnimationFrame(paint));
+        } else {
+            requestAnimationFrame(() => requestAnimationFrame(paint));
+        }
     };
 
     /**
@@ -6141,6 +6155,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let quarantineOverflowReported = false;
     const MAX_QUARANTINED_RECORDS = 5000;
     const MAX_LOCAL_TOMBSTONES = 2000;
+    // knownGMFallbackKeys grows with library size (one entry per saved video).
+    const MAX_KNOWN_GM_FALLBACK_KEYS = 3000;
 
     /**
      * Adds a bounded local deletion tombstone.
@@ -6152,6 +6168,36 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (locallyDeletedKeys.size > MAX_LOCAL_TOMBSTONES) {
             const oldestKey = locallyDeletedKeys.values().next().value;
             locallyDeletedKeys.delete(oldestKey);
+        }
+    }
+
+    /**
+     * Registers a key as present in the GM fallback mirror, keeping the set bounded.
+     * Populated from whole-library GM_listValues() enumeration, so without a cap it
+     * would hold one entry per saved video for the whole page session.
+     * @param {string} key - Video storage key.
+     * @returns {void}
+     */
+    function rememberGMFallbackKey(key) {
+        knownGMFallbackKeys.add(key);
+        if (knownGMFallbackKeys.size > MAX_KNOWN_GM_FALLBACK_KEYS) {
+            const oldestKey = knownGMFallbackKeys.values().next().value;
+            knownGMFallbackKeys.delete(oldestKey);
+        }
+    }
+
+    /**
+     * Registers a key whose GM fallback is currently a tombstone marker.
+     * Bounded like {@link markLocalDeletion}: one entry per deleted video would
+     * otherwise accumulate permanently.
+     * @param {string} key - Video storage key.
+     * @returns {void}
+     */
+    function rememberGMTombstone(key) {
+        gmTombstoneKeys.add(key);
+        if (gmTombstoneKeys.size > MAX_LOCAL_TOMBSTONES) {
+            const oldestKey = gmTombstoneKeys.values().next().value;
+            gmTombstoneKeys.delete(oldestKey);
         }
     }
 
@@ -6218,7 +6264,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     changedKeys.forEach(changedKey => {
                         if (deletedKeys.has(changedKey)) {
                             markLocalDeletion(changedKey);
-                            gmTombstoneKeys.add(changedKey);
+                            rememberGMTombstone(changedKey);
                         } else {
                             locallyDeletedKeys.delete(changedKey);
                             gmTombstoneKeys.delete(changedKey);
@@ -6230,7 +6276,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 bumpStorageKeyRevision(key);
                 if (deleted) {
                     markLocalDeletion(key);
-                    gmTombstoneKeys.add(key);
+                    rememberGMTombstone(key);
                 } else {
                     locallyDeletedKeys.delete(key);
                     gmTombstoneKeys.delete(key);
@@ -6241,14 +6287,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (changedKeys && fallbackKeys) {
                     const fallbackKeySet = new Set(fallbackKeys);
                     changedKeys.forEach(changedKey => {
-                        if (fallbackKeySet.has(changedKey)) knownGMFallbackKeys.add(changedKey);
+                        if (fallbackKeySet.has(changedKey)) rememberGMFallbackKey(changedKey);
                         else knownGMFallbackKeys.delete(changedKey);
                     });
                 }
                 for (const session of activeProcessingSessions.values()) session.savedData = null;
             } else if (typeof key === 'string') {
                 storageCache.delete(key);
-                if (hasFallback) knownGMFallbackKeys.add(key);
+                if (hasFallback) rememberGMFallbackKey(key);
                 else knownGMFallbackKeys.delete(key);
                 for (const session of activeProcessingSessions.values()) {
                     if (session.lastVideoId === key) session.savedData = null;
@@ -6572,7 +6618,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const raw = await gmGetValue(prefixKey(key), null);
             if (raw === null || raw === undefined) return null;
             if (raw === GM_TOMBSTONE) {
-                gmTombstoneKeys.add(key);
+                rememberGMTombstone(key);
                 return GM_TOMBSTONE;
             }
             gmTombstoneKeys.delete(key);
@@ -6674,7 +6720,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (typeof GM_setValue !== 'function') throw error;
                     try {
                         await gmSetValue(gmKey, GM_TOMBSTONE);
-                        gmTombstoneKeys.add(key);
+                        rememberGMTombstone(key);
                         return;
                     } catch (fallbackError) {
                         throw new AggregateError([error, fallbackError], `Could not clear GM fallback ${gmKey}`);
@@ -6683,7 +6729,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
             if (typeof GM_setValue === 'function') {
                 await gmSetValue(gmKey, GM_TOMBSTONE);
-                gmTombstoneKeys.add(key);
+                rememberGMTombstone(key);
                 return;
             }
             throw new Error(`No GM API is available to delete ${key}`);
@@ -6803,7 +6849,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (typeof gmKey === 'string' && hasPrefix(gmKey)) {
                             const key = stripPrefix(gmKey);
                             existingKeys.add(key);
-                            if (!isNonVideoStorageKey(key)) knownGMFallbackKeys.add(key);
+                            if (!isNonVideoStorageKey(key)) rememberGMFallbackKey(key);
                         }
                     }
                     inventoryComplete = true;
@@ -6847,7 +6893,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     for (const { key, value } of probes) {
                         if (value) {
                             existingKeys.add(key);
-                            knownGMFallbackKeys.add(key);
+                            rememberGMFallbackKey(key);
                         }
                     }
                 }
@@ -6898,7 +6944,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             for (const gmKey of gmKeys) {
                                 if (typeof gmKey === 'string' && hasPrefix(gmKey)) {
                                     const key = stripPrefix(gmKey);
-                                    if (!isNonVideoStorageKey(key)) knownGMFallbackKeys.add(key);
+                                    if (!isNonVideoStorageKey(key)) rememberGMFallbackKey(key);
                                 }
                             }
                         } catch (error) {
@@ -6985,13 +7031,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                 // after this read. Keep the IDB record and let
                                 // a later explicit write reconcile safely.
                                 hasAmbiguousTombstone = true;
-                                knownGMFallbackKeys.add(key);
+                                rememberGMFallbackKey(key);
                                 logWarn('StorageAsync', `Keeping IDB record "${key}" while preserving an ambiguous GM tombstone`);
                             } else {
                                 // The successful IDB read confirmed absence.
                                 // Do not issue a second delete: a newer write
                                 // may have committed after this read.
-                                knownGMFallbackKeys.add(key);
+                                rememberGMFallbackKey(key);
                                 storageCache.delete(key);
                                 isBatchStorageCacheValid = false;
                                 invalidateSessionSavedData(key);
@@ -7038,7 +7084,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             throw new Error(`Storage changed repeatedly while reading ${key}`);
                         }
                         activeBackend = idbUnavailableForSession ? 'gm' : 'idb';
-                        if (hasAmbiguousTombstone || fallbackValue !== null || selected.usedFallback) knownGMFallbackKeys.add(key);
+                        if (hasAmbiguousTombstone || fallbackValue !== null || selected.usedFallback) rememberGMFallbackKey(key);
                         else knownGMFallbackKeys.delete(key);
                         storageCache.set(key, JSON.stringify(selected.record));
                         if (hasAmbiguousTombstone) isBatchStorageCacheValid = false;
@@ -7057,7 +7103,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             throw new Error(`Storage changed repeatedly while reading ${key}`);
                         }
                         activeBackend = idbUnavailableForSession ? 'gm' : 'idb';
-                        knownGMFallbackKeys.add(key);
+                        rememberGMFallbackKey(key);
                         // The mirror supplied a readable record, so the
                         // primary row is no longer a lost/unknown entry.
                         if (quarantinedRecords.delete(key)) isBatchStorageCacheValid = false;
@@ -7094,7 +7140,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // A confirmed primary absence is already enough to return
                     // null. A second delete would create a TOCTOU window for a
                     // newer cross-tab write.
-                    knownGMFallbackKeys.add(key);
+                    rememberGMFallbackKey(key);
                     storageCache.delete(key);
                     isBatchStorageCacheValid = false;
                     invalidateSessionSavedData(key);
@@ -7127,7 +7173,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
                 activeBackend = 'gm';
                 if (fallbackValue !== null) {
-                    knownGMFallbackKeys.add(key);
+                    rememberGMFallbackKey(key);
                     // A readable mirror record supersedes the quarantine.
                     if (quarantinedRecords.delete(key)) isBatchStorageCacheValid = false;
                     // A primary row that stores no value at all (legacy/partial
@@ -7198,7 +7244,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const existingFallback = await getGMFallback(key);
                     if (existingFallback) {
                         hasGMFallback = true;
-                        knownGMFallbackKeys.add(key);
+                        rememberGMFallbackKey(key);
                     }
                 } catch (error) {
                     throw new Error(`Could not verify GM fallback for ${key}: ${error.message}`);
@@ -7216,7 +7262,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                     markIDBAvailable();
                     activeBackend = 'idb';
-                    if (hasGMFallback) knownGMFallbackKeys.add(key);
+                    if (hasGMFallback) rememberGMFallbackKey(key);
                     else knownGMFallbackKeys.delete(key);
                     locallyDeletedKeys.delete(key);
                     // A successful write replaces any unreadable row.
@@ -7238,7 +7284,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             effectiveSerialized = fallbackResult.serialized;
             assertCommitAllowed();
             activeBackend = 'gm';
-            knownGMFallbackKeys.add(key);
+            rememberGMFallbackKey(key);
             locallyDeletedKeys.delete(key);
             // A readable mirror record supersedes any unreadable primary row.
             quarantinedRecords.delete(key);
@@ -7333,7 +7379,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         markIDBAvailable();
                         activeBackend = 'idb';
                         for (const { key, serialized } of serializedEntries) {
-                            if (knownGMFallbackKeys.has(key)) knownGMFallbackKeys.add(key);
+                            if (knownGMFallbackKeys.has(key)) rememberGMFallbackKey(key);
                             else knownGMFallbackKeys.delete(key);
                             locallyDeletedKeys.delete(key);
                             // A batch write replaces any unreadable row.
@@ -7389,7 +7435,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (gmCanonical.length > 0) {
                     activeBackend = 'gm';
                     for (const { key, serialized } of gmCanonical) {
-                        knownGMFallbackKeys.add(key);
+                        rememberGMFallbackKey(key);
                         locallyDeletedKeys.delete(key);
                         storageCache.set(key, serialized);
                     }
@@ -7519,7 +7565,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             conflict.staleSession = true;
                             conflict.durableDeleted = true;
                             conflict.primaryDeleted = true;
-                            knownGMFallbackKeys.add(key);
+                            rememberGMFallbackKey(key);
                             locallyDeletedKeys.delete(key);
                             storageCache.delete(key);
                             invalidateSessionSavedData(key);
@@ -7531,7 +7577,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (error?.reason === 'newer_record') throw error;
                         logError('StorageAsync', `IDB delete succeeded but GM fallback cleanup failed for ${key}`, error);
                         const hasTombstone = gmTombstoneKeys.has(key);
-                        knownGMFallbackKeys.add(key);
+                        rememberGMFallbackKey(key);
                         if (hasTombstone) markLocalDeletion(key);
                         else locallyDeletedKeys.delete(key);
                         storageCache.delete(key);
@@ -7568,7 +7614,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             if (gmTombstoneKeys.has(key)) {
-                knownGMFallbackKeys.add(key);
+                rememberGMFallbackKey(key);
                 markLocalDeletion(key);
             } else {
                 knownGMFallbackKeys.delete(key);
@@ -7762,7 +7808,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (gmTombstoneKeys.has(key)) continue;
                         if (!isNonVideoStorageKey(key)) {
                             resultKeys.add(key);
-                            knownGMFallbackKeys.add(key);
+                            rememberGMFallbackKey(key);
                         }
                     }
                 } catch (error) {
@@ -7824,7 +7870,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             const key = stripPrefix(gmKey);
                             if (gmTombstoneKeys.has(key)) continue;
                             resultKeys.add(key);
-                            if (!isNonVideoStorageKey(key)) knownGMFallbackKeys.add(key);
+                            if (!isNonVideoStorageKey(key)) rememberGMFallbackKey(key);
                         }
                     }
                 } catch (error) {
@@ -7999,7 +8045,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                 // later/competing write. Keep it in the backup
                                 // instead of letting an ambiguous legacy
                                 // tombstone erase user data.
-                                knownGMFallbackKeys.add(key);
+                                rememberGMFallbackKey(key);
                                 continue;
                             }
                             if (rawValue === null) {
@@ -8011,7 +8057,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             // The mirror is readable, so this key is no longer
                             // an unreadable primary row.
                             quarantinedRecords.delete(key);
-                            knownGMFallbackKeys.add(key);
+                            rememberGMFallbackKey(key);
                         }
                     }
 
@@ -9179,7 +9225,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // --- 4. Legitimate Content Validation in Feed ---
                 // If inside a standard video renderer without ad badges
                 try {
-                    const videoItem = DOMHelpers.closestComposed(node, 'ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, .video-renderer');
+                    const videoItem = DOMHelpers.closestComposed(node, 'ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, .video-renderer');
                     if (videoItem) {
                         const inFeedSelector = SELECTORS.ads.elements.inFeed.concat(SELECTORS.ads.elements.masthead).join(', ');
                         if (!DOMHelpers.closestComposed(videoItem, inFeedSelector)) {
@@ -9323,6 +9369,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             this.spacer = null;
             this.destroyed = false;
             this.scrollHandler = null;
+            this._scrollDisposer = null;
+            this._disposables = new DisposableStore();
             this.lastScrollTop = -1;
 
             // Cache of accumulated Y positions
@@ -9363,7 +9411,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     });
                 }
             };
-            this.container.addEventListener('scroll', this.scrollHandler, { passive: true });
+            // Tracked in the per-instance store so destroy() always releases it,
+            // even if the container is removed without going through destroy().
+            this._scrollDisposer = addDisposableListener(this.container, 'scroll', this.scrollHandler, { passive: true }, this._disposables);
 
             // Initial render
             this._render();
@@ -9740,8 +9790,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             this.destroyed = true;
             this.renderVersion = (this.renderVersion || 0) + 1;
 
+            try { this._scrollDisposer?.(); } catch (e) { logWarn('VirtualScroller', 'Error disposing scroll listener', e); }
+            this._scrollDisposer = null;
+            try { this._disposables?.dispose?.(); } catch (e) { logWarn('VirtualScroller', 'Error disposing scroller store', e); }
             if (this.scrollHandler && this.container) {
-                this.container.removeEventListener('scroll', this.scrollHandler);
+                try { this.container.removeEventListener('scroll', this.scrollHandler); } catch (e) { logWarn('VirtualScroller', 'Error removing scroll listener', e); }
             }
 
             for (const el of this.renderedItems.values()) {
@@ -9988,7 +10041,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // rebuilt on each call. Registering their listeners in a per-notice store
         // (instead of the modal store) keeps repeated refreshes from accumulating
         // disposables bound to buttons that were just discarded.
-        storageDamageNoticeDisposables?.dispose?.();
+        if (storageDamageNoticeDisposables) {
+            ModalDisposables.remove(storageDamageNoticeDisposables);
+            storageDamageNoticeDisposables.dispose();
+            storageDamageNoticeDisposables = null;
+        }
         const nextDisposables = new DisposableStore();
         storageDamageNoticeDisposables = nextDisposables;
         ModalDisposables.add(nextDisposables);
@@ -11395,7 +11452,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (data.videos) {
                 logLog('exportToFreeTubeFormat', `Exporting legacy playlist ${key} with ${Object.keys(data.videos).length} videos`);
                 Object.entries(data.videos).forEach(([vidKey, videoObj]) => {
-                    const internal = Object.assign({}, videoObj, { videoId: videoObj.videoId || vidKey });
+                    const internal = { ...videoObj, videoId: videoObj.videoId || vidKey };
                     const formatted = toFreeTubeFormat(internal);
                     freeTubeData.push(formatted);
                     if (internal.type === 'shorts' || internal.type === 'preview_shorts') shortCount++;
@@ -11403,7 +11460,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 });
             } else {
                 // FreeTube format: the video is already in the correct format, just map fields if needed
-                const internal = Object.assign({}, data, { videoId: data.videoId || key });
+                const internal = { ...data, videoId: data.videoId || key };
                 const formatted = toFreeTubeFormat(internal);
                 freeTubeData.push(formatted);
                 if (internal.type === 'shorts' || internal.type === 'preview_shorts') {
@@ -12477,7 +12534,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const shouldThrottlePlaylistNameFetch = (playlistId) => {
         const lastAttempt = playlistNameFetchCooldowns.get(playlistId);
         if (!lastAttempt) return false;
-        return (Date.now() - lastAttempt) < PLAYLIST_NAME_FETCH_COOLDOWN_MS;
+        const elapsed = Date.now() - lastAttempt;
+        if (elapsed >= PLAYLIST_NAME_FETCH_COOLDOWN_MS) {
+            // Cooldown expired: release the entry so the Map cannot grow
+            // unboundedly (one entry per visited playlist, never deleted).
+            try { playlistNameFetchCooldowns.delete(playlistId); } catch (e) { logWarn('shouldThrottlePlaylistNameFetch', 'Error pruning expired cooldown', e); }
+            return false;
+        }
+        // Opportunistic sweep: prune other expired entries when the Map grows.
+        if (playlistNameFetchCooldowns.size > PLAYLIST_COOLDOWN_SWEEP_THRESHOLD) {
+            const now = Date.now();
+            for (const [key, timestamp] of playlistNameFetchCooldowns) {
+                if ((now - timestamp) >= PLAYLIST_NAME_FETCH_COOLDOWN_MS) {
+                    playlistNameFetchCooldowns.delete(key);
+                }
+                if (playlistNameFetchCooldowns.size <= PLAYLIST_COOLDOWN_SWEEP_THRESHOLD) break;
+            }
+        }
+        return true;
     };
 
     /**
@@ -13727,6 +13801,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
+    * Grace period before a deferred toast fade fires after an action kept the
+    * toast open, so the user still has time to retry a failed undo/restore.
+    * @type {number}
+    */
+    const TOAST_ACTION_FADE_GRACE_MS = 10000;
+
+    /**
     * Fades and removes a toast after a delay.
     * @param {HTMLElement} toast - Toast element to remove.
     * @param {number} duration - Time in ms before starting fade out.
@@ -13878,6 +13959,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (toast._yppActionInFlight) return;
                         toast._yppActionInFlight = true;
                         toast._yppFadePending = false;
+                        // Disarm the auto-remove timer that was armed when the toast
+                        // was created. Without this, a slow async action can have its
+                        // toast removed mid-flight by a fade requested before the user
+                        // ever clicked, losing the success/failure feedback.
+                        if (toastTimeouts.has(toast)) {
+                            clearTimeout(toastTimeouts.get(toast));
+                            toastTimeouts.delete(toast);
+                        }
                         let actionSucceeded = true;
                         try {
                             if (typeof action.callback === 'function') {
@@ -13889,6 +13978,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         } finally {
                             if (!isInstanceActive() || toast._yppDestroyed) return;
                             toast._yppActionInFlight = false;
+                            const hadPendingFade = toast._yppFadePending;
                             const shouldClose = action.closeOnClick !== false &&
                                 (!action.keepOpenOnFailure || actionSucceeded);
                             if (shouldClose) {
@@ -13899,6 +13989,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                 // when the action failed, so recovery data is
                                 // not discarded before the user can retry.
                                 toast._yppFadePending = false;
+                                // It is deferred rather than dropped: re-arm the
+                                // fade so the toast still self-cleans once the
+                                // retry window elapses.
+                                if (hadPendingFade) fadeAndRemoveToast(toast, TOAST_ACTION_FADE_GRACE_MS);
                             }
                         }
                     },
@@ -14925,7 +15019,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // previous render's listeners must be released before its nodes are dropped.
         // Removing the containers only detaches the DOM; the disposables would keep
         // the removed buttons (and their closures) alive in the store otherwise.
-        modalFooter._yppFooterDisposables?.dispose?.();
+        // Unregister the spent store before disposing it: ModalDisposables is a Set of
+        // store objects, so without remove() every rebuild would leave one dead
+        // entry (and its captured closures) behind until the modal closes.
+        if (modalFooter._yppFooterDisposables) {
+            ModalDisposables.remove(modalFooter._yppFooterDisposables);
+            modalFooter._yppFooterDisposables.dispose();
+        }
         const footerDisposables = new DisposableStore();
         modalFooter._yppFooterDisposables = footerDisposables;
         ModalDisposables.add(footerDisposables);
@@ -15184,7 +15284,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             let importIsOpen = false;
             const importMenuGeneration = savedVideosModalGeneration;
+            // Released on every footer rebuild via modalFooter, otherwise each
+            // toggle would strand one more store in ModalDisposables.
+            if (modalFooter._yppImportOutsideListenerStore) {
+                ModalDisposables.remove(modalFooter._yppImportOutsideListenerStore);
+                modalFooter._yppImportOutsideListenerStore.dispose();
+            }
             const importOutsideListenerStore = new DisposableStore();
+            modalFooter._yppImportOutsideListenerStore = importOutsideListenerStore;
             ModalDisposables.add(importOutsideListenerStore);
 
             const closeImportMenu = () => {
@@ -15610,9 +15717,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (openBtn) openBtn.disabled = size === 0;
             };
 
-            playlistRefreshHandler = refreshPlaylistState;
-            playlistAreaElement = playlistArea;
-            playlistArea.addEventListener('ypp-selection-changed', refreshPlaylistState);
+            // Tracked by footerDisposables so the rebuild at the top of
+            // updateFooterButtons() releases it before #ypp-playlist-area is dropped.
+            addDisposableListener(playlistArea, 'ypp-selection-changed', refreshPlaylistState, {}, footerDisposables);
 
             const copyBtn = createElement('button', {
                 id: 'ypp-playlist-copy-link-btn',
@@ -16502,6 +16609,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 reason: triggerSource,
                 context: type
             });
+            // Opportunistic sweep: YouTube recycles grid/Shorts nodes, so fast
+            // scrolling can queue videos that detach before processBatch drains
+            // them. Drop detached entries while the queue is hot to avoid
+            // retaining detached <video> subtrees between drains.
+            if (pendingVideos.size >= PENDING_VIDEOS_SWEEP_THRESHOLD) {
+                for (const queued of pendingVideos) {
+                    if (!queued.isConnected) {
+                        pendingVideos.delete(queued);
+                        try { videoTypeCache.delete(queued); } catch (_) { logWarn('enqueueVideo', 'Error pruning detached queued video', _); }
+                    }
+                }
+            }
             videoTypeCache.set(videoElement, type);
             pendingVideos.add(videoElement);
 
@@ -18090,8 +18209,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const resolvedPlayerVideoId = player ? getPlayerVideoId(player) : null;
                 const activeMiniplayer = DOMHelpers.getMiniplayerPlayer();
                 const activeMiniplayerId = activeMiniplayer ? getPlayerVideoId(activeMiniplayer) : null;
-                const previewHref = videoEl.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-rich-grid-media')
-                    ?.querySelector?.('a#thumbnail[href], a.yt-simple-endpoint[href]')
+                const previewHref = videoEl.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-rich-grid-media, yt-lockup-view-model')
+                    ?.querySelector?.('a#thumbnail[href], a.yt-simple-endpoint[href], a.ytLockupViewModelContentImage[href]')
                     ?.getAttribute?.('href') || null;
                 const previewHrefVideoId = previewHref ? extractYouTubeVideoIdFromUrl(previewHref) : null;
                 // Prefer the tile link ID when available, to avoid stale IDs
@@ -19257,6 +19376,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {string} config.initialValue - Initially selected value.
      * @param {Array<{value: string, label: string, icon?: string, isGroup?: boolean}>} config.options - List of options or group labels.
      * @param {(value: string) => void} config.onChange - Callback when the selection changes.
+     * @param {DisposableStore} [config.store] - Lifetime store for the outside-click listener.
+     * Must be passed whenever the dropdown is rebuilt (e.g. per modal open); omitting it
+     * falls back to GlobalDisposables and leaks the dropdown plus a document-level
+     * listener for the whole page session.
      * @returns {HTMLElement} Dropdown wrapper element.
      */
     function createCustomDropdown({ id, wrapperClass = '', initialValue, options, onChange, store = null }) {
@@ -19497,6 +19620,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {number} minVal - Current minimum value.
      * @param {number} maxVal - Current maximum value.
      * @param {(min: number, max: number) => void} onChange - Callback on change.
+     * @param {DisposableStore} store - Lifetime store for the preset dropdown listeners.
      * @returns {HTMLElement}
      */
     function createRangeFilter(type, minVal, maxVal, onChange, store) {
@@ -19600,6 +19724,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             id: `range-preset-${type}`,
             initialValue: initialPresetValue,
             options: dropdownOptions,
+            store,
             onChange: (val) => {
                 if (val === 'custom') return;
                 try {
@@ -19822,10 +19947,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let lastRecalculateClick = null;
     /** @type {Map<string, string>} Global title cache by ID for use in createVideoEntry */
     let modalVideoTitleById = new Map();
-    /** @type {HTMLElement|null} Reference to the playlist area for cleanup */
-    let playlistAreaElement = null;
-    /** @type {Function|null} Reference to the playlist handler for cleanup */
-    let playlistRefreshHandler = null;
 
     /** @type {typeof CONFIG.defaultSavedVideosModalSettings|null} Video modal UI (dedicated storage key) */
     let cachedSavedVideosModalSettings = null;
@@ -20122,10 +20243,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         let lastPlaylistKey = null;
         const isGridMode = cachedSavedVideosModalSettings?.displayOptions?.viewMode === 'grid';
         let gridCols = gridColsOverride;
-        if (!Number.isInteger(gridCols) || gridCols < 1) gridCols = 3;
+        if (!Number.isInteger(gridCols) || gridCols < 1) gridCols = GRID_BREAKPOINTS.baseCols;
         if (gridColsOverride === null) {
-            if (window.innerWidth < 600) gridCols = 2;
-            else if (window.innerWidth >= 1200) gridCols = 4;
+            gridCols = resolveGridCols(window.innerWidth);
         }
 
         let currentRowChunk = [];
@@ -20214,13 +20334,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {void}
      */
     function showListLoadErrorState(container) {
-        if (virtualScroller) {
-            virtualScroller.destroy();
-            virtualScroller = null;
-        }
-        // The observed container is about to leave the DOM, so release the observer
-        // instead of leaving it attached to a detached element until modal close.
-        disconnectVirtualScrollerObserver();
+        destroyVirtualScroller('listLoadError');
         container.classList.remove('ypp-list-loading');
         DOMHelpers.removeExact('vsc:container');
         // Point at the repair entry when unreadable records are the cause, so
@@ -20371,6 +20485,51 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
+     * Grid-column breakpoints for the saved-videos grid (single source of truth;
+     * previously duplicated as literals in buildVirtualItems/connectResizeObserver).
+     * @type {{narrowWidth: number, wideWidth: number, narrowCols: number, baseCols: number, wideCols: number}}
+     */
+    const GRID_BREAKPOINTS = { narrowWidth: 600, wideWidth: 1200, narrowCols: 2, baseCols: 3, wideCols: 4 };
+
+    /** Debounce for grid ResizeObserver recalculation. @type {number} */
+    const GRID_RESIZE_DEBOUNCE_MS = 120;
+
+    /** Minimum visible animation time for the storage recalculate icon. @type {number} */
+    const RECALC_MIN_ANIMATION_MS = 500;
+
+    /** Queue size from which enqueueVideo sweeps detached videos. @type {number} */
+    const PENDING_VIDEOS_SWEEP_THRESHOLD = 10;
+
+    /** Size from which playlist cooldowns prune expired entries. @type {number} */
+    const PLAYLIST_COOLDOWN_SWEEP_THRESHOLD = 200;
+
+    /**
+     * Resolves grid column count from a container width.
+     * @param {number} width - Container width in px.
+     * @returns {number} Column count.
+     */
+    function resolveGridCols(width) {
+        if (width < GRID_BREAKPOINTS.narrowWidth) return GRID_BREAKPOINTS.narrowCols;
+        if (width >= GRID_BREAKPOINTS.wideWidth) return GRID_BREAKPOINTS.wideCols;
+        return GRID_BREAKPOINTS.baseCols;
+    }
+
+    /**
+     * Destroys the active VirtualScroller (if any) and disconnects its grid
+     * ResizeObserver, so no scroll listener, rendered item or observed
+     * detached container survives the transition.
+     * @param {string} reason - Teardown context for diagnostics.
+     * @returns {void}
+     */
+    function destroyVirtualScroller(reason) {
+        if (virtualScroller) {
+            try { virtualScroller.destroy(); } catch (e) { logWarn('destroyVirtualScroller', `Error destroying scroller (${reason})`, e); }
+            virtualScroller = null;
+        }
+        try { disconnectVirtualScrollerObserver(); } catch (e) { logWarn('destroyVirtualScroller', `Error disconnecting observer (${reason})`, e); }
+    }
+
+    /**
      * Disconnects the grid-layout ResizeObserver and cancels its pending debounce.
      * Must be called whenever the observed container leaves the DOM, otherwise the
      * observer keeps a detached element (and its closure) reachable.
@@ -20402,12 +20561,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const isGridMode = cachedSavedVideosModalSettings?.displayOptions?.viewMode === 'grid';
                     if (isGridMode && cachedFilteredItems && cachedFilteredItems.length > 0) {
                         const containerWidth = scrollerContainer.clientWidth || window.innerWidth;
-                        let newGridCols = 3;
-                        if (containerWidth < 600) newGridCols = 2;
-                        else if (containerWidth >= 1200) newGridCols = 4;
+                        const newGridCols = resolveGridCols(containerWidth);
 
                         const firstGridRow = virtualScroller.items.find(item => item.type === 'grid-row');
-                        const currentGridCols = firstGridRow ? (firstGridRow.gridCols || 3) : 3;
+                        const currentGridCols = firstGridRow ? (firstGridRow.gridCols || GRID_BREAKPOINTS.baseCols) : GRID_BREAKPOINTS.baseCols;
 
                         if (newGridCols !== currentGridCols) {
                             virtualScroller.updateItems(buildVirtualItems(cachedFilteredItems, newGridCols));
@@ -20416,7 +20573,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
 
                     if (virtualScroller) virtualScroller.updateHeights(true);
-                }, 120);
+                }, GRID_RESIZE_DEBOUNCE_MS);
             });
             virtualScrollerResizeObserver.observe(scrollerContainer);
         }
@@ -20470,6 +20627,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const virtualItemGap = isGridMode ? 12 : 0;
 
         if (filteredItems.length === 0) {
+            // Release the previous scroller before showing the empty state:
+            // otherwise its scroll listener and rendered items survive behind
+            // the empty message until the next non-empty render overwrites the
+            // variable (or forever, if the list stays empty).
+            destroyVirtualScroller('emptyList');
             showEmptyState(targetContainer);
             return;
         }
@@ -20481,6 +20643,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (virtualScroller && scrollerEl) {
             updateVirtualScroller(virtualScroller, virtualItems, filteredItems.length, currentScrollTop, virtualItemGap);
             return;
+        }
+
+        // The container is gone but a scroller from a previous render survives:
+        // destroy it first so initVirtualScroller() cannot overwrite the
+        // variable and orphan the old scroll listener + rendered items.
+        if (virtualScroller && !scrollerEl) {
+            destroyVirtualScroller('orphanedContainer');
         }
 
         const result = await initVirtualScroller(
@@ -20530,13 +20699,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         closeSavedVideoOverflowMenu();
 
         // Destroy VirtualScroller to release resources
-        if (virtualScroller) {
-            virtualScroller.destroy();
-            virtualScroller = null;
-        }
-
-        // Destroy grid scroller ResizeObserver and pending resize callback
-        disconnectVirtualScrollerObserver();
+        destroyVirtualScroller('modalClose');
 
         // Clean modal resources (listeners, etc.)
         videosContainer?.querySelector('.ypp-saved-videos-toolbar-wrap')?._yppDisposables?.dispose?.();
@@ -20551,13 +20714,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Clear debounce
         debouncedUpdateVideoList?.cancel?.();
         debouncedUpdateVideoList = null;
-
-        // Clean playlist listener to prevent memory leaks
-        if (playlistAreaElement && playlistRefreshHandler) {
-            playlistAreaElement.removeEventListener('ypp-selection-changed', playlistRefreshHandler);
-            playlistAreaElement = null;
-            playlistRefreshHandler = null;
-        }
 
         if (videosOverlay) {
             videosOverlay.remove();
@@ -20716,9 +20872,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         // Add listener to recalculate button
+        // Registered via addDisposableListener against ModalDisposables so the
+        // handler is released on modal close even though setInnerHTML() above
+        // replaces the button node on every refresh.
         const recalcBtn = el.querySelector('.ypp-recalculate-storage-btn');
         if (recalcBtn) {
-            recalcBtn.onclick = async (e) => {
+            addDisposableListener(recalcBtn, 'click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -20757,7 +20916,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // Wait for both promises to ensure at least 500ms of visible animation
                     const [newUsage] = await Promise.all([
                         calculateScriptStorageUsage(),
-                        delay(500)
+                        delay(RECALC_MIN_ANIMATION_MS)
                     ]);
 
                     scriptStorageUsageCache = newUsage;
@@ -20781,7 +20940,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         animation.cancel();
                     }
                 }
-            };
+            }, ModalDisposables);
         }
     };
 

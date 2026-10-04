@@ -1760,6 +1760,22 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         }
 
         /**
+         * Unregisters a disposable without executing it.
+         * Lets a self-retiring disposer drop its own entry, so a store that lives
+         * longer than the resource it tracks does not accumulate stale closures.
+         * @param {(() => void) | { dispose: () => void }} disposable
+         * @returns {boolean} True when the disposable was registered.
+         */
+        remove(disposable) {
+            return this._disposables.delete(disposable);
+        }
+
+        /** @returns {number} Number of currently registered resources. */
+        get size() {
+            return this._disposables.size;
+        }
+
+        /**
          * Clears all registered resources without marking the store as disposed.
          * Allows the store to be reused.
          */
@@ -1808,12 +1824,23 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     function addDisposableListener(target, type, handler, options, store = GlobalDisposables) {
         if (!target) return () => { };
         target.addEventListener(type, handler, options);
-        const dispose = () => target.removeEventListener(type, handler, options);
         // An explicitly-null store must not leave a listener untracked either:
         // fall back to GlobalDisposables so every listener stays auditable.
         const targetStore = store ?? GlobalDisposables;
-        targetStore.add(dispose);
-        return dispose;
+        let dispose = () => {
+            target.removeEventListener(type, handler, options);
+        };
+        const selfRetiringDispose = () => {
+            // Self-retire: removeEventListener may be called explicitly (e.g. from a
+            // race cleanup) long before the store itself is torn down. Leaving the
+            // closure in the Set would retain the target element for as long as the
+            // store lives, which for GlobalDisposables means the whole page session.
+            dispose();
+            targetStore.remove(selfRetiringDispose);
+        };
+        dispose = selfRetiringDispose;
+        targetStore.add(selfRetiringDispose);
+        return selfRetiringDispose;
     }
 
     // ============================================================================================================
@@ -9549,6 +9576,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             if (this.destroyed || renderVersion !== this.renderVersion) return;
 
+            // Items awaited above may have landed outside the range this pass computed
+            // (the list can be re-sorted or resized while their async render is pending).
+            // The eviction loop above runs before those promises resolve, so re-check now
+            // to avoid leaving stale items positioned in the spacer until the next scroll.
+            const currentRange = this._getVisibleRange();
+            for (const [idx, el] of this.renderedItems) {
+                if (idx < currentRange.startIdx - this.bufferSize || idx >= currentRange.endIdx + this.bufferSize) {
+                    if (!this.renderingItems.has(idx)) {
+                        this._disposeRenderedItem(el);
+                        this.renderedItems.delete(idx);
+                    }
+                }
+            }
+
             // After rendering new items, verify heights to fix gaps/overlaps
             this._checkHeights();
 
@@ -9709,6 +9750,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             this.renderedItems.clear();
             this.renderingItems.clear();
             this.renderingVersions.clear();
+            // Symmetry with updateItems()/refresh(): a destroyed instance must not
+            // keep measured heights or the item/offset arrays alive.
+            this.measuredHeights.clear();
+            this.items = [];
+            this.itemOffsets = [];
 
             if (this.spacer) {
                 this.spacer.remove();
@@ -9906,6 +9952,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
+     * Owns the listeners of the current damaged-rows notice. Rebuilt on every
+     * render because the notice children are replaced each time.
+     * @type {DisposableStore|null}
+     */
+    let storageDamageNoticeDisposables = null;
+
+    /**
      * Renders (or hides) the damaged-rows notice inside the saved-videos list
      * header, so the affected keys are visible without opening the console.
      * @returns {void}
@@ -9917,6 +9970,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const damaged = Storage.getQuarantinedRecords();
         if (damaged.length === 0) {
             if (notice) notice.remove();
+            storageDamageNoticeDisposables?.dispose?.();
+            storageDamageNoticeDisposables = null;
             return;
         }
         if (!notice) {
@@ -9928,6 +9983,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const details = unreadable > 0
             ? `${t('storageDamageSummary', { total: damaged.length, empty: emptyRows, unreadable })}`
             : t('storageDamageSummaryEmpty', { total: damaged.length });
+
+        // setInnerHTML below replaces every child of `notice`, so the buttons are
+        // rebuilt on each call. Registering their listeners in a per-notice store
+        // (instead of the modal store) keeps repeated refreshes from accumulating
+        // disposables bound to buttons that were just discarded.
+        storageDamageNoticeDisposables?.dispose?.();
+        const nextDisposables = new DisposableStore();
+        storageDamageNoticeDisposables = nextDisposables;
+        ModalDisposables.add(nextDisposables);
+
         const repairBtn = createElement('button', {
             className: 'ypp-storage-damage-btn',
             html: t('repairStorage'),
@@ -9936,7 +10001,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         addDisposableListener(repairBtn, 'click', async (event) => {
             event.stopPropagation();
             await runStorageRepairFlow(repairBtn);
-        }, {}, ModalDisposables);
+        }, {}, nextDisposables);
         const reportBtn = createElement('button', {
             className: 'ypp-storage-damage-btn',
             html: t('exportDamageReport'),
@@ -9945,7 +10010,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         addDisposableListener(reportBtn, 'click', async (event) => {
             event.stopPropagation();
             await exportStorageDamageReport();
-        }, {}, ModalDisposables);
+        }, {}, nextDisposables);
         setInnerHTML(notice, `<span title="${sanitizeHTML(details)}">${SVG_ICONS.warning} ${sanitizeHTML(t('storageDamageTitle', { count: damaged.length }))}</span>`);
         notice.append(repairBtn, reportBtn);
     };
@@ -14856,6 +14921,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const modalFooter = DOMHelpers.get('list:modalFooter', () => document.querySelector('.ypp-footer'), 500);
         if (!modalFooter) return;
 
+        // This function rebuilds the footer from scratch on every mode toggle, so the
+        // previous render's listeners must be released before its nodes are dropped.
+        // Removing the containers only detaches the DOM; the disposables would keep
+        // the removed buttons (and their closures) alive in the store otherwise.
+        modalFooter._yppFooterDisposables?.dispose?.();
+        const footerDisposables = new DisposableStore();
+        modalFooter._yppFooterDisposables = footerDisposables;
+        ModalDisposables.add(footerDisposables);
+
         if (isManagementMode) {
             // Hide normal footer buttons
             modalVideosFooterSecondRow?.classList.add('ypp-d-none');
@@ -14945,7 +15019,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     });
 
                     updateManagementFooterState();
-                }
+                },
+                store: footerDisposables
             });
             const btnClearSelection = createElement('button', {
                 id: 'ypp-clear-selection-btn',
@@ -14960,7 +15035,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     });
 
                     updateManagementFooterState();
-                }
+                },
+                store: footerDisposables
             });
 
             /**
@@ -15364,14 +15440,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     } finally {
                         selectedDeleteInFlight = false;
                     }
-                }
+                },
+                store: footerDisposables
             });
             btnDeleteSelected.disabled = selectedVideos.size === 0;
 
             const btnClearAll = createElement('button', {
                 className: 'ypp-btn ypp-btn-outline-danger ypp-shadow-md ypp-management-footer-item',
                 html: `${SVG_ICONS.trash} ${t('clearAll')}`,
-                onClickEvent: async () => { await clearAllData(); }
+                onClickEvent: async () => { await clearAllData(); },
+                store: footerDisposables
             });
 
             // Only rendered when unreadable durable rows were detected, so
@@ -15385,7 +15463,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     attributes: { type: 'button' },
                     onClickEvent: async () => {
                         await runStorageRepairFlow(btnRepairStorage);
-                    }
+                    },
+                    store: footerDisposables
                 })
                 : null;
 
@@ -15395,7 +15474,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 html: `${SVG_ICONS.close} ${t('cancel')}`,
                 onClickEvent: async () => {
                     toggleManagementMode();
-                }
+                },
+                store: footerDisposables
             });
 
             managementModeContainer.append(selectionInfo);
@@ -15486,7 +15566,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     });
 
                     refreshPlaylistState();
-                }
+                },
+                store: footerDisposables
             });
 
             const btnClearSelection = createElement('button', {
@@ -15502,7 +15583,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     });
 
                     refreshPlaylistState();
-                }
+                },
+                store: footerDisposables
             });
 
             const refreshPlaylistState = () => {
@@ -15543,7 +15625,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
 
                     if (playlistTextarea.value) copyToClipboard(playlistTextarea.value, copyBtn);
-                }
+                },
+                store: footerDisposables
             });
 
             const openBtn = createElement('button', {
@@ -15556,13 +15639,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         return;
                     }
                     if (playlistTextarea.value) window.open(getSafeUrl(playlistTextarea.value), '_blank');
-                }
+                },
+                store: footerDisposables
             });
 
             const cancelBtn = createElement('button', {
                 className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
                 html: `${SVG_ICONS.close} ${t('cancel')}`,
-                onClickEvent: async () => { await togglePlaylistCreationMode(); }
+                onClickEvent: async () => { await togglePlaylistCreationMode(); },
+                store: footerDisposables
             });
 
             playlistActions.appendChild(btnSelectAll);
@@ -16084,6 +16169,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         /**
          * Executes processing of queued videos asynchronously.
+         *
+         * Two invariants keep the queue drainable:
+         * 1. Every item is processed inside its own try/catch. Context resolution
+         *    reads the DOM (`closest`, `isConnected`), and a queued `<video>` can be
+         *    detached between `Array.from(pendingVideos)` and this loop when
+         *    YouTube recycles grid/Shorts nodes. An uncaught throw there would
+         *    abandon the whole batch and leave `isBatchProcessing` stuck at true,
+         *    which permanently stops both draining and re-scheduling the queue.
+         * 2. The flag is reset in a `finally`-style block, so no throw path can
+         *    skip it.
          */
         const processBatch = () => {
             if (pendingVideos.size === 0) {
@@ -16095,26 +16190,36 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const batch = Array.from(pendingVideos);
             pendingVideos.clear();
 
-            batch.forEach(video => {
-                const cachedType = videoTypeCache.get(video);
-                const type = RouteContextResolver.resolveContext(video, cachedType || null);
-                if (!type || !RouteContextResolver.canProcessContext(video, type)) return;
+            try {
+                batch.forEach(video => {
+                    try {
+                        const cachedType = videoTypeCache.get(video);
+                        const type = RouteContextResolver.resolveContext(video, cachedType || null);
+                        if (!type || !RouteContextResolver.canProcessContext(video, type)) return;
 
-                // If video no longer has src, ignore
-                if (!video.src) return;
+                        // If video no longer has src, ignore
+                        if (!video.src) return;
 
-                logInfo('VideoObserverManager', `🎥 Processing video type: ${type}`, { src: video.src });
+                        logInfo('VideoObserverManager', `🎥 Processing video type: ${type}`, { src: video.src });
 
-                processMediaVideo(video, type).catch(err => {
-                    logError('VideoObserverManager', `Error processing ${type} video`, err);
+                        processMediaVideo(video, type).catch(err => {
+                            logError('VideoObserverManager', `Error processing ${type} video`, err);
+                        });
+                    } catch (err) {
+                        // Expected for recycled/detached nodes: drop this item only.
+                        // Deliberately a warning-level log: this path can fire routinely
+                        // during fast scrolling and must not feed the global error tracker.
+                        logWarn('VideoObserverManager', `⏭️ Skipped detached queued video: ${err?.message || err}`);
+                        videoTypeCache.delete(video);
+                    }
                 });
-            });
-
-            // Continue with the next batch if there are more videos
-            if (pendingVideos.size > 0) {
-                queueMicrotask(processBatch);
-            } else {
-                isBatchProcessing = false;
+            } finally {
+                // Continue with the next batch if there are more videos
+                if (pendingVideos.size > 0) {
+                    queueMicrotask(processBatch);
+                } else {
+                    isBatchProcessing = false;
+                }
             }
         };
 
@@ -16794,6 +16899,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             observers = { watch: null, shorts: null, miniplayer: null, miniplayerState: null, preview: null };
             observedTargets = { watch: null, shorts: null, miniplayer: null, miniplayerState: null, preview: null };
 
+            // The queue is dropped here, so the "processing" flag must be released too.
+            // A flag stuck at true would make enqueueVideo() stop scheduling processBatch(),
+            // leaving the script unable to resume tracking after a navigation or teardown.
+            isBatchProcessing = false;
+
             // The observer and its retry timers are owned by the display
             // manager. Disconnecting only the observer leaves delayed retries
             // alive and can resurrect the Shorts UI after a teardown.
@@ -16837,6 +16947,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             logLog('VideoObserverManager', '🧹 Resetting video type cache');
             videoTypeCache = new WeakMap();
             pendingVideos.clear();
+            // Same invariant as cleanup(): an emptied queue must not leave the
+            // scheduling flag set, otherwise no further enqueue would be drained.
+            isBatchProcessing = false;
         };
 
         return {
@@ -16887,7 +17000,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {number} timeoutId
      */
     const createSessionTimeout = (sessionRef, fn, delayMs) => {
-        if (!sessionRef || sessionRef.isFinalized) return -1;
+        if (!sessionRef || sessionRef.isFinalized) {
+            // Returning -1 silently drops the callback. That is expected for a
+            // finalized session, but a missing session means the caller lost track
+            // of the owning session; log it so the skipped work is diagnosable.
+            if (!sessionRef) {
+                logWarn('createSessionTimeout', '⚠️ Timeout skipped: no session reference provided');
+            }
+            return -1;
+        }
         if (!sessionTimeoutIds.has(sessionRef)) {
             sessionTimeoutIds.set(sessionRef, new Set());
         }
@@ -17042,6 +17163,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 abortController,
                 disposables: new DisposableStore()
             };
+            // Defensive: never drop a live session on the floor. If a previous session is
+            // still tracked for this element, replace() would orphan its interval
+            // and disposables. Callers already finalize beforehand, so this is a no-op
+            // in the normal flow.
+            const replacedSession = activeProcessingSessions.get(videoEl);
+            if (replacedSession && !replacedSession.isFinalized) {
+                finalizeSession(videoEl, 'replacedByStartSession');
+            }
             activeProcessingSessions.set(videoEl, session);
             SessionTelemetry.emit('routingDecision', {
                 decision: 'start',
@@ -18170,7 +18299,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             };
                             const onAbort = () => rejectAsStale();
 
-                            const listenerStore = session?.disposables;
+                            // Without a session, `session?.disposables` would be undefined and
+                            // addDisposableListener would default to GlobalDisposables, keeping
+                            // these listeners for the whole page lifetime. A local store is
+                            // released by cleanup() below; if a session exists it owns the
+                            // listeners and this one stays empty.
+                            const localStore = session ? null : new DisposableStore();
+                            const listenerStore = session?.disposables ?? localStore;
                             removeMetadataListener = addDisposableListener(videoEl, 'loadedmetadata', onReady, { once: true }, listenerStore);
                             removeCanPlayListener = addDisposableListener(videoEl, 'canplay', onReady, { once: true }, listenerStore);
                             if (session?.abortController) {
@@ -20083,6 +20218,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             virtualScroller.destroy();
             virtualScroller = null;
         }
+        // The observed container is about to leave the DOM, so release the observer
+        // instead of leaving it attached to a detached element until modal close.
+        disconnectVirtualScrollerObserver();
         container.classList.remove('ypp-list-loading');
         DOMHelpers.removeExact('vsc:container');
         // Point at the repair entry when unreadable records are the cause, so
@@ -20233,14 +20371,28 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
-     * Wires a ResizeObserver to recalculate grid columns on container width changes.
-     * @param {HTMLElement} scrollerContainer
+     * Disconnects the grid-layout ResizeObserver and cancels its pending debounce.
+     * Must be called whenever the observed container leaves the DOM, otherwise the
+     * observer keeps a detached element (and its closure) reachable.
+     * @returns {void}
      */
-    function connectResizeObserver(scrollerContainer) {
+    function disconnectVirtualScrollerObserver() {
         if (virtualScrollerResizeObserver) {
             virtualScrollerResizeObserver.disconnect();
             virtualScrollerResizeObserver = null;
         }
+        if (virtualScrollerResizeDebounceTimer !== null) {
+            clearTimeout(virtualScrollerResizeDebounceTimer);
+            virtualScrollerResizeDebounceTimer = null;
+        }
+    }
+
+    /**
+     * Wires a ResizeObserver to recalculate grid columns on container width changes.
+     * @param {HTMLElement} scrollerContainer
+     */
+    function connectResizeObserver(scrollerContainer) {
+        disconnectVirtualScrollerObserver();
         if (typeof ResizeObserver !== 'undefined') {
             virtualScrollerResizeObserver = new ResizeObserver(() => {
                 if (!virtualScroller) return;
@@ -20384,17 +20536,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         // Destroy grid scroller ResizeObserver and pending resize callback
-        if (virtualScrollerResizeObserver) {
-            virtualScrollerResizeObserver.disconnect();
-            virtualScrollerResizeObserver = null;
-        }
-        if (virtualScrollerResizeDebounceTimer !== null) {
-            clearTimeout(virtualScrollerResizeDebounceTimer);
-            virtualScrollerResizeDebounceTimer = null;
-        }
+        disconnectVirtualScrollerObserver();
 
         // Clean modal resources (listeners, etc.)
         videosContainer?.querySelector('.ypp-saved-videos-toolbar-wrap')?._yppDisposables?.dispose?.();
+        // Drop the footer reference so a later rebuild starts from a clean store
+        // instead of disposing an already-cleared one.
+        const footerRoot = document.querySelector('.ypp-footer');
+        if (footerRoot) footerRoot._yppFooterDisposables = null;
+        storageDamageNoticeDisposables?.dispose?.();
+        storageDamageNoticeDisposables = null;
         ModalDisposables.clear();
 
         // Clear debounce
@@ -20435,6 +20586,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         isManagementMode = false;
         selectedVideos.clear();
         cachedFilteredItems = [];
+        modalVideoTitleById.clear();
         expandedGridVideoIds.clear();
         modalVideosFooterSecondRow = null;
         cachedMgmtButtons = null;

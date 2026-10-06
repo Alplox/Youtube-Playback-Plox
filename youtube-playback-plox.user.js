@@ -4389,6 +4389,72 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     margin-top: 10px;
     justify-content: center;
 }
+.ypp-playlist-creation-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.ypp-playlist-creation-header h4 {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ypp-playlist-icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    padding: 0;
+    border: 1px solid var(--ypp-border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ypp-text-secondary);
+    cursor: pointer;
+    transition-property: color, background, border-color, transform;
+    transition-duration: 0.15s;
+    transition-timing-function: ease;
+}
+.ypp-playlist-icon-btn svg {
+    width: 16px;
+    height: 16px;
+}
+.ypp-playlist-icon-btn:hover {
+    background: var(--ypp-bg-secondary-hover);
+    color: var(--ypp-text);
+}
+.ypp-playlist-icon-btn:active {
+    transform: scale(0.96);
+}
+.ypp-playlist-icon-btn:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+.ypp-playlist-icon-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.ypp-playlist-icon-btn.is-copied {
+    color: var(--ypp-success);
+    border-color: var(--ypp-success);
+}
+.ypp-playlist-icon-btn.is-error {
+    color: var(--ypp-danger);
+    border-color: var(--ypp-danger);
+}
+@media (prefers-reduced-motion: reduce) {
+    .ypp-playlist-icon-btn {
+        transition: none;
+    }
+    .ypp-playlist-icon-btn:active {
+        transform: none;
+    }
+}
 .ypp-thumb-wrapper {
     position: relative;
     display: flex;
@@ -15619,8 +15685,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
 
             const playlistTitle = createElement('h4', {
-                html: `${SVG_ICONS.playlist} ${t('playlistLinkGenerated')}`,
-                styles: { marginBottom: '10px' }
+                html: `${SVG_ICONS.playlist} ${t('playlistLinkGenerated')}`
             });
 
             const playlistInfo = createElement('p', {
@@ -15639,6 +15704,44 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
 
             const playlistActions = createElement('div', { className: 'ypp-playlist-actions' });
+
+            // Icon-only copy/open controls live in the header so feedback
+            // (copy -> check swap) never changes the button box. Fixed 30x30
+            // size in CSS keeps layout stable; text feedback would resize
+            // the footer row on every copy.
+            const copyBtn = createElement('button', {
+                id: 'ypp-playlist-copy-link-btn',
+                className: 'ypp-playlist-icon-btn',
+                html: SVG_ICONS.copy,
+                attributes: { type: 'button', title: t('copyLink'), 'aria-label': t('copyLink') },
+                onClickEvent: () => {
+                    if (!playlistTextarea.value) {
+                        alert(t('selectAtLeastOne'));
+                        return;
+                    }
+
+                    if (playlistTextarea.value) copyToClipboard(playlistTextarea.value, copyBtn);
+                },
+                store: footerDisposables
+            });
+
+            const openBtn = createElement('button', {
+                id: 'ypp-playlist-open-link-btn',
+                className: 'ypp-playlist-icon-btn',
+                html: SVG_ICONS.linkExternal,
+                attributes: { type: 'button', title: t('openPlaylist'), 'aria-label': t('openPlaylist') },
+                onClickEvent: () => {
+                    if (!playlistTextarea.value) {
+                        alert(t('selectAtLeastOne'));
+                        return;
+                    }
+                    if (playlistTextarea.value) window.open(getSafeUrl(playlistTextarea.value), '_blank');
+                },
+                store: footerDisposables
+            });
+
+            const playlistHeader = createElement('div', { className: 'ypp-playlist-creation-header' });
+            playlistHeader.append(playlistTitle, copyBtn, openBtn);
 
             const items = getVirtualScrollerVideoItems();
             const allSelected = items.length > 0 && items.every(v => selectedVideos.has(v.info.videoId));
@@ -15710,45 +15813,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 btnClearSelection.disabled = size === 0;
 
-                const copyBtn = DOMHelpers.get('playlist:copyBtn', () => document.getElementById('ypp-playlist-copy-link-btn'), 5000);
-                const openBtn = DOMHelpers.get('playlist:openBtn', () => document.getElementById('ypp-playlist-open-link-btn'), 5000);
+                const copyBtnEl = DOMHelpers.get('playlist:copyBtn', () => document.getElementById('ypp-playlist-copy-link-btn'), 5000);
+                const openBtnEl = DOMHelpers.get('playlist:openBtn', () => document.getElementById('ypp-playlist-open-link-btn'), 5000);
 
-                if (copyBtn) copyBtn.disabled = size === 0;
-                if (openBtn) openBtn.disabled = size === 0;
+                if (copyBtnEl) copyBtnEl.disabled = size === 0;
+                if (openBtnEl) openBtnEl.disabled = size === 0;
             };
 
             // Tracked by footerDisposables so the rebuild at the top of
             // updateFooterButtons() releases it before #ypp-playlist-area is dropped.
             addDisposableListener(playlistArea, 'ypp-selection-changed', refreshPlaylistState, {}, footerDisposables);
-
-            const copyBtn = createElement('button', {
-                id: 'ypp-playlist-copy-link-btn',
-                className: 'ypp-btn ypp-btn-info ypp-shadow-md',
-                html: `${SVG_ICONS.copy} ${t('copyLink')}`,
-                onClickEvent: () => {
-                    if (!playlistTextarea.value) {
-                        alert(t('selectAtLeastOne'));
-                        return;
-                    }
-
-                    if (playlistTextarea.value) copyToClipboard(playlistTextarea.value, copyBtn);
-                },
-                store: footerDisposables
-            });
-
-            const openBtn = createElement('button', {
-                id: 'ypp-playlist-open-link-btn',
-                className: 'ypp-btn ypp-btn-outline-primary ypp-shadow-md',
-                html: `${t('openPlaylist')} ${SVG_ICONS.linkExternal}`,
-                onClickEvent: () => {
-                    if (!playlistTextarea.value) {
-                        alert(t('selectAtLeastOne'));
-                        return;
-                    }
-                    if (playlistTextarea.value) window.open(getSafeUrl(playlistTextarea.value), '_blank');
-                },
-                store: footerDisposables
-            });
 
             const cancelBtn = createElement('button', {
                 className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
@@ -15759,12 +15833,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             playlistActions.appendChild(btnSelectAll);
             playlistActions.appendChild(btnClearSelection);
-            playlistActions.appendChild(copyBtn);
-            playlistActions.appendChild(openBtn);
             playlistActions.appendChild(cancelBtn);
 
             playlistArea.appendChild(playlistInfo);
-            playlistArea.appendChild(playlistTitle);
+            playlistArea.appendChild(playlistHeader);
             playlistArea.appendChild(playlistTextarea);
             playlistArea.appendChild(playlistActions);
 
@@ -15831,8 +15903,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     /**
      * Copies text to the clipboard using the Clipboard API.
+     * Icon-only feedback (copy -> check) keeps the fixed-size header button
+     * stable: no text swap, no className replacement, no layout shift.
      * @param {string} text - Text to copy
-     * @param {HTMLElement} button - Button that shows visual feedback
+     * @param {HTMLElement} button - Icon-only button that shows visual feedback
      */
     async function copyToClipboard(text, button) {
         if (!text || !button) {
@@ -15840,16 +15914,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return;
         }
 
-        const originalHTML = button.innerHTML;
-        const originalClassName = button.className;
+        if (button._yppCopyFeedbackTimeout) {
+            clearTimeout(button._yppCopyFeedbackTimeout);
+            button._yppCopyFeedbackTimeout = 0;
+        }
+        button.classList.remove('is-copied', 'is-error');
 
         // Helper to show success state temporarily
         const showSuccess = (restoreIcon = SVG_ICONS.copy) => {
-            setInnerHTML(button, `${SVG_ICONS.check} ${t('linkCopied')}`);
-            button.className = 'ypp-btn ypp-btn-success';
-            setTimeout(() => {
-                setInnerHTML(button, `${restoreIcon} ${t('copyLink')}`);
-                button.className = originalClassName;
+            setInnerHTML(button, SVG_ICONS.check);
+            button.classList.add('is-copied');
+            button.classList.remove('is-error');
+            button.setAttribute('title', t('linkCopied'));
+            button.setAttribute('aria-label', t('linkCopied'));
+            button._yppCopyFeedbackTimeout = setTimeout(() => {
+                if (!button.isConnected) return;
+                setInnerHTML(button, restoreIcon);
+                button.classList.remove('is-copied');
+                button.setAttribute('title', t('copyLink'));
+                button.setAttribute('aria-label', t('copyLink'));
+                button._yppCopyFeedbackTimeout = 0;
             }, 2000);
         };
 
@@ -15893,12 +15977,22 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             } catch (fallbackErr) {
                 logError('copyToClipboard', 'Fallback also failed:', fallbackErr);
-                // Show visual error to the user
-                setInnerHTML(button, `${SVG_ICONS.x} ${t('error')}`);
-                button.className = 'ypp-btn ypp-btn-danger';
-                setTimeout(() => {
-                    setInnerHTML(button, originalHTML);
-                    button.className = originalClassName;
+                // Show visual error to the user without resizing the button
+                if (button._yppCopyFeedbackTimeout) {
+                    clearTimeout(button._yppCopyFeedbackTimeout);
+                }
+                setInnerHTML(button, SVG_ICONS.close);
+                button.classList.remove('is-copied');
+                button.classList.add('is-error');
+                button.setAttribute('title', t('error'));
+                button.setAttribute('aria-label', t('error'));
+                button._yppCopyFeedbackTimeout = setTimeout(() => {
+                    if (!button.isConnected) return;
+                    setInnerHTML(button, SVG_ICONS.copy);
+                    button.classList.remove('is-error');
+                    button.setAttribute('title', t('copyLink'));
+                    button.setAttribute('aria-label', t('copyLink'));
+                    button._yppCopyFeedbackTimeout = 0;
                 }, 2000);
             }
         }

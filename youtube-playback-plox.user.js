@@ -3814,6 +3814,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 .ypp-footer-row-bottom {
     justify-content: space-between;
 }
+.ypp-footer-row-bottom > :last-child {
+    margin-inline-start: auto;
+}
 .ypp-footer-action-menu {
     position: relative;
 }
@@ -3928,6 +3931,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     display: flex;
     justify-content: flex-end;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
     padding: 16px 24px;
     color: var(--ypp-light);
@@ -4387,7 +4391,19 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     display: flex;
     gap: 10px;
     margin-top: 10px;
-    justify-content: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.ypp-playlist-actions .ypp-btn {
+    min-width: 0;
+    max-width: 100%;
+}
+/* Dismiss convention (shared with the other modal footers): the trailing
+   action (Cancel/Close) is always the last child pinned to inline-end,
+   so users find it in the same corner in every footer. */
+.ypp-playlist-actions > :last-child {
+    margin-inline-start: auto;
 }
 .ypp-playlist-creation-header {
     display: flex;
@@ -5248,7 +5264,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     border-top: 1px solid var(--ypp-border);
 }
 .ypp-management-footer-section[data-section="danger"] .ypp-management-footer-item:last-child {
-    margin-left: auto;
+    margin-inline-start: auto;
 }
 .ypp-management-footer-section[data-section="session"] {
     justify-content: flex-end;

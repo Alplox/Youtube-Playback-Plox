@@ -114,7 +114,9 @@
 // @version      0.0.13
 // @author       Alplox
 // @match        https://www.youtube.com/*
+// @match        https://m.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
+// @exclude      https://m.youtube.com/live_chat*
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
 // @grant        GM_getValue
 // @grant        GM_setValue
@@ -1087,6 +1089,26 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     }
 
     /**
+     * Returns an object exposing the YouTube player API for a player element.
+     * Prefers direct access; on isolated worlds where page expandos are
+     * invisible through Xray vision (e.g. mobile `getPlayerState` under
+     * Firefox), falls back to `wrappedJSObject` when available.
+     * The holder is for API calls only — keep using the element itself for
+     * DOM queries (`querySelector`, `closest`, `instanceof` guards).
+     * @param {Element|null|undefined} playerEl - Player element (e.g. `#movie_player`).
+     * @returns {object|null} API holder, or null when no player API is reachable.
+     */
+    function getPlayerApi(playerEl) {
+        if (!playerEl) return null;
+        try {
+            if (typeof playerEl.getPlayerState === 'function') return playerEl;
+            const unwrapped = playerEl.wrappedJSObject;
+            if (unwrapped && typeof unwrapped.getPlayerState === 'function') return unwrapped;
+        } catch (_) { /* Xray denial: no API reachable */ }
+        return null;
+    }
+
+    /**
      * Remove or mask sensitive information (tokens, Gist IDs, etc.) from a text.
      * @param {string} text - Text to process.
      * @returns {string} - Scrubbed text.
@@ -1870,7 +1892,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             SHORTS_VIDEO_TITLE_VIEW_MODEL: 'yt-shorts-video-title-view-model',
             MINIPLAYER_ELEMENT: 'ytd-miniplayer',
             INLINE_PREVIEW_ELEMENT: 'ytd-video-preview',
-            RICH_GRID_RENDERER: 'ytd-rich-grid-renderer'
+            RICH_GRID_RENDERER: 'ytd-rich-grid-renderer',
+            YTM_APP: 'ytm-app',
+            YTM_WATCH: 'ytm-watch',
+            MWEB_SHORTS_VIDEO: 'shorts-video',
+            MWEB_SHORTS_PAGE: 'shorts-page',
+            MWEB_PLAYER_TIME_DISPLAY: 'player-time-display'
         },
         classes: {
             HTML5_VIDEO_PLAYER: 'html5-video-player',
@@ -1895,7 +1922,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             YT_PROGRESS_BAR_HOVERED: 'ytProgressBarLineProgressBarHovered',
             YT_PROGRESS_BAR_PLAYHEAD_DOT: 'ytProgressBarPlayheadProgressBarPlayheadDot',
             YT_PLAYER_PROGRESS_BAR_HOST: 'ytPlayerProgressBarHost',
-            DESKTOP_SHORTS_PLAYER_CONTROLS_HOST: 'desktopShortsPlayerControlsHost'
+            DESKTOP_SHORTS_PLAYER_CONTROLS_HOST: 'desktopShortsPlayerControlsHost',
+            MWEB_TIME_PILL: 'ytwPlayerTimeDisplayPill'
         },
         ids: {
             PRIMARY_INNER: 'primary-inner',
@@ -1906,7 +1934,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             METAPANEL: 'metapanel',
             VIDEO_PREVIEW_MAIN: 'video-preview',
             VIDEO_PREVIEW_CONTAINER: 'video-preview-container',
-            INLINE_PREVIEW_PLAYER: 'inline-preview-player'
+            INLINE_PREVIEW_PLAYER: 'inline-preview-player',
+            PLAYER_CONTAINER: 'player-container-id'
         },
         attrs: {
             MINIPLAYER_ACTIVE: 'miniplayer-is-active',
@@ -2315,6 +2344,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
             /**
              * Get the main container of the regular player.
+             * Mobile web (`m.youtube.com`) exposes the same `#movie_player`
+             * as a top-level sticky player; players inside mobile Shorts
+             * (`shorts-video`) are excluded here and resolved via
+             * `getShortsPlayer` instead.
              * @returns {Element|null} #movie_player container (or null if it doesn't exist).
              */
             getWatchPlayer: () =>
@@ -2327,7 +2360,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
                     if (watchContainer instanceof HTMLElement) {
                         const moviePlayerInsideFlexy = watchContainer?.querySelector(SELECTORS.player.movie);
-                        if (typeof moviePlayerInsideFlexy?.getPlayerState === 'function') {
+                        if (getPlayerApi(moviePlayerInsideFlexy) !== null) {
                             if (isVisiblyDisplayed(moviePlayerInsideFlexy)) {
                                 logInfo('DOMHelpers', `✅ Player found in 1st level and is visible.`);
                                 player = moviePlayerInsideFlexy;
@@ -2341,8 +2374,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                         const moviePlayers = document.querySelectorAll(SELECTORS.player.movie);
                         for (const el of moviePlayers) {
                             if (
-                                typeof el?.getPlayerState === 'function' &&
-                                (!miniPlayer || !miniPlayer.contains(el))
+                                getPlayerApi(el) !== null &&
+                                (!miniPlayer || !miniPlayer.contains(el)) &&
+                                !el.closest(SELECTORS.ELEMENTS.MWEB_SHORTS_VIDEO)
                             ) {
                                 if (isVisiblyDisplayed(el)) {
                                     logInfo('DOMHelpers', `✅ Player found in 2nd level and is visible.`);
@@ -2358,8 +2392,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     if (!player) {
                         const html5VideoPlayer = document.querySelector(SELECTORS.CLASSES.HTML5_VIDEO_PLAYER);
                         if (
-                            typeof html5VideoPlayer?.getPlayerState === 'function' &&
-                            (!miniPlayer || !miniPlayer.contains(html5VideoPlayer))
+                            getPlayerApi(html5VideoPlayer) !== null &&
+                            (!miniPlayer || !miniPlayer.contains(html5VideoPlayer)) &&
+                            !html5VideoPlayer.closest(SELECTORS.ELEMENTS.MWEB_SHORTS_VIDEO)
                         ) {
                             if (isVisiblyDisplayed(html5VideoPlayer)) {
                                 logInfo('DOMHelpers', `✅ Player found in 3rd level and is visible.`);
@@ -2413,11 +2448,15 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
             /**
              * Get the container of the Shorts player.
+             * Desktop returns `#shorts-player`; mobile web (`m.youtube.com`)
+             * reuses `#movie_player` inside `shorts-video`, so fall back to it.
              * @returns {Element|null} Shorts player container (or null if it doesn't exist).
              */
             getShortsPlayer: () =>
                 get('shortsPlayer', () =>
-                    document.querySelector(SELECTORS.shorts.player) ?? null
+                    document.querySelector(SELECTORS.shorts.player)
+                    ?? document.querySelector(SELECTORS.ELEMENTS.MWEB_SHORTS_VIDEO)?.querySelector(SELECTORS.player.movie)
+                    ?? null
                 ),
             /**
              * Get the video element of the Shorts player.
@@ -3218,6 +3257,26 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     z-index: var(--ypp-z-toast, 10001);
     pointer-events: auto;
 }
+/* Floating fallback for mobile web watch (m.youtube.com): its player chrome
+   has no .ytp-time-wrapper, so the display overlays the sticky player. */
+.ypp-time-display.ypp-floating {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    z-index: var(--ypp-z-toast, 10001);
+    pointer-events: auto;
+}
+/* Mobile watch native time row is space-between: absorb the trailing free
+   space so a row-anchored display sits next to the time pill instead of the
+   row far end. Scoped to the mobile control overlay; desktop is unaffected. */
+#player-control-overlay .ypp-time-display {
+    margin-right: auto;
+}
+/* Inside YouTube's own time pill: blend in and stay compact. */
+#player-control-overlay .ytwPlayerTimeDisplayPill .ypp-time-display {
+    background: transparent;
+    height: 22px;
+}
 /* Miniplayer-specific style */
 .ypp-miniplayer-time-display {
     pointer-events: auto;
@@ -3622,6 +3681,11 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     display: none !important;
 }
 .ypp-videosContainer[data-ypp-show-buttons="false"] .ypp-containerButtonsTime .ypp-buttons-row {
+    display: none !important;
+}
+/* Nothing visible in the row buttons (all actions off/hidden and no ⋯):
+   remove the container entirely instead of leaving a reserved strip. */
+.ypp-videosContainer[data-ypp-no-actions="true"] .ypp-videoWrapper .ypp-containerButtonsTime {
     display: none !important;
 }
 .ypp-toolbar-separator {
@@ -4228,7 +4292,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         align-items: flex-start !important;
         justify-content: flex-start !important;
         gap: 6px !important;
-        min-height: 0 !important;
+        /* Keep room for the ⋯ trigger when every row action is hidden:
+           collapsed rows would leave a ~6px strip and the trigger would
+           overflow the clipped row and become invisible. */
+        min-height: 52px !important;
     }
     /* Individual button rows (QA and Actions) */
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-buttons-row {
@@ -5811,7 +5878,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const watchPlayer = DOMHelpers.getWatchPlayer();
         if (!watchVideo || !watchPlayer) return;
         const videoId = getPlayerVideoId(watchPlayer);
-        const duration = watchPlayer.getDuration?.() || watchVideo.duration || 0;
+        const duration = getPlayerApi(watchPlayer)?.getDuration?.() || watchVideo.duration || 0;
         if (duration > 0) {
             updateProgressBarGradient(watchVideo.currentTime, duration, 'watch', videoId, {
                 force: true,
@@ -5840,7 +5907,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const paint = () => {
             if (expectedSession) expectedSession.seekGradientRaf = null;
             if (!isCurrentSession()) return;
-            const duration = player?.getDuration?.() || videoEl?.duration || 0;
+            const duration = getPlayerApi(player)?.getDuration?.() || videoEl?.duration || 0;
             if (duration > 0 && videoEl) {
                 updateProgressBarGradient(videoEl.currentTime, duration, type, videoId, {
                     force: true,
@@ -5882,7 +5949,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (playerRoot?.querySelector(SELECTORS.CLASSES.YTP_LIVE_BADGE) && isVisiblyDisplayed(playerRoot?.querySelector(SELECTORS.CLASSES.YTP_LIVE_BADGE))) return true;
 
         try {
-            const videoData = typeof player?.getVideoData === 'function' ? player.getVideoData() : null;
+            const videoData = getPlayerApi(player)?.getVideoData?.() ?? null;
             if (videoData?.isLive) return true;
         } catch (e) {
             logWarn('isLivePlaybackForGradient', 'Error getting video data', e)
@@ -5932,6 +5999,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         let container = null;
         let playerRoot = null;
+        // Mobile web watch has no `.ytp-progress-bar`; its progress line uses
+        // the same `ytProgressBar*` surfaces as Shorts (rendered with controls).
+        let useShortsSurfaces = stateKey === 'shorts';
 
         if (stateKey === 'shorts') {
             container = document.querySelector(SELECTORS.progressBar.shorts.played)
@@ -5942,7 +6012,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 clearAllProgressGradientState();
                 return;
             }
-            container = playerRoot.querySelector(SELECTORS.progressBar.regular.bar) ?? playerRoot;
+            const regularBar = playerRoot.querySelector(SELECTORS.progressBar.regular.bar);
+            container = regularBar
+                ?? document.querySelector(SELECTORS.progressBar.shorts.played)
+                ?? playerRoot;
+            // No `.ytp-progress-bar` but `ytProgressBar*` surfaces: mobile web
+            // watch shares the Shorts progress line — paint it as such.
+            useShortsSurfaces = !regularBar && container !== playerRoot;
         }
 
         if (!container) {
@@ -5956,7 +6032,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         if (!force && !containerChanged && colorUnchanged && sameVideo) return;
 
-        if (stateKey === 'shorts') {
+        if (useShortsSurfaces) {
             container = applyProgressColorToShortsSurfaces(progressColor) ?? container;
         } else {
             container = applyProgressColorToPlayerRoot(playerRoot, progressColor) ?? container;
@@ -5990,10 +6066,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             resetProgressBarGradient('all');
             return;
         }
+        const playerApi = getPlayerApi(player);
         const currentTime = videoEl.currentTime
-            ?? (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
+            ?? (typeof playerApi?.getCurrentTime === 'function' ? playerApi.getCurrentTime() : 0);
         const duration = videoEl.duration
-            ?? (typeof player?.getDuration === 'function' ? player.getDuration() : 0);
+            ?? (typeof playerApi?.getDuration === 'function' ? playerApi.getDuration() : 0);
         if (!duration || duration <= 0 || !isFinite(currentTime) || currentTime < 0) return;
         updateProgressBarGradient(currentTime, duration, type, videoId, {
             force: options.force ?? true,
@@ -12056,10 +12133,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         let id = null;
+        const playerApi = getPlayerApi(player);
 
         // 1. Lightweight first
         try {
-            id = player.getVideoData?.()?.video_id;
+            id = playerApi?.getVideoData?.()?.video_id;
         } catch (e) {
             logWarn('getPlayerVideoId', 'getVideoData failed', e);
         }
@@ -12067,7 +12145,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // 2. Heavy fallback
         if (!id) {
             try {
-                const resp = player.getPlayerResponse?.();
+                const resp = playerApi?.getPlayerResponse?.();
                 id = resp?.videoDetails?.videoId
                     ?? resp?.microformat?.playerMicroformatRenderer?.externalVideoId;
             } catch (e) {
@@ -13450,6 +13528,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
 
         /**
+         * Detects mobile web watch, whose player chrome has no `.ytp-*`
+         * containers to host the time display.
+         * @returns {boolean} True on `m.youtube.com` watch without desktop player chrome.
+         */
+        const isMobileWatchDisplayFallback = () => {
+            if (currentPageType !== 'watch') return false;
+            const desktopFlexy = DOMHelpers.get('display:desktopFlexy', () => document.querySelector('ytd-watch-flexy'), 250);
+            if (desktopFlexy) return false;
+            return !!DOMHelpers.get('display:mobileWatch', () => document.querySelector(SELECTORS.ELEMENTS.YTM_WATCH), 250);
+        };
+
+        /**
          * Ensures the display for a context exists and remains anchored.
          * @param {'watch'|'shorts'|'miniplayer'|'preview'} context
          * @param {Element|null} player
@@ -13463,6 +13553,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (resolvedPlayer) {
                     const playerContainer = resolvedPlayer;
                     destroy('miniplayer');
+                    // Mobile web: a display created floating before YouTube built
+                    // its time pill upgrades into the pill once it exists.
+                    if (watchTimeDisplay?.classList.contains('ypp-floating') && watchTimeDisplay.isConnected && isMobileWatchDisplayFallback()) {
+                        const latePill = DOMHelpers.get('player:mobileTimePill', () => document.querySelector(`${SELECTORS.ELEMENTS.MWEB_PLAYER_TIME_DISPLAY} ${SELECTORS.CLASSES.MWEB_TIME_PILL}`), 250);
+                        if (latePill instanceof Element && latePill !== watchTimeDisplay.parentElement) {
+                            try {
+                                latePill.appendChild(watchTimeDisplay);
+                                watchTimeDisplay.classList.remove('ypp-floating');
+                            } catch (_) { logWarn('ensure/watch', 'Failed to upgrade mobile display into time pill'); }
+                        }
+                    }
                     // isConnected check: YouTube can rebuild player controls leaving the
                     // old display detached; without this we'd keep serving a dead node.
                     if (hasTimeDisplayMessage(watchTimeDisplay) && watchTimeDisplay.isConnected) return getDisplay(context);
@@ -13476,7 +13577,45 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         ?? document.querySelector('.ytp-left-controls')
                         ?? document.querySelector('.ytp-chrome-bottom'), 100);
 
-                    if (!timeWrapper) { logWarn('ensure/watch', '⚠️ No valid container found for UI injection in playback bar.'); return getDisplay(context); }
+                    if (!timeWrapper) {
+                        // Mobile web watch has no `.ytp-*` chrome. Prefer YouTube's
+                        // own time pill: auto-hide and positioning are then managed
+                        // by YouTube itself, mirroring the desktop injection into
+                        // `.ytp-time-wrapper`. Row and floating anchors are fallbacks.
+                        // Desktop keeps the previous behavior (warn + no display).
+                        if (isMobileWatchDisplayFallback()) {
+                            const timePill = DOMHelpers.get('player:mobileTimePill', () => document.querySelector(`${SELECTORS.ELEMENTS.MWEB_PLAYER_TIME_DISPLAY} ${SELECTORS.CLASSES.MWEB_TIME_PILL}`), 250);
+                            const timeHost = timePill ?? DOMHelpers.get('player:mobileTimeHost', () => document.querySelector(SELECTORS.ELEMENTS.MWEB_PLAYER_TIME_DISPLAY), 250);
+                            const nativeRow = timeHost?.closest('.player-controls-bottom.player-controls-bottom-left') ?? timeHost;
+                            const mobileAnchor = timePill instanceof Element
+                                ? timePill
+                                : (nativeRow instanceof Element
+                                    ? nativeRow
+                                    : DOMHelpers.get('player:mobileWatchAnchor', () => document.querySelector(SELECTORS.IDS.PLAYER_CONTAINER), 250));
+                            if (mobileAnchor instanceof Element) {
+                                const useFloating = mobileAnchor !== timePill && mobileAnchor !== nativeRow;
+                                destroy('miniplayer');
+                                if (hasTimeDisplayMessage(watchTimeDisplay) && watchTimeDisplay.isConnected) return getDisplay(context);
+                                if (watchTimeDisplay) { disposeDisplayNode(watchTimeDisplay); watchTimeDisplay = null; }
+
+                                watchTimeDisplay = createElement('div', {
+                                    id: 'ypp-time-display-indicator',
+                                    className: useFloating ? 'ypp-time-display ypp-floating' : 'ypp-time-display'
+                                });
+                                const mobileDisposables = getDisplayDisposables(watchTimeDisplay);
+                                const { listBtn: mobileListBtn, messageEl: mobileMessageEl } = createSplitButtonGroup(mobileDisposables);
+                                watchTimeDisplay.appendChild(mobileListBtn);
+                                setupManualSaveButton(watchTimeDisplay, playerContainer, 'watch', mobileDisposables);
+                                watchTimeDisplay.appendChild(mobileMessageEl);
+                                delete watchTimeDisplay.dataset.isFixedTime;
+                                try { mobileAnchor.appendChild(watchTimeDisplay); } catch (_) { logWarn('ensure/watch', 'Failed to attach mobile display'); return getDisplay(context); }
+                                clear('watch');
+                                return getDisplay(context);
+                            }
+                        }
+                        logWarn('ensure/watch', '⚠️ No valid container found for UI injection in playback bar.');
+                        return getDisplay(context);
+                    }
 
                     watchTimeDisplay = createElement('div', {
                         id: 'ypp-time-display-indicator',
@@ -14858,7 +14997,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     return window.ytcfg.data_.INNERTUBE_CLIENT_VERSION;
                 }
                 const player = typeof DOMHelpers !== 'undefined' && typeof DOMHelpers.getWatchPlayer === 'function' ? DOMHelpers.getWatchPlayer() : null;
-                const playerResponse = player && typeof player.getPlayerResponse === 'function' ? player.getPlayerResponse() : null;
+                const playerResponse = getPlayerApi(player)?.getPlayerResponse?.() ?? null;
                 if (playerResponse?.context?.client?.clientVersion) {
                     return playerResponse.context.client.clientVersion;
                 }
@@ -16070,11 +16209,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const SCORE_DELTA_THRESHOLD = 2;
         let activeSelection = null;
 
+        /**
+         * Finds the DOM root that owns a video element for a given context.
+         * Shorts falls back to mobile web (`shorts-video`), where YouTube
+         * reuses `#movie_player` instead of `#shorts-player`.
+         * @param {HTMLVideoElement|null} videoEl - Video element to locate.
+         * @param {string} context - One of `watch`, `shorts`, `miniplayer`, `preview`.
+         * @returns {Element|null} Context root, or null when it does not exist.
+         */
         const getContextRoot = (videoEl, context) => {
             if (!videoEl) return null;
             const rootSelectors = {
                 watch: () => videoEl.closest(SELECTORS.player.movie),
-                shorts: () => videoEl.closest(SELECTORS.shorts.player),
+                shorts: () => videoEl.closest(SELECTORS.shorts.player) ?? videoEl.closest(SELECTORS.ELEMENTS.MWEB_SHORTS_VIDEO),
                 miniplayer: () => videoEl.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT),
                 preview: () => videoEl.closest(SELECTORS.inlinePreview.player) || videoEl.closest(SELECTORS.IDS.VIDEO_PREVIEW_CONTAINER)
             };
@@ -17217,6 +17364,57 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let sessionIdCounter = 0;
     let transitionTokenCounter = 0;
 
+    /** Retries left per element when video-ID resolution lags behind SPA navigation. */
+    const ID_MISMATCH_MAX_RETRIES = 4;
+    /** Delay between video-ID resolution retries during SPA transitions. */
+    const ID_MISMATCH_RETRY_MS = 1000;
+    /** @type {WeakMap<HTMLVideoElement, { url: string, count: number }>} */
+    const idMismatchRetries = new WeakMap();
+
+    /**
+     * Retries session startup when video-ID resolution fails during SPA
+     * transitions (player API still reports the previous video while the URL
+     * already changed). Bounded per element and pinned to the URL seen at
+     * scheduling time; a later navigation owns its own flow. Existing retry
+     * state is cleared once a session starts for the element.
+     * @param {HTMLVideoElement} videoEl - Video element that failed ID resolution.
+     * @param {string} type - Processing context (`watch`, `shorts`, ...).
+     * @param {Element|null} player - Player element, used to bust the stale ID cache.
+     * @returns {void}
+     */
+    const scheduleIdMismatchRetry = (videoEl, type, player) => {
+        if (!videoEl?.isConnected) return;
+        const url = window.location.href;
+        const state = idMismatchRetries.get(videoEl);
+        if (state && state.url === url && state.count >= ID_MISMATCH_MAX_RETRIES) return;
+        idMismatchRetries.set(videoEl, { url, count: state && state.url === url ? state.count + 1 : 1 });
+        setTimeout(() => {
+            if (!videoEl.isConnected) {
+                idMismatchRetries.delete(videoEl);
+                return;
+            }
+            // A later navigation owns its own flow; do not fight it.
+            if (window.location.href !== url) return;
+            const liveSession = activeProcessingSessions.get(videoEl);
+            if (liveSession && !liveSession.isFinalized) {
+                idMismatchRetries.delete(videoEl);
+                return;
+            }
+            // The player-ID cache (2s TTL) can still serve the pre-transition
+            // ID on a 1s retry cadence; bust it so resolution re-reads the API.
+            try {
+                if (player) playerVideoIdCache.delete(player);
+            } catch (_) { /* cache bust is best-effort */ }
+            logLog('processMediaVideo', `🔄 Retrying video-ID resolution [${type}] after SPA transition`);
+            try {
+                VideoObserverManager.invalidateTypeCache(videoEl);
+                VideoObserverManager.enqueueWithResolver(videoEl, type, 'idMismatchRetry');
+            } catch (_) {
+                logWarn('processMediaVideo', 'idMismatchRetry enqueue failed', _);
+            }
+        }, ID_MISMATCH_RETRY_MS);
+    };
+
     /** @type {WeakMap<object, Set<number>>} Stores timeoutIds per session for cleanup in finalizeSession */
     const sessionTimeoutIds = new WeakMap();
 
@@ -17678,7 +17876,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             notifySeekOrProgress(0, 'progress', { videoType: type, videoEl, isLoading: true });
         }
 
-        const fastPlaylistId = (typeof player?.getPlaylistId === 'function' ? player.getPlaylistId() : null) ||
+        const startPlayerApi = getPlayerApi(player);
+        const fastPlaylistId = (typeof startPlayerApi?.getPlaylistId === 'function' ? startPlayerApi.getPlaylistId() : null) ||
             (type === 'watch' ? extractYouTubePlaylistIdFromUrl(window.location.href) : null);
 
         // Initialize basic metadata immediately in the session so that the first save
@@ -17691,7 +17890,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             author: null,
             isLive: false,
             viewCount: 0,
-            lengthSeconds: player?.getDuration?.() || videoEl.duration || 0
+            lengthSeconds: startPlayerApi?.getDuration?.() || videoEl.duration || 0
         };
 
         const isLiveSession = isLivePlaybackForGradient(videoEl, player, videoId, sessionRef);
@@ -18398,7 +18597,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             const videoId = config.resolveVideoId(videoEl, player);
-            if (!videoId) return;
+            if (!videoId) {
+                scheduleIdMismatchRetry(videoEl, type, player);
+                return;
+            }
+            idMismatchRetries.delete(videoEl);
 
             config.initDisplay(player);
             logInfo(config.logScope, config.startLog(videoId));
@@ -18467,11 +18670,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const getExpectedDuration = () => {
                     if (session?.videoInfo?.lengthSeconds > 0) return session.videoInfo.lengthSeconds;
                     let dur = 0;
+                    const resumeApi = getPlayerApi(player);
                     try {
                         dur =
-                            player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds ||
-                            player?.getDuration?.() ||
-                            player?.getVideoData?.()?.length_seconds ||
+                            resumeApi?.getPlayerResponse?.()?.videoDetails?.lengthSeconds ||
+                            resumeApi?.getDuration?.() ||
+                            resumeApi?.getVideoData?.()?.length_seconds ||
                             videoEl.duration;
                     } catch (e) {
                         dur = videoEl.duration;
@@ -18581,8 +18785,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     try {
                         // Apply seek via API if available, otherwise directly on the element
                         if (session) session._scriptSeekPending = true;
-                        if (typeof player?.seekTo === 'function') {
-                            player.seekTo(safeTime, true);
+                        const seekApi = getPlayerApi(player);
+                        if (typeof seekApi?.seekTo === 'function') {
+                            seekApi.seekTo(safeTime, true);
                         } else {
                             videoEl.currentTime = safeTime;
                         }
@@ -18617,8 +18822,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             if (safeTime > 10 && currentTime < (safeTime - 5) && !session?.isUserSeeking) {
                                 logWarn('PlaybackController', `🔄 Backward jump detected after resume (${formatTime(safeTime)} -> ${formatTime(currentTime)}). Retrying persistence...`);
                                 if (session) session._scriptSeekPending = true;
-                                if (typeof player?.seekTo === 'function') {
-                                    player.seekTo(safeTime, true);
+                                const retrySeekApi = getPlayerApi(player);
+                                if (typeof retrySeekApi?.seekTo === 'function') {
+                                    retrySeekApi.seekTo(safeTime, true);
                                 } else {
                                     videoEl.currentTime = safeTime;
                                 }
@@ -18686,8 +18892,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             };
 
             try {
-                const currentTime = videoEl.currentTime || (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
-                const duration = videoEl.duration || (typeof player?.getDuration === 'function' ? player.getDuration() : 0);
+                const saveApi = getPlayerApi(player);
+                const currentTime = videoEl.currentTime || (typeof saveApi?.getCurrentTime === 'function' ? saveApi.getCurrentTime() : 0);
+                const duration = videoEl.duration || (typeof saveApi?.getDuration === 'function' ? saveApi.getDuration() : 0);
 
                 // Allow very low times (0) to detect "Replay" in fixed-time videos
                 if (!isFinite(currentTime) || currentTime < 0 || isNaN(duration) || duration <= 0) {
@@ -18739,7 +18946,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             logLog('saveStatus', `🔄 Re-applying seek to ${targetTime}s due to forced YouTube reset... (Attempt ${retryCount + 1}/3)`);
                             try {
                                 if (session) session._scriptSeekPending = true;
-                                if (typeof player?.seekTo === 'function') player.seekTo(targetTime, true);
+                                if (typeof saveApi?.seekTo === 'function') saveApi.seekTo(targetTime, true);
                                 else videoEl.currentTime = targetTime;
                                 videoEl.dataset.resumeRetries = (retryCount + 1).toString();
                                 // Slightly extend the protection window when retrying
@@ -19102,9 +19309,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // getPlayerResponse().videoDetails
         // getPlayerResponse().microformat.playerMicroformatRenderer
         // getVideoData()
+        // Route API calls through getPlayerApi(): page expandos can be
+        // invisible to isolated worlds (Xray) on some players.
+        const cascadeApi = getPlayerApi(player);
         try {
             // A: getPlayerResponse
-            const playerResponse = player?.getPlayerResponse?.();
+            const playerResponse = cascadeApi?.getPlayerResponse?.();
             const details = playerResponse?.videoDetails;
             // logLog('getCascadedVideoInfo', 'PlayerResponse.videoDetails:', details);
             if (details?.videoId === videoId) {
@@ -19137,7 +19347,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             // B: getVideoData
-            const internalData = player?.getVideoData?.();
+            const internalData = cascadeApi?.getVideoData?.();
             // logLog('getCascadedVideoInfo', 'InternalData:', internalData);
             if (internalData?.video_id === videoId) {
                 // info.videoId: videoId (already from function parameter and verified to reach this point)
@@ -19345,8 +19555,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             if (info.lastViewedPlaylistId === null) {
                 // Try getting from the Player object
-                if (typeof player?.getPlaylistId === 'function') {
-                    const playerPlaylistId = player.getPlaylistId();
+                const cascadePlayerApi = getPlayerApi(player);
+                if (typeof cascadePlayerApi?.getPlaylistId === 'function') {
+                    const playerPlaylistId = cascadePlayerApi.getPlaylistId();
                     if (playerPlaylistId) {
                         info.lastViewedPlaylistId = playerPlaylistId;
                         logLog('getCascadedVideoInfo', `Playlist id obtained using getPlaylistId(): [${info.lastViewedPlaylistId}]`);
@@ -21778,6 +21989,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const map = { alwaysVisible: 'alwaysVisible', dimUntilHover: 'dimUntilHover', hiddenUntilHover: 'hiddenUntilHover', hidden: 'hidden' };
         container.setAttribute('data-entry-action-opacity', map[mode] || 'alwaysVisible');
         container.setAttribute('data-ypp-overflow-menu', settings.showOverflowMenu !== false ? 'on' : 'off');
+        // Collapse per-row buttons containers when nothing in them can be
+        // visible (no enabled actions, or hidden entry buttons, and no ⋯):
+        // otherwise an empty reserved strip remains in every row.
+        const hasVisibleAction = ids.some((id) => settings.actionVisibility[id] !== false);
+        const entryButtonsShown = (settings.entryButtonVisibility || 'alwaysVisible') !== 'hidden';
+        const overflowShown = settings.showOverflowMenu !== false;
+        container.setAttribute('data-ypp-no-actions', (hasVisibleAction && entryButtonsShown) || overflowShown ? 'false' : 'true');
         // Legacy migration for labels
         if (settings.colouredLabelsStyle === undefined) {
             settings.colouredLabelsStyle = 'color';
@@ -24488,6 +24706,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // 1. Listen for standard YouTube events
             addDisposableListener(window, 'yt-navigate-finish', navigationDebounce);
             addDisposableListener(document, 'yt-page-data-updated', navigationDebounce);
+            // 1b. Mobile web (`m.youtube.com`) navigates its SPA with `state-change`
+            // instead of the desktop events above (verified live: watch→watch
+            // fires `state-change` twice, neither desktop event). The debounced
+            // handler is idempotent, so this is a no-op when already in sync.
+            addDisposableListener(window, 'state-change', navigationDebounce);
+            addDisposableListener(document, 'state-change', navigationDebounce);
 
             // 2. Optional YouTube Helper API support.
             // The library is no longer a dependency (@require removed: its

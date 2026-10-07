@@ -114,7 +114,9 @@
 // @version      0.0.13
 // @author       Alplox
 // @match        https://www.youtube.com/*
+// @match        https://m.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
+// @exclude      https://m.youtube.com/live_chat*
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
 // @grant        GM_getValue
 // @grant        GM_setValue

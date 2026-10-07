@@ -1134,19 +1134,39 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * @param {HTMLElement} el
      * @returns {boolean}
     */
+    /** TTL for the per-element visibility cache (one YouTube render frame scale). */
+    const VISIBILITY_CACHE_TTL_MS = 250;
+    /** Per-tick visibility results; WeakMap so detached nodes never leak. */
+    const _visibilityCache = new WeakMap();
+    /**
+     * Checks whether an element is visibly displayed (connected, non-zero
+     * rect, non-hidden style). Results are cached per element for
+     * `VISIBILITY_CACHE_TTL_MS` so the tick/score/ad-scan callers sharing
+     * the same frame pay a single reflow+style recalc.
+     *
+     * @param {Element|null} el - Element to check.
+     * @returns {boolean} True when the element is connected and visible.
+     */
     function isVisiblyDisplayed(el) {
         if (!el || !el.isConnected) return false;
+        const now = Date.now();
+        const cached = _visibilityCache.get(el);
+        if (cached && (now - cached.ts) < VISIBILITY_CACHE_TTL_MS) return cached.v;
+        let v;
         try {
             // getBoundingClientRect() (is faster than getComputedStyle())
             const rect = el.getBoundingClientRect();
-            if (rect.width <= 0 || rect.height <= 0) return false;
-
-            const style = window.getComputedStyle(el);
-            const visible = style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0;
-            return visible;
+            if (rect.width <= 0 || rect.height <= 0) {
+                v = false;
+            } else {
+                const style = window.getComputedStyle(el);
+                v = style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0;
+            }
         } catch (_) {
-            return !!el.offsetWidth && !!el.offsetHeight;
+            v = !!el.offsetWidth && !!el.offsetHeight;
         }
+        _visibilityCache.set(el, { v, ts: now });
+        return v;
     }
 
     // MARK: 🔧 queryFirst
@@ -6468,13 +6488,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         else knownGMFallbackKeys.delete(changedKey);
                     });
                 }
-                for (const session of activeProcessingSessions.values()) session.savedData = null;
+                for (const session of activeProcessingSessions.values()) {
+                    session.savedData = null;
+                    session.savedDataResolved = false;
+                }
             } else if (typeof key === 'string') {
                 storageCache.delete(key);
                 if (hasFallback) rememberGMFallbackKey(key);
                 else knownGMFallbackKeys.delete(key);
                 for (const session of activeProcessingSessions.values()) {
-                    if (session.lastVideoId === key) session.savedData = null;
+                    if (session.lastVideoId === key) {
+                        session.savedData = null;
+                        session.savedDataResolved = false;
+                    }
                 }
             }
             isBatchStorageCacheValid = false;
@@ -6491,7 +6517,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     function invalidateSessionSavedData(keys) {
         const keySet = keys instanceof Set ? keys : new Set([keys]);
         for (const session of activeProcessingSessions.values()) {
-            if (keySet.has(session.lastVideoId)) session.savedData = null;
+            if (keySet.has(session.lastVideoId)) {
+                session.savedData = null;
+                session.savedDataResolved = false;
+            }
         }
     }
 
@@ -11804,6 +11833,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     /**
      * Unified logic to save video progress and playback state.
      * @private
+     * @param {Object} [options] - Save options.
+     * @param {*} [options.cachedSavedData] - Known record (skips the storage read).
+     * @param {boolean} [options.savedDataKnownAbsent] - Fast-path confirmed no
+     * record exists; skips the re-read (`??` cannot carry a known-null).
      */
     async function internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, logContext, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
@@ -11856,7 +11889,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return { success: false, reason: 'duration_not_ready' };
         }
 
-        const sourceData = options.cachedSavedData ?? await getSavedVideoData(videoId, playlistId, { throwOnError: true });
+        const sourceData = options.cachedSavedData
+            ?? (options.savedDataKnownAbsent ? null : await getSavedVideoData(videoId, playlistId, { throwOnError: true }));
         if (!isExpectedSessionCurrent() || !isDestructiveEpochCurrent()) {
             return { success: false, reason: 'stale_session', videoId, type: finalType };
         }
@@ -17955,6 +17989,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // "not found" result to update a replacement session.
             if (activeProcessingSessions.get(videoEl) !== sessionRef || sessionRef.isFinalized) return;
 
+            // The storage answer is now known (record or confirmed absent),
+            // so later ticks can skip re-reading until invalidated.
+            sessionRef.savedDataResolved = true;
+
             if (savedData) {
                 // Hybrid Mode: If the video already exists in the database, authorize auto-save immediately
                 if (cachedSettings?.manualSaveHybridMode) {
@@ -19062,6 +19100,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const saveOptions = {
                     isManual: !!options.isManual,
                     cachedSavedData: session?.savedData,
+                    // Fast-path already confirmed absence: skip the re-read.
+                    savedDataKnownAbsent: !!session?.savedDataResolved && !session?.savedData,
                     expectedSession,
                     destructiveEpoch: storageDestructiveEpoch
                 };

@@ -42,6 +42,8 @@
 - **YouTube-Helper-API.js is no longer a dependency**: it threw on every tick once the player had no video element (ads, Miniplayer teardown) and its internals are not patchable from here. Still used as an optional metadata source if another script injects it.
 - **Dev tooling migrated from npm to pnpm** (`package.json` version synced to `0.0.13`).
 - **Selector fallback chains use `queryFirst(root, selectors)`**: watch time-wrapper, playlist title/browse lookups and cascade title/author lookups keep identical match order with less code.
+- **Visibility checks share one result per frame**: `isVisiblyDisplayed` caches per element (250ms, `WeakMap`) so tick/score/ad-scan callers pay a single reflow+style recalc.
+- **Ticks skip the storage re-read when absence is already known**: the session fast-path marks `savedDataResolved`; invalidation resets it. Kills 1-2 IDB miss-reads per new video.
 
 ## 0.0.12-7
 

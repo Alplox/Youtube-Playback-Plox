@@ -9342,6 +9342,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let _lastAdResult = null;
     let _lastAdRootTime = 0;
 
+    // Cheap pre-filter for findVisibleAdUi: same families as
+    // ads.ui.activePlayer without the `:not(...)` qualifiers (plain
+    // class/tag lookup). It matches a superset of the full query, so a
+    // miss here implies the full scan below also misses and is skipped.
+    const AD_UI_GATE_SELECTOR = SELECTORS.ads.ui.activePlayer.map((s) => s.split(':not')[0]).join(', ');
+
     const _MAX_VIDEO_METADATA_CACHE_SIZE = 100;
     const _videoMetadataCache = new SimpleLRUCache(_MAX_VIDEO_METADATA_CACHE_SIZE);
 
@@ -9465,6 +9471,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 _lastAdRoot = root;
                 _lastAdRootTime = now;
+
+                // Gate: no ad-family node at all → the qualified scan cannot hit.
+                if (!root.querySelector(AD_UI_GATE_SELECTOR)) {
+                    _lastAdResult = null;
+                    return null;
+                }
 
                 // Grouped native multi-query + layout post-validation
                 const activeUiSelector = SELECTORS.ads.ui.activePlayer.join(', ');
@@ -18169,8 +18181,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Uses sessionRef.savedData (resolved asynchronously from storage in fast-path).
                 // If the video is still at 0s but we should have resumed, force a last-resort re-seek.
                 const sessionSavedData = sessionRef.savedData;
-                const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
-                if (tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !isCurrentlyAd && !sessionRef.isUserSeeking) {
+                // Gate cheap conditions before paying a full ad-container scan.
+                const rescueDue = tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !sessionRef.isUserSeeking;
+                // Pay the ad scan only when rescue can actually fire; the result
+                // is reused by the kill switch below (same tick, no DOM change
+                // between the two reads, so decisions are identical).
+                const isCurrentlyAd = rescueDue ? AdDetector.isNodeWithinAdContainer(videoEl) : null;
+                if (rescueDue && !isCurrentlyAd) {
                     logWarn('sessionTick', `🆘 Persistence Rescue: The video is still at 0s after ${tickCount}s. Retrying resume...`);
                     PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef)
                         .catch(err => logError('sessionTick', `Error in persistence rescue for ${videoId}`, err));
@@ -18182,7 +18199,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Kill Switch
                 const isDisconnected = !document.contains(videoEl);
-                const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
+                // Reuses the rescue scan when it ran this tick; otherwise scans once.
+                const isAdNow = isCurrentlyAd ?? AdDetector.isNodeWithinAdContainer(videoEl);
                 const currentVideoId = getPlayerVideoId(player);
                 const hasIdChanged = currentVideoId !== videoId;
                 const isHiddenGhost = (type === 'preview' || type === 'miniplayer') && !isVisiblyDisplayed(videoEl);

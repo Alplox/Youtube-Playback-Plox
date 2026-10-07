@@ -6360,12 +6360,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {string} key - Video storage key.
      * @returns {void}
      */
-    function markLocalDeletion(key) {
-        locallyDeletedKeys.add(key);
-        if (locallyDeletedKeys.size > MAX_LOCAL_TOMBSTONES) {
-            const oldestKey = locallyDeletedKeys.values().next().value;
-            locallyDeletedKeys.delete(oldestKey);
+    /**
+     * Adds a key to a bounded set, evicting the oldest entry past the cap.
+     * Shared by the deletion/fallback/tombstone registries, which would
+     * otherwise each carry this identical body.
+     * @param {Set<string>} set - Registry to update.
+     * @param {string} key - Key to register.
+     * @param {number} cap - Maximum entries before evicting the oldest.
+     * @returns {void}
+     */
+    function boundedSetAdd(set, key, cap) {
+        set.add(key);
+        if (set.size > cap) {
+            const oldestKey = set.values().next().value;
+            set.delete(oldestKey);
         }
+    }
+
+    function markLocalDeletion(key) {
+        boundedSetAdd(locallyDeletedKeys, key, MAX_LOCAL_TOMBSTONES);
     }
 
     /**
@@ -6376,11 +6389,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {void}
      */
     function rememberGMFallbackKey(key) {
-        knownGMFallbackKeys.add(key);
-        if (knownGMFallbackKeys.size > MAX_KNOWN_GM_FALLBACK_KEYS) {
-            const oldestKey = knownGMFallbackKeys.values().next().value;
-            knownGMFallbackKeys.delete(oldestKey);
-        }
+        boundedSetAdd(knownGMFallbackKeys, key, MAX_KNOWN_GM_FALLBACK_KEYS);
     }
 
     /**
@@ -6391,11 +6400,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {void}
      */
     function rememberGMTombstone(key) {
-        gmTombstoneKeys.add(key);
-        if (gmTombstoneKeys.size > MAX_LOCAL_TOMBSTONES) {
-            const oldestKey = gmTombstoneKeys.values().next().value;
-            gmTombstoneKeys.delete(oldestKey);
-        }
+        boundedSetAdd(gmTombstoneKeys, key, MAX_LOCAL_TOMBSTONES);
     }
 
     /** @type {Map<string, number>} Per-key revisions used to avoid unrelated-write retries. */

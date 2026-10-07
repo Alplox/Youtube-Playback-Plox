@@ -46,6 +46,7 @@
 - **Ticks skip the storage re-read when absence is already known**: the session fast-path marks `savedDataResolved`; invalidation resets it. Kills 1-2 IDB miss-reads per new video.
 - **Tick pays one ad-container scan instead of two**: persistence-rescue gates its scan on cheap conditions; the kill switch reuses the same-tick result (identical decisions).
 - **Ad-UI scan gated on a cheap pre-filter**: `findVisibleAdUi` first tries the same families without `:not()` qualifiers (proven superset); the full scan + visibility validation run only on hit.
+- **Shared bounded-set helper in storage**: `markLocalDeletion` / `rememberGMFallbackKey` / `rememberGMTombstone` use `boundedSetAdd` (same sets, caps, eviction order).
 
 ## 0.0.12-7
 

@@ -41,6 +41,7 @@
 - **Playlist Cancel no longer clips on mobile**: action rows wrap and dismiss controls pin to the trailing corner (RTL-safe).
 - **YouTube-Helper-API.js is no longer a dependency**: it threw on every tick once the player had no video element (ads, Miniplayer teardown) and its internals are not patchable from here. Still used as an optional metadata source if another script injects it.
 - **Dev tooling migrated from npm to pnpm** (`package.json` version synced to `0.0.13`).
+- **Selector fallback chains use `queryFirst(root, selectors)`**: watch time-wrapper, playlist title/browse lookups and cascade title/author lookups keep identical match order with less code.
 
 ## 0.0.12-7
 

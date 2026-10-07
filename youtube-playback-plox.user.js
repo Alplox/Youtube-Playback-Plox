@@ -1149,6 +1149,24 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         }
     }
 
+    // MARK: 🔧 queryFirst
+    /**
+     * Returns the first element matching any selector in order, or null.
+     * Replaces `a ?? b ?? c` fallback chains with a selector table.
+     *
+     * @param {ParentNode} root - Root to query (`document` or an element).
+     * @param {string[]} selectors - Selectors tried in order.
+     * @returns {Element|null} First match, or null when none match.
+     */
+    function queryFirst(root, selectors) {
+        if (!root || typeof root.querySelector !== 'function' || !Array.isArray(selectors)) return null;
+        for (const selector of selectors) {
+            const found = root.querySelector(selector);
+            if (found) return found;
+        }
+        return null;
+    }
+
     // MARK: 🔧 Format Time
    /**
      * Format a time value in seconds to "MM:SS" or "HH:MM:SS".
@@ -12863,23 +12881,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     if (currentPageType === 'watch' || currentPageType === 'live') {
                         // Playlist panel in the watch-page sidebar (covers mixes and standard playlists)
-                        element = DOMHelpers.get(`playlist:name:${playlistId}`, () => (
-                            document.querySelector('ytd-playlist-panel-renderer #header-description h3 a') ||
-                            document.querySelector('ytd-playlist-panel-renderer #header-description h3') ||
-                            document.querySelector('ytd-playlist-panel-renderer yt-formatted-string.title') ||
-                            document.querySelector('#header-description yt-formatted-string.title') ||
-                            document.querySelector('#container #header-description yt-formatted-string') ||
-                            document.querySelector('yt-formatted-string.title:nth-child(1)') ||
-                            document.querySelector('.byline-title')
-                        ), 250);
+                        element = DOMHelpers.get(`playlist:name:${playlistId}`, () => queryFirst(document, [
+                            'ytd-playlist-panel-renderer #header-description h3 a',
+                            'ytd-playlist-panel-renderer #header-description h3',
+                            'ytd-playlist-panel-renderer yt-formatted-string.title',
+                            '#header-description yt-formatted-string.title',
+                            '#container #header-description yt-formatted-string',
+                            'yt-formatted-string.title:nth-child(1)',
+                            '.byline-title'
+                        ]), 250);
                     }
 
                     if (currentPageType === 'playlist') {
                         // Playlist browse page header (also covers miniplayer scenario)
-                        element = DOMHelpers.get(`playlist:browseName:${playlistId}`, () => (
-                            document.querySelector('.yt-page-header-view-model__page-header-title h1') ||
-                            document.querySelector('yt-page-header-view-model h1.dynamicTextViewModelH1')
-                        ), 250);
+                        element = DOMHelpers.get(`playlist:browseName:${playlistId}`, () => queryFirst(document, [
+                            '.yt-page-header-view-model__page-header-title h1',
+                            'yt-page-header-view-model h1.dynamicTextViewModelH1'
+                        ]), 250);
                     }
 
                     const domTitle = element?.textContent?.trim();
@@ -13570,12 +13588,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (watchTimeDisplay) { disposeDisplayNode(watchTimeDisplay); watchTimeDisplay = null; }
 
                     const timeWrapper = DOMHelpers.get('player:timeWrapper', () =>
-                        playerContainer.querySelector('.ytp-time-wrapper')
-                        ?? playerContainer.querySelector('.ytp-left-controls')
-                        ?? playerContainer.querySelector('.ytp-chrome-controls')
-                        ?? document.querySelector('.ytp-time-wrapper')
-                        ?? document.querySelector('.ytp-left-controls')
-                        ?? document.querySelector('.ytp-chrome-bottom'), 100);
+                        queryFirst(playerContainer, ['.ytp-time-wrapper', '.ytp-left-controls', '.ytp-chrome-controls'])
+                        ?? queryFirst(document, ['.ytp-time-wrapper', '.ytp-left-controls', '.ytp-chrome-bottom']), 100);
 
                     if (!timeWrapper) {
                         // Mobile web watch has no `.ytp-*` chrome. Prefer YouTube's
@@ -13677,7 +13691,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (hasTimeDisplayMessage(miniplayerTimeDisplay) && miniplayerTimeDisplay.isConnected) return getDisplay(context);
                     if (miniplayerTimeDisplay) { disposeDisplayNode(miniplayerTimeDisplay); miniplayerTimeDisplay = null; }
 
-                    const controls = playerContainer.querySelector('.ytp-time-wrapper') || playerContainer.querySelector('.ytp-left-controls') || DOMHelpers.get('display:miniplayerTimeWrapper', () => document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper'), 200) || DOMHelpers.get('display:miniplayerLeftControls', () => document.querySelector('ytd-miniplayer-player-container .ytp-left-controls'), 200);
+                    const controls = queryFirst(playerContainer, ['.ytp-time-wrapper', '.ytp-left-controls']) || DOMHelpers.get('display:miniplayerTimeWrapper', () => document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper'), 200) || DOMHelpers.get('display:miniplayerLeftControls', () => document.querySelector('ytd-miniplayer-player-container .ytp-left-controls'), 200);
                     if (!controls) return getDisplay(context);
 
                     miniplayerTimeDisplay = createElement('div', { id: 'ypp-miniplayer-time-display', className: 'ypp-time-display ypp-miniplayer-time-display' });
@@ -19442,9 +19456,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (metapanel) {
                     if (info.title === null) {
                         const titleEl =
-                            metapanel.querySelector(SELECTORS.ELEMENTS.SHORTS_VIDEO_TITLE_VIEW_MODEL) ||
-                            metapanel.querySelector('yt-shorts-video-title-view-model') ||
-                            metapanel.querySelector('h2') ||
+                            queryFirst(metapanel, [SELECTORS.ELEMENTS.SHORTS_VIDEO_TITLE_VIEW_MODEL, 'yt-shorts-video-title-view-model', 'h2']) ||
                             // From sidebar
                             document.querySelector('ytd-video-description-header-renderer #title');
 
@@ -19455,10 +19467,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
 
                     if (info.author === null || info.author === t('unknown')) {
-                        const authorEl =
-                            metapanel.querySelector(SELECTORS.ELEMENTS.REEL_CHANNEL_BAR_VIEW_MODEL + ' a') ||
-                            metapanel.querySelector('#channel-name a') ||
-                            metapanel.querySelector('a[href*="/@"]');
+                        const authorEl = queryFirst(metapanel, [
+                            SELECTORS.ELEMENTS.REEL_CHANNEL_BAR_VIEW_MODEL + ' a',
+                            '#channel-name a',
+                            'a[href*="/@"]'
+                        ]);
 
                         const extractedAuthor = authorEl?.textContent?.trim();
                         if (extractedAuthor) {
@@ -19520,17 +19533,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (info.title === null) {
                 let titleEl = null;
                 if (type === 'watch' && (currentPageType === 'watch' || currentPageType === 'live')) {
-                    titleEl = DOMHelpers.get(`video:titleWatch:${videoId}`, () =>
-                        document.querySelector('h1.ytd-video-primary-info-renderer') ||
-                        document.querySelector('yt-formatted-string.ytd-video-description-header-renderer'), 250);
+                    titleEl = DOMHelpers.get(`video:titleWatch:${videoId}`, () => queryFirst(document, [
+                        'h1.ytd-video-primary-info-renderer',
+                        'yt-formatted-string.ytd-video-description-header-renderer'
+                    ]), 250);
                 } else if (type === 'miniplayer') {
-                    titleEl = DOMHelpers.get(`video:titleMini:${videoId}`, () =>
-                        document.querySelector('ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span') ||
-                        document.querySelector('ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span[role="text"]'), 250);
+                    titleEl = DOMHelpers.get(`video:titleMini:${videoId}`, () => queryFirst(document, [
+                        'ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span',
+                        'ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span[role="text"]'
+                    ]), 250);
                 } else if (type === 'preview') {
-                    titleEl = DOMHelpers.get(`video:titlePreview:${videoId}`, () =>
-                        document.querySelector(`${SELECTORS.inlinePreview.player} .ytp-title-text`) ||
-                        document.querySelector(`${SELECTORS.inlinePreview.player} .ytp-title-link`), 250);
+                    titleEl = DOMHelpers.get(`video:titlePreview:${videoId}`, () => queryFirst(document, [
+                        `${SELECTORS.inlinePreview.player} .ytp-title-text`,
+                        `${SELECTORS.inlinePreview.player} .ytp-title-link`
+                    ]), 250);
                 }
                 info.title = titleEl?.textContent?.trim() ?? info.title;
             }

@@ -131,11 +131,7 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// YouTube-Helper-API.js was removed as a dependency (see docs/gotchas.md):
-// its trackPlaybackProgress() handler re-read appState.player.videoElement on
-// every timeupdate tick, which throws an uncaught TypeError once the player has
-// no video element (ads, Miniplayer teardown, bfcache pageshow). The library is
-// not patchable from here because YouTubeDataManager is private to its IIFE.
+// YouTube-Helper-API.js v1.1.1 was removed as a dependency; (see docs/gotchas.md).
 // ==/UserScript==
 
 (function () {
@@ -507,6 +503,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     const DEFAULT_STATIC_FINISH_PERCENT = CONFIG.defaultSettings.staticFinishPercent;
 
     /**
+     * Canonical YouTube id shape. Used wherever an id is interpolated into a CSS
+     * selector: a stray quote or bracket there throws SyntaxError on every call.
+     * @type {RegExp}
+     */
+    const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+
+    /**
      * Centralized config for video type -> settings key + log label.
      */
     const TYPE_CONFIG = Object.freeze({
@@ -529,9 +532,28 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         PERSISTENCE_RESCUE_START_TICKS: 6,
         PERSISTENCE_RESCUE_EVERY_N_TICKS: 6,
         PERSISTENCE_RESCUE_MIN_SEEK_S: 10,
+        // A video left paused before starting (or whose metadata never loads)
+        // never leaves 0s, so the rescue re-seek would retry forever: one blocked
+        // save plus one toast per interval, indefinitely. The budget resets as
+        // soon as playback advances, so a real later stall is still rescued.
+        PERSISTENCE_RESCUE_MAX_ATTEMPTS: 5,
         LOADING_CLEANUP_MS: 2500,
         PREVIEW_FASTPATH_MS: 220,
-        SESSION_FALLBACK_RETRY_MS: 180
+        SESSION_FALLBACK_RETRY_MS: 180,
+        // Legacy live records (saved without liveAbsoluteTime) carry a
+        // window-relative offset that goes stale as the DVR window slides.
+        // Older than this while the stream is still live, resume rejoins
+        // live edge instead of seeking stale content.
+        LIVE_LEGACY_STALE_MS: 2 * 60 * 60 * 1000,
+        // Minimum gap between the player-API duration and the element duration
+        // to consider the timeline still live (DVR window smaller than stream).
+        LIVE_WINDOW_DRIFT_S: 30,
+        // A user scrub is a bounded event, not a permanent state: `isUserSeeking`
+        // disables the recovery seeks (persistence rescue, rebound re-seek,
+        // resume retry) only while the user is actually scrubbing. Without this
+        // hold the latch stayed `true` for the rest of the session and a single
+        // scrub killed all three corrections.
+        USER_SEEK_HOLD_MS: 1500
     };
 
     // ============================================================================================================
@@ -6124,16 +6146,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         clearAllProgressGradientState();
 
         try {
-            document.querySelectorAll(SELECTORS.player.movie).forEach(player => {
-                clearProgressColorFromPlayerRoot(player);
-            });
-            document.querySelectorAll(SELECTORS.progressBar.resetTargets.join(',')).forEach(el => {
-                if (!el?.style) return;
-                el.style.removeProperty('--ytp-progress-color');
-                el.style.removeProperty('background');
-                el.style.removeProperty('background-color');
-                el.style.removeProperty('background-image');
-            });
+            // 'shorts' owns no #movie_player, so that scan is skipped for it
+            // (halves the work on the per-tick call). watch/miniplayer keep the
+            // full target list because mobile watch paints the Shorts progress
+            // line, which lives on the same surfaces.
+            if (type !== 'shorts') {
+                DOMHelpers.get('progress:reset:players', () => document.querySelectorAll(SELECTORS.player.movie), 250)
+                    .forEach(player => {
+                        clearProgressColorFromPlayerRoot(player);
+                    });
+            }
+            // Cached with a short TTL so the per-tick and per-finalizeSession
+            // calls reuse the NodeList instead of sweeping the document twice.
+            DOMHelpers.get('progress:reset:targets', () => document.querySelectorAll(SELECTORS.progressBar.resetTargets.join(', ')), 250)
+                .forEach(el => {
+                    if (!el?.style) return;
+                    el.style.removeProperty('--ytp-progress-color');
+                    el.style.removeProperty('background');
+                    el.style.removeProperty('background-color');
+                    el.style.removeProperty('background-image');
+                });
         } catch (e) {
             logWarn('resetProgressBarGradient', 'Error resetting progress bar gradient', e)
         }
@@ -6356,11 +6388,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const MAX_KNOWN_GM_FALLBACK_KEYS = 3000;
 
     /**
-     * Adds a bounded local deletion tombstone.
-     * @param {string} key - Video storage key.
-     * @returns {void}
-     */
-    /**
      * Adds a key to a bounded set, evicting the oldest entry past the cap.
      * Shared by the deletion/fallback/tombstone registries, which would
      * otherwise each carry this identical body.
@@ -6377,6 +6404,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
     }
 
+    /**
+     * Adds a bounded local deletion tombstone.
+     * @param {string} key - Video storage key.
+     * @returns {void}
+     */
     function markLocalDeletion(key) {
         boundedSetAdd(locallyDeletedKeys, key, MAX_LOCAL_TOMBSTONES);
     }
@@ -7458,7 +7490,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         rememberGMFallbackKey(key);
                     }
                 } catch (error) {
-                    throw new Error(`Could not verify GM fallback for ${key}: ${error.message}`);
+                    // A slow or unreadable mirror must not veto the IndexedDB
+                    // write: the IDB commit below is the durable save, the read
+                    // path keeps IDB on ambiguous tombstones, and the next write
+                    // re-probes the mirror (falla C).
+                    logWarn('StorageAsync', `GM fallback probe failed for ${key}; continuing with IndexedDB write`, error);
                 }
             }
             if (IndexedDBAdapter.isSupported && canUseIDB()) {
@@ -9529,6 +9565,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Reverse Search: limit scope to avoid iterating entire DOM with complex queries (O(k))
                 const adContainers = DOMHelpers.get('ad:containers', () => document.querySelectorAll('.ytd-in-feed-ad-layout-renderer, .video-ads, ytd-display-ad-renderer, #masthead-ad'), 500);
 
+                // The id is interpolated into CSS attribute selectors below, so a
+                // stray quote or bracket would throw SyntaxError on every call
+                // (fail-open plus log spam). Anything but the canonical shape
+                // cannot match those selectors anyway.
+                if (!VIDEO_ID_PATTERN.test(videoId)) {
+                    _adIdCache.set(videoId, { val: false, ts: now });
+                    return false;
+                }
+
                 for (const adCont of adContainers) {
                     if (adCont.querySelector(`a[href*="${videoId}"], ytd-thumbnail[video-id="${videoId}"], [id="thumbnail"][href*="${videoId}"]`)) {
                         _adIdCache.set(videoId, { val: true, ts: now });
@@ -11426,6 +11471,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             type: normalizeVideoType(data.type ?? data.videoType),
             viewCount,
             isLive: data.isLive === true,
+            // Absolute live-stream clock (stream-start-based) for DVR-window
+            // mapping on resume. 0 = unknown (older records, VODs).
+            liveAbsoluteTime: safeNumber(data.liveAbsoluteTime, 0),
+            liveAbsoluteDuration: safeNumber(data.liveAbsoluteDuration, 0),
             isCompleted: resolvedIsCompleted,
             // Preserve navigation/playlist fields if they exist
             lastViewedPlaylistId: safeNullableText(data.lastViewedPlaylistId),
@@ -11915,6 +11964,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // 1. Livestream Management
         if (finalType === 'live') {
+            // Absolute stream clock (stream-start-based) for DVR-window mapping
+            // on resume. The element clock is window-relative and slides; without
+            // the absolute reference a revisit seeks stale content on multi-day
+            // lives. Best-effort: 0 means unknown and resume falls back to the
+            // window-relative offset.
+            let liveAbsoluteTime = 0;
+            let liveAbsoluteDuration = 0;
+            try {
+                const liveApi = getPlayerApi(player);
+                const absTime = typeof liveApi?.getCurrentTime === 'function' ? liveApi.getCurrentTime() : undefined;
+                const absDuration = typeof liveApi?.getDuration === 'function' ? liveApi.getDuration() : undefined;
+                if (typeof absTime === 'number' && isFinite(absTime) && absTime >= 0) liveAbsoluteTime = absTime;
+                if (typeof absDuration === 'number' && isFinite(absDuration) && absDuration > 0) liveAbsoluteDuration = absDuration;
+            } catch (_) { logLog('internalSaveVideoGeneric', 'Live absolute clock unavailable; continuing without it'); }
             const videoData = {
                 ...sourceData,
                 ...pickVideoInfoFields(videoInfo),
@@ -11922,7 +11985,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 timeWatched: now,
                 type: 'live',
                 isLive: true,
-                isCompleted: false
+                isCompleted: false,
+                liveAbsoluteTime,
+                liveAbsoluteDuration
             };
             if (!isExpectedSessionCurrent() || !isDestructiveEpochCurrent()) {
                 return { success: false, reason: 'stale_session', videoId, type: 'live' };
@@ -12502,10 +12567,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (!input || typeof input !== 'string') return null;
 
         const trimmed = input.trim();
-        const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
 
         // --- Bare video ID ---
-        if (VIDEO_ID_RE.test(trimmed)) {
+        if (VIDEO_ID_PATTERN.test(trimmed)) {
             return { type: 'video', id: trimmed };
         }
 
@@ -12562,7 +12626,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         // --- Standard video: watch?v= ---
-        if (vParam && VIDEO_ID_RE.test(vParam)) {
+        if (vParam && VIDEO_ID_PATTERN.test(vParam)) {
             logLog('parseYouTubeResource', 'watch?v=', vParam);
             return { type: 'video', id: vParam, context: buildContext() };
         }
@@ -12605,7 +12669,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // --- youtu.be/{id} short links ---
         if (host === 'youtu.be') {
             const shortId = path.slice(1);
-            if (VIDEO_ID_RE.test(shortId)) {
+            if (VIDEO_ID_PATTERN.test(shortId)) {
                 logLog('parseYouTubeResource', 'youtu.be', shortId);
                 return { type: 'video', id: shortId, context: buildContext() };
             }
@@ -17652,6 +17716,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 isAutoSaveAuthorized: false,
                 isUserSeeking: false,
                 _scriptSeekPending: false,
+                // Element has been seen past 1s at least once this session: tells
+                // "still at its start position" apart from a real reset to 0
+                // (isAwaitingFirstPlayback) and re-arms the rescue budget.
+                sawPlayback: false,
+                // Persistence-rescue retries spent on this session; reset when the
+                // element advances. Bounded by PERSISTENCE_RESCUE_MAX_ATTEMPTS.
+                rescueAttempts: 0,
                 abortController,
                 disposables: new DisposableStore()
             };
@@ -17765,8 +17836,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     })();
 
     /**
+     * Contexts whose restarted session re-applies the resume and therefore need
+     * the guard below. Previews and live sessions keep their previous behavior
+     * (no guard) so their paths stay untouched.
+     * @type {Set<string>}
+     */
+    const RESUME_REAPPLY_GUARD_CONTEXTS = new Set(['watch', 'shorts', 'miniplayer']);
+
+    /**
      * Prevents redundant re-seeks when a session restarts during SPA navigation
      * but the video is already playing close to the saved progress.
+     * Covers watch/shorts/miniplayer: after a mid-roll ad the rebuilt session
+     * used to seek backwards and toast "Resumiendo en…" on every ad, because
+     * only the miniplayer was guarded.
      * @param {HTMLVideoElement} videoEl
      * @param {string} type
      * @param {string} videoId
@@ -17774,7 +17856,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {boolean}
      */
     const shouldSkipResumeForActivePlayback = (videoEl, type, videoId, savedData) => {
-        if (!videoEl || !savedData || type !== 'miniplayer') return false;
+        if (!videoEl || !savedData || !RESUME_REAPPLY_GUARD_CONTEXTS.has(type)) return false;
         if ((savedData.forceResumeTime || 0) > 0) return false;
 
         // Anti re-seek cooldown
@@ -17793,6 +17875,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         return false;
+    };
+
+    /**
+     * True when the element is still sitting at its initial position because
+     * playback never began: the user paused the video before starting it, or no
+     * metadata/data has loaded yet. A `currentTime` of 0 in that state is not an
+     * element reset — nothing was lost and there is nothing to persist — so the
+     * save guard must not report it as a blocked/failed save.
+     * @param {HTMLVideoElement} videoEl
+     * @param {object|null} session - Active session (tracks whether the element ever advanced).
+     * @returns {boolean}
+     */
+    const isAwaitingFirstPlayback = (videoEl, session) => {
+        if (!videoEl) return false;
+        // Any recorded advance (or a committed save) makes a 0s report a reset.
+        if (session?.sawPlayback === true || session?.hasRealSave === true) return false;
+        return videoEl.paused === true || videoEl.readyState < 1;
     };
 
     /**
@@ -17986,7 +18085,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (sessionRef._scriptSeekPending) {
                     sessionRef._scriptSeekPending = false;
                 } else {
+                    // shortcut: a scrub is a bounded event, not a permanent state.
+                    // The latch is re-armed on every user seek and released by a
+                    // session-scoped timeout, so the seeks that respect it
+                    // (persistence rescue, rebound re-seek, resume retry) are only
+                    // disabled while the user is actually scrubbing.
                     sessionRef.isUserSeeking = true;
+                    sessionRef._userSeekToken = (sessionRef._userSeekToken || 0) + 1;
+                    const seekToken = sessionRef._userSeekToken;
+                    createSessionTimeout(sessionRef, () => {
+                        if (sessionRef._userSeekToken === seekToken) {
+                            sessionRef.isUserSeeking = false;
+                        }
+                    }, THRESHOLDS.USER_SEEK_HOLD_MS);
                 }
                 if (isLivePlaybackForGradient(videoEl, player, videoId, sessionRef)) return;
                 refreshProgressBarGradientForSession(videoEl, player, type, videoId);
@@ -18171,6 +18282,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 tickCount++;
 
+                // The element moved off its start position: any previous 0s stall is
+                // over, so re-arm the "never played" flag and the rescue budget.
+                // Without this, one early stall would mark the session forever and
+                // suppress the next rescue.
+                if (videoEl.currentTime > 1) {
+                    sessionRef.sawPlayback = true;
+                    sessionRef.rescueAttempts = 0;
+                }
+
                 // --- UI WATCHDOG ---
                 // If the user uses scripts like "Engine Tamer", the DOM may be replaced post-load.
                 // We periodically check if our UI is still present and re-inject it if necessary.
@@ -18186,14 +18306,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Uses sessionRef.savedData (resolved asynchronously from storage in fast-path).
                 // If the video is still at 0s but we should have resumed, force a last-resort re-seek.
                 const sessionSavedData = sessionRef.savedData;
+                // Bounded per session: once the budget runs out the rescue stops instead
+                // of retrying for the rest of the session (see THRESHOLDS comment).
+                const rescueBudgetLeft = sessionRef.rescueAttempts < THRESHOLDS.PERSISTENCE_RESCUE_MAX_ATTEMPTS;
                 // Gate cheap conditions before paying a full ad-container scan.
-                const rescueDue = tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !sessionRef.isUserSeeking;
+                const rescueDue = rescueBudgetLeft && tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !sessionRef.isUserSeeking;
                 // Pay the ad scan only when rescue can actually fire; the result
                 // is reused by the kill switch below (same tick, no DOM change
                 // between the two reads, so decisions are identical).
                 const isCurrentlyAd = rescueDue ? AdDetector.isNodeWithinAdContainer(videoEl) : null;
                 if (rescueDue && !isCurrentlyAd) {
-                    logWarn('sessionTick', `🆘 Persistence Rescue: The video is still at 0s after ${tickCount}s. Retrying resume...`);
+                    sessionRef.rescueAttempts += 1;
+                    logWarn('sessionTick', `🆘 Persistence Rescue: The video is still at 0s after ${tickCount}s. Retrying resume (${sessionRef.rescueAttempts}/${THRESHOLDS.PERSISTENCE_RESCUE_MAX_ATTEMPTS})...`);
+                    if (sessionRef.rescueAttempts >= THRESHOLDS.PERSISTENCE_RESCUE_MAX_ATTEMPTS) {
+                        logWarn('sessionTick', `🛑 Persistence Rescue gave up on ${videoId}: the element never left 0s (left paused before starting, or metadata never loaded). Known progress stays protected; no more retries this session.`);
+                    }
                     PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef)
                         .catch(err => logError('sessionTick', `Error in persistence rescue for ${videoId}`, err));
                 }
@@ -18320,11 +18447,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 } else if (session && result && !result.success) {
                     const indicativeReasons = [
                         'invalid_time_metrics', 'duration_not_ready', 'missing_video_metadata',
-                        'storage_error', 'storage_full', 'exception'
+                        'storage_error', 'storage_full', 'exception',
+                        'implausible_time', 'element_reset_unconfirmed'
                     ];
                     if (indicativeReasons.includes(result.reason)) {
                         session.silentFailureCount = (session.silentFailureCount || 0) + 1;
-                        if (session.silentFailureCount >= 8) {
+                        // One toast per reason per session: a reason that keeps firing
+                        // (element stuck at 0, storage blocked) otherwise repeats every
+                        // 8 ticks for as long as the session lives.
+                        session.reportedSaveBlocks ??= new Set();
+                        if (session.silentFailureCount >= 8 && !session.reportedSaveBlocks.has(result.reason)) {
+                            session.reportedSaveBlocks.add(result.reason);
                             const errDetail = result?.error
                                 ? (typeof result.error === 'string' ? result.error : (result.error?.message || result.error?.name || ''))
                                 : '';
@@ -18698,6 +18831,35 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
 
     /**
+     * Maps a saved absolute live-stream position onto the current DVR window.
+     * The element clock is window-relative and slides (multi-day lives keep a
+     * bounded window while the absolute stream clock grows); a saved offset is
+     * only valid while its content is still inside the window.
+     * @param {object|Element|null} player - Player instance for the absolute clock.
+     * @param {HTMLVideoElement|null} videoEl - Video element for the window size.
+     * @param {number} savedAbs - Absolute stream time saved earlier.
+     * @returns {number|null} Window-relative seek target, or null when the
+     * position fell out of the window or the clocks are unusable (caller should
+     * rejoin live instead of seeking).
+     */
+    function mapLiveAbsoluteToWindow(player, videoEl, savedAbs) {
+        try {
+            const api = getPlayerApi(player);
+            const apiDur = typeof api?.getDuration === 'function' ? api.getDuration() : undefined;
+            const elDur = videoEl?.duration;
+            if (typeof apiDur !== 'number' || !isFinite(apiDur) || apiDur <= 0) return null;
+            if (typeof elDur !== 'number' || !isFinite(elDur) || elDur <= 0) return null;
+            const WINDOW_TOLERANCE_S = 5;
+            const windowStartAbs = Math.max(0, apiDur - elDur);
+            if (savedAbs < windowStartAbs - WINDOW_TOLERANCE_S || savedAbs > apiDur + WINDOW_TOLERANCE_S) return null;
+            return Math.min(Math.max(savedAbs - windowStartAbs, 0), Math.max(elDur - 1, 0));
+        } catch (_) {
+            logLog('mapLiveAbsoluteToWindow', 'Clock read failed; treating position as out of window');
+            return null;
+        }
+    }
+
+    /**
      * Modular controller for handling resume and save progress
      * without relying on monolithic global functions.
      */
@@ -18845,6 +19007,85 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // If duration is 0 or invalid (common in initial Shorts or Lives), trust timeToSeek
                     let safeTime = timeToSeek;
 
+                    // Lives: the saved window-relative offset goes stale as the
+                    // DVR window slides (multi-day lives), and it is meaningless
+                    // once the stream ends and the recording becomes a VOD.
+                    const savedLiveAbs = Number(savedData.liveAbsoluteTime) || 0;
+                    const savedLiveAbsDur = Number(savedData.liveAbsoluteDuration) || 0;
+                    const savedWasLive = savedData.isLive === true || savedData.type === 'live';
+                    if (savedWasLive && !isForced && !savedData.isCompleted) {
+                        if (savedLiveAbs > 0) {
+                            // Absolute stream clock available: place the saved
+                            // position on the timeline that is playing NOW.
+                            // Live timeline = DVR window that still slides
+                            // (API duration ahead of the element duration).
+                            let mappedLiveTime = null;
+                            let wasLiveTimeline = false;
+                            let liveSkipReason = '';
+                            try {
+                                const liveApi = getPlayerApi(player);
+                                const apiDuration = typeof liveApi?.getDuration === 'function' ? liveApi.getDuration() : undefined;
+                                const elementDuration = Number(videoEl.duration) || 0;
+                                if (typeof apiDuration === 'number' && isFinite(apiDuration) &&
+                                    elementDuration > 0 && apiDuration > elementDuration + THRESHOLDS.LIVE_WINDOW_DRIFT_S) {
+                                    wasLiveTimeline = true;
+                                    mappedLiveTime = mapLiveAbsoluteToWindow(player, videoEl, savedLiveAbs);
+                                    if (mappedLiveTime === null) liveSkipReason = 'saved position fell out of the DVR window';
+                                }
+                            } catch (_) {
+                                logLog('PlaybackController', 'Live clock read failed; trying fixed-timeline mapping');
+                            }
+                            if (!wasLiveTimeline) {
+                                // Stream ended (or just started): the timeline is
+                                // fixed. The VOD ends at the stream end, so the
+                                // position equals its length minus the seconds
+                                // the user was behind the live edge when saved.
+                                const vodDuration = Number(videoEl.duration) || finalDuration || 0;
+                                if (vodDuration > 0) {
+                                    if (savedLiveAbsDur > 0) {
+                                        const behindEdge = savedLiveAbsDur >= savedLiveAbs ? (savedLiveAbsDur - savedLiveAbs) : 0;
+                                        const candidate = vodDuration - behindEdge;
+                                        if (candidate >= 0 && candidate <= vodDuration) {
+                                            // candidate === vodDuration means he was
+                                            // at the live edge: the VOD ends there.
+                                            mappedLiveTime = Math.min(candidate, vodDuration - 1);
+                                        } else {
+                                            liveSkipReason = 'saved live position is outside the retained VOD range';
+                                        }
+                                    } else if (savedLiveAbs < vodDuration) {
+                                        // No distance-to-edge stored (older record):
+                                        // the absolute offset itself is the position.
+                                        mappedLiveTime = savedLiveAbs;
+                                    } else {
+                                        liveSkipReason = 'saved live position is outside the retained VOD range';
+                                    }
+                                } else {
+                                    liveSkipReason = 'live-to-VOD duration unknown';
+                                }
+                            }
+                            if (mappedLiveTime === null) {
+                                logLog('PlaybackController', `⏭️ Resume skipped for ${videoId}: ${liveSkipReason || 'unmapped live position'}, ${wasLiveTimeline ? 'staying on live edge' : 'starting the VOD'}`);
+                                return;
+                            }
+                            if (mappedLiveTime !== timeToSeek) {
+                                logLog('PlaybackController', `🧭 ${wasLiveTimeline ? 'Live DVR' : 'Live→VOD'} remap for ${videoId}: ${formatTime(timeToSeek)} → ${formatTime(mappedLiveTime)}`);
+                                timeToSeek = mappedLiveTime;
+                                safeTime = mappedLiveTime;
+                            }
+                        } else {
+                            // Legacy live record (saved before absolute-clock
+                            // capture): the stored offset is a DVR coordinate
+                            // that cannot be translated reliably. Fresh records
+                            // (same session, window barely moved) keep the seek.
+                            const savedAt = Number(savedData.timeWatched) || 0;
+                            const recordAgeMs = savedAt > 0 ? Date.now() - savedAt : 0;
+                            if (savedAt > 0 && recordAgeMs > THRESHOLDS.LIVE_LEGACY_STALE_MS) {
+                                logLog('PlaybackController', `⏭️ Resume skipped for ${videoId}: legacy live record is ${formatTime(recordAgeMs / 1000)} old, starting at the live edge`);
+                                return;
+                            }
+                        }
+                    }
+
                     // If video is completed and saved progress is low (accidental reset or initial load)
                     // and we do NOT want to restart (resumeCompletedFromStart is false),
                     // then jump to end so YouTube continues with the playlist.
@@ -18968,12 +19209,57 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             try {
                 const saveApi = getPlayerApi(player);
-                const currentTime = videoEl.currentTime || (typeof saveApi?.getCurrentTime === 'function' ? saveApi.getCurrentTime() : 0);
-                const duration = videoEl.duration || (typeof saveApi?.getDuration === 'function' ? saveApi.getDuration() : 0);
+                // Element clock wins: a legitimate currentTime of 0 must not
+                // trigger the player-API fallback (|| treated 0 as missing and,
+                // on livestreams, persisted the API clock instead — falla A).
+                const elementTime = videoEl.currentTime;
+                const elementDuration = videoEl.duration;
+                const hasElementTime = typeof elementTime === 'number' && isFinite(elementTime) && elementTime >= 0;
+                const hasElementDuration = typeof elementDuration === 'number' && isFinite(elementDuration) && elementDuration > 0;
+                const readApiNumber = (getter) => {
+                    try {
+                        const value = typeof saveApi?.[getter] === 'function' ? saveApi[getter]() : undefined;
+                        return typeof value === 'number' && isFinite(value) ? value : undefined;
+                    } catch (_) {
+                        return undefined;
+                    }
+                };
+                const currentTime = hasElementTime ? elementTime : (readApiNumber('getCurrentTime') ?? 0);
+                const duration = hasElementDuration ? elementDuration : (readApiNumber('getDuration') ?? 0);
 
                 // Allow very low times (0) to detect "Replay" in fixed-time videos
                 if (!isFinite(currentTime) || currentTime < 0 || isNaN(duration) || duration <= 0) {
                     return { success: false, reason: 'invalid_time_metrics' };
+                }
+
+                // Guard against clock-domain mixing: the player API clock can live
+                // in a different coordinate space (livestreams). Never persist a
+                // time that overshoots the known duration.
+                if (currentTime > duration * 1.05 + 1) {
+                    logWarn('PlaybackController', `🛡️ Save blocked: implausible time (${formatTime(currentTime)} > ${formatTime(duration)}) for ${videoId}`);
+                    return { success: false, reason: 'implausible_time' };
+                }
+
+                // Guard against element resets: the element can report 0 while a
+                // much larger progress is already known (e.g. livestream element
+                // unloaded). Persisting 0 would clobber real progress.
+                if (!options.isManual && currentTime < 1) {
+                    const knownProgress = Math.max(
+                        parseFloat(videoEl.dataset.lastSavedTime || '0') || 0,
+                        Number(session?.savedData?.watchProgress) || 0,
+                        Number(options.cachedSavedData?.watchProgress) || 0
+                    );
+                    if (knownProgress > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S) {
+                        // Not a reset: the element never moved because playback never
+                        // began (paused before start, nothing loaded yet). Reporting it
+                        // as a blocked save only produced a toast every N ticks.
+                        if (isAwaitingFirstPlayback(videoEl, session)) {
+                            logInfo('saveStatus', `⏸️ ${videoId} is still at 0s awaiting first playback; keeping known progress ${formatTime(knownProgress)}`);
+                            return { success: false, reason: 'awaiting_first_playback' };
+                        }
+                        logWarn('PlaybackController', `🛡️ Save blocked: element reset to 0 with known progress ${formatTime(knownProgress)} for ${videoId}`);
+                        return { success: false, reason: 'element_reset_unconfirmed' };
+                    }
                 }
 
                 // Save throttling by time change: Don't save if time didn't move significantly

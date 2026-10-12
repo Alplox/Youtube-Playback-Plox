@@ -319,7 +319,7 @@ Each tick:
 
 1. Self-destructs if the active session is gone, replaced, or finalized.
 2. Runs the Watch UI watchdog every `THRESHOLDS.WATCHDOG_EVERY_N_TICKS` ticks.
-3. Runs Persistence Rescue at tick 6 if a resume should have happened but playback is still near `0s`.
+3. Runs Persistence Rescue from tick 6 (every 6 ticks) if a resume should have happened but playback is still near `0s` — at most `THRESHOLDS.PERSISTENCE_RESCUE_MAX_ATTEMPTS` (5) times per session. The budget is re-armed as soon as the element moves past 1 s, so a later stall is still rescued.
 4. Returns early while `sessionRef.isResumePending`.
 5. Evaluates kill-switch conditions:
    - Video disconnected.

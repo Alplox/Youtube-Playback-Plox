@@ -130,6 +130,5 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// YouTube-Helper-API.js removed as a dependency; keep this header in sync with
-// youtube-playback-plox.user.js (see docs/gotchas.md).
+// YouTube-Helper-API.js v1.1.1 was removed as a dependency; (see docs/gotchas.md).
 // ==/UserScript==

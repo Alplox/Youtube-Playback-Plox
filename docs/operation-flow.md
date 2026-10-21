@@ -319,7 +319,7 @@ Each tick:
 
 1. Self-destructs if the active session is gone, replaced, or finalized.
 2. Runs the Watch UI watchdog every `THRESHOLDS.WATCHDOG_EVERY_N_TICKS` ticks.
-3. Runs Persistence Rescue from tick 6 (every 6 ticks) if a resume should have happened but playback is still near `0s` — at most `THRESHOLDS.PERSISTENCE_RESCUE_MAX_ATTEMPTS` (5) times per session. The budget is re-armed as soon as the element moves past 1 s, so a later stall is still rescued.
+3. Runs Persistence Rescue from tick 6 (every 6 ticks) if a resume should have happened but playback is still near `0s` — at most `THRESHOLDS.PERSISTENCE_RESCUE_MAX_ATTEMPTS` (5) times per session. The budget is re-armed as soon as the element moves past 1 s, so a later stall is still rescued. The rescue never fires for an ended element, a completed record or a saved position inside the completion zone: a finished video reports `0s` because YouTube reset the clock, and seeking it back would end it again.
 4. Returns early while `sessionRef.isResumePending`.
 5. Evaluates kill-switch conditions:
    - Video disconnected.
@@ -351,6 +351,7 @@ It rejects when:
 - Native YouTube resume appears to have moved playback backwards.
 - The time did not change meaningfully.
 - YouTube reset playback shortly after load/resume.
+- The element dropped to `0` after the video finished (`playback_completed_reset`, benign; the known progress is kept).
 - The video is paused and there was no meaningful seek.
 - Metadata is still missing after refresh.
 - Autosave is disabled for the final type.

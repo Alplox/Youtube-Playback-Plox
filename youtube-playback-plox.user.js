@@ -2684,6 +2684,53 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
     let currentLanguage = DEFAULT_LANGUAGE;
 
+    /**
+     * True when a language code has strings in any translation source.
+     * TRANSLATIONS starts empty while the remote payload is in flight, so any
+     * check against TRANSLATIONS alone would reject a perfectly valid saved
+     * language and reset it to the default (that used to happen on every first
+     * paint, and it also persisted the wrong language over the user's choice).
+     * @param {string|null|undefined} lang - Language code (e.g., 'es-ES').
+     * @returns {boolean}
+     */
+    function hasLanguage(lang) {
+        if (!lang || typeof lang !== 'string') return false;
+        return !!(TRANSLATIONS?.[lang] || FALLBACK_TRANSLATIONS?.[lang]);
+    }
+
+    /**
+     * True once a remote translation catalog has been applied. Before that moment
+     * a language can be perfectly valid and simply unknown locally — only `en-US`
+     * ships in FALLBACK_TRANSLATIONS — so the stored choice must be trusted
+     * instead of being reset to the default and persisted over the user.
+     * Note that `loadTranslations()` resolves with the embedded LOCAL_FALLBACK
+     * when the network fails, so "a payload arrived" is not the same as "the
+     * remote catalog arrived"; see the identity check in the init handler.
+     * @type {boolean}
+     */
+    let remoteTranslationsApplied = false;
+
+    /**
+     * Resolves the language to use at startup: the user's stored choice when it
+     * is usable, otherwise the browser language, otherwise the default.
+     * While the remote catalog is still in flight the stored choice is trusted
+     * (it was validated when saved and only `en-US` ships embedded); once the
+     * catalog is final a language missing from both sources is stale and falls
+     * through to the browser/default resolution.
+     * Shared by init and by the translations handler so both agree.
+     * @param {{language?: string}|null} settings - Loaded settings.
+     * @param {boolean} hasStoredLanguage - Whether a language was persisted.
+     * @returns {string} Language code.
+     */
+    function resolveStartupLanguage(settings, hasStoredLanguage) {
+        const stored = settings?.language;
+        if (hasStoredLanguage && stored && (!remoteTranslationsApplied || hasLanguage(stored))) {
+            return stored;
+        }
+        const detected = detectBrowserLanguage();
+        return hasLanguage(detected) ? detected : DEFAULT_LANGUAGE;
+    }
+
     // Function to get the translated text
     /**
      * Gets the translated text for a specific key.
@@ -2744,13 +2791,18 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
         let validLang = lang;
 
-        // 2. Intelligent fallback search
-        if (!TRANSLATIONS[validLang]) {
+        // 2. Intelligent fallback search. Both sources count as available, and
+        // the search only runs once the catalog is final: before the remote
+        // payload lands a valid language cannot be told apart from an unknown
+        // one, so the startup path trusts the requested language and the
+        // translations handler re-validates it when the payload arrives.
+        if (remoteTranslationsApplied && !hasLanguage(validLang)) {
             const [primary] = lang.split('-');
             // Try exact match of the root (e.g., 'es') or the first subvariant starting with the root
-            validLang = TRANSLATIONS[primary]
+            validLang = hasLanguage(primary)
                 ? primary
-                : Object.keys(TRANSLATIONS).find(k => k.startsWith(`${primary}-`))
+                : [...new Set([...Object.keys(TRANSLATIONS), ...Object.keys(FALLBACK_TRANSLATIONS)])]
+                    .find(k => k.startsWith(`${primary}-`))
                 ?? DEFAULT_LANGUAGE;
         }
 
@@ -17895,6 +17947,27 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
+     * True when a known progress already sits in the completion zone of a known
+     * duration. Used to tell the natural end of a video (YouTube drops the
+     * element clock back to 0 on the ended screen / with the media unloaded)
+     * apart from a real element reset: seeking to that position again would only
+     * replay the last seconds, end the video and reset the clock to 0 once more.
+     * Deliberately independent from `isResumeAtCompletionZone`, which is a resume
+     * policy (it honors `resumeCompletedFromStart`).
+     * @param {number} progress - Known progress in seconds.
+     * @param {number} duration - Known duration in seconds.
+     * @returns {boolean}
+     */
+    const isProgressInCompletionZone = (progress, duration) => {
+        const safeProgress = Number(progress) || 0;
+        const safeDuration = Number(duration) || 0;
+        if (safeProgress <= 0 || safeDuration <= 0) return false;
+        const finishPercent = (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) / 100;
+        // 1 s of tolerance: element clocks and metadata durations can disagree by a tick.
+        return safeProgress >= Math.max(0, safeDuration * finishPercent - 1);
+    };
+
+    /**
      * Determines if the resume progress falls within the "video completed" zone.
      * Used to avoid counting a phantom full view when the initial seek
      * lands directly at the end of the video.
@@ -18247,7 +18320,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const sessionTick = async () => {
             try {
                 const currentSession = activeProcessingSessions.get(videoEl);
-                const isLocked = RouteContextResolver.isContextLocked(videoEl, type);
+                let isLocked = RouteContextResolver.isContextLocked(videoEl, type);
+
+                // An ad is a definite state, not a transient context mismatch. While
+                // one runs, YouTube reports the video as inside an ad container and
+                // the context unlocks, so the check below used to end the session as
+                // 'context_mismatch' after the 3-tick tolerance and never reached the
+                // kill switch that calls waitForAdClear() (the ad recovery monitor).
+                // Treating the ad as "locked" routes it through that ad branch:
+                // correct finalize reason plus scheduled recovery. The scan only runs
+                // when the context is already unlocked, so a healthy tick pays nothing.
+                const isAdUnlock = !isLocked && AdDetector.isNodeWithinAdContainer(videoEl);
+                if (isAdUnlock) isLocked = true;
 
                 if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized || !isLocked) {
                     const isMismatch = !isLocked && currentSession === sessionRef && !sessionRef.isFinalized;
@@ -18289,6 +18373,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (videoEl.currentTime > 1) {
                     sessionRef.sawPlayback = true;
                     sessionRef.rescueAttempts = 0;
+                    sessionRef.completionResetLogged = false;
                 }
 
                 // --- UI WATCHDOG ---
@@ -18309,8 +18394,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Bounded per session: once the budget runs out the rescue stops instead
                 // of retrying for the rest of the session (see THRESHOLDS comment).
                 const rescueBudgetLeft = sessionRef.rescueAttempts < THRESHOLDS.PERSISTENCE_RESCUE_MAX_ATTEMPTS;
+                // A finished video must never be rescued. When playback ends,
+                // YouTube drops the element clock back to 0 (ended screen, media
+                // unloaded), so the saved position sits in the completion zone or
+                // the record is already completed. Re-seeking it replays the last
+                // seconds, ends the video again and resets the clock to 0 — the
+                // infinite rescue/save-blocked loop this gate removes.
+                const knownSavedProgress = Number(sessionSavedData?.watchProgress) || 0;
+                const knownSavedDuration = Number(sessionRef.videoInfo?.lengthSeconds) || Number(videoEl.duration) || 0;
+                const isCompletedRecord = sessionSavedData?.isCompleted === true;
+                const savedInCompletionZone = isProgressInCompletionZone(knownSavedProgress, knownSavedDuration);
                 // Gate cheap conditions before paying a full ad-container scan.
-                const rescueDue = rescueBudgetLeft && tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !sessionRef.isUserSeeking;
+                const rescueDue = rescueBudgetLeft && tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && knownSavedProgress > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !sessionRef.isUserSeeking && !videoEl.ended && !isCompletedRecord && !savedInCompletionZone;
                 // Pay the ad scan only when rescue can actually fire; the result
                 // is reused by the kill switch below (same tick, no DOM change
                 // between the two reads, so decisions are identical).
@@ -18332,7 +18427,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Kill Switch
                 const isDisconnected = !document.contains(videoEl);
                 // Reuses the rescue scan when it ran this tick; otherwise scans once.
-                const isAdNow = isCurrentlyAd ?? AdDetector.isNodeWithinAdContainer(videoEl);
+                const isAdNow = isCurrentlyAd ?? (isAdUnlock || AdDetector.isNodeWithinAdContainer(videoEl));
                 const currentVideoId = getPlayerVideoId(player);
                 const hasIdChanged = currentVideoId !== videoId;
                 const isHiddenGhost = (type === 'preview' || type === 'miniplayer') && !isVisiblyDisplayed(videoEl);
@@ -19256,6 +19351,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (isAwaitingFirstPlayback(videoEl, session)) {
                             logInfo('saveStatus', `⏸️ ${videoId} is still at 0s awaiting first playback; keeping known progress ${formatTime(knownProgress)}`);
                             return { success: false, reason: 'awaiting_first_playback' };
+                        }
+                        // Not a reset either: the video reached its end and YouTube
+                        // dropped the clock back to 0 (ended screen, unloaded media,
+                        // completed record resumed at the end). The known progress is
+                        // already at the completion zone, so there is nothing left to
+                        // persist and the rescue must not seek back to the end.
+                        const knownDuration = Number(session?.videoInfo?.lengthSeconds) ||
+                            Number(videoEl.duration) ||
+                            Number(session?.savedData?.lengthSeconds) ||
+                            0;
+                        const isCompletionReset = videoEl.ended === true ||
+                            session?.savedData?.isCompleted === true ||
+                            isProgressInCompletionZone(knownProgress, knownDuration);
+                        if (isCompletionReset) {
+                            if (session && !session.completionResetLogged) {
+                                session.completionResetLogged = true;
+                                logInfo('saveStatus', `🔚 ${videoId} finished; keeping the known progress ${formatTime(knownProgress)} (no reset save)`);
+                            }
+                            return { success: false, reason: 'playback_completed_reset' };
                         }
                         logWarn('PlaybackController', `🛡️ Save blocked: element reset to 0 with known progress ${formatTime(knownProgress)} for ${videoId}`);
                         return { success: false, reason: 'element_reset_unconfirmed' };
@@ -24936,6 +25050,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let loadedSettings = null;
             let loadedSettingsMeta = null;
             let externalTranslations = null;
+            // Declared before the translations handler below: that handler can run
+            // on an early microtask and must never read it in its TDZ.
+            let startupLanguageApplied = false;
 
             // --- Configure navigation and API events ---
             /**
@@ -25120,58 +25237,94 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 logLog('initializeGlobal', '🧹 Cleanup of resources when page closes');
             });
 
-            // --- Load translations ---
+            // --- Load translations (never blocks init) ---
+            // The remote payload is an enhancement, not a precondition. Awaiting it
+            // stalled init for up to 10 s (2 URLs x 5 s timeout) with no observers, no
+            // tracking and no UI whenever the network was slow or unreachable, and it
+            // downloaded 1.25 MB with every language to render a page that already
+            // ships the embedded fallback. Init now starts with the fallback and
+            // swaps in the remote strings as soon as they arrive.
+            const remoteTranslations = loadTranslations().catch((err) => {
+                logError('initializeGlobal', '❌ Error loading translations:', err);
+                return null;
+            });
+            remoteTranslations.then((payload) => {
+                if (!isInstanceActive()) return;
+                // loadTranslations() resolves with the embedded LOCAL_FALLBACK when
+                // the network fails, so a payload alone does NOT mean the remote
+                // catalog arrived. Identity against FALLBACK_TRANSLATIONS is the
+                // cheapest reliable signal: without the remote catalog a language
+                // missing from both sources proves nothing and the user's stored
+                // choice must survive (and not be overwritten with the default).
+                const hasRemoteCatalog = !!payload
+                    && Object.keys(payload).length > 0
+                    && payload.TRANSLATIONS !== FALLBACK_TRANSLATIONS;
+                if (hasRemoteCatalog) {
+                    externalTranslations = payload;
+                    remoteTranslationsApplied = true;
+                    LANGUAGE_FLAGS = {
+                        ...FALLBACK_FLAGS,
+                        ...(payload.LANGUAGE_FLAGS || payload.flags || {})
+                    };
+                    TRANSLATIONS = payload.TRANSLATIONS || payload.translations || {};
+                    logInfo('initializeGlobal', 'Translations loaded successfully');
+                } else {
+                    logWarn('initializeGlobal', 'External translations unavailable, keeping the embedded fallback');
+                }
+                // Re-validate the language now that the catalog is known.
+                // Startup had to trust the stored language (and the browser
+                // detection only sees the embedded fallback), so a stale language
+                // or a non-English browser may need correcting here.
+                const expected = resolveStartupLanguage(cachedSettings, hadLanguageInStorage);
+                if (expected !== currentLanguage) {
+                    logInfo('initializeGlobal', `Language corrected once translations loaded: ${currentLanguage} -> ${expected}`);
+                    if (cachedSettings) cachedSettings.language = expected;
+                    setLanguage(expected, { persist: false }).catch(() => { });
+                    // Persist the correction unless the startup block still owes its
+                    // own save (it compares against the same value and will win).
+                    if (startupLanguageApplied && loadedSettings?.language !== expected) {
+                        setSettings(cachedSettings).catch(() => { });
+                    }
+                }
+            });
+
+            // --- Load settings (local backend, fast) ---
             try {
-                [externalTranslations, loadedSettingsMeta] = await Promise.all([
-                    loadTranslations().catch((err) => {
-                        logError('initializeGlobal', '❌ Error loading translations:', err);
-                        return null;
-                    }),
-                    getSettingsWithMeta().catch((err) => {
-                        logError('initializeGlobal', '❌ Error loading settings:', err);
-                        return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
-                    })
-                ]);
+                loadedSettingsMeta = await getSettingsWithMeta().catch((err) => {
+                    logError('initializeGlobal', '❌ Error loading settings:', err);
+                    return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
+                });
 
                 loadedSettings = loadedSettingsMeta?.settings || { ...CONFIG.defaultSettings };
                 hadLanguageInStorage = !!loadedSettingsMeta?.hadLanguageInStorage;
                 assertActiveInstance();
 
-                if (externalTranslations && Object.keys(externalTranslations).length > 0) {
-                    logInfo('initializeGlobal', 'Translations loaded successfully');
-                    LANGUAGE_FLAGS = {
-                        ...FALLBACK_FLAGS,
-                        ...(externalTranslations.LANGUAGE_FLAGS || externalTranslations.flags || {})
-                    };
-                    TRANSLATIONS = externalTranslations.TRANSLATIONS || externalTranslations.translations || {};
-                } else {
-                    logWarn('initializeGlobal', 'External translations incomplete, using fallback as base');
-                    LANGUAGE_FLAGS = FALLBACK_FLAGS;
-                    TRANSLATIONS = {}; // Will use FALLBACK_TRANSLATIONS via cascade in t()
-                }
+                // First paint uses the embedded fallback (t() cascades to
+                // FALLBACK_TRANSLATIONS); the promise above replaces it if it resolves.
+                LANGUAGE_FLAGS = FALLBACK_FLAGS;
+                TRANSLATIONS = {};
                 cachedSettings = { ...CONFIG.defaultSettings, ...(loadedSettings || {}) };
                 logInfo('initializeGlobal', 'Settings loaded:', cachedSettings);
 
             } catch (error) {
                 if (error?.name === 'AbortError') throw error;
-                logError('initializeGlobal', 'Error preparing translations/settings:', error);
+                logError('initializeGlobal', 'Error preparing settings:', error);
                 LANGUAGE_FLAGS = FALLBACK_FLAGS;
                 TRANSLATIONS = FALLBACK_TRANSLATIONS;
                 cachedSettings = { ...CONFIG.defaultSettings };
             }
 
             // --- Load settings and set language ---
+            // The stored language is trusted here: the full catalog is not known
+            // until the remote payload lands (only en-US ships embedded), and the
+            // value was validated when the user chose it. The translations handler
+            // above re-validates it once the whole catalog is available.
             try {
-                let langToUse;
+                const langToUse = resolveStartupLanguage(cachedSettings, hadLanguageInStorage);
 
-                if (hadLanguageInStorage && cachedSettings?.language && TRANSLATIONS[cachedSettings.language]) {
-                    // User-saved and valid language
-                    langToUse = cachedSettings.language;
-                    logInfo('initializeGlobal', `Saved language valid: ${langToUse}`);
+                if (hadLanguageInStorage && cachedSettings?.language) {
+                    logInfo('initializeGlobal', `Using saved language: ${langToUse}`);
                 } else {
-                    // First load or language not configured, use browser language if available
-                    const browserLang = detectBrowserLanguage();
-                    langToUse = TRANSLATIONS[browserLang] ? browserLang : DEFAULT_LANGUAGE;
                     logInfo('initializeGlobal', `Detected or fallback language: ${langToUse}`);
                 }
 
@@ -25179,20 +25332,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 assertActiveInstance();
                 logInfo('initializeGlobal', `Language configured: ${langToUse}`);
 
-                // Always update cachedSettings.language with the detected/selected language
-                cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
-                cachedSettings.language = langToUse;
+                // Skip the assignment/save if the translations handler already
+                // corrected the language: it applies the same rule with the full
+                // catalog and must not be overwritten by the optimistic value.
+                if (!startupLanguageApplied) {
+                    // Always update cachedSettings.language with the detected/selected language
+                    cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
+                    cachedSettings.language = langToUse;
 
-                // Save preference if it was the first load or if the language changed
-                if (!hadLanguageInStorage || (loadedSettings?.language !== langToUse)) {
-                    await setSettings(cachedSettings);
-                    assertActiveInstance();
-                    logInfo('initializeGlobal', `Language saved/updated in settings: ${langToUse}`);
+                    // Save preference if it was the first load or if the language changed
+                    if (!hadLanguageInStorage || (loadedSettings?.language !== langToUse)) {
+                        await setSettings(cachedSettings);
+                        assertActiveInstance();
+                        logInfo('initializeGlobal', `Language saved/updated in settings: ${langToUse}`);
+                    }
                 }
             } catch (error) {
                 if (error?.name === 'AbortError') throw error;
                 logError('initializeGlobal', '❌ Error setting language:', error);
             }
+            startupLanguageApplied = true;
 
             // --- Initialize StorageAsync (migration to IndexedDB) ---
             try {

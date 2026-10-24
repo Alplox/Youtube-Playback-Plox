@@ -9428,7 +9428,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const setFilters = (newValues) => {
         filtersWriteQueue = filtersWriteQueue
-            .catch(() => {})
+            .catch(err => logWarn('setFilters', 'queue chain reset', err))
             .then(async () => {
                 const current = await getFilters();
                 const updated = { ...current, ...newValues };
@@ -17812,6 +17812,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Persistence-rescue retries spent on this session; reset when the
                 // element advances. Bounded by PERSISTENCE_RESCUE_MAX_ATTEMPTS.
                 rescueAttempts: 0,
+                // Playback reached the end at least once in this session (set by the
+                // element 'ended' listener). The tick can be throttled in a
+                // background tab and never see the final seconds, so this flag is
+                // the only reliable signal that a later reset to 0 is a natural end
+                // and not a failed save.
+                naturalEnd: false,
+                // Last duration seen while the media was loaded. YouTube unloads
+                // the media after the ended screen, leaving `videoEl.duration` as
+                // NaN; the remembered value still lets the save guard recognize
+                // the completion zone.
+                knownDuration: Number.isFinite(Number(videoEl?.duration)) ? Number(videoEl.duration) : 0,
                 abortController,
                 disposables: new DisposableStore()
             };
@@ -18005,6 +18016,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
+     * True when the YouTube player reports its ENDED state (`0`).
+     * The `<video>` clock can already be back at 0 while the player still knows
+     * the video ended (ended screen, media unloaded). This is an independent
+     * signal from `videoEl.ended`, which is cleared by that reset.
+     * @param {object|null} player - Player element (e.g. `#movie_player`).
+     * @returns {boolean}
+     */
+    const isPlayerReportingEnd = (player) => {
+        try {
+            const api = getPlayerApi(player);
+            return typeof api?.getPlayerState === 'function' && api.getPlayerState() === 0;
+        } catch (_) {
+            return false;
+        }
+    };
+
+    /**
      * Determines if the resume progress falls within the "video completed" zone.
      * Used to avoid counting a phantom full view when the initial seek
      * lands directly at the end of the video.
@@ -18177,6 +18205,42 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             viewCount: 0,
             lengthSeconds: startPlayerApi?.getDuration?.() || videoEl.duration || 0
         };
+        if (sessionRef.videoInfo.lengthSeconds > 0) {
+            sessionRef.knownDuration = Math.max(sessionRef.knownDuration || 0, sessionRef.videoInfo.lengthSeconds);
+        }
+
+        // Natural end: YouTube drops the element clock back to 0 once the video
+        // finishes (ended screen, media unloaded, autoplay handoff). Ticks cannot
+        // be trusted to have seen the final seconds — a background tab throttles
+        // them to ~1/min, so the last save may sit below the completion zone.
+        // This event is the only reliable "the video really ended" signal, and it
+        // also persists the completion while the clock still reports the end.
+        const handleNaturalEnd = () => {
+            if (isSessionStale(videoEl, sessionRef)) return;
+            sessionRef.naturalEnd = true;
+            const endDuration = Number(videoEl.duration);
+            if (Number.isFinite(endDuration) && endDuration > 0) {
+                sessionRef.knownDuration = Math.max(sessionRef.knownDuration || 0, endDuration);
+            }
+            // Previews loop and are not persisted: only the reset guard needs the flag.
+            if (type === 'preview') return;
+            const persistCompletion = (attempt = 0) => {
+                if (isSessionStale(videoEl, sessionRef)) return;
+                PlaybackController.saveStatus(player, videoEl, type, videoId, sessionRef.videoInfo, {
+                    expectedSession: sessionRef
+                }).then(result => {
+                    if (isSessionStale(videoEl, sessionRef)) return;
+                    absorbSaveResult(sessionRef, result);
+                    // A tick save was in flight when the video ended; retry once so
+                    // the completion is not lost to the mutual-exclusion guard.
+                    if (result?.reason === 'already_saving' && attempt === 0) {
+                        createSessionTimeout(sessionRef, () => persistCompletion(1), 1200);
+                    }
+                }).catch(err => logWarn('process', `End-of-playback save failed for ${videoId}`, err));
+            };
+            persistCompletion();
+        };
+        addDisposableListener(videoEl, 'ended', handleNaturalEnd, undefined, sessionRef.disposables);
 
         const isLiveSession = isLivePlaybackForGradient(videoEl, player, videoId, sessionRef);
         if (isLiveSession) {
@@ -18414,6 +18478,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 tickCount++;
 
+                // Remember the largest duration seen while the media was loaded.
+                // The ended screen unloads it (`duration` becomes NaN), and the
+                // completion-zone checks below still need a reference then.
+                const tickDuration = Number(videoEl.duration);
+                if (Number.isFinite(tickDuration) && tickDuration > 0) {
+                    sessionRef.knownDuration = Math.max(sessionRef.knownDuration || 0, tickDuration);
+                }
+
                 // The element moved off its start position: any previous 0s stall is
                 // over, so re-arm the "never played" flag and the rescue budget.
                 // Without this, one early stall would mark the session forever and
@@ -18422,6 +18494,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     sessionRef.sawPlayback = true;
                     sessionRef.rescueAttempts = 0;
                     sessionRef.completionResetLogged = false;
+                    // A replay/seek back leaves the end position: the natural-end
+                    // flag only protects the reset that follows the end of that
+                    // playback. The ended element itself stays at the end, so it
+                    // must not clear the flag here.
+                    if (sessionRef.naturalEnd && !videoEl.ended &&
+                        videoEl.currentTime < (sessionRef.knownDuration || 0) - 5) {
+                        sessionRef.naturalEnd = false;
+                    }
                 }
 
                 // --- UI WATCHDOG ---
@@ -18449,11 +18529,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // seconds, ends the video again and resets the clock to 0 — the
                 // infinite rescue/save-blocked loop this gate removes.
                 const knownSavedProgress = Number(sessionSavedData?.watchProgress) || 0;
-                const knownSavedDuration = Number(sessionRef.videoInfo?.lengthSeconds) || Number(videoEl.duration) || 0;
+                const knownSavedDuration = Number(sessionRef.videoInfo?.lengthSeconds) || Number(videoEl.duration) || sessionRef.knownDuration || 0;
                 const isCompletedRecord = sessionSavedData?.isCompleted === true;
                 const savedInCompletionZone = isProgressInCompletionZone(knownSavedProgress, knownSavedDuration);
                 // Gate cheap conditions before paying a full ad-container scan.
-                const rescueDue = rescueBudgetLeft && tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && knownSavedProgress > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !sessionRef.isUserSeeking && !videoEl.ended && !isCompletedRecord && !savedInCompletionZone;
+                const rescueDue = rescueBudgetLeft && !sessionRef.naturalEnd && tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && knownSavedProgress > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !sessionRef.isUserSeeking && !videoEl.ended && !isCompletedRecord && !savedInCompletionZone && !isPlayerReportingEnd(player);
                 // Pay the ad scan only when rescue can actually fire; the result
                 // is reused by the kill switch below (same tick, no DOM change
                 // between the two reads, so decisions are identical).
@@ -19366,6 +19446,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 };
                 const currentTime = hasElementTime ? elementTime : (readApiNumber('getCurrentTime') ?? 0);
                 const duration = hasElementDuration ? elementDuration : (readApiNumber('getDuration') ?? 0);
+                // Keep the largest duration seen for this session: the ended screen
+                // unloads the media, and the reset guard below still needs a
+                // reference to tell a natural end from a real reset.
+                if (session && isFinite(duration) && duration > 0) {
+                    session.knownDuration = Math.max(session.knownDuration || 0, duration);
+                }
 
                 // Allow very low times (0) to detect "Replay" in fixed-time videos
                 if (!isFinite(currentTime) || currentTime < 0 || isNaN(duration) || duration <= 0) {
@@ -19404,9 +19490,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         // persist and the rescue must not seek back to the end.
                         const knownDuration = Number(session?.videoInfo?.lengthSeconds) ||
                             Number(videoEl.duration) ||
+                            Number(session?.knownDuration) ||
                             Number(session?.savedData?.lengthSeconds) ||
+                            Number(options.cachedSavedData?.lengthSeconds) ||
                             0;
+                        // `naturalEnd` covers the end that no tick witnessed (the tab
+                        // was throttled while the video finished), where the last save
+                        // can sit well below the completion percentage.
+                        const playerEnded = isPlayerReportingEnd(player);
+                        if (playerEnded && session) session.naturalEnd = true;
                         const isCompletionReset = videoEl.ended === true ||
+                            playerEnded ||
+                            session?.naturalEnd === true ||
                             session?.savedData?.isCompleted === true ||
                             isProgressInCompletionZone(knownProgress, knownDuration);
                         if (isCompletionReset) {
@@ -25237,11 +25332,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (expected !== currentLanguage) {
                     logInfo('initializeGlobal', `Language corrected once translations loaded: ${currentLanguage} -> ${expected}`);
                     if (cachedSettings) cachedSettings.language = expected;
-                    setLanguage(expected, { persist: false }).catch(() => { });
+                    setLanguage(expected, { persist: false }).catch(err => logWarn('initializeGlobal', 'setLanguage failed', err));
                     // Persist the correction unless the startup block still owes its
                     // own save (it compares against the same value and will win).
                     if (startupLanguageApplied && loadedSettings?.language !== expected) {
-                        setSettings(cachedSettings).catch(() => { });
+                        setSettings(cachedSettings).catch(err => logWarn('initializeGlobal', 'setSettings failed', err));
                     }
                 }
             });

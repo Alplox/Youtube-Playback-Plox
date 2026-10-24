@@ -1191,6 +1191,43 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         return v;
     }
 
+    // MARK: 🔒 Focus containment
+    /** Selector for elements that can receive keyboard focus. */
+    const FOCUSABLE_SELECTOR = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]';
+
+    /**
+     * Collects the visible, keyboard-focusable elements inside one or more roots.
+     * @param {Array<HTMLElement|null|undefined>} scopes - Roots that delimit the search.
+     * @returns {HTMLElement[]} Focusable elements in DOM order.
+     */
+    function getFocusableElements(scopes) {
+        return scopes
+            .filter(scope => scope?.isConnected)
+            .flatMap(scope => [...scope.querySelectorAll(FOCUSABLE_SELECTOR)])
+            .filter(element => element instanceof HTMLElement && element.offsetParent !== null);
+    }
+
+    /**
+     * Keeps Tab/Shift+Tab inside the given scopes, wrapping at both ends.
+     * @param {KeyboardEvent} event - Keydown event from a modal.
+     * @param {Array<HTMLElement|null|undefined>} scopes - Roots that delimit the focus loop.
+     * @returns {void}
+     */
+    function trapTabFocus(event, scopes) {
+        if (event.key !== 'Tab') return;
+        const focusable = getFocusableElements(scopes);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !focusable.includes(document.activeElement))) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !focusable.includes(document.activeElement))) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+
     // MARK: 🔧 queryFirst
     /**
      * Returns the first element matching any selector in order, or null.
@@ -2821,13 +2858,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                 } catch (recursionError) {
                     // Fallback to direct storage access if getSettings() causes recursion
                     const raw = await gmGetValue(CONFIG.STORAGE_KEYS.settings, null);
-                    let parsed = {};
-                    if (raw && typeof raw === 'object') {
-                        parsed = raw;
-                    } else if (typeof raw === 'string' && raw.trim()) {
-                        parsed = JSON.parse(raw);
-                    }
-                    settings = { ...CONFIG.defaultSettings, ...parsed };
+                    settings = { ...CONFIG.defaultSettings, ...parseStoredObject(raw) };
                 }
 
                 // We only save if there is really a change in the configuration object
@@ -9229,20 +9260,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
+     * Parses a raw stored value into a plain object.
+     * Unusable input resolves to an empty object, matching the previous
+     * per-caller fallbacks.
+     * @param {*} raw - Value returned by Storage (object, JSON string or null).
+     * @returns {Object} Parsed object, or `{}` when the value is unusable.
+     */
+    function parseStoredObject(raw) {
+        if (raw && typeof raw === 'object') return raw;
+        if (typeof raw === 'string' && raw.trim()) return JSON.parse(raw);
+        return {};
+    }
+
+    /**
      * Helper functions for settings and filters using centralized Storage.
      * Removes redundant Settings/Filters wrapper objects.
      */
     const getSettings = async () => {
         try {
-            const raw = await Storage.get(CONFIG.STORAGE_KEYS.settings);
-            let parsed = {};
-
-            if (raw && typeof raw === 'object') {
-                parsed = raw;
-            } else if (typeof raw === 'string' && raw.trim()) {
-                parsed = JSON.parse(raw);
-            }
-
+            const parsed = parseStoredObject(await Storage.get(CONFIG.STORAGE_KEYS.settings));
             return { ...CONFIG.defaultSettings, ...parsed };
         } catch (error) {
             logError('getSettings', 'Error loading user settings:', error);
@@ -9252,15 +9288,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     const getSettingsWithMeta = async () => {
         try {
-            const raw = await Storage.get(CONFIG.STORAGE_KEYS.settings);
-            let parsed = {};
-
-            if (raw && typeof raw === 'object') {
-                parsed = raw;
-            } else if (typeof raw === 'string' && raw.trim()) {
-                parsed = JSON.parse(raw);
-            }
-
+            const parsed = parseStoredObject(await Storage.get(CONFIG.STORAGE_KEYS.settings));
             return {
                 settings: { ...CONFIG.defaultSettings, ...parsed },
                 hadLanguageInStorage: Object.prototype.hasOwnProperty.call(parsed || {}, 'language')
@@ -9383,15 +9411,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     const getFilters = async () => {
         try {
-            const raw = await Storage.get(CONFIG.STORAGE_KEYS.filters);
-            let parsed = {};
-
-            if (raw && typeof raw === 'object') {
-                parsed = raw;
-            } else if (typeof raw === 'string' && raw.trim()) {
-                parsed = JSON.parse(raw);
-            }
-
+            const parsed = parseStoredObject(await Storage.get(CONFIG.STORAGE_KEYS.filters));
             return { ...CONFIG.defaultFilters, ...parsed };
         } catch (error) {
             logError('getFilters', 'Error al cargar filtros del usuario:', error);
@@ -9909,6 +9929,36 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         /**
+         * Disposes rendered items outside the given range (plus buffer).
+         * @param {number} startIdx - First visible index.
+         * @param {number} endIdx - Last visible index (exclusive).
+         * @returns {void}
+         * @private
+         */
+        _evictOutsideRange(startIdx, endIdx) {
+            for (const [idx, el] of this.renderedItems) {
+                if (idx < startIdx - this.bufferSize || idx >= endIdx + this.bufferSize) {
+                    if (!this.renderingItems.has(idx)) {
+                        this._disposeRenderedItem(el);
+                        this.renderedItems.delete(idx);
+                    }
+                }
+            }
+        }
+
+        /**
+         * Forgets every rendered item without disposing it.
+         * Callers must dispose the elements first.
+         * @returns {void}
+         * @private
+         */
+        _clearRenderedState() {
+            this.renderedItems.clear();
+            this.renderingItems.clear();
+            this.renderingVersions.clear();
+        }
+
+        /**
          * Renders visible items.
          * @private
          */
@@ -9920,14 +9970,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Cleanup: remove items rendered outside the visible range (plus buffer).
             // Without this eviction, scrolling a long list renders and retains EVERY
             // item subtree until the modal closes, defeating the virtualization.
-            for (const [idx, el] of this.renderedItems) {
-                if (idx < startIdx - this.bufferSize || idx >= endIdx + this.bufferSize) {
-                    if (!this.renderingItems.has(idx)) {
-                        this._disposeRenderedItem(el);
-                        this.renderedItems.delete(idx);
-                    }
-                }
-            }
+            this._evictOutsideRange(startIdx, endIdx);
 
             // Render: add new items
             const renderPromises = [];
@@ -9951,14 +9994,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // The eviction loop above runs before those promises resolve, so re-check now
             // to avoid leaving stale items positioned in the spacer until the next scroll.
             const currentRange = this._getVisibleRange();
-            for (const [idx, el] of this.renderedItems) {
-                if (idx < currentRange.startIdx - this.bufferSize || idx >= currentRange.endIdx + this.bufferSize) {
-                    if (!this.renderingItems.has(idx)) {
-                        this._disposeRenderedItem(el);
-                        this.renderedItems.delete(idx);
-                    }
-                }
-            }
+            this._evictOutsideRange(currentRange.startIdx, currentRange.endIdx);
 
             // After rendering new items, verify heights to fix gaps/overlaps
             this._checkHeights();
@@ -10041,9 +10077,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 orphans.forEach(el => this._disposeRenderedItem(el));
             }
 
-            this.renderedItems.clear();
-            this.renderingItems.clear();
-            this.renderingVersions.clear();
+            this._clearRenderedState();
             if (this.measuredHeights) this.measuredHeights.clear();
 
             // Update height and re-render
@@ -10060,9 +10094,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             for (const el of this.renderedItems.values()) {
                 this._disposeRenderedItem(el);
             }
-            this.renderedItems.clear();
-            this.renderingItems.clear();
-            this.renderingVersions.clear();
+            this._clearRenderedState();
             this.lastScrollTop = -1;
             this._render();
         }
@@ -10120,9 +10152,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             for (const el of this.renderedItems.values()) {
                 this._disposeRenderedItem(el);
             }
-            this.renderedItems.clear();
-            this.renderingItems.clear();
-            this.renderingVersions.clear();
+            this._clearRenderedState();
             // Symmetry with updateItems()/refresh(): a destroyed instance must not
             // keep measured heights or the item/offset arrays alive.
             this.measuredHeights.clear();
@@ -10592,19 +10622,77 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
-     * Imports a native JSON backup without regressing newer local records.
-     * @param {File} file - Selected JSON backup.
-     * @returns {Promise<void>}
+     * Builds a guard that aborts an import commit when the storage state changed
+     * or another destructive operation took ownership.
+     * @returns {() => boolean} Guard for `Storage.setMany`.
      */
-    const importDataFromFile = async (file) => {
+    function createImportCommitGuard() {
         const importEpoch = storageDestructiveEpoch;
-        const importCommitGuard = () =>
+        return () =>
             isInstanceActive() &&
             storageDestructiveEpoch === importEpoch &&
             !clearAllInFlight &&
             !undoInFlight &&
             !autoCleanupInFlight &&
             !selectedDeleteInFlight;
+    }
+
+    /**
+     * Re-reads pending imported records right before writing and commits them
+     * in one durable batch, so a concurrent local save is never regressed.
+     * @param {Array<{key: string, value: Object}>} pendingEntries - Merge results to commit.
+     * @param {() => boolean} commitGuard - Last-moment ownership guard.
+     * @returns {Promise<{writtenCount: number, rereadSkippedCount: number, batchSkippedCount: number, unwrittenCount: number, success: boolean, reason?: string, error?: *}>}
+     */
+    async function commitImportedEntries(pendingEntries, commitGuard) {
+        const refreshedEntries = [];
+        let rereadSkippedCount = 0;
+        for (const entry of pendingEntries) {
+            try {
+                const latest = await Storage.get(entry.key, { throwOnError: true });
+                const refreshedMerge = mergeImportedVideoData(latest, entry.value);
+                if (refreshedMerge.usedIncoming || refreshedMerge.changed) {
+                    refreshedEntries.push({ key: entry.key, value: refreshedMerge.data });
+                    if (!refreshedMerge.usedIncoming) rereadSkippedCount++;
+                } else {
+                    rereadSkippedCount++;
+                }
+            } catch (error) {
+                // The caller logs with its own module literal (audit-lint W02).
+                throw new Error(`Could not re-read ${entry.key} before import write: ${error?.message ?? error}`, { cause: error });
+            }
+        }
+
+        const batchResult = refreshedEntries.length > 0
+            ? await Storage.setMany(refreshedEntries, {
+                mergeEntry: ({ current, incoming }) => {
+                    const merge = mergeImportedVideoData(current, incoming);
+                    return merge.usedIncoming || merge.changed ? { value: merge.data } : { skip: true };
+                },
+                commitGuard
+            })
+            : { success: true, writtenKeys: [], skippedKeys: [] };
+
+        const writtenCount = Array.isArray(batchResult.writtenKeys) ? batchResult.writtenKeys.length : 0;
+        const batchSkippedCount = Array.isArray(batchResult.skippedKeys) ? batchResult.skippedKeys.length : 0;
+        return {
+            writtenCount,
+            rereadSkippedCount,
+            batchSkippedCount,
+            unwrittenCount: Math.max(0, refreshedEntries.length - writtenCount - batchSkippedCount),
+            success: batchResult.success,
+            reason: batchResult.reason,
+            error: batchResult.error
+        };
+    }
+
+    /**
+     * Imports a native JSON backup without regressing newer local records.
+     * @param {File} file - Selected JSON backup.
+     * @returns {Promise<void>}
+     */
+    const importDataFromFile = async (file) => {
+        const importCommitGuard = createImportCommitGuard();
         try {
             const text = await file.text();
             const parsedImport = parseImportPayload(text);
@@ -10671,38 +10759,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (pendingEntries.length > 0) {
                 // Re-read immediately before the batch so a local save that
                 // completed while the import was being parsed is not regressed.
-                const refreshedEntries = [];
-                for (const entry of pendingEntries) {
-                    try {
-                        const latest = await Storage.get(entry.key, { throwOnError: true });
-                        const refreshedMerge = mergeImportedVideoData(latest, entry.value);
-                        if (refreshedMerge.usedIncoming || refreshedMerge.changed) {
-                            refreshedEntries.push({ key: entry.key, value: refreshedMerge.data });
-                            if (!refreshedMerge.usedIncoming) skipped++;
-                        } else {
-                            skipped++;
-                        }
-                    } catch (error) {
-                        logError('importDataFromFile', `Could not re-read ${entry.key} before import write`, error);
-                        throw error;
-                    }
-                }
-                const batchResult = refreshedEntries.length > 0
-                    ? await Storage.setMany(refreshedEntries, {
-                        mergeEntry: ({ current, incoming }) => {
-                            const merge = mergeImportedVideoData(current, incoming);
-                            return merge.usedIncoming || merge.changed ? { value: merge.data } : { skip: true };
-                        },
-                        commitGuard: importCommitGuard
-                    })
-                    : { success: true, writtenKeys: [], skippedKeys: [] };
+                const commit = await commitImportedEntries(pendingEntries, importCommitGuard);
                 if (!isInstanceActive()) return;
-                const writtenCount = Array.isArray(batchResult.writtenKeys) ? batchResult.writtenKeys.length : 0;
-                const mergedSkippedCount = Array.isArray(batchResult.skippedKeys) ? batchResult.skippedKeys.length : 0;
-                importCount += writtenCount;
-                skipped += mergedSkippedCount + Math.max(0, refreshedEntries.length - writtenCount - mergedSkippedCount);
-                if (!batchResult.success) {
-                    const messageKey = batchResult.reason === 'storage_full' ? 'storageFull' : 'importError';
+                importCount += commit.writtenCount;
+                skipped += commit.rereadSkippedCount + commit.batchSkippedCount + commit.unwrittenCount;
+                if (!commit.success) {
+                    const messageKey = commit.reason === 'storage_full' ? 'storageFull' : 'importError';
                     showFloatingToast(`${SVG_ICONS.error} ${t(messageKey)}`);
                 }
             }
@@ -10738,7 +10800,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     /**
      * Backs up data to a GitHub Gist.
      */
-    const backupToGitHubGist = async (data, initialModeSettings, isManual) => {
+    const backupToGitHubGist = async (data, initialModeSettings) => {
         if (!isInstanceActive()) return false;
         // Fresh pull from storage to prevent stale gistId/token drift
         const fullSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
@@ -11139,7 +11201,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (type === 'repo') {
             success = await backupToGithubRepository(data, modeSettings, isManual);
         } else {
-            success = await backupToGitHubGist(data, modeSettings, isManual);
+            success = await backupToGitHubGist(data, modeSettings);
         }
         if (!isInstanceActive()) return false;
 
@@ -11809,14 +11871,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     * @returns {Object} Import result { imported: number, failed: number }
     */
     async function importFromFreeTubeFormat(freeTubeData) {
-        const importEpoch = storageDestructiveEpoch;
-        const importCommitGuard = () =>
-            isInstanceActive() &&
-            storageDestructiveEpoch === importEpoch &&
-            !clearAllInFlight &&
-            !undoInFlight &&
-            !autoCleanupInFlight &&
-            !selectedDeleteInFlight;
+        const importCommitGuard = createImportCommitGuard();
         let importedCount = 0;
         let skippedCount = 0;
         let failedCount = 0;
@@ -11861,38 +11916,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         if (pendingEntries.length > 0) {
-            const refreshedEntries = [];
-            for (const entry of pendingEntries) {
-                try {
-                    const latest = await Storage.get(entry.key, { throwOnError: true });
-                    const refreshedMerge = mergeImportedVideoData(latest, entry.value);
-                    if (refreshedMerge.usedIncoming || refreshedMerge.changed) {
-                        refreshedEntries.push({ key: entry.key, value: refreshedMerge.data });
-                        if (!refreshedMerge.usedIncoming) skippedCount++;
-                    } else {
-                        skippedCount++;
-                    }
-                } catch (error) {
-                    logError('importFromFreeTubeFormat', `Could not re-read ${entry.key} before import write`, error);
-                    throw error;
-                }
-            }
-            const batchResult = refreshedEntries.length > 0
-                ? await Storage.setMany(refreshedEntries, {
-                    mergeEntry: ({ current, incoming }) => {
-                        const merge = mergeImportedVideoData(current, incoming);
-                        return merge.usedIncoming || merge.changed ? { value: merge.data } : { skip: true };
-                    },
-                    commitGuard: importCommitGuard
-                })
-                : { success: true, writtenKeys: [], skippedKeys: [] };
+            const commit = await commitImportedEntries(pendingEntries, importCommitGuard);
             if (!isInstanceActive()) return { imported: importedCount, failed: failedCount, total: freeTubeData.length };
-            const writtenCount = Array.isArray(batchResult.writtenKeys) ? batchResult.writtenKeys.length : 0;
-            const mergedSkippedCount = Array.isArray(batchResult.skippedKeys) ? batchResult.skippedKeys.length : 0;
-            importedCount += writtenCount;
-            if (!batchResult.success) {
-                failedCount += Math.max(0, refreshedEntries.length - writtenCount - mergedSkippedCount);
-                logError('importFromFreeTubeFormat', 'FreeTube batch write partially failed', batchResult.error);
+            importedCount += commit.writtenCount;
+            skippedCount += commit.rereadSkippedCount;
+            if (!commit.success) {
+                failedCount += commit.unwrittenCount;
+                logError('importFromFreeTubeFormat', 'FreeTube batch write partially failed', commit.error);
             }
         }
 
@@ -11948,6 +11978,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     // MARK: 💾 Save Video Generic
+    /**
+     * Clears the per-session completion flag when playback jumped backward
+     * (loop or manual restart) instead of finishing naturally.
+     * @param {object|null} session - Active session.
+     * @param {object|null} sourceData - Last persisted record.
+     * @param {number} currentTime - Current playback time.
+     * @param {number} duration - Media duration.
+     * @returns {void}
+     */
+    function resetCompletionOnLoop(session, sourceData, currentTime, duration) {
+        if (!session?.hasLoggedCompletion || cachedSettings?.countOncePerSession) return;
+        const previousProgress = sourceData?.watchProgress || 0;
+        const delta = previousProgress - currentTime;
+        const isNearStart = currentTime < Math.max(1, duration * 0.2);
+        const wasNearEnd = previousProgress > (duration * 0.75);
+        const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
+        if (wasLoop) session.hasLoggedCompletion = false;
+    }
+
     /**
      * Unified logic to save video progress and playback state.
      * @private
@@ -12161,30 +12210,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     session.hasLoggedCompletion = true;
                 }
             } else {
-                if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
-                    const prev = sourceData?.watchProgress || 0;
-                    const delta = prev - currentTime;
-                    const isNearStart = currentTime < Math.max(1, duration * 0.2);
-                    const wasNearEnd = prev > (duration * 0.75);
-                    const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
-                    if (wasLoop) {
-                        session.hasLoggedCompletion = false;
-                    }
-                }
+                resetCompletionOnLoop(session, sourceData, currentTime, duration);
             }
         } else {
             if (isFinished && session && !session.hasLoggedCompletion) {
                 videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
                 session.hasLoggedCompletion = true;
-            } else if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
-                const prev = sourceData?.watchProgress || 0;
-                const delta = prev - currentTime;
-                const isNearStart = currentTime < Math.max(1, duration * 0.2);
-                const wasNearEnd = prev > (duration * 0.75);
-                const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
-                if (wasLoop) {
-                    session.hasLoggedCompletion = false;
-                }
+            } else {
+                resetCompletionOnLoop(session, sourceData, currentTime, duration);
             }
         }
 
@@ -13175,15 +13208,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const seekPlayListeners = new WeakMap();
 
     /**
-     * Schedules automatic display message cleanup.
-     * Cancels any previous timeout for the same context before creating a new one.
+     * Cancels a pending display cleanup for the given context.
+     * @param {'watch'|'shorts'|'miniplayer'|'preview'} context - Display context.
+     * @returns {void}
+     */
+    const cancelPendingDisplayClear = (context) => {
+        const prev = displayClearTimeouts.get(context);
+        if (!prev) return;
+        clearTimeout(prev);
+        displayClearTimeouts.delete(context);
+    };
+
+    /**
+     * Schedules a display cleanup, replacing any pending one for the context.
      * @param {'watch'|'shorts'|'miniplayer'|'preview'} context - Display context.
      * @param {() => void} clearFn - Function that clears the display.
      * @param {number} delayMs - Milliseconds until cleanup.
      */
     const scheduleDisplayClear = (context, clearFn, delayMs) => {
-        const prev = displayClearTimeouts.get(context);
-        if (prev) clearTimeout(prev);
+        cancelPendingDisplayClear(context);
         displayClearTimeouts.set(context, setTimeout(() => {
             try { clearFn(); } catch (_) { logWarn('DisplayManager', 'Error on scheduleDisplayClear', _); }
             displayClearTimeouts.delete(context);
@@ -13374,11 +13417,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Centralizes manual save logic to avoid redundant callbacks.
      *
      * @param {HTMLElement} displayEl - Display root element (.ypp-time-display).
-     * @param {HTMLElement} player - Corresponding player instance.
      * @param {string} contextType - Context ('watch', 'shorts', 'miniplayer', 'preview').
      * @param {DisposableStore|null} [store=null] - Store owning the button listener.
      */
-    function setupManualSaveButton(displayEl, player, contextType, store = null) {
+    function setupManualSaveButton(displayEl, contextType, store = null) {
         if (!cachedSettings?.manualSaveMode || !(displayEl instanceof Element)) return;
 
         // Avoid duplicates if already injected
@@ -13639,11 +13681,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             delete display.dataset.isFixedTime;
             restoreDisplayButtons(display);
             applySavedStateToDisplay(display, true, false);
-            const prev = displayClearTimeouts.get(context);
-            if (prev) {
-                clearTimeout(prev);
-                displayClearTimeouts.delete(context);
-            }
+            cancelPendingDisplayClear(context);
         };
 
         /**
@@ -13786,7 +13824,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                 const mobileDisposables = getDisplayDisposables(watchTimeDisplay);
                                 const { listBtn: mobileListBtn, messageEl: mobileMessageEl } = createSplitButtonGroup(mobileDisposables);
                                 watchTimeDisplay.appendChild(mobileListBtn);
-                                setupManualSaveButton(watchTimeDisplay, playerContainer, 'watch', mobileDisposables);
+                                setupManualSaveButton(watchTimeDisplay, 'watch', mobileDisposables);
                                 watchTimeDisplay.appendChild(mobileMessageEl);
                                 delete watchTimeDisplay.dataset.isFixedTime;
                                 try { mobileAnchor.appendChild(watchTimeDisplay); } catch (_) { logWarn('ensure/watch', 'Failed to attach mobile display'); return getDisplay(context); }
@@ -13805,7 +13843,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const displayDisposables = getDisplayDisposables(watchTimeDisplay);
                     const { listBtn, messageEl } = createSplitButtonGroup(displayDisposables);
                     watchTimeDisplay.appendChild(listBtn);
-                    setupManualSaveButton(watchTimeDisplay, playerContainer, 'watch', displayDisposables);
+                    setupManualSaveButton(watchTimeDisplay, 'watch', displayDisposables);
                     watchTimeDisplay.appendChild(messageEl);
                     delete watchTimeDisplay.dataset.isFixedTime;
                     if (timeWrapper) timeWrapper.insertAdjacentElement('beforeend', watchTimeDisplay);
@@ -13824,7 +13862,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         const displayDisposables = getDisplayDisposables(shortsTimeDisplay);
                         const { listBtn, messageEl } = createSplitButtonGroup(displayDisposables);
                         shortsTimeDisplay.appendChild(listBtn);
-                        setupManualSaveButton(shortsTimeDisplay, DOMHelpers.getShortsPlayer(), 'shorts', displayDisposables);
+                        setupManualSaveButton(shortsTimeDisplay, 'shorts', displayDisposables);
                         shortsTimeDisplay.appendChild(messageEl);
                         clear('shorts');
                     }
@@ -13865,7 +13903,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const displayDisposables = getDisplayDisposables(miniplayerTimeDisplay);
                     const { listBtn, messageEl } = createSplitButtonGroup(displayDisposables);
                     miniplayerTimeDisplay.appendChild(listBtn);
-                    setupManualSaveButton(miniplayerTimeDisplay, playerContainer, 'miniplayer', displayDisposables);
+                    setupManualSaveButton(miniplayerTimeDisplay, 'miniplayer', displayDisposables);
                     miniplayerTimeDisplay.appendChild(messageEl);
                     controls.appendChild(miniplayerTimeDisplay);
                     clear('miniplayer');
@@ -13881,7 +13919,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const displayDisposables = getDisplayDisposables(inlinePreviewTimeDisplay);
                     const { listBtn, messageEl } = createSplitButtonGroup(displayDisposables);
                     inlinePreviewTimeDisplay.appendChild(listBtn);
-                    setupManualSaveButton(inlinePreviewTimeDisplay, previewPlayerEl, 'preview', displayDisposables);
+                    setupManualSaveButton(inlinePreviewTimeDisplay, 'preview', displayDisposables);
                     inlinePreviewTimeDisplay.appendChild(messageEl);
                     previewPlayerEl.appendChild(inlinePreviewTimeDisplay);
                     addDisposableListener(inlinePreviewTimeDisplay, 'click', (e) => { e.stopPropagation(); e.preventDefault(); }, { passive: false }, displayDisposables);
@@ -13985,11 +14023,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 releasePlayListener(context, identity?.videoEl);
             }
 
-            const prev = displayClearTimeouts.get(context);
-            if (prev) {
-                clearTimeout(prev);
-                displayClearTimeouts.delete(context);
-            }
+            cancelPendingDisplayClear(context);
         }
 
         const destroy = (context) => {
@@ -14866,19 +14900,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 closeModal();
                 return;
             }
-            if (event.key !== 'Tab' || !overlay.isConnected) return;
-            const focusable = [...overlay.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]')]
-                .filter(element => element instanceof HTMLElement && element.offsetParent !== null);
-            if (focusable.length === 0) return;
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            if (event.shiftKey && (document.activeElement === first || !focusable.includes(document.activeElement))) {
-                event.preventDefault();
-                last.focus();
-            } else if (!event.shiftKey && (document.activeElement === last || !focusable.includes(document.activeElement))) {
-                event.preventDefault();
-                first.focus();
-            }
+            trapTabFocus(event, [overlay]);
         };
         addDisposableListener(document, 'keydown', onSettingsKeyDown, {}, settingsDisposables);
 
@@ -15410,6 +15432,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
+     * Builds the list of partial-failure messages shown after bulk operations.
+     * @param {Object} [counts] - Failure counters.
+     * @param {number} [counts.skippedProtected=0] - Protected records kept.
+     * @param {number} [counts.skippedNull=0] - Corrupted records skipped.
+     * @param {number} [counts.readErrors=0] - Read failures.
+     * @param {number} [counts.skippedConflicts=0] - Newer/protected records kept.
+     * @param {number} [counts.failedDeletes=0] - Delete failures.
+     * @returns {string[]} Messages for the counters that are above zero.
+     */
+    function buildSkipParts({ skippedProtected = 0, skippedNull = 0, readErrors = 0, skippedConflicts = 0, failedDeletes = 0 } = {}) {
+        const parts = [];
+        if (skippedProtected > 0) parts.push(t('protectedItemsSkipped', { count: skippedProtected }));
+        if (skippedNull > 0) parts.push(`${skippedNull} corrupted entries skipped`);
+        if (readErrors > 0) parts.push(`${readErrors} read errors`);
+        if (skippedConflicts > 0) parts.push(`${skippedConflicts} newer/protected kept`);
+        if (failedDeletes > 0) parts.push(`${failedDeletes} delete errors`);
+        return parts;
+    }
+
+    /**
      * Updates footer buttons dynamically based on active mode (Management or Normal)
      * Only modifies mode-specific buttons; does not touch playlist flow.
      */
@@ -15515,31 +15557,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
 
                     // Update checkboxes in the DOM without recreating the VirtualScroller
-                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
-                        const vid = checkbox.getAttribute('data-video-id');
-                        if (vid) checkbox.checked = selectedVideos.has(vid);
-                    });
+                    syncSelectionCheckboxes();
 
                     updateManagementFooterState();
                 },
                 store: footerDisposables
             });
-            const btnClearSelection = createElement('button', {
-                id: 'ypp-clear-selection-btn',
-                className: 'ypp-btn ypp-btn-outline-warning ypp-shadow-md ypp-management-footer-item',
-                html: `${SVG_ICONS.close} ${t('clearSelection')}`,
-                onClickEvent: () => {
-                    if (selectedVideos.size === 0) return;
-                    selectedVideos.clear();
-
-                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
-                        checkbox.checked = false;
-                    });
-
-                    updateManagementFooterState();
-                },
-                store: footerDisposables
-            });
+            const btnClearSelection = createClearSelectionButton(footerDisposables, updateManagementFooterState);
 
             /**
             * Creates a button with an upward-opening dropdown submenu (for footer actions).
@@ -15897,11 +15921,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     const deletedCount = rollbackData.length;
                     if (deletedCount > 0) {
-                        const errorParts = [];
-                        if (skippedProtected > 0) errorParts.push(t('protectedItemsSkipped', { count: skippedProtected }));
-                        if (readErrors > 0) errorParts.push(`${readErrors} read errors`);
-                        if (skippedConflicts > 0) errorParts.push(`${skippedConflicts} newer/protected kept`);
-                        if (failedDeletes > 0) errorParts.push(`${failedDeletes} delete errors`);
+                        const errorParts = buildSkipParts({ skippedProtected, readErrors, skippedConflicts, failedDeletes });
                         const errorSuffix = errorParts.length > 0 ? ` (${errorParts.join(', ')})` : '';
                         // Toast with Undo option visible for 10 seconds
                         showFloatingToast(`🚮 ${t('itemsDeleted', { count: deletedCount })}${errorSuffix}`, 10000, {
@@ -15938,11 +15958,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             }
                         });
                     } else if (skippedProtected > 0 || readErrors > 0 || failedDeletes > 0) {
-                        const errorParts = [];
-                        if (skippedProtected > 0) errorParts.push(t('protectedItemsSkipped', { count: skippedProtected }));
-                        if (readErrors > 0) errorParts.push(`${readErrors} read errors`);
-                        if (skippedConflicts > 0) errorParts.push(`${skippedConflicts} newer/protected kept`);
-                        if (failedDeletes > 0) errorParts.push(`${failedDeletes} delete errors`);
+                        const errorParts = buildSkipParts({ skippedProtected, readErrors, skippedConflicts, failedDeletes });
                         showFloatingToast(`${SVG_ICONS.warning} ${errorParts.join(', ')}`);
                     }
 
@@ -16106,32 +16122,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         }
                     }
 
-                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
-                        const vid = checkbox.getAttribute('data-video-id');
-                        if (vid) checkbox.checked = selectedVideos.has(vid);
-                    });
+                    syncSelectionCheckboxes();
 
                     refreshPlaylistState();
                 },
                 store: footerDisposables
             });
 
-            const btnClearSelection = createElement('button', {
-                id: 'ypp-clear-selection-btn',
-                className: 'ypp-btn ypp-btn-outline-warning ypp-shadow-md ypp-management-footer-item',
-                html: `${SVG_ICONS.close} ${t('clearSelection')}`,
-                onClickEvent: () => {
-                    if (selectedVideos.size === 0) return;
-                    selectedVideos.clear();
-
-                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
-                        checkbox.checked = false;
-                    });
-
-                    refreshPlaylistState();
-                },
-                store: footerDisposables
-            });
+            const btnClearSelection = createClearSelectionButton(footerDisposables, () => refreshPlaylistState());
 
             const refreshPlaylistState = () => {
                 const size = selectedVideos.size;
@@ -16332,6 +16330,38 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }, 2000);
             }
         }
+    }
+
+    /**
+     * Synchronizes every rendered selection checkbox with `selectedVideos`.
+     * @returns {void}
+     */
+    function syncSelectionCheckboxes() {
+        DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
+            const videoId = checkbox.getAttribute('data-video-id');
+            checkbox.checked = videoId ? selectedVideos.has(videoId) : false;
+        });
+    }
+
+    /**
+     * Builds the footer button that clears the current selection.
+     * @param {DisposableStore} store - Store owning the button listener.
+     * @param {() => void} onCleared - Refreshes the owning view after clearing.
+     * @returns {HTMLElement} Clear-selection button.
+     */
+    function createClearSelectionButton(store, onCleared) {
+        return createElement('button', {
+            id: 'ypp-clear-selection-btn',
+            className: 'ypp-btn ypp-btn-outline-warning ypp-shadow-md ypp-management-footer-item',
+            html: `${SVG_ICONS.close} ${t('clearSelection')}`,
+            onClickEvent: () => {
+                if (selectedVideos.size === 0) return;
+                selectedVideos.clear();
+                syncSelectionCheckboxes();
+                onCleared();
+            },
+            store
+        });
     }
 
     /**
@@ -16797,6 +16827,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Watch player wait state
         let watchPlayerWaitState = { timeoutId: null, intervalId: null, resolved: false };
 
+        /**
+         * Clears the pending timers of the watch-player wait loop.
+         * @param {boolean} [isResolved=false] - Value stored in the resolved flag.
+         * @returns {void}
+         */
+        const clearWatchPlayerWait = (isResolved = false) => {
+            if (watchPlayerWaitState.timeoutId) {
+                clearTimeout(watchPlayerWaitState.timeoutId);
+                watchPlayerWaitState.timeoutId = null;
+            }
+            if (watchPlayerWaitState.intervalId) {
+                clearInterval(watchPlayerWaitState.intervalId);
+                watchPlayerWaitState.intervalId = null;
+            }
+            watchPlayerWaitState.resolved = isResolved;
+        };
+
 
         // Time configuration
         const WATCH_PLAYER_POLL_INTERVAL = 1500; // Check every 1.5s in case Observer fails
@@ -16808,20 +16855,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          * @param {boolean} force - If true, forces reprocessing ignoring cache
          */
         const waitForWatchPlayerReactive = (force = false) => {
-            const clearWaitState = (isResolved = false) => {
-                if (watchPlayerWaitState.timeoutId) {
-                    clearTimeout(watchPlayerWaitState.timeoutId);
-                    watchPlayerWaitState.timeoutId = null;
-                }
-                if (watchPlayerWaitState.intervalId) {
-                    clearInterval(watchPlayerWaitState.intervalId);
-                    watchPlayerWaitState.intervalId = null;
-                }
-                watchPlayerWaitState.resolved = isResolved;
-            };
-
             // Clear previous state completely (new search)
-            clearWaitState();
+            clearWatchPlayerWait();
 
             // Immediate check (fast path)
             const existingVideo = DOMHelpers.getWatchPlayerVideo();
@@ -16845,14 +16880,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // If we are no longer in watch or live, abort
                 if (currentPageType !== 'watch' && currentPageType !== 'live') {
-                    clearWaitState(true);
+                    clearWatchPlayerWait(true);
                     logInfo('VideoObserverManager', '🚪 User left watch/live, stopping search');
                     return false;
                 }
 
                 const video = DOMHelpers.getWatchPlayerVideo();
                 if (video) {
-                    clearWaitState(true);
+                    clearWatchPlayerWait(true);
 
                     if (video.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT)) {
                         logLog('VideoObserverManager', '⏭️ Video in miniplayer, skipping watch bootstrap');
@@ -16883,7 +16918,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // currentPageType is not updated, this prevents the interval from living forever.
             watchPlayerWaitState.timeoutId = setTimeout(() => {
                 if (!watchPlayerWaitState.resolved) {
-                    clearWaitState(true);
+                    clearWatchPlayerWait(true);
                     logWarn('VideoObserverManager',
                         `⏱️ Timeout (${WATCH_PLAYER_MAX_WAIT / 1000}s) #movie_player not found`);
                 }
@@ -17487,15 +17522,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             displayClearTimeouts.clear();
 
             // Clean up Watch player wait observer
-            if (watchPlayerWaitState.timeoutId) {
-                clearTimeout(watchPlayerWaitState.timeoutId);
-                watchPlayerWaitState.timeoutId = null;
-            }
-            if (watchPlayerWaitState.intervalId) {
-                clearInterval(watchPlayerWaitState.intervalId);
-                watchPlayerWaitState.intervalId = null;
-            }
-            watchPlayerWaitState.resolved = true;
+            clearWatchPlayerWait(true);
 
             logLog('VideoObserverManager', '🧹 Timers released (Partial SPA Teardown)');
         };
@@ -17540,6 +17567,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const activeProcessingSessions = new Map();
     const previewTransitions = new WeakSet(); // Marks elements in transition to avoid race conditions
+
+    /**
+     * Reports whether a session was replaced by a newer one or already finalized.
+     * @param {HTMLVideoElement} videoEl - Element the session was created for.
+     * @param {object|null|undefined} session - Session to validate.
+     * @returns {boolean} True when the session is no longer the active one.
+     */
+    function isSessionStale(videoEl, session) {
+        return !session || session.isFinalized || activeProcessingSessions.get(videoEl) !== session;
+    }
     /** @type {WeakMap<HTMLVideoElement, { videoId: string, ts: number }>} */
     const recentResumeAttempts = new WeakMap();
     let sessionIdCounter = 0;
@@ -17669,7 +17706,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             pendingRecoveryTimers.clear();
         };
 
-        const buildSessionId = (videoEl, context, videoId) => {
+        const buildSessionId = (context, videoId) => {
             sessionIdCounter += 1;
             return `${context}:${videoId || 'unknown'}:${sessionIdCounter}`;
         };
@@ -17748,7 +17785,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const sessionToken = `${identityKey}::${transitionToken}`;
             const abortController = new AbortController();
             const session = {
-                sessionId: buildSessionId(videoEl, context, videoId),
+                sessionId: buildSessionId(context, videoId),
                 sessionToken,
                 transitionToken,
                 identityKey,
@@ -18026,6 +18063,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
+     * Copies metadata returned by saveStatus into the owning session.
+     * @param {object} session - Active session.
+     * @param {object|null} result - Result returned by PlaybackController.saveStatus.
+     * @returns {void}
+     */
+    function absorbSaveResult(session, result) {
+        if (result?.videoInfo) session.videoInfo = result.videoInfo;
+        if (result?.savedData) session.savedData = result.savedData;
+    }
+
+    /**
      * Starts a tracking (polling) session for a video.
      * @param {HTMLVideoElement} videoEl
      * @param {string} type - Context (watch, shorts, miniplayer, preview)
@@ -18144,17 +18192,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             scheduleProgressBarGradientRepaint(type, videoEl, player, videoId, sessionRef);
 
             const handleSeekingForGradient = () => {
-                if (activeProcessingSessions.get(videoEl) !== sessionRef || sessionRef.isFinalized) return;
+                if (isSessionStale(videoEl, sessionRef)) return;
                 if (isLivePlaybackForGradient(videoEl, player, videoId, sessionRef)) return;
                 if (sessionRef.seekGradientRaf) cancelAnimationFrame(sessionRef.seekGradientRaf);
                 sessionRef.seekGradientRaf = requestAnimationFrame(() => {
                     sessionRef.seekGradientRaf = null;
-                    if (activeProcessingSessions.get(videoEl) !== sessionRef || sessionRef.isFinalized) return;
+                    if (isSessionStale(videoEl, sessionRef)) return;
                     refreshProgressBarGradientForSession(videoEl, player, type, videoId);
                 });
             };
             const handleSeekedForGradient = () => {
-                if (activeProcessingSessions.get(videoEl) !== sessionRef || sessionRef.isFinalized) return;
+                if (isSessionStale(videoEl, sessionRef)) return;
                 if (sessionRef._scriptSeekPending) {
                     sessionRef._scriptSeekPending = false;
                 } else {
@@ -18188,7 +18236,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Verify identity before mutating either UI or session state. The
             // previous code only guarded the savedData branch, allowing a stale
             // "not found" result to update a replacement session.
-            if (activeProcessingSessions.get(videoEl) !== sessionRef || sessionRef.isFinalized) return;
+            if (isSessionStale(videoEl, sessionRef)) return;
 
             // The storage answer is now known (record or confirmed absent),
             // so later ticks can skip re-reading until invalidated.
@@ -18264,7 +18312,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             sessionRef.isResumePending = false;
         }).catch(err => {
             logError('process', `Error getting savedData for ${videoId}`, err);
-            if (activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized) {
+            if (!isSessionStale(videoEl, sessionRef)) {
                 sessionRef.isResumePending = false;
             }
         });
@@ -18273,10 +18321,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // We don't block the save interval start waiting for metadata (Level 3 waterfall can take seconds)
         (async () => {
             try {
-                const freshInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+                const freshInfo = await getCascadedVideoInfo(player, videoId, type);
 
                 // Critical post-await protection: If navigation or finalization occurred during waterfall, abort.
-                const sessionStillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
+                const sessionStillValid = !isSessionStale(videoEl, sessionRef);
                 if (!sessionStillValid) return;
 
                 // Merge fresh metadata into session, preserving playlistId and playlistTitle from fast-path if new one is invalid.
@@ -18525,16 +18573,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     session.lastKnownSrc = videoEl.currentSrc || videoEl.src || session.lastKnownSrc || null;
                 }
                 const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session?.videoInfo);
-                if (!session || activeProcessingSessions.get(videoEl) !== session || session.isFinalized) {
+                if (isSessionStale(videoEl, session)) {
                     logLog('sessionTick', `Ignoring stale save result [${type}] - ${videoId}`);
                     return;
                 }
-                if (result?.videoInfo) {
-                    session.videoInfo = result.videoInfo;
-                }
-                if (result?.savedData) {
-                    session.savedData = result.savedData;
-                }
+                absorbSaveResult(session, result);
                 // Mark that at least one real save occurred (so loading cleanup doesn't remove it)
                 if (result?.success) {
                     session.hasRealSave = true;
@@ -18579,7 +18622,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Cleanup transient loading state after 2.5s (the first real save will replace it)
         // Only cleans if no real save has occurred yet (case: slow metadata waterfall)
         createSessionTimeout(sessionRef, () => {
-            const stillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
+            const stillValid = !isSessionStale(videoEl, sessionRef);
             if (stillValid && !sessionRef.hasRealSave) {
                 PlaybackDisplayManager.clear(type, { videoEl, videoId });
             }
@@ -18609,13 +18652,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (session.isResumePending) return;
 
                     const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session.videoInfo);
-                    if (activeProcessingSessions.get(videoEl) !== session || session.isFinalized) return;
-                    if (result?.videoInfo) {
-                        session.videoInfo = result.videoInfo;
-                    }
-                    if (result?.savedData) {
-                        session.savedData = result.savedData;
-                    }
+                    if (isSessionStale(videoEl, session)) return;
+                    absorbSaveResult(session, result);
                 } catch (_) {
                     logWarn('process', `⚠️ Preview fast-path saveStatus failed for ${videoId}`);
                 }
@@ -18955,6 +18993,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
+     * Applies a seek through the player API when available, falling back to the element.
+     * @param {object} player - Player instance.
+     * @param {HTMLVideoElement} videoEl - Video element.
+     * @param {number} time - Target time in seconds.
+     * @param {object|null} session - Session that should flag the script-driven seek.
+     * @param {object|null} [playerApi=null] - Already-resolved player API, if any.
+     * @returns {void}
+     */
+    function applySeek(player, videoEl, time, session, playerApi = null) {
+        if (session) session._scriptSeekPending = true;
+        const api = playerApi ?? getPlayerApi(player);
+        if (typeof api?.seekTo === 'function') {
+            api.seekTo(time, true);
+        } else {
+            videoEl.currentTime = time;
+        }
+    }
+
+    /**
      * Modular controller for handling resume and save progress
      * without relying on monolithic global functions.
      */
@@ -19195,13 +19252,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     try {
                         // Apply seek via API if available, otherwise directly on the element
-                        if (session) session._scriptSeekPending = true;
-                        const seekApi = getPlayerApi(player);
-                        if (typeof seekApi?.seekTo === 'function') {
-                            seekApi.seekTo(safeTime, true);
-                        } else {
-                            videoEl.currentTime = safeTime;
-                        }
+                        applySeek(player, videoEl, safeTime, session);
                         logLog('PlaybackController', `✅ Seek applied successfully to ${formatTime(safeTime)}`);
 
                         // Mark expected time and resume moment to avoid false "backward jumps" during loading
@@ -19232,13 +19283,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             // If the time jumped backward by more than 5 seconds compared to the requested resume time
                             if (safeTime > 10 && currentTime < (safeTime - 5) && !session?.isUserSeeking) {
                                 logWarn('PlaybackController', `🔄 Backward jump detected after resume (${formatTime(safeTime)} -> ${formatTime(currentTime)}). Retrying persistence...`);
-                                if (session) session._scriptSeekPending = true;
-                                const retrySeekApi = getPlayerApi(player);
-                                if (typeof retrySeekApi?.seekTo === 'function') {
-                                    retrySeekApi.seekTo(safeTime, true);
-                                } else {
-                                    videoEl.currentTime = safeTime;
-                                }
+                                applySeek(player, videoEl, safeTime, session);
                             }
                         }, 800);
                     } catch (e) {
@@ -19420,9 +19465,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (!isNaN(targetTime)) {
                             logLog('saveStatus', `🔄 Re-applying seek to ${targetTime}s due to forced YouTube reset... (Attempt ${retryCount + 1}/3)`);
                             try {
-                                if (session) session._scriptSeekPending = true;
-                                if (typeof saveApi?.seekTo === 'function') saveApi.seekTo(targetTime, true);
-                                else videoEl.currentTime = targetTime;
+                                applySeek(player, videoEl, targetTime, session, saveApi);
                                 videoEl.dataset.resumeRetries = (retryCount + 1).toString();
                                 // Slightly extend the protection window when retrying
                                 videoEl.dataset.lastResumeTimestamp = Date.now().toString();
@@ -19459,7 +19502,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (needsRefresh && (cooldownElapsed || options.isManual)) {
                     logInfo('saveStatus', `🔄 Refreshing metadata for ${videoId} (cooldown bypass/missing data)`);
                     videoEl.dataset.lastMetaFetch = Date.now().toString();
-                    const freshInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+                    const freshInfo = await getCascadedVideoInfo(player, videoId, type);
                     if (expectedSession && (expectedSession.isFinalized || activeProcessingSessions.get(videoEl) !== expectedSession)) {
                         restoreThrottleMarker();
                         return { success: false, reason: 'stale_session' };
@@ -19710,7 +19753,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         );
     }
 
-    async function getCascadedVideoInfo(initialPlayer, videoId, videoEl, type) {
+    async function getCascadedVideoInfo(initialPlayer, videoId, type) {
         const now = Date.now();
         let info = {
             videoId: videoId,
@@ -19795,12 +19838,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const details = playerResponse?.videoDetails;
             // logLog('getCascadedVideoInfo', 'PlayerResponse.videoDetails:', details);
             if (details?.videoId === videoId) {
-                // info.videoId: videoId (already from function parameter and verified to reach this point)
                 info.title = details.title ?? info.title;
                 info.author = details.author ?? info.author;
                 info.authorId = details.channelId ?? info.authorId;
                 info.isLive = details.isLive ?? info.isLive;  // .isLiveContent can give false positives on VODs and .isLive only appears if currently live
-                // info.published: null (not obtainable via this method)
                 info.description = details.shortDescription ?? info.description;
                 info.viewCount = !isNaN(parseInt(details.viewCount, 10))
                     ? parseInt(details.viewCount, 10)
@@ -19808,10 +19849,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 info.lengthSeconds = !isNaN(parseInt(details.lengthSeconds, 10))
                     ? Math.round(Number(details.lengthSeconds))
                     : info.lengthSeconds;
-                // info.lastViewedPlaylistId: null (not obtainable via this method)
-                // info.playlistTitle: null (not obtainable via this method)
-                // info.lastViewedPlaylistType: '' (Not assigned)
-                // info.lastViewedPlaylistItemId: null (Not assigned)
 
                 // logInfo('getCascadedVideoInfo', 'info after getPlayerResponse:', { ...info });
             } else if (details) {
@@ -19827,24 +19864,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const internalData = cascadeApi?.getVideoData?.();
             // logLog('getCascadedVideoInfo', 'InternalData:', internalData);
             if (internalData?.video_id === videoId) {
-                // info.videoId: videoId (already from function parameter and verified to reach this point)
                 info.title = info.title ?? internalData.title;
                 info.author = info.author ?? internalData.author;
-                // info.authorId = null (not obtainable via this method)
                 info.isLive = info.isLive ?? internalData.isLive;
-                // info.published = null (not obtainable via this method)
-                // info.description = null (not obtainable via this method)
-                // info.viewCount = null (not obtainable via this method)
-                // info.lengthSeconds = null (not obtainable via this method)
                 if (internalData?.list !== null) {
                     // internalData.list does not exist if video is not in a playlist
                     // it may also not be ready when getVideoData runs
                     // so check if it exists before assigning
                     info.lastViewedPlaylistId ??= internalData.list;
                 }
-                // info.playlistTitle: null (not obtainable via this method)
-                // info.lastViewedPlaylistType: '' (Not assigned)
-                // info.lastViewedPlaylistItemId: null (Not assigned)
 
                 // logInfo('getCascadedVideoInfo', 'info after getVideoData:', { ...info });
             } else if (internalData) {
@@ -19857,11 +19885,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const microformat = playerResponse?.microformat?.playerMicroformatRenderer;
             // logLog('getCascadedVideoInfo', 'Microformat:', microformat);
             if (microformat?.externalVideoId === videoId) {
-                // info.videoId: videoId (already from function parameter and verified to reach this point)
                 info.title = microformat.title?.simpleText ?? info.title;
                 info.author = microformat.ownerChannelName ?? info.author;
                 info.authorId = microformat.externalChannelId ?? info.authorId;
-                // info.isLive = null (not obtainable via this method)
                 info.published = microformat.publishDate
                     ? new Date(microformat.publishDate).getTime()
                     : info.published;
@@ -19872,10 +19898,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 info.lengthSeconds = !isNaN(parseInt(microformat.lengthSeconds, 10))
                     ? Math.round(Number(microformat.lengthSeconds))
                     : info.lengthSeconds;
-                // info.lastViewedPlaylistId: null (Not obtainable via this method)
-                // info.playlistTitle: null (Not obtainable via this method)
-                // info.lastViewedPlaylistType: '' (Not assigned)
-                // info.lastViewedPlaylistItemId: null (Not assigned)
 
                 // logInfo('getCascadedVideoInfo', 'info after microformat:', { ...info });
             } else if (microformat) {
@@ -19891,7 +19913,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // 🔵 Level 2: YouTube Helper API (optional, no longer a dependency)
         try {
             if (YTHelper && YTHelper.video?.id === videoId) {
-                // info.videoId: videoId (already comes from function parameters and was already checked to reach this point)
                 info.title = info.title ?? YTHelper.video.title;
                 info.author = info.author ?? YTHelper.video.channel;
                 info.authorId = info.authorId ?? YTHelper.video.channelId;
@@ -19901,9 +19922,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 info.viewCount = info.viewCount ?? (parseInt(YTHelper.video.viewCount, 10) || null);
                 info.lengthSeconds = info.lengthSeconds ?? (YTHelper.video.lengthSeconds ? Math.round(YTHelper.video.lengthSeconds) : null);
                 info.lastViewedPlaylistId = (info.lastViewedPlaylistId ?? YTHelper.video.playlistId) || null; // Harden: avoid undefined
-                // info.playlistTitle: null (Not obtainable through this method)
-                // info.lastViewedPlaylistType: '' (Not assigned)
-                // info.lastViewedPlaylistItemId: null (Not assigned)
 
             }
         } catch (e) {
@@ -20440,16 +20458,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return SVG_ICONS.progressZero;
         };
 
-        const getIconForRange = (min, max) => {
-            if (type === 'views') return SVG_ICONS.people;
-            return getProgressIcon(min);
-        };
-
         const labelKey = type === 'views' ? 'views' : (type === 'percent' ? 'percentWatched' : '');
         const iconFor = type === 'views' ? SVG_ICONS.people : SVG_ICONS.progressOneHundred;
 
         // Compact chip-label with dynamic icon
-        const chipIcon = createElement('span', { className: 'ypp-filter-chip-icon', html: getIconForRange(minVal, maxVal) });
+        const chipIcon = createElement('span', {
+            className: 'ypp-filter-chip-icon',
+            html: type === 'views' ? SVG_ICONS.people : getProgressIcon(minVal)
+        });
         const chipLabel = createElement('span', {
             className: 'ypp-filter-chip-label',
             html: `${iconFor} ${t(labelKey)}`
@@ -22016,21 +22032,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 closeModalVideos({ expectedGeneration: generation });
                 return;
             }
-            if (event.key !== 'Tab' || !videosContainer?.isConnected) return;
             const focusScopes = [videosContainer];
             if (savedVideoOverflowMenuEl?.isConnected) focusScopes.push(savedVideoOverflowMenuEl);
-            const focusable = focusScopes.flatMap(scope => [...scope.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]')])
-                .filter(element => element instanceof HTMLElement && element.offsetParent !== null);
-            if (focusable.length === 0) return;
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            if (event.shiftKey && (document.activeElement === first || !focusable.includes(document.activeElement))) {
-                event.preventDefault();
-                last.focus();
-            } else if (!event.shiftKey && (document.activeElement === last || !focusable.includes(document.activeElement))) {
-                event.preventDefault();
-                first.focus();
-            }
+            trapTabFocus(event, focusScopes);
         };
         addDisposableListener(videosOverlay, 'click', handleOverlayClick, {}, ModalDisposables);
         addDisposableListener(document, 'keydown', onSavedVideosKeyDown, {}, ModalDisposables);
@@ -22051,21 +22055,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
 
     /**
-     * Generates a playlist background color based on string hash
-     * Uses CSS button system variables that guarantee AAA contrast.
+     * Picks a stable palette variant for a playlist key.
+     * The palette is shared by background and border so both stay in sync.
      * @param {string} str - String used to generate the color
-     * @returns {string} CSS variable with opacity for a soft background
+     * @returns {string|null} CSS variable, or null for an empty key
      */
-    function generatePlaylistColor(str) {
-        if (!str) return 'var(--ypp-bg-secondary)';
+    function pickPlaylistVariant(str) {
+        if (!str) return null;
 
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             hash = str.charCodeAt(i) + ((hash << 5) - hash);
         }
 
-        // Use system palette colors that meet AAA contrast
-        // Don't use --ypp-success to avoid clashing with .ypp-protected-item and don't use --ypp-danger
+        // System palette colors that meet AAA contrast. --ypp-success is skipped
+        // to avoid clashing with .ypp-protected-item, and --ypp-danger is skipped too.
         const variants = [
             'var(--ypp-primary)',
             'var(--ypp-secondary)',
@@ -22074,9 +22078,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             'var(--ypp-alert)',
             'var(--ypp-violet)',
         ];
-        const index = Math.abs(hash) % variants.length;
-        // Version with opacity for soft background (15%)
-        return `color-mix(in srgb, ${variants[index]}, transparent 85%)`;
+        return variants[Math.abs(hash) % variants.length];
+    }
+
+    /**
+     * Generates a playlist background color based on string hash
+     * Uses CSS button system variables that guarantee AAA contrast.
+     * @param {string} str - String used to generate the color
+     * @returns {string} CSS variable with opacity for a soft background
+     */
+    function generatePlaylistColor(str) {
+        const variant = pickPlaylistVariant(str);
+        return variant
+            ? `color-mix(in srgb, ${variant}, transparent 85%)`
+            : 'var(--ypp-bg-secondary)';
     }
 
     /**
@@ -22086,25 +22101,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {string} CSS variable for the border
      */
     function generatePlaylistBorderColor(str) {
-        if (!str) return 'var(--ypp-border)';
-
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = str.charCodeAt(i) + ((hash << 5) - hash);
-        }
-
-        // Use the same palette as background for consistency
-        // Don't use --ypp-success to avoid clashing with .ypp-protected-item and don't use --ypp-danger
-        const variants = [
-            'var(--ypp-primary)',
-            'var(--ypp-secondary)',
-            'var(--ypp-warning)',
-            'var(--ypp-info)',
-            'var(--ypp-alert)',
-            'var(--ypp-violet)',
-        ];
-        const index = Math.abs(hash) % variants.length;
-        return variants[index]; // Full color for visible border
+        return pickPlaylistVariant(str) ?? 'var(--ypp-border)';
     }
 
     async function handleForceTimeAction(videoId) {
@@ -23346,6 +23343,44 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return row;
         };
 
+        /** Shared modes for entry-button and label visibility. */
+        const visibilityModes = [
+            { key: 'alwaysVisible', label: t('AlwaysVisible') },
+            { key: 'dimUntilHover', label: t('DimUntilHover') },
+            { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
+            { key: 'hidden', label: t('Hidden') }
+        ];
+
+        /**
+         * Builds a toolbar row with a label and a mode selector.
+         * @param {Object} options - Row options.
+         * @param {string} options.labelKey - Translation key for the row label.
+         * @param {Array<{key: string, label: string}>} options.modes - Selector modes.
+         * @param {() => string} options.getCurrent - Reads the active mode.
+         * @param {(key: string) => void} options.onSelect - Persists the chosen mode.
+         * @param {string} options.dataAttr - Dataset attribute written on the buttons.
+         * @param {string} [options.rowClassName='ypp-saved-videos-toolbar-row'] - Row class.
+         * @returns {HTMLElement} Row element.
+         */
+        const makeModeRow = ({ labelKey, modes, getCurrent, onSelect, dataAttr, rowClassName = 'ypp-saved-videos-toolbar-row' }) => {
+            const row = createElement('div', { className: rowClassName });
+            row.appendChild(createElement('span', {
+                className: 'ypp-saved-videos-toolbar-row-label',
+                text: t(labelKey)
+            }));
+            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+            createModeSelector({
+                container: btns,
+                modes,
+                getCurrent,
+                onSelect,
+                dataAttr,
+                store: toolbarDisposables
+            });
+            row.appendChild(btns);
+            return row;
+        };
+
         const generalGroup = makeToolbarGroup('savedVideosToolbarGeneralGroup', 'ypp-saved-videos-toolbar-action-group');
         generalGroup.appendChild(createViewModeSelector(container, cachedSavedVideosModalSettings, toolbarDisposables));
 
@@ -23360,59 +23395,37 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         generalGroup.appendChild(generalRow);
 
         // Scrollbar Visibility
-        {
-            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-            row.appendChild(createElement('span', {
-                className: 'ypp-saved-videos-toolbar-row-label',
-                text: t('scrollbarVisibility')
-            }));
-            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-            createModeSelector({
-                container: btns,
-                modes: [
-                    { key: 'alwaysVisible', label: t('AlwaysVisible') },
-                    { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
-                    { key: 'hidden', label: t('Hidden') }
-                ],
-                getCurrent: () => cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility || 'alwaysVisible',
-                onSelect: (key) => {
-                    cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility = key;
-                    applySavedVideoActionDatasetToVideosContainer(container);
-                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                },
-                dataAttr: 'mode',
-                store: toolbarDisposables
-            });
-            row.appendChild(btns);
-            generalGroup.appendChild(row);
-        }
+        generalGroup.appendChild(makeModeRow({
+            labelKey: 'scrollbarVisibility',
+            modes: [
+                { key: 'alwaysVisible', label: t('AlwaysVisible') },
+                { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
+                { key: 'hidden', label: t('Hidden') }
+            ],
+            getCurrent: () => cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility || 'alwaysVisible',
+            onSelect: (key) => {
+                cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+            },
+            dataAttr: 'mode'
+        }));
 
         // Scrollbar Thickness
-        {
-            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-            row.appendChild(createElement('span', {
-                className: 'ypp-saved-videos-toolbar-row-label',
-                text: t('scrollbarThickness')
-            }));
-            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-            createModeSelector({
-                container: btns,
-                modes: [
-                    { key: 'normal', label: t('scrollbarThicknessNormal') },
-                    { key: 'thin', label: t('scrollbarThicknessThin') }
-                ],
-                getCurrent: () => cachedSavedVideosModalSettings.displayOptions.scrollbarThickness || 'normal',
-                onSelect: (key) => {
-                    cachedSavedVideosModalSettings.displayOptions.scrollbarThickness = key;
-                    applySavedVideoActionDatasetToVideosContainer(container);
-                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                },
-                dataAttr: 'mode',
-                store: toolbarDisposables
-            });
-            row.appendChild(btns);
-            generalGroup.appendChild(row);
-        }
+        generalGroup.appendChild(makeModeRow({
+            labelKey: 'scrollbarThickness',
+            modes: [
+                { key: 'normal', label: t('scrollbarThicknessNormal') },
+                { key: 'thin', label: t('scrollbarThicknessThin') }
+            ],
+            getCurrent: () => cachedSavedVideosModalSettings.displayOptions.scrollbarThickness || 'normal',
+            onSelect: (key) => {
+                cachedSavedVideosModalSettings.displayOptions.scrollbarThickness = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+            },
+            dataAttr: 'mode'
+        }));
         inner.appendChild(generalGroup);
 
         const itemDisplayGroup = makeToolbarGroup('savedVideosToolbarItemDisplayGroup');
@@ -23436,97 +23449,55 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         rowActionsGroup.appendChild(makeToggleRow('savedVideosToolbarQuickAccess', settings.quickAccess, 'quickAccess'));
         rowActionsGroup.appendChild(makeToggleRow('savedVideosToolbarActions', settings.actions, 'actions'));
 
-        const opacityRow = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-row' });
-        opacityRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('savedVideosToolbarEntryVisibility')
+        rowActionsGroup.appendChild(makeModeRow({
+            labelKey: 'savedVideosToolbarEntryVisibility',
+            modes: visibilityModes,
+            getCurrent: () => cachedSavedVideosModalSettings.entryButtonVisibility || 'alwaysVisible',
+            onSelect: (key) => {
+                cachedSavedVideosModalSettings.entryButtonVisibility = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+            },
+            dataAttr: 'opacity-mode',
+            rowClassName: 'ypp-saved-videos-toolbar-opacity-row'
         }));
-        {
-            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-            createModeSelector({
-                container: btns,
-                modes: [
-                    { key: 'alwaysVisible', label: t('AlwaysVisible') },
-                    { key: 'dimUntilHover', label: t('DimUntilHover') },
-                    { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
-                    { key: 'hidden', label: t('Hidden') }
-                ],
-                getCurrent: () => cachedSavedVideosModalSettings.entryButtonVisibility || 'alwaysVisible',
-                onSelect: (key) => {
-                    cachedSavedVideosModalSettings.entryButtonVisibility = key;
-                    applySavedVideoActionDatasetToVideosContainer(container);
-                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                },
-                dataAttr: 'opacity-mode',
-                store: toolbarDisposables
-            });
-            opacityRow.appendChild(btns);
-        }
-        rowActionsGroup.appendChild(opacityRow);
 
         rowActionsGroup.appendChild(createOverflowToggle(container, cachedSavedVideosModalSettings, toolbarDisposables));
         inner.appendChild(rowActionsGroup);
 
         const labelsGroup = makeToolbarGroup('savedVideosToolbarLabelsGroup');
 
-        {
-            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-            row.appendChild(createElement('span', {
-                className: 'ypp-saved-videos-toolbar-row-label',
-                text: t('colouredLabelsStyle')
-            }));
-            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-            createModeSelector({
-                container: btns,
-                modes: [
-                    { key: 'color', label: t('colouredLabelsStyleColor') },
-                    { key: 'colorOnHover', label: t('colouredLabelsStyleColorOnHover') },
-                    { key: 'grayscaleOnHover', label: t('colouredLabelsStyleGrayscaleOnHover') },
-                    { key: 'grayscale', label: t('colouredLabelsStyleGrayscale') }
-                ],
-                getCurrent: () => cachedSavedVideosModalSettings.colouredLabelsStyle || 'color',
-                onSelect: (key) => {
-                    cachedSavedVideosModalSettings.colouredLabelsStyle = key;
-                    applySavedVideoActionDatasetToVideosContainer(container);
-                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                    requestVideoListUpdate();
-                },
-                dataAttr: 'style-mode',
-                store: toolbarDisposables
-            });
-            row.appendChild(btns);
-            labelsGroup.appendChild(row);
-        }
+        labelsGroup.appendChild(makeModeRow({
+            labelKey: 'colouredLabelsStyle',
+            modes: [
+                { key: 'color', label: t('colouredLabelsStyleColor') },
+                { key: 'colorOnHover', label: t('colouredLabelsStyleColorOnHover') },
+                { key: 'grayscaleOnHover', label: t('colouredLabelsStyleGrayscaleOnHover') },
+                { key: 'grayscale', label: t('colouredLabelsStyleGrayscale') }
+            ],
+            getCurrent: () => cachedSavedVideosModalSettings.colouredLabelsStyle || 'color',
+            onSelect: (key) => {
+                cachedSavedVideosModalSettings.colouredLabelsStyle = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                requestVideoListUpdate();
+            },
+            dataAttr: 'style-mode'
+        }));
 
-        {
-            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-            row.appendChild(createElement('span', {
-                className: 'ypp-saved-videos-toolbar-row-label',
-                text: t('colouredLabelsVisibility')
-            }));
-            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-            createModeSelector({
-                container: btns,
-                modes: [
-                    { key: 'alwaysVisible', label: t('AlwaysVisible') },
-                    { key: 'dimUntilHover', label: t('DimUntilHover') },
-                    { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
-                    { key: 'hidden', label: t('Hidden') }
-                ],
-                getCurrent: () => cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible',
-                onSelect: (key) => {
-                    const currentMode = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible';
-                    cachedSavedVideosModalSettings.colouredLabelsVisibility = currentMode === key ? 'alwaysVisible' : key;
-                    applySavedVideoActionDatasetToVideosContainer(container);
-                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                    requestVideoListUpdate();
-                },
-                dataAttr: 'vis-mode',
-                store: toolbarDisposables
-            });
-            row.appendChild(btns);
-            labelsGroup.appendChild(row);
-        }
+        labelsGroup.appendChild(makeModeRow({
+            labelKey: 'colouredLabelsVisibility',
+            modes: visibilityModes,
+            getCurrent: () => cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible',
+            onSelect: (key) => {
+                const currentMode = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible';
+                cachedSavedVideosModalSettings.colouredLabelsVisibility = currentMode === key ? 'alwaysVisible' : key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                requestVideoListUpdate();
+            },
+            dataAttr: 'vis-mode'
+        }));
         inner.appendChild(labelsGroup);
 
         body.appendChild(inner);
@@ -23798,18 +23769,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             title,
             author,
             authorId,
-            published,
-            description,
             watchProgress,
             lengthSeconds,
-            timeWatched,
             type,
             viewCount,
             isLive,
             isCompleted,
             lastViewedPlaylistId,
-            lastViewedPlaylistType,
-            lastViewedPlaylistItemId,
             forceResumeTime
         } = info;
 
@@ -24330,13 +24296,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         // Build informative message
-        const deletedCount = Object.keys(clearedData).length;
-        const skippedParts = [];
-        if (skippedProtected > 0) skippedParts.push(t('protectedItemsSkipped', { count: skippedProtected }));
-        if (skippedNull > 0) skippedParts.push(`${skippedNull} corrupted entries skipped`);
-        if (readErrors > 0) skippedParts.push(`${readErrors} read errors`);
-        if (skippedConflicts > 0) skippedParts.push(`${skippedConflicts} newer/protected kept`);
-        if (failedDeletes > 0) skippedParts.push(`${failedDeletes} delete errors`);
+        const skippedParts = buildSkipParts({ skippedProtected, skippedNull, readErrors, skippedConflicts, failedDeletes });
         const skippedMsg = skippedParts.length > 0 ? ` (${skippedParts.join(', ')})` : '';
 
         // Show toast with onDismiss that clears clearedData
@@ -25049,7 +25009,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let hadLanguageInStorage = false;
             let loadedSettings = null;
             let loadedSettingsMeta = null;
-            let externalTranslations = null;
             // Declared before the translations handler below: that handler can run
             // on an early microtask and must never read it in its TDZ.
             let startupLanguageApplied = false;
@@ -25260,7 +25219,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     && Object.keys(payload).length > 0
                     && payload.TRANSLATIONS !== FALLBACK_TRANSLATIONS;
                 if (hasRemoteCatalog) {
-                    externalTranslations = payload;
                     remoteTranslationsApplied = true;
                     LANGUAGE_FLAGS = {
                         ...FALLBACK_FLAGS,

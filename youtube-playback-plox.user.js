@@ -12422,6 +12422,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         return null;
     };
 
+    /**
+     * Invalidates the cached player→videoId mapping for a player instance.
+     * The 2 s TTL outlives an SPA src change and the 1 s ID-retry cadence, so
+     * every transition path that must re-read the player API calls this first.
+     * @param {YT.Player|null|undefined} player - Player instance; nullish values are a no-op.
+     */
+    const invalidatePlayerVideoIdCache = (player) => {
+        if (player) playerVideoIdCache.delete(player);
+    };
+
     // MARK: 📺 Get YouTube Page Type
     // Page Type Cache
     let _cachedPageType = null;
@@ -16601,6 +16611,27 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
     })();
 
+    /**
+     * Canonical field order for routing-decision telemetry. One list keeps every
+     * line of the same event comparable in the log.
+     */
+    const ROUTING_DECISION_FIELDS = ['decision', 'reason', 'context', 'videoId', 'toVideoId', 'sessionId', 'transitionToken', 'handoffMode'];
+
+    /**
+     * Emits a `routingDecision` telemetry event with a normalized payload.
+     * Fields a call site does not provide are dropped instead of logged as
+     * `undefined`, so every decision keeps the same shape.
+     * @param {{decision: string, reason?: string, context?: string, videoId?: string, toVideoId?: string, sessionId?: string, transitionToken?: string, handoffMode?: string}} details - Decision and its optional context.
+     */
+    const logRoutingDecision = (details) => {
+        const payload = { decision: details.decision };
+        ROUTING_DECISION_FIELDS.forEach((field) => {
+            const value = details[field];
+            if (value !== undefined && value !== null) payload[field] = value;
+        });
+        SessionTelemetry.emit('routingDecision', payload);
+    };
+
     const shouldDropVideoEvent = (videoEl) => {
         if (!videoEl) return true;
         if (!(videoEl instanceof HTMLVideoElement)) return true;
@@ -17128,11 +17159,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             logLog('VideoObserverManager', `📥 Enqueuing video [${type}] for processing (Total pending: ${pendingVideos.size + 1})`);
-            SessionTelemetry.emit('routingDecision', {
-                decision: 'enqueue',
-                reason: triggerSource,
-                context: type
-            });
+            logRoutingDecision({ decision: 'enqueue', reason: triggerSource, context: type });
             // Opportunistic sweep: YouTube recycles grid/Shorts nodes, so fast
             // scrolling can queue videos that detach before processBatch drains
             // them. Drop detached entries while the queue is hot to avoid
@@ -17250,7 +17277,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                             // Invalidate playerVideoId cache to avoid stale data in SPA navigation
                             const player = videoEl.closest(SELECTORS.player.movie);
-                            if (player) playerVideoIdCache.delete(player);
+                            invalidatePlayerVideoIdCache(player);
 
                             // Get current videoId after src change
                             const currentVideoId = player ? getPlayerVideoId(player) : null;
@@ -17298,7 +17325,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (videoEl.closest(SELECTORS.shorts.player)) {
                             logLog('VideoObserverManager', '📱 Shorts: src change detected, resetting session and enqueuing');
                             const player = videoEl.closest(SELECTORS.shorts.player);
-                            if (player) playerVideoIdCache.delete(player);
+                            invalidatePlayerVideoIdCache(player);
                             resetSessionAndEnqueue(videoEl, 'shorts');
                             return;
                         }
@@ -17372,7 +17399,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             lastMiniplayerSrc = newSrc;
                             logLog('VideoObserverManager', '📱 Miniplayer: src change detected, resetting session and enqueuing');
                             const player = videoEl.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT);
-                            if (player) playerVideoIdCache.delete(player);
+                            invalidatePlayerVideoIdCache(player);
                             miniplayerTransitions.add(videoEl);
                             resetSessionAndEnqueue(videoEl, 'miniplayer');
                             return;
@@ -17425,7 +17452,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             logLog('VideoObserverManager', '👁️ Preview: src change detected, resetting session and enqueuing');
                             // Invalidate playerVideoId cache to avoid stale data
                             const player = isPreview ? (videoEl.closest(SELECTORS.inlinePreview.player) || videoEl.closest(SELECTORS.IDS.VIDEO_PREVIEW_CONTAINER)) : null;
-                            if (player) playerVideoIdCache.delete(player);
+                            invalidatePlayerVideoIdCache(player);
                             // Invalidate Shorts detection cache to avoid incorrect sub-tagging
                             delete videoEl.dataset.yppShortsPreview;
                             const currentPreviewId = player ? getPlayerVideoId(player) : null;
@@ -17672,7 +17699,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // The player-ID cache (2s TTL) can still serve the pre-transition
             // ID on a 1s retry cadence; bust it so resolution re-reads the API.
             try {
-                if (player) playerVideoIdCache.delete(player);
+                invalidatePlayerVideoIdCache(player);
             } catch (_) { /* cache bust is best-effort */ }
             logLog('processMediaVideo', `🔄 Retrying video-ID resolution [${type}] after SPA transition`);
             try {
@@ -17800,12 +17827,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const dedupeTs = dedupeByKey.get(dedupeKey);
             if (dedupeTs !== undefined) {
                 if ((now - dedupeTs) < DEDUPE_MS) {
-                    SessionTelemetry.emit('routingDecision', {
-                        decision: 'dedupe',
-                        reason: source,
-                        context,
-                        videoId
-                    });
+                    logRoutingDecision({ decision: 'dedupe', reason: source, context, videoId });
                     return { accepted: false, reason: 'dedupe' };
                 }
                 dedupeByKey.delete(dedupeKey);
@@ -17886,7 +17908,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 finalizeSession(videoEl, 'replacedByStartSession');
             }
             activeProcessingSessions.set(videoEl, session);
-            SessionTelemetry.emit('routingDecision', {
+            logRoutingDecision({
                 decision: 'start',
                 reason: source,
                 context,
@@ -17921,7 +17943,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             resetProgressBarGradient('all');
             SessionFallbackManager.clear(videoEl);
             activeProcessingSessions.delete(videoEl);
-            SessionTelemetry.emit('routingDecision', {
+            logRoutingDecision({
                 decision: 'stop',
                 reason,
                 context: session.type,
@@ -17964,7 +17986,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const prev = activeProcessingSessions.get(videoEl);
             if (!prev || prev.isFinalized) return null;
             transitionState(prev, 'transitioning', reason);
-            SessionTelemetry.emit('routingDecision', {
+            logRoutingDecision({
                 decision: 'handoff',
                 reason,
                 handoffMode,
@@ -18165,12 +18187,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         FailSafeManager.maybeExit();
 
         if (!RouteContextResolver.isContextLocked(videoEl, type)) {
-            SessionTelemetry.emit('routingDecision', {
-                decision: 'reject',
-                reason: 'contextMismatch',
-                context: type,
-                videoId
-            });
+            logRoutingDecision({ decision: 'reject', reason: 'contextMismatch', context: type, videoId });
             return;
         }
 
@@ -18887,7 +18904,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Critical validation: prevents race conditions in SPA navigation for Shorts.
                 if (!playerVideoId || playerVideoId !== urlId) {
                     // Possible stale cache: clear and retry once
-                    if (player) playerVideoIdCache.delete(player);
+                    invalidatePlayerVideoIdCache(player);
                     playerVideoId = player ? getPlayerVideoId(player) : null;
                 }
 
@@ -18914,7 +18931,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
 
                 // Avoid stale IDs during miniplayer src/SPA transition.
-                playerVideoIdCache.delete(player);
+                invalidatePlayerVideoIdCache(player);
                 return true;
             },
             resolveVideoId: (_videoEl, player) => {
@@ -19443,12 +19460,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return { success: false, reason: 'early_exit_no_element_or_ad' };
             }
             if (!RouteContextResolver.isContextLocked(videoEl, type)) {
-                SessionTelemetry.emit('routingDecision', {
-                    decision: 'reject',
-                    reason: 'contextMismatchBeforeSave',
-                    context: type,
-                    videoId
-                });
+                logRoutingDecision({ decision: 'reject', reason: 'contextMismatchBeforeSave', context: type, videoId });
                 return { success: false, reason: 'context_mismatch' };
             }
 

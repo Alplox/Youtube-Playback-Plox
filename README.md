@@ -152,7 +152,6 @@ This project is licensed under the **MIT License** - see the [LICENSE](./LICENSE
 
 ## Acknowledgments
 
-- [YouTube Helper API](https://greasyfork.org/es/scripts/549881-youtube-helper-api) - [MIT](https://spdx.org/licenses/MIT.html)
 - [flagpedia.net](https://flagpedia.net) - [CC0 License](https://creativecommons.org/publicdomain/zero/1.0/)
 - [IconaMoon](https://github.com/dariushhpg1/IconaMoon) - [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/)
 - [Octicons](https://github.com/primer/octicons/) - [MIT](https://spdx.org/licenses/MIT.html)

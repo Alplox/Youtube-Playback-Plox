@@ -7,7 +7,7 @@ This document describes the operational flow of the userscript from when YouTube
 The main path covers:
 
 - Initialization of the global script.
-- Synchronization with YouTube navigation events and YouTube Helper API.
+- Synchronization with YouTube navigation events.
 - Video detection by `VideoObserverManager`.
 - Context resolution by `RouteContextResolver`.
 - Unified entry point `processMediaVideo()`.

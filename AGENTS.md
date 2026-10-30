@@ -113,6 +113,8 @@ youtube-playback-plox.user.js
 │     iteration in stopAllSessions(), FailSafeManager, and navigation.
 │     Explicit cleanup via SessionOrchestrator.finalizeSession().
 │
+├── isSessionStale()            ← Single check for replaced/finalized sessions
+│
 ├── SessionOrchestrator         ← Session state machine
 │     │   States: idle→starting→active→inAd/transitioning→stopping→finalized
 │     ├── startSession(videoEl, context, videoId, player, source)
@@ -244,10 +246,9 @@ FORBIDDEN: `var`
 
 When `startProcessingSession` does an `await` internally (e.g. `getCascadedVideoInfo`), the state can change during the wait. Always verify after any await:
 
-1. `activeProcessingSessions.get(videoEl) === sessionRef` - confirms the session was not replaced by a more recent one.
-2. `!sessionRef.isFinalized` - confirms it was not explicitly terminated (e.g. by navigation cleanup).
-3. Register `sessionRef.intervalId` immediately upon creating the interval, not at the end of setup, so `finalizeSession` can always clean it.
-4. Always use the session checks above. Navigation guards based on counters (`navIdAtStart !== globalNavigationId`) are not reliable - these variables were eliminated in favor of direct session reference checks.
+1. `!isSessionStale(videoEl, sessionRef)` - confirms the session was not replaced by a more recent one and was not explicitly terminated (e.g. by navigation cleanup).
+2. Register `sessionRef.intervalId` immediately upon creating the interval, not at the end of setup, so `finalizeSession` can always clean it.
+3. Always use `isSessionStale()` (or the raw checks it wraps) - navigation guards based on counters (`navIdAtStart !== globalNavigationId`) are not reliable; those variables were eliminated in favor of direct session reference checks.
 
 ---
 
@@ -341,6 +342,7 @@ maintain `docs/estado_tarea.md` to allow handoff between AI agents:
 | Get Inline Preview player        | `DOMHelpers.getInlinePreviewPlayer()`             |
 | Get Inline Preview video         | `DOMHelpers.getInlinePreviewPlayerVideo()`        |
 | Re-queue video in observer       | `VideoObserverManager.enqueueWithResolver()`      |
+| Check if a session is stale      | `isSessionStale(videoEl, session)`                |
 | Finalize session manually        | `SessionOrchestrator.finalizeSession()`           |
 | Show toast to user               | `showFloatingToast(message, duration?, options?)` |
 | Create DOM element               | `createElement(tag, options)`                     |

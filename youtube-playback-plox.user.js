@@ -191,27 +191,71 @@
     // current logger after a hot reload.
     if (!window.__YPP_ERROR_TRACKERS_INSTALLED__) {
         window.__YPP_ERROR_TRACKERS_INSTALLED__ = true;
-        window.addEventListener('error', (e) => {
-            const msg = (e.message || e.error?.message || '').toLowerCase();
-            if (msg.includes('resizeobserver loop') || msg.includes('undelivered notifications')) {
+
+        /** Maximum identical console messages allowed per rolling window. */
+        const ERROR_LOG_MAX_PER_WINDOW = 5;
+        /** Rolling window for the per-message console budget (ms). */
+        const ERROR_LOG_WINDOW_MS = 60_000;
+
+        /** @type {Map<string, number>} Message key -> occurrences inside the window. */
+        const errorLogCounters = new Map();
+        let errorLogWindowStart = Date.now();
+
+        /**
+         * Applies a per-message console budget so a single recurring failure
+         * cannot flood the console, while still letting the first occurrences
+         * through.
+         * @param {string} key - Stable message identity (message + source).
+         * @returns {boolean} True when the message may be logged.
+         */
+        const consumeErrorLogBudget = (key) => {
+            const now = Date.now();
+            if (now - errorLogWindowStart > ERROR_LOG_WINDOW_MS) {
+                errorLogWindowStart = now;
+                errorLogCounters.clear();
+            }
+            const occurrences = (errorLogCounters.get(key) || 0) + 1;
+            errorLogCounters.set(key, occurrences);
+            return occurrences <= ERROR_LOG_MAX_PER_WINDOW;
+        };
+
+        /**
+         * Decides whether an error event belongs to this userscript. Events
+         * without a source ("Script error.") come from cross-origin frames or
+         * browser internals and must not be attributed to Playback Plox.
+         * @param {ErrorEvent} event
+         * @returns {boolean} True when the event can be attributed to this script.
+         */
+        const isOwnErrorEvent = (event) => {
+            const filename = typeof event.filename === 'string' ? event.filename : '';
+            if (filename.includes('youtube-playback-plox')) return true;
+            const stack = event.error?.stack;
+            return typeof stack === 'string' && stack.includes('youtube-playback-plox');
+        };
+
+        window.addEventListener('error', (event) => {
+            const message = (event.message || event.error?.message || '').toLowerCase();
+            if (message.includes('resizeobserver loop') || message.includes('undelivered notifications')) {
                 return;
             }
+            if (!isOwnErrorEvent(event)) return;
 
-            if (e.filename && e.filename.includes('youtube-playback-plox')) {
-                window.MyScriptLogger.error('Global Error', e.error || e.message);
-            } else if (!e.filename || e.filename === '') {
-                window.MyScriptLogger.error('DOM Error', e.error || e.message);
-            }
+            const source = typeof event.filename === 'string' ? event.filename : '';
+            if (!consumeErrorLogBudget(`${message}|${source}`)) return;
+            window.MyScriptLogger.error('Global Error', event.error || event.message);
         });
 
-        window.addEventListener('unhandledrejection', (e) => {
-            if (e.reason && (e.reason instanceof Error) && e.reason.stack && e.reason.stack.includes('youtube-playback-plox')) {
-                window.MyScriptLogger.error('Unhandled Promise', e.reason);
-            } else if (e.reason && e.reason.message && e.reason.message.includes('getCascadedVideoInfo')) {
-                window.MyScriptLogger.error('Unhandled Promise', e.reason);
-            } else if (e.reason && e.reason.stack === undefined) {
-                window.MyScriptLogger.error('Unhandled Promise', e.reason);
-            }
+        window.addEventListener('unhandledrejection', (event) => {
+            const reason = event.reason;
+            const isOwnRejection =
+                (reason instanceof Error && typeof reason.stack === 'string' &&
+                    reason.stack.includes('youtube-playback-plox')) ||
+                (reason?.message && String(reason.message).includes('getCascadedVideoInfo'));
+            if (!isOwnRejection) return;
+
+            const key = `${reason?.message || String(reason)}|unhandledrejection`;
+            if (!consumeErrorLogBudget(key)) return;
+            window.MyScriptLogger.error('Unhandled Promise', reason);
         });
     }
 })();
@@ -6560,6 +6604,22 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             storageGlobalRevision !== snapshot.globalRevision;
     }
 
+    /**
+     * Centralized storage-revision retry guard.
+     * Returns true when the revision changed and a retry should be performed
+     * (caller must invoke get() with retryCount+1). Throws when retries exhausted.
+     * Does not reference get() so scope analysis stays clean.
+     * @param {string} key
+     * @param {{keyRevision:number,globalRevision:number}} startingRevision
+     * @param {number} retryCount
+     * @returns {boolean}
+     */
+    function storageRevisionRetryNeeded(key, startingRevision, retryCount) {
+        if (!storageRevisionChanged(key, startingRevision)) return false;
+        if (retryCount >= 2) throw new Error(`Storage changed repeatedly while reading ${key}`);
+        return true;
+    }
+
     if (storageChangeChannel) {
         storageChangeChannel.addEventListener('message', (event) => {
             const key = event.data?.key;
@@ -7341,10 +7401,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         ? storeResult.value
                         : storeResult?.result?.value;
                     primaryRawValue = raw;
-                    if (storageRevisionChanged(key, startingRevision)) {
-                        if (retryCount < 2) return get(key, { retryCount: retryCount + 1, skipQueue });
-                        throw new Error(`Storage changed repeatedly while reading ${key}`);
-                    }
+                    if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
                     const idbValue = parseStoredRecord(raw, { allowPrimitive });
                     let fallbackValue = null;
                     let hasAmbiguousTombstone = false;
@@ -7367,10 +7424,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                 storageCache.delete(key);
                                 isBatchStorageCacheValid = false;
                                 invalidateSessionSavedData(key);
-                                if (storageRevisionChanged(key, startingRevision)) {
-                                    if (retryCount < 2) return get(key, { retryCount: retryCount + 1, skipQueue });
-                                    throw new Error(`Storage changed repeatedly while reading ${key}`);
-                                }
+                                if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
                                 return null;
                             }
                         }
@@ -7383,10 +7437,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         logWarn('StorageAsync', `GM fallback reconciliation failed for ${key}`, fallbackError);
                     }
 
-                    if (storageRevisionChanged(key, startingRevision)) {
-                        if (retryCount < 2) return get(key, { retryCount: retryCount + 1, skipQueue });
-                        throw new Error(`Storage changed repeatedly while reading ${key}`);
-                    }
+                    if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
                     if (idbValue !== null) {
                         let selected = hasAmbiguousTombstone
                             ? { record: idbValue, usedFallback: false }
@@ -7405,10 +7456,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                 logWarn('StorageAsync', `Could not reconcile newer GM fallback into IDB for ${key}`, reconcileError);
                             }
                         }
-                        if (storageRevisionChanged(key, startingRevision)) {
-                            if (retryCount < 2) return get(key, { retryCount: retryCount + 1, skipQueue });
-                            throw new Error(`Storage changed repeatedly while reading ${key}`);
-                        }
+                        if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
                         activeBackend = idbUnavailableForSession ? 'gm' : 'idb';
                         if (hasAmbiguousTombstone || fallbackValue !== null || selected.usedFallback) rememberGMFallbackKey(key);
                         else knownGMFallbackKeys.delete(key);
@@ -7424,10 +7472,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             markIDBUnavailable();
                             logWarn('StorageAsync', `Could not restore GM fallback into IDB for ${key}`, reconcileError);
                         }
-                        if (storageRevisionChanged(key, startingRevision)) {
-                            if (retryCount < 2) return get(key, { retryCount: retryCount + 1, skipQueue });
-                            throw new Error(`Storage changed repeatedly while reading ${key}`);
-                        }
+                        if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
                         activeBackend = idbUnavailableForSession ? 'gm' : 'idb';
                         rememberGMFallbackKey(key);
                         // The mirror supplied a readable record, so the
@@ -7470,19 +7515,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     storageCache.delete(key);
                     isBatchStorageCacheValid = false;
                     invalidateSessionSavedData(key);
-                    if (storageRevisionChanged(key, startingRevision)) {
-                        if (retryCount < 2) return get(key, { retryCount: retryCount + 1, skipQueue });
-                        throw new Error(`Storage changed repeatedly while reading ${key}`);
-                    }
+                    if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
                     return null;
                 }
                 if (!allowPrimitive && fallbackValue !== null && (typeof fallbackValue !== 'object' || Array.isArray(fallbackValue))) {
                     throw new TypeError('GM fallback video record is not an object');
                 }
-                if (storageRevisionChanged(key, startingRevision)) {
-                    if (retryCount < 2) return get(key, { retryCount: retryCount + 1, skipQueue });
-                    throw new Error(`Storage changed repeatedly while reading ${key}`);
-                }
+                if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
                 // A failed primary read is not proof that the record is absent.
                 // Only return null when the primary read succeeded; otherwise
                 // propagate the backend failure so strict callers do not treat
@@ -12648,7 +12687,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * parseYouTubeResource("https://www.youtube.com/@NASA/live")
      * // { type: "live", id: null, channelId: "NASA", isHandle: true }
      */
-    function parseYouTubeResource(input) {
+    function _parseYouTubeResourceImpl(input) {
         if (!input || typeof input !== 'string') return null;
 
         const trimmed = input.trim();
@@ -12792,6 +12831,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         return null;
     }
+
+    // Memoized wrapper: parseYouTubeResource is a pure function of its input string.
+    const _parseYouTubeResourceCache = new Map();
+    const parseYouTubeResource = (input) => {
+        if (typeof input !== 'string') return _parseYouTubeResourceImpl(input);
+        const cached = _parseYouTubeResourceCache.get(input);
+        if (cached !== undefined) return cached;
+        const result = _parseYouTubeResourceImpl(input);
+        if (_parseYouTubeResourceCache.size >= 100) _parseYouTubeResourceCache.clear();
+        _parseYouTubeResourceCache.set(input, result);
+        return result;
+    };
 
     // MARK: 📺 Get YouTube Video ID from URL
     /**
@@ -25286,6 +25337,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             // 3. Clean up resources when page closes to prevent memory leaks
             addDisposableListener(window, 'unload', () => {
+                if (backupIntervalId) { clearInterval(backupIntervalId); backupIntervalId = null; }
+                if (backupStartTimerId) { clearTimeout(backupStartTimerId); backupStartTimerId = null; }
                 cleanupGlobalListeners();
                 cleanupThemeObserver();
                 logLog('initializeGlobal', '🧹 Cleanup of resources when page closes');

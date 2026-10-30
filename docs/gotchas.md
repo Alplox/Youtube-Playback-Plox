@@ -50,6 +50,16 @@ The in-script error log and copied logs now include the error type, so you can t
 - `Error in IndexedDB queue (InvalidStateError | TransactionInactiveError)` → dead/closed connection mid-session, now self-healing via `onclose`.
 - `Error in IndexedDB queue (QuotaExceededError)` → storage full; persists after reload until data is freed. Clear via `indexedDB.deleteDatabase('YTPlaybackPloxDB')` + reload (loses saved data).
 
+#### Global error tracker attribution (v0.0.13)
+
+`window.addEventListener('error')` only logs events it can attribute to this script: the `filename` must contain `youtube-playback-plox`, or `event.error.stack` must reference it. A source-less `Script error.` is cross-origin/browser noise and is dropped, not logged as `[DOM Error]`.
+
+Consequences when reading logs:
+
+- A genuine error whose `filename` and stack were both stripped by the browser will not appear. That is the intended trade-off: unattributable errors were pure noise and hid the ones that mattered.
+- Each distinct message (message + source) is capped at 5 console lines per minute. The in-script `_errorLogs` history still keeps the last 50 entries, so the modal can show occurrences that the console budget suppressed.
+- `unhandledrejection` follows the same rule: only rejections whose stack references this script (or whose message mentions `getCascadedVideoInfo`) are logged, with the same per-message budget.
+
 #### YouTube-Helper-API was removed as a dependency (0.0.13)
 
 `YouTube-Helper-API.js` (GreasyFork 549881) is **no longer** loaded via `@require`. Its `trackPlaybackProgress()` captured `appState.player.videoElement` for the guard but re-read the global inside the `timeupdate` handler:
@@ -74,12 +84,9 @@ What is lost without the library (all were already optional):
 
 If another script injects the library into the page, the integration still detects it (`youtubeHelperApi`, `unsafeWindow.youtubeHelperApi`, `youtubeHelperRegistry`) and uses it purely as an extra metadata source. Absence is a `logLog`, not an error.
 
-#### Block-scoped values used outside their block (since 0.0.13)
+#### Block-scoped values used outside their block (v0.0.13)
 
-The script is one ~19k-line IIFE, so a `const` declared inside an `if`/`try` block is invisible to the code after that block. Both of these were plain `ReferenceError`s at runtime that `node --check` and `audit-lint.mjs` cannot see:
-
-- `repairedRows` in `StorageAsync.getCompleteVideoSnapshot()` was declared inside the `if (IndexedDBAdapter.isSupported)` branch but returned by the queued capture callback after the branch. Every export/backup threw `ReferenceError: repairedRows is not defined`.
-- `snapshotTime` in `performClearAllData()` was declared inside the re-read `try` but passed to `Storage.del()` after it. The `ReferenceError` was swallowed by the surrounding `catch`, so **"delete all data" reported every key as failed and deleted nothing**.
+The script is one ~19k-line IIFE, so a `const` declared inside an `if`/`try` block is invisible to the code after that block. `node --check` accepts it and `audit-lint.mjs` does not track scopes, so the failure only appears at runtime as a `ReferenceError`.
 
 Rules of thumb:
 
@@ -87,7 +94,7 @@ Rules of thumb:
 - A `ReferenceError` raised while evaluating arguments lands in the surrounding `catch` and looks like an unrelated failure - check the logged error name before assuming the operation itself is at fault.
 - `node scripts/scope-check.mjs` (part of `pnpm run audit` and of CI) parses the file with acorn + eslint-scope and fails on any reference that does not resolve in scope. Names probed with `typeof x !== 'undefined'` (optional integrations such as `youtubeHelperApi`) are allow-listed; extend it with `--allow name1,name2` if a new optional global shows up.
 
-#### Unreadable records are quarantined, not fatal (since 0.0.13)
+#### Unreadable records are quarantined, not fatal (v0.0.13)
 
 `Malformed IndexedDB value for key "<id>"` / `Malformed IndexedDB JSON for key "<id>"` means a row in `savedVideos` exists but its value cannot be read (not a string, not a serializable object, or not valid JSON). Before 0.0.13 that single row failed the whole `getAll()` transaction, so `keys()` returned `Cannot enumerate a complete video key set from durable storage` (saved-videos modal shows only the error state) and `getSyncData()` failed, killing every export and GitHub backup for the whole database.
 
@@ -107,7 +114,7 @@ Current behaviour:
 - A successful save, a read that restores the mirror into IDB, or a read that resolves an empty row as absent clears the quarantine entry.
 - `IDB quarantine: none | N unreadable row(s) excluded from the list: E empty, M unreadable (...)` in the copied log header.
 
-#### Gist backup 404 (since 0.0.13)
+#### Gist backup 404 (v0.0.13)
 
 `GitHub backup error: 404` on `PATCH /gists/{id}` means the stored gist id no longer exists or belongs to another token. The backup now retries once as `POST /gists` (creating a new secret gist and persisting its id). If that second request also fails, the toast/log carries GitHub's own message - typically a token without the `gist` scope, which GitHub also answers with 404.
 
@@ -572,7 +579,7 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 - **No miniplayer / inline previews on mobile**: `ytd-miniplayer` and `miniplayer-is-active` never appear (sticky player persists); desktop preview containers absent (`ytm-video-preview-portal` is tap-navigated). All getters return null and callers are null-safe, so these contexts stay dormant.
 - **Small screens**: saved-videos modal fits via the 600px media query; toasts cap at 300px; floating button defaults off.
 
-## Save-clock vs player-API clock + GM probe timeout (v0.0.13, Fase 1)
+## Save-clock vs player-API clock + GM probe timeout (v0.0.13)
 
 - **A legitimate element `currentTime` of `0` is data, not a missing value**: `videoEl.currentTime || api.getCurrentTime()` treated `0` as absent and persisted the player-API clock, which on livestreams lives in a different coordinate space (observed `watchProgress: 6121747`, modal showed "Progress 1700:29:07"). Resolve both clocks with explicit finite-number checks (`0` never triggers the API fallback); wrap API reads so a throwing getter degrades to "no fallback" instead of an exception.
 - **Never persist a time that overshoots the known duration**: if `currentTime > duration * 1.05 + 1`, reject the save as `implausible_time`. Both new reasons (`implausible_time`, `element_reset_unconfirmed`) count toward the silent-failure toast like the other indicative save reasons.
@@ -589,9 +596,43 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 - **Ended lives degrade gracefully**: when the stream becomes VOD, `apiDur == elDur` so the window start is 0 and the mapping reduces to the saved absolute position. Records saved before this change have no absolute fields and use the legacy window-relative seek.
 - **Large-string harness transmission corrupts**: pasting multi-KB base64 through tool calls can silently duplicate/drop segments (observed: 7870 chars stored for a 3935-char chunk; eval `SyntaxError` on byte-different assembly). For live validation, gzip the patch set, transmit ≤4 KB, and compare a djb2 hash + length in-page against the node-computed values *before* evaluating.
 
-## Session-scoped latches & selector interpolation (v0.0.13, Fase 2)
+## Session-scoped latches & selector interpolation (v0.0.13)
 
 - **`isUserSeeking` is a bounded latch, not a permanent flag**: it is set on a user `seeked` (never on a script seek, which goes through `_scriptSeekPending`) and cleared by a session-scoped timeout after `USER_SEEK_HOLD_MS` (1.5 s). Every new user seek re-arms it via a `_userSeekToken` guard, so a scrub does not extend forever; the timer is a `createSessionTimeout` and dies with `finalizeSession`. Do not reintroduce a latch with no release path: the persistence rescue (tick), the rebound re-seek (after resume) and the resume retry all check it, and one stuck `true` silently disables all three for the session.
 - **The anti re-seek guard is per context set** (`RESUME_REAPPLY_GUARD_CONTEXTS` = watch/shorts/miniplayer): a session rebuilt after a mid-roll ad must not re-apply the saved seek when playback is already at/past it. `preview` and `live` are deliberately outside the set — their resume paths were never guarded and are left untouched. `forceResumeTime` always wins (the guard returns `false`).
 - **Never interpolate an unvalidated id into a CSS selector**: `AdDetector.isVideoIdAnAd` builds `a[href*="…"]` / `ytd-thumbnail[video-id="…"]` from a video id. A quote or bracket throws `SyntaxError` on every call — the catch fails open (treated as "not an ad") and spams the log each tick. Ids are validated against `VIDEO_ID_PATTERN` first (shared with `parseYouTubeResource`); note `CSS.escape` is NOT a substitute, it escapes identifiers, not the contents of a quoted attribute value.
 - **`resetProgressBarGradient(type)` scopes its sweep**: `shorts` skips the `#movie_player` scan (a Shorts context owns no movie player), while watch/miniplayer keep the full `resetTargets` list because mobile watch paints the Shorts `ytProgressBar*` line. Both NodeList lookups run through `DOMHelpers.get` with a 250 ms TTL; that cache is what makes the per-tick call cheap, so do not replace it with a fresh `document.querySelectorAll` — and remember a cached static NodeList cannot see elements mounted inside the TTL (harmless for a reset, fatal for a lookup that must be fresh).
+
+## Ad lifecycle: the tick must not mistake an ad for a context mismatch (v0.0.13)
+
+- **Root cause of the dead tracking during ads**: `RouteContextResolver.isContextLocked()` answers `false` with `canProcessFailed(within_ad_container)` while an ad runs, and the tick evaluated that lock *before* its kill switch. The 3-tick mismatch tolerance then finalized the session as `context_mismatch`, so the `waitForAdClear()` branch at the kill switch — the code that exists exactly to re-enqueue after an ad — was unreachable. Saving only came back when something else mutated the DOM (YouTube reassigning `src`, a navigation).
+- **The fix keeps one source of truth**: the tick computes `isAdUnlock = !isLocked && AdDetector.isNodeWithinAdContainer(videoEl)` only when the context is already unlocked (a healthy tick pays nothing) and treats that as "locked", so the ad flows through the regular kill switch: finalize reason `Ad detected` + `VideoObserverManager.waitForAdClear(videoEl, type)`, which polls (1 s) plus `timeupdate`/`play` and re-enqueues when the ad clears. The kill switch reuses that same scan (`isCurrentlyAd ?? (isAdUnlock || …)`), so the unlocked tick costs exactly one scan.
+- **Don't "simplify" this away**: if the ad ever stops being treated as a definite state (e.g. moving the check back after the lock, or making `isContextLocked` lie in the other direction), the session dies again with the wrong reason and the recovery monitor is never scheduled.
+
+## Init must never wait on the network (v0.0.13)
+
+- **The remote translations file is an enhancement, not a precondition**: `loadTranslations()` tries two URLs with a 5 s timeout each (up to 10 s) and fetches ~1.25 MB of every language, while the script already embeds `FALLBACK_TRANSLATIONS` — which contains **only `en-US`**, so no other language can be validated locally. It used to be awaited inside `Promise.all` with the settings load, so a blackholed network froze the whole script: no observers, no tracking, no UI.
+- **Current shape**: init awaits only the local settings read, paints with the embedded fallback, and applies the remote payload in a `.then()` guarded by `isInstanceActive()`, re-validating the language with `resolveStartupLanguage()`. If you touch this, keep the fallback synchronous and the swap idempotent — `t()` cascades to `FALLBACK_TRANSLATIONS` only while `TRANSLATIONS` is empty.
+- **`loadTranslations()` resolves with the embedded `LOCAL_FALLBACK` when the network fails**, so "a payload arrived" is NOT "the remote catalog arrived". The guard is an identity check (`payload.TRANSLATIONS !== FALLBACK_TRANSLATIONS`); anything that makes that check true for the local fallback re-opens the bug where a stored language is discarded and overwritten with `en-US`.
+- **Language resolution has two modes on purpose**: while no remote catalog has been applied (`remoteTranslationsApplied === false`), `setLanguage()` and the startup resolver **trust** the requested language, because a language missing from both sources proves nothing yet. Once a catalog lands, the normal validation applies and a stale stored language is corrected (and persisted) through `resolveStartupLanguage()`. Do not "simplify" the two modes into one check: with only `en-US` embedded, a single unconditional check resets every non-English user.
+- **`startupLanguageApplied` exists to break a real race**: the translations `.then()` can correct the language before the startup block finishes writing `cachedSettings.language`. It is declared before the handler is registered (reading it from the handler before the `let` evaluates would be a TDZ `ReferenceError`), and the startup block skips its own assignment/save when the correction already ran.
+- **Known offline limitation (by design)**: with no remote catalog the language list in the settings modal only contains the embedded `en-US`, so a non-English user sees a single English option while their language stays active. Fixing it needs a name source for codes absent from `LANGUAGE_FLAGS`; the strings still cascade to the embedded fallback in the meantime.
+
+## Finishing a video is not an element reset (v0.0.13)
+
+- **A finished video drops the element clock to `0`, and that is not a failure**: on the ended screen YouTube resets `videoEl.currentTime` (and may unload the media, leaving `duration` unusable) while `dataset.lastSavedTime` / `session.savedData.watchProgress` still hold the near-end position. The reset guard used to answer `element_reset_unconfirmed` on every tick: a "Save blocked" toast after 8 blocks and a Persistence Rescue that sought back to the end, which ended the video again and reset the clock to `0` — an endless save/rescue loop.
+- **The completion zone alone cannot prove the end when ticks were throttled**: a background tab throttles the save interval to ~1/min, so the last save can sit at 92 % of the video (observed: `16:34` of a `17:59` video) when playback actually finished. The `staticFinishPercent` threshold (95 %) legitimately rejects that as a reset, so the completion zone cannot carry the decision on its own.
+- **`session.naturalEnd` is the reliable signal**: a per-session `ended` listener sets it and persists the completion while the element clock still reports the end (`saveStatus` with `expectedSession`, one retry if a tick save was in flight). It is independent from `videoEl.ended`, which the reset to `0` clears. `session.knownDuration` remembers the largest duration seen while the media was loaded, because the ended screen unloads it.
+- **Signals that mark the natural end**: `videoEl.ended`, `session.naturalEnd`, `isPlayerReportingEnd(player)` (`getPlayerState() === 0`, still ENDED after the clock reset), `session.savedData.isCompleted`, or a known progress inside `isProgressInCompletionZone(progress, duration)` (same `staticFinishPercent` threshold `internalSaveVideoGeneric` uses, 1 s tolerance; the duration falls back to `session.videoInfo.lengthSeconds` / `session.knownDuration` / `session.savedData.lengthSeconds`). Any of them makes `saveStatus` return the benign `playback_completed_reset` (outside `indicativeReasons`, one `logInfo` per session through `session.completionResetLogged`) and keeps the known progress.
+- **The rescue is gated by the same state**: `rescueDue` requires `!videoEl.ended`, `!session.naturalEnd`, `!isPlayerReportingEnd(player)`, `!savedData.isCompleted` and `!isProgressInCompletionZone(...)`. Do not remove those conditions: seeking a completed record to its own end only replays the last seconds and reproduces the loop.
+- **The session is intentionally not finalized on `ended`**: YouTube's replay restarts playback on the same `<video>` without a `src` mutation, and the observer only re-enqueues on `src`/childList changes. The session stays alive, ended ticks return the benign reason, and normal saving resumes as soon as `currentTime` moves past 1 s (`completionResetLogged` is re-armed there, and `naturalEnd` is cleared only when the element is playing more than 5 s below the known end, so the ended element itself never clears it).
+
+## Redundancy refactor invariants (v0.0.13)
+
+- **Never pass a `const` function reference to a factory before its declaration**: a factory that stores its callback for later (e.g. `createClearSelectionButton(store, refreshPlaylistState)`) evaluates it while the arrow is still in the temporal dead zone (`ReferenceError`). Pass a thunk (`() => refreshPlaylistState()`); function declarations are hoisted and need no thunk.
+- **`commitImportedEntries()` returns four counters with different meanings**: `writtenCount` (batch writes), `rereadSkippedCount` (re-read merge rejected the incoming record), `batchSkippedCount` (`setMany` merge skipped) and `unwrittenCount` (`refreshed - written - batchSkipped`, only meaningful when `success === false`). The JSON importer adds `reread + batch + unwritten` to `skipped`; the FreeTube importer adds only `reread` to `skippedCount` and `unwritten` to `failedCount`. Do not collapse them into one "skipped" field: doing so silently changes both toasts.
+- **Shared helpers cannot log with a dynamic module name**: `audit-lint` W02 rejects `logError(variable, ...)`. `commitImportedEntries()` wraps the re-read failure in an `Error` whose message names the key (`{ cause }` keeps the original) and lets each caller log with its own literal module name.
+- **`isSessionStale(videoEl, null)` is `true` on purpose**: it treats a missing session as stale. Sites that previously checked only `session.isFinalized` and relied on `null` meaning "nothing to do" must keep their own `session &&` guard or verify that returning early is equivalent. The helper replaced only the exact `activeProcessingSessions.get(videoEl) !== session || session.isFinalized` forms (and the positive `=== … && !isFinalized` form).
+- **`_clearRenderedState()` forgets, it does not dispose**: it clears `renderedItems`, `renderingItems` and `renderingVersions` only. Callers must dispose first: `updateItems()` disposes orphan DOM nodes found in the spacer, `refresh()`/`destroy()` call `_disposeRenderedItem()` for every tracked value. Calling the helper alone leaks detached item resources and skips `onItemDispose`.
+- **`cancelPendingDisplayClear()` deletes the timeout it cancels**: `scheduleDisplayClear()` calls it before installing the new timer, so the map never holds a fired or replaced id. Replacing the helper with a bare `clearTimeout` without the `delete` reactivates the stale-timeout path the refactor removed.
+- **The focus trap keeps DOM order across scopes**: `trapTabFocus(event, scopes)` filters disconnected scopes, concatenates their focusables in the order given, then filters by `offsetParent !== null`. Swapping the order (e.g. footer menu before the video list) changes which element receives focus on wrap.

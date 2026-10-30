@@ -16767,6 +16767,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // MARK: 📡 Video Observer Manager
     // ============================================================================================================
     /**
+     * Queue size from which enqueueVideo sweeps detached videos. Declared here
+     * (not with the modal/UI constants further down) because enqueueVideo reads
+     * it during the same evaluation pass: a later `const` would be in its TDZ.
+     * @type {number}
+     */
+    const PENDING_VIDEOS_SWEEP_THRESHOLD = 10;
+
+    /**
      * Handles video observation and processing in isolation by type.
      */
     const VideoObserverManager = (() => {
@@ -21470,9 +21478,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     /** Minimum visible animation time for the storage recalculate icon. @type {number} */
     const RECALC_MIN_ANIMATION_MS = 500;
-
-    /** Queue size from which enqueueVideo sweeps detached videos. @type {number} */
-    const PENDING_VIDEOS_SWEEP_THRESHOLD = 10;
 
     /** Size from which playlist cooldowns prune expired entries. @type {number} */
     const PLAYLIST_COOLDOWN_SWEEP_THRESHOLD = 200;

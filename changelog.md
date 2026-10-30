@@ -62,6 +62,7 @@
 - **Silent failures are now diagnosable**: `initializeGlobal`'s `setLanguage`/`setSettings` rejections and the `setFilters` queue-reset catch route through `logWarn` instead of empty `.catch(() => {})`.
 - **Routing telemetry has one payload shape**: the seven `routingDecision` emits (enqueue, dedupe, start, stop, handoff and the two reject paths) now go through `logRoutingDecision()`, which drops absent fields instead of logging `undefined` and keeps a canonical key order (`decision`, `reason`, `context`, `videoId`, `toVideoId`, `sessionId`, `transitionToken`, `handoffMode`) so log lines stay comparable.
 - **Player-ID cache invalidation has one entry point**: the seven `playerVideoIdCache.delete()` calls scattered across watch/shorts/miniplayer/preview src changes, the ID-retry path and the Shorts mismatch check now share `invalidatePlayerVideoIdCache(player)`, which no-ops on a nullish player (one call site deleted unguarded and could throw on a missing player).
+- **`PENDING_VIDEOS_SWEEP_THRESHOLD` is declared before its reader**: the constant lived with the modal/UI constants ~4 300 lines below `enqueueVideo()`, which reads it while filling `pendingVideos`. No call reached the temporal dead zone in practice, but the ordering was a latent `ReferenceError`; it now sits at the top of the Video Observer Manager section.
 
 ## 0.0.12-7
 

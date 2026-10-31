@@ -12,16 +12,30 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.20.0
+
+      # pnpm 11 requires Node >= 22.13 (it loads the built-in `node:sqlite`),
+      # so the runner must use Node 22+ for `pnpm store path` in setup-node's cache step.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
+          cache: 'pnpm'
+
+      - name: Install (pnpm)
+        run: pnpm install --frozen-lockfile
 
       - name: Syntax check (userscript)
         run: node --check youtube-playback-plox.user.js
 
       - name: AGENTS.md rule lint + release consistency
         run: node scripts/audit-lint.mjs
+
+      - name: Scope check (no unresolved references)
+        run: node scripts/scope-check.mjs
 
       - name: Validate translations
         run: node scripts/validate-translations.mjs

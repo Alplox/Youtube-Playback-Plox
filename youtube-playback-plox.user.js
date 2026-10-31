@@ -111,16 +111,19 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.12-7
+// @version      0.0.13
 // @author       Alplox
 // @match        https://www.youtube.com/*
+// @match        https://m.youtube.com/*
 // @exclude      https://www.youtube.com/live_chat*
+// @exclude      https://m.youtube.com/live_chat*
 // @icon         https://raw.githubusercontent.com/Alplox/StartpagePlox/refs/heads/main/assets/favicon/favicon.ico
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_deleteValue
 // @grant        GM_listValues
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // @grant        GM_xmlhttpRequest
 // @grant        GM_addStyle
 // @run-at       document-end
@@ -128,7 +131,7 @@
 // @license      MIT
 // @downloadURL  https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.user.js
 // @updateURL    https://raw.githubusercontent.com/Alplox/Youtube-Playback-Plox/refs/heads/main/youtube-playback-plox.meta.js
-// @require      https://update.greasyfork.org/scripts/549881/1841778/YouTube%20Helper%20API.js
+// YouTube-Helper-API.js v1.1.1 was removed as a dependency; (see docs/gotchas.md).
 // ==/UserScript==
 
 (function () {
@@ -182,29 +185,79 @@
         }
     };
 
-    // Global Error Trackers
-    window.addEventListener('error', (e) => {
-        const msg = (e.message || e.error?.message || '').toLowerCase();
-        if (msg.includes('resizeobserver loop') || msg.includes('undelivered notifications')) {
-            return;
-        }
+    // Global Error Trackers. The IIFE can be evaluated more than once by a
+    // userscript manager; install this page-lifetime pair only once. Each handler
+    // resolves window.MyScriptLogger dynamically, so it keeps logging through the
+    // current logger after a hot reload.
+    if (!window.__YPP_ERROR_TRACKERS_INSTALLED__) {
+        window.__YPP_ERROR_TRACKERS_INSTALLED__ = true;
 
-        if (e.filename && e.filename.includes('youtube-playback-plox')) {
-            window.MyScriptLogger.error('Global Error', e.error || e.message);
-        } else if (!e.filename || e.filename === '') {
-            window.MyScriptLogger.error('DOM Error', e.error || e.message);
-        }
-    });
+        /** Maximum identical console messages allowed per rolling window. */
+        const ERROR_LOG_MAX_PER_WINDOW = 5;
+        /** Rolling window for the per-message console budget (ms). */
+        const ERROR_LOG_WINDOW_MS = 60_000;
 
-    window.addEventListener('unhandledrejection', (e) => {
-        if (e.reason && (e.reason instanceof Error) && e.reason.stack && e.reason.stack.includes('youtube-playback-plox')) {
-            window.MyScriptLogger.error('Unhandled Promise', e.reason);
-        } else if (e.reason && e.reason.message && e.reason.message.includes('getCascadedVideoInfo')) {
-            window.MyScriptLogger.error('Unhandled Promise', e.reason);
-        } else if (e.reason && e.reason.stack === undefined) {
-            window.MyScriptLogger.error('Unhandled Promise', e.reason);
-        }
-    });
+        /** @type {Map<string, number>} Message key -> occurrences inside the window. */
+        const errorLogCounters = new Map();
+        let errorLogWindowStart = Date.now();
+
+        /**
+         * Applies a per-message console budget so a single recurring failure
+         * cannot flood the console, while still letting the first occurrences
+         * through.
+         * @param {string} key - Stable message identity (message + source).
+         * @returns {boolean} True when the message may be logged.
+         */
+        const consumeErrorLogBudget = (key) => {
+            const now = Date.now();
+            if (now - errorLogWindowStart > ERROR_LOG_WINDOW_MS) {
+                errorLogWindowStart = now;
+                errorLogCounters.clear();
+            }
+            const occurrences = (errorLogCounters.get(key) || 0) + 1;
+            errorLogCounters.set(key, occurrences);
+            return occurrences <= ERROR_LOG_MAX_PER_WINDOW;
+        };
+
+        /**
+         * Decides whether an error event belongs to this userscript. Events
+         * without a source ("Script error.") come from cross-origin frames or
+         * browser internals and must not be attributed to Playback Plox.
+         * @param {ErrorEvent} event
+         * @returns {boolean} True when the event can be attributed to this script.
+         */
+        const isOwnErrorEvent = (event) => {
+            const filename = typeof event.filename === 'string' ? event.filename : '';
+            if (filename.includes('youtube-playback-plox')) return true;
+            const stack = event.error?.stack;
+            return typeof stack === 'string' && stack.includes('youtube-playback-plox');
+        };
+
+        window.addEventListener('error', (event) => {
+            const message = (event.message || event.error?.message || '').toLowerCase();
+            if (message.includes('resizeobserver loop') || message.includes('undelivered notifications')) {
+                return;
+            }
+            if (!isOwnErrorEvent(event)) return;
+
+            const source = typeof event.filename === 'string' ? event.filename : '';
+            if (!consumeErrorLogBudget(`${message}|${source}`)) return;
+            window.MyScriptLogger.error('Global Error', event.error || event.message);
+        });
+
+        window.addEventListener('unhandledrejection', (event) => {
+            const reason = event.reason;
+            const isOwnRejection =
+                (reason instanceof Error && typeof reason.stack === 'string' &&
+                    reason.stack.includes('youtube-playback-plox')) ||
+                (reason?.message && String(reason.message).includes('getCascadedVideoInfo'));
+            if (!isOwnRejection) return;
+
+            const key = `${reason?.message || String(reason)}|unhandledrejection`;
+            if (!consumeErrorLogBudget(key)) return;
+            window.MyScriptLogger.error('Unhandled Promise', reason);
+        });
+    }
 })();
 
 // Shortcuts to avoid typing window.MyScriptLogger every time
@@ -220,7 +273,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.12-7';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.13';
 
     /**
      * @typedef {Object} YPPState
@@ -230,21 +283,23 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * @property {Function} [destroy] - Cleanup function
      */
 
-    /** @type {YPPState} */
-    window.__YPP__ ??= {};
-    const YPP = window.__YPP__;
+    /** @type {YPPState|undefined} */
+    const previousYPP = window.__YPP__;
 
     if (
-        YPP.status === 'initialized' &&
-        YPP.version === SCRIPT_VERSION
+        previousYPP?.status === 'initialized' &&
+        previousYPP.version === SCRIPT_VERSION
     ) {
-        logLog('YPP', 'Already initialized');
-        return;
+        // A same-version evaluation is a development/userscript-manager reload,
+        // not a reason to keep the previous observers and sessions alive.
+        logLog('YPP', 'Replacing initialized instance during same-version reinjection');
     }
 
-    // Cleanup previous instance
+    // Cleanup previous instance before publishing the replacement state. The old
+    // destroy() removes window.__YPP__, so continuing to mutate that object would
+    // leave the new instance invisible to the next hot reload.
     try {
-        YPP.destroy?.();
+        previousYPP?.destroy?.();
     } catch (e) {
         logError('YPP', 'Previous destroy failed', e);
     }
@@ -258,34 +313,99 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     const INSTANCE_ID =
         globalThis.crypto?.randomUUID?.() ??
         `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+    let instanceDestroyed = false;
 
-    YPP.status = 'initializing';
-    YPP.version = SCRIPT_VERSION;
-    YPP.instanceId = INSTANCE_ID;
+    /**
+     * Checks whether this runtime still owns the page-level YPP state.
+     * @returns {boolean} True while this instance may perform work.
+     */
+    function isInstanceActive() {
+        return !instanceDestroyed && window.__YPP__?.instanceId === INSTANCE_ID;
+    }
+
+    /** @type {Set<HTMLVideoElement>} Preview debounce owners cleaned during instance teardown. */
+    const previewDebounceElements = new Set();
+    /** @type {Array<string|number>} Menu command IDs owned by this runtime. */
+    const menuCommandIds = [];
+    /** Runtime toast teardown is replaced when the toast module is initialized. */
+    let destroyToasts = () => {};
+
+    /** @type {YPPState} */
+    const YPP = {
+        status: 'initializing',
+        version: SCRIPT_VERSION,
+        instanceId: INSTANCE_ID
+    };
+    window.__YPP__ = YPP;
 
     try {
-        // bootstrap logic
         YPP.destroy = () => {
-            if (YPP.instanceId !== INSTANCE_ID) return;
+            if (YPP.instanceId !== INSTANCE_ID || window.__YPP__ !== YPP) return;
+            instanceDestroyed = true;
+            YPP.status = 'destroyed';
             try {
-                // Real teardown: stop sessions/observers, disconnect theme observer and
-                // dispose all globally tracked listeners of THIS instance. These symbols
-                // are defined later in the script but are resolved lazily here, which is
-                // safe because destroy() is only invoked after full initialization.
+                // Real teardown: cancel page timers, close transient UI, stop
+                // sessions/observers and dispose listeners owned by this instance.
+                // These symbols are declared later but are initialized by the time a
+                // later script evaluation can call this function.
+                initialBootTimerId !== null && clearTimeout(initialBootTimerId);
+                backupStartTimerId !== null && clearTimeout(backupStartTimerId);
+                backupIntervalId !== null && clearInterval(backupIntervalId);
+                initialBootTimerId = null;
+                backupStartTimerId = null;
+                backupIntervalId = null;
+                navigationBootstrapTimer !== null && clearTimeout(navigationBootstrapTimer);
+                navigationBootstrapTimer = null;
+                navigationDebounce?.cancel?.();
+                for (const videoElement of previewDebounceElements) {
+                    const ownerToken = videoElement.dataset.yppDebouncing;
+                    if (ownerToken?.startsWith(`${INSTANCE_ID}:`)) {
+                        delete videoElement.dataset.yppDebouncing;
+                    }
+                }
+                previewDebounceElements.clear();
+                unregisterOwnedMenuCommands();
+                settingsModalGeneration += 1;
+                settingsModalCleanup?.();
+                savedVideosModalGeneration += 1;
+                closeModalVideos?.();
+                destroyToasts?.();
+                ModalDisposables.dispose();
+                document.querySelectorAll('.ypp-floatingBtnContainer').forEach(element => element.remove());
+                // Session release clears state but intentionally keeps the
+                // display node. A destroyed script instance must remove every
+                // injected player control as well.
+                ['watch', 'shorts', 'miniplayer', 'preview'].forEach(context => {
+                    PlaybackDisplayManager?.destroy?.(context);
+                });
                 VideoObserverManager?.cleanup?.(false);
                 cleanupThemeObserver?.();
                 cleanupGlobalListeners?.();
+                isInitializationComplete = false;
             } finally {
-                delete window.__YPP__;
+                if (window.__YPP__ === YPP) delete window.__YPP__;
             }
         };
 
-        YPP.status = 'initializing';
         logLog('YPP', `Instance registered v${SCRIPT_VERSION}`);
     } catch (e) {
         YPP.status = 'error';
         logError('YPP', 'Initialization failed', e);
         throw e;
+    }
+
+    /**
+     * Ensures an asynchronous initialization stage still belongs to the active
+     * userscript instance. A hot reload can replace window.__YPP__ while an older
+     * initialization promise is awaiting storage or network work.
+     * @returns {void}
+     * @throws {Error} When this execution has been superseded or destroyed.
+     */
+    function assertActiveInstance() {
+        if (isInstanceActive()) return;
+        const error = new Error(`Superseded userscript instance: ${INSTANCE_ID}`);
+        error.name = 'AbortError';
+        throw error;
     }
 
     // ============================================================================================================
@@ -427,6 +547,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     const DEFAULT_STATIC_FINISH_PERCENT = CONFIG.defaultSettings.staticFinishPercent;
 
     /**
+     * Canonical YouTube id shape. Used wherever an id is interpolated into a CSS
+     * selector: a stray quote or bracket there throws SyntaxError on every call.
+     * @type {RegExp}
+     */
+    const VIDEO_ID_PATTERN = /^[A-Za-z0-9_-]{11}$/;
+
+    /**
      * Centralized config for video type -> settings key + log label.
      */
     const TYPE_CONFIG = Object.freeze({
@@ -449,9 +576,28 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         PERSISTENCE_RESCUE_START_TICKS: 6,
         PERSISTENCE_RESCUE_EVERY_N_TICKS: 6,
         PERSISTENCE_RESCUE_MIN_SEEK_S: 10,
+        // A video left paused before starting (or whose metadata never loads)
+        // never leaves 0s, so the rescue re-seek would retry forever: one blocked
+        // save plus one toast per interval, indefinitely. The budget resets as
+        // soon as playback advances, so a real later stall is still rescued.
+        PERSISTENCE_RESCUE_MAX_ATTEMPTS: 5,
         LOADING_CLEANUP_MS: 2500,
         PREVIEW_FASTPATH_MS: 220,
-        SESSION_FALLBACK_RETRY_MS: 180
+        SESSION_FALLBACK_RETRY_MS: 180,
+        // Legacy live records (saved without liveAbsoluteTime) carry a
+        // window-relative offset that goes stale as the DVR window slides.
+        // Older than this while the stream is still live, resume rejoins
+        // live edge instead of seeking stale content.
+        LIVE_LEGACY_STALE_MS: 2 * 60 * 60 * 1000,
+        // Minimum gap between the player-API duration and the element duration
+        // to consider the timeline still live (DVR window smaller than stream).
+        LIVE_WINDOW_DRIFT_S: 30,
+        // A user scrub is a bounded event, not a permanent state: `isUserSeeking`
+        // disables the recovery seeks (persistence rescue, rebound re-seek,
+        // resume retry) only while the user is actually scrubbing. Without this
+        // hold the latch stayed `true` for the rest of the session and a single
+        // scrub killed all three corrections.
+        USER_SEEK_HOLD_MS: 1500
     };
 
     // ============================================================================================================
@@ -480,6 +626,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     let cachedBatchStorageData = null;
     /** @type {boolean} Whether the batch storage cache is valid */
     let isBatchStorageCacheValid = false;
+    /** @type {number} Monotonic revision incremented by durable cache invalidations. */
+    let storageCacheRevision = 0;
     /** @type {Function|null} Debounced update function */
     let debouncedUpdateVideoList = null;
 
@@ -671,6 +819,27 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             "invalidFormat": "Invalid format",
             "invalidJson": "Invalid JSON",
             "invalidDatabase": "Invalid database",
+            "importNotJson": "This file is not a JSON backup",
+            "importLooksLikeFreeTube": "This looks like a FreeTube export. Use the FreeTube import option.",
+            "storageCorruptRecords": "{count} unreadable row(s) skipped. Use Repair storage in Manage videos.",
+            "storageDamageTitle": "{count} damaged row(s)",
+            "storageDamageSummary": "{total} damaged rows: {empty} without stored data, {unreadable} unreadable",
+            "storageDamageSummaryEmpty": "{total} damaged rows without stored data",
+            "storageDamageRepairTitle": "Convert the damaged rows back to the current format",
+            "storageDamageReportTitle": "Download a report of the damaged rows",
+            "storageRepairConvertPrompt": "{count} saved row(s) could not be read. Convert them back to the current format now?",
+            "storageRepairConverted": "{count} row(s) converted and restored",
+            "storageRepairNothingConverted": "No row could be converted automatically",
+            "storageRepairReportPrompt": "{count} row(s) hold no recoverable data. Download a report of them before deciding what to do?",
+            "storageRepairDeletePrompt": "Delete the {count} row(s) that hold no recoverable data? They cannot be reconstructed afterwards. GM mirrors are never deleted.",
+            "storageRepairFailed": "Storage repair failed",
+            "exportDamageReport": "Report",
+            "storageDamageExported": "Damage report exported ({count} rows)",
+            "storageDamageNone": "There are no damaged rows",
+            "repairStorage": "Repair storage",
+            "repairStorageConfirm": "Delete {count} unreadable row(s)? Empty rows hold no data. GM mirrors are never deleted.",
+            "repairStorageDone": "{count} unreadable record(s) removed",
+            "repairStorageFailed": "{count} unreadable record(s) could not be removed",
             "noValidVideos": "No valid videos found to import",
             "fileTooLarge": "File is too large ({size}MB, max {limit}MB)",
             "fileTooLargeGist": "File is too large for Gist ({size}MB, max {limit}MB)",
@@ -871,13 +1040,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
                     try {
                         const resp = await fetch(url, { cache: 'no-store', signal: controller.signal });
-                        clearTimeout(timeout);
-
                         if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
                         return await resp.json();
-                    } catch (e) {
+                    } catch (error) {
+                        throw error;
+                    } finally {
                         clearTimeout(timeout);
-                        throw e;
                     }
                 }
                 throw new Error('No network method available');
@@ -987,6 +1155,26 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     }
 
     /**
+     * Returns an object exposing the YouTube player API for a player element.
+     * Prefers direct access; on isolated worlds where page expandos are
+     * invisible through Xray vision (e.g. mobile `getPlayerState` under
+     * Firefox), falls back to `wrappedJSObject` when available.
+     * The holder is for API calls only — keep using the element itself for
+     * DOM queries (`querySelector`, `closest`, `instanceof` guards).
+     * @param {Element|null|undefined} playerEl - Player element (e.g. `#movie_player`).
+     * @returns {object|null} API holder, or null when no player API is reachable.
+     */
+    function getPlayerApi(playerEl) {
+        if (!playerEl) return null;
+        try {
+            if (typeof playerEl.getPlayerState === 'function') return playerEl;
+            const unwrapped = playerEl.wrappedJSObject;
+            if (unwrapped && typeof unwrapped.getPlayerState === 'function') return unwrapped;
+        } catch (_) { /* Xray denial: no API reachable */ }
+        return null;
+    }
+
+    /**
      * Remove or mask sensitive information (tokens, Gist IDs, etc.) from a text.
      * @param {string} text - Text to process.
      * @returns {string} - Scrubbed text.
@@ -1012,19 +1200,94 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * @param {HTMLElement} el
      * @returns {boolean}
     */
+    /** TTL for the per-element visibility cache (one YouTube render frame scale). */
+    const VISIBILITY_CACHE_TTL_MS = 250;
+    /** Per-tick visibility results; WeakMap so detached nodes never leak. */
+    const _visibilityCache = new WeakMap();
+    /**
+     * Checks whether an element is visibly displayed (connected, non-zero
+     * rect, non-hidden style). Results are cached per element for
+     * `VISIBILITY_CACHE_TTL_MS` so the tick/score/ad-scan callers sharing
+     * the same frame pay a single reflow+style recalc.
+     *
+     * @param {Element|null} el - Element to check.
+     * @returns {boolean} True when the element is connected and visible.
+     */
     function isVisiblyDisplayed(el) {
         if (!el || !el.isConnected) return false;
+        const now = Date.now();
+        const cached = _visibilityCache.get(el);
+        if (cached && (now - cached.ts) < VISIBILITY_CACHE_TTL_MS) return cached.v;
+        let v;
         try {
             // getBoundingClientRect() (is faster than getComputedStyle())
             const rect = el.getBoundingClientRect();
-            if (rect.width <= 0 || rect.height <= 0) return false;
-
-            const style = window.getComputedStyle(el);
-            const visible = style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0;
-            return visible;
+            if (rect.width <= 0 || rect.height <= 0) {
+                v = false;
+            } else {
+                const style = window.getComputedStyle(el);
+                v = style.display !== 'none' && style.visibility !== 'hidden' && parseFloat(style.opacity || '1') > 0;
+            }
         } catch (_) {
-            return !!el.offsetWidth && !!el.offsetHeight;
+            v = !!el.offsetWidth && !!el.offsetHeight;
         }
+        _visibilityCache.set(el, { v, ts: now });
+        return v;
+    }
+
+    // MARK: 🔒 Focus containment
+    /** Selector for elements that can receive keyboard focus. */
+    const FOCUSABLE_SELECTOR = 'button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href]';
+
+    /**
+     * Collects the visible, keyboard-focusable elements inside one or more roots.
+     * @param {Array<HTMLElement|null|undefined>} scopes - Roots that delimit the search.
+     * @returns {HTMLElement[]} Focusable elements in DOM order.
+     */
+    function getFocusableElements(scopes) {
+        return scopes
+            .filter(scope => scope?.isConnected)
+            .flatMap(scope => [...scope.querySelectorAll(FOCUSABLE_SELECTOR)])
+            .filter(element => element instanceof HTMLElement && element.offsetParent !== null);
+    }
+
+    /**
+     * Keeps Tab/Shift+Tab inside the given scopes, wrapping at both ends.
+     * @param {KeyboardEvent} event - Keydown event from a modal.
+     * @param {Array<HTMLElement|null|undefined>} scopes - Roots that delimit the focus loop.
+     * @returns {void}
+     */
+    function trapTabFocus(event, scopes) {
+        if (event.key !== 'Tab') return;
+        const focusable = getFocusableElements(scopes);
+        if (focusable.length === 0) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && (document.activeElement === first || !focusable.includes(document.activeElement))) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !focusable.includes(document.activeElement))) {
+            event.preventDefault();
+            first.focus();
+        }
+    }
+
+    // MARK: 🔧 queryFirst
+    /**
+     * Returns the first element matching any selector in order, or null.
+     * Replaces `a ?? b ?? c` fallback chains with a selector table.
+     *
+     * @param {ParentNode} root - Root to query (`document` or an element).
+     * @param {string[]} selectors - Selectors tried in order.
+     * @returns {Element|null} First match, or null when none match.
+     */
+    function queryFirst(root, selectors) {
+        if (!root || typeof root.querySelector !== 'function' || !Array.isArray(selectors)) return null;
+        for (const selector of selectors) {
+            const found = root.querySelector(selector);
+            if (found) return found;
+        }
+        return null;
     }
 
     // MARK: 🔧 Format Time
@@ -1182,6 +1445,138 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      */
     const delay = (ms) => new Promise(r => setTimeout(r, ms));
 
+    const STORAGE_GM_TIMEOUT_MS = 5000;
+    const gmPendingMutations = new Map();
+    const gmUncertainKeys = new Set();
+    const MAX_GM_UNCERTAIN_KEYS = 2000;
+
+    /**
+     * Bounds a storage-provider promise.
+     * @param {Promise<*>|*} operation - Provider operation.
+     * @param {number} timeoutMs - Maximum wait in milliseconds.
+     * @param {string} message - Timeout error message.
+     * @returns {Promise<*>} Operation result or timeout rejection.
+     */
+    function withStorageTimeout(operation, timeoutMs, message) {
+        if (typeof setTimeout !== 'function' || typeof clearTimeout !== 'function') {
+            return Promise.resolve(operation);
+        }
+        let timeoutId = null;
+        const timeoutPromise = new Promise((_, reject) => {
+            timeoutId = setTimeout(() => {
+                const error = new Error(message);
+                error.name = 'TimeoutError';
+                reject(error);
+            }, timeoutMs);
+        });
+        return Promise.race([Promise.resolve(operation), timeoutPromise])
+            .finally(() => {
+                if (timeoutId !== null) clearTimeout(timeoutId);
+            });
+    }
+
+    /**
+     * Runs one GM mutation with timeout quarantine. A timed-out provider
+     * promise cannot be cancelled, so its key remains blocked until a later
+     * successful read confirms the state.
+     * @param {string} key - GM storage key.
+     * @param {() => Promise<*>} operation - Mutation operation.
+     * @param {string} message - Timeout/error message.
+     * @returns {Promise<*>} Mutation result.
+     */
+    function runGMMutation(key, operation, message) {
+        const mutationKey = String(key);
+        if (gmUncertainKeys.has(mutationKey)) {
+            const error = new Error(`GM state is uncertain for "${mutationKey}"`);
+            error.name = 'GMStateUncertainError';
+            return Promise.reject(error);
+        }
+        if (gmPendingMutations.has(mutationKey)) {
+            const error = new Error(`GM mutation already pending for "${mutationKey}"`);
+            error.name = 'GMPendingMutationError';
+            return Promise.reject(error);
+        }
+
+        const rawOperation = Promise.resolve().then(operation);
+        let trackedOperation;
+        trackedOperation = rawOperation.then(
+            () => {
+                if (gmPendingMutations.get(mutationKey) === trackedOperation) gmPendingMutations.delete(mutationKey);
+            },
+            () => {
+                if (gmPendingMutations.get(mutationKey) === trackedOperation) gmPendingMutations.delete(mutationKey);
+            }
+        );
+        gmPendingMutations.set(mutationKey, trackedOperation);
+
+        return withStorageTimeout(rawOperation, STORAGE_GM_TIMEOUT_MS, message)
+            .catch(error => {
+                if (error?.name === 'TimeoutError') {
+                    gmUncertainKeys.add(mutationKey);
+                    if (gmUncertainKeys.size > MAX_GM_UNCERTAIN_KEYS) {
+                        gmUncertainKeys.delete(gmUncertainKeys.values().next().value);
+                    }
+                }
+                throw error;
+            });
+    }
+
+    /**
+     * Reads a GM value with a bounded provider call.
+     * @param {string} key - GM storage key.
+     * @param {*} fallback - Value returned when absent.
+     * @returns {Promise<*>} Stored value.
+     */
+    function gmGetValue(key, fallback = null) {
+        if (typeof GM_getValue !== 'function') return Promise.reject(new Error('GM_getValue is unavailable'));
+        return withStorageTimeout(
+            Promise.resolve().then(() => GM_getValue(key, fallback)),
+            STORAGE_GM_TIMEOUT_MS,
+            `Timed out reading GM key "${key}"`
+        ).then(value => {
+            if (!gmPendingMutations.has(String(key))) gmUncertainKeys.delete(String(key));
+            return value;
+        });
+    }
+
+    /**
+     * Writes a GM value with timeout quarantine.
+     * @param {string} key - GM storage key.
+     * @param {*} value - Value to write.
+     * @returns {Promise<void>} Write completion.
+     */
+    function gmSetValue(key, value) {
+        return runGMMutation(key, () => {
+            if (typeof GM_setValue !== 'function') throw new Error('GM_setValue is unavailable');
+            return GM_setValue(key, value);
+        }, `Timed out writing GM key "${key}"`);
+    }
+
+    /**
+     * Deletes a GM value with timeout quarantine.
+     * @param {string} key - GM storage key.
+     * @returns {Promise<void>} Delete completion.
+     */
+    function gmDeleteValue(key) {
+        return runGMMutation(key, () => {
+            if (typeof GM_deleteValue !== 'function') throw new Error('GM_deleteValue is unavailable');
+            return GM_deleteValue(key);
+        }, `Timed out deleting GM key "${key}"`);
+    }
+
+    /**
+     * Lists GM keys with a bounded provider call.
+     * @returns {Promise<string[]>} GM storage keys.
+     */
+    function gmListValues() {
+        if (typeof GM_listValues !== 'function') return Promise.reject(new Error('GM_listValues is unavailable'));
+        return withStorageTimeout(
+            Promise.resolve().then(() => GM_listValues()),
+            STORAGE_GM_TIMEOUT_MS,
+            'Timed out listing GM storage keys'
+        );
+    }
+
     // MARK: 🔧 setInnerHTML
     /**
     * Sets the innerHTML of an element safely for Trusted Types (Chrome) compatibility.
@@ -1202,7 +1597,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             // (a colliding policy name throws and would previously disable rendering).
             const uniqueSuffix = globalThis.crypto?.randomUUID?.().slice(0, 8) ??
                 `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
-            const policyName = `youtube-playback-plox-${(GM_info?.script?.version ?? 'x').replace(/\./g, '-')}-${uniqueSuffix}`;
+            const managerVersion = typeof GM_info !== 'undefined' ? GM_info?.script?.version : null;
+            const policyName = `youtube-playback-plox-${String(managerVersion ?? 'x').replace(/\./g, '-')}-${uniqueSuffix}`;
             try {
                 _ttPolicy = window.trustedTypes.createPolicy(policyName, {
                     createHTML: (html) => html                 // Pass-through without sanitization: script only uses self-generated HTML
@@ -1400,21 +1796,32 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     *
     * @param {Function} fn - The function to debounce.
     * @param {number} delay - Wait time (in milliseconds) before executing `fn`.
-    * @returns {Function} - A new function that, when called repeatedly,
-    *                       will only execute `fn` once the delay has passed.
+    * @returns {Function & {cancel: () => void}} Debounced function with cancellation.
     */
     const debounce = (fn, delay) => {
-        // Variable to store the timer identifier
-        let timer;
+        let timer = null;
 
-        // Returns a new function that wraps the original
-        return (...args) => {
-            // If the timer was already active, cancel it
-            clearTimeout(timer);
-
-            // Create a new timer that will execute the function after the delay
-            timer = setTimeout(() => fn(...args), delay);
+        const debounced = (...args) => {
+            if (timer !== null) clearTimeout(timer);
+            timer = setTimeout(() => {
+                timer = null;
+                try {
+                    const result = fn(...args);
+                    if (result && typeof result.then === 'function') {
+                        result.catch(error => logWarn('debounce', `Async callback failed: ${error?.message || error}`, error));
+                    }
+                } catch (error) {
+                    logWarn('debounce', `Callback failed: ${error?.message || error}`, error);
+                }
+            }, delay);
         };
+
+        debounced.cancel = () => {
+            if (timer !== null) clearTimeout(timer);
+            timer = null;
+        };
+
+        return debounced;
     };
 
     // MARK: 🔧 downloadBlobMobileSafe
@@ -1516,11 +1923,29 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         }
 
         /**
+         * Unregisters a disposable without executing it.
+         * Lets a self-retiring disposer drop its own entry, so a store that lives
+         * longer than the resource it tracks does not accumulate stale closures.
+         * @param {(() => void) | { dispose: () => void }} disposable
+         * @returns {boolean} True when the disposable was registered.
+         */
+        remove(disposable) {
+            return this._disposables.delete(disposable);
+        }
+
+        /** @returns {number} Number of currently registered resources. */
+        get size() {
+            return this._disposables.size;
+        }
+
+        /**
          * Clears all registered resources without marking the store as disposed.
          * Allows the store to be reused.
          */
         clear() {
-            for (const disposable of this._disposables) {
+            // Iterate a snapshot: disposers returned by addDisposableListener()
+            // remove themselves from this Set while running.
+            for (const disposable of [...this._disposables]) {
                 try {
                     if (typeof disposable === 'function') disposable();
                     else if (disposable && typeof disposable.dispose === 'function') disposable.dispose();
@@ -1564,12 +1989,24 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     function addDisposableListener(target, type, handler, options, store = GlobalDisposables) {
         if (!target) return () => { };
         target.addEventListener(type, handler, options);
-        const dispose = () => target.removeEventListener(type, handler, options);
         // An explicitly-null store must not leave a listener untracked either:
         // fall back to GlobalDisposables so every listener stays auditable.
         const targetStore = store ?? GlobalDisposables;
-        targetStore.add(dispose);
-        return dispose;
+        // Separate binding: assigning the self-retiring wrapper back into `dispose`
+        // would make it call itself from inside its own body.
+        const removeListener = () => {
+            target.removeEventListener(type, handler, options);
+        };
+        const selfRetiringDispose = () => {
+            // Self-retire: removeEventListener may be called explicitly (e.g. from a
+            // race cleanup) long before the store itself is torn down. Leaving the
+            // closure in the Set would retain the target element for as long as the
+            // store lives, which for GlobalDisposables means the whole page session.
+            removeListener();
+            targetStore.remove(selfRetiringDispose);
+        };
+        targetStore.add(selfRetiringDispose);
+        return selfRetiringDispose;
     }
 
     // ============================================================================================================
@@ -1596,7 +2033,12 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             SHORTS_VIDEO_TITLE_VIEW_MODEL: 'yt-shorts-video-title-view-model',
             MINIPLAYER_ELEMENT: 'ytd-miniplayer',
             INLINE_PREVIEW_ELEMENT: 'ytd-video-preview',
-            RICH_GRID_RENDERER: 'ytd-rich-grid-renderer'
+            RICH_GRID_RENDERER: 'ytd-rich-grid-renderer',
+            YTM_APP: 'ytm-app',
+            YTM_WATCH: 'ytm-watch',
+            MWEB_SHORTS_VIDEO: 'shorts-video',
+            MWEB_SHORTS_PAGE: 'shorts-page',
+            MWEB_PLAYER_TIME_DISPLAY: 'player-time-display'
         },
         classes: {
             HTML5_VIDEO_PLAYER: 'html5-video-player',
@@ -1621,7 +2063,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             YT_PROGRESS_BAR_HOVERED: 'ytProgressBarLineProgressBarHovered',
             YT_PROGRESS_BAR_PLAYHEAD_DOT: 'ytProgressBarPlayheadProgressBarPlayheadDot',
             YT_PLAYER_PROGRESS_BAR_HOST: 'ytPlayerProgressBarHost',
-            DESKTOP_SHORTS_PLAYER_CONTROLS_HOST: 'desktopShortsPlayerControlsHost'
+            DESKTOP_SHORTS_PLAYER_CONTROLS_HOST: 'desktopShortsPlayerControlsHost',
+            MWEB_TIME_PILL: 'ytwPlayerTimeDisplayPill'
         },
         ids: {
             PRIMARY_INNER: 'primary-inner',
@@ -1632,7 +2075,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
             METAPANEL: 'metapanel',
             VIDEO_PREVIEW_MAIN: 'video-preview',
             VIDEO_PREVIEW_CONTAINER: 'video-preview-container',
-            INLINE_PREVIEW_PLAYER: 'inline-preview-player'
+            INLINE_PREVIEW_PLAYER: 'inline-preview-player',
+            PLAYER_CONTAINER: 'player-container-id'
         },
         attrs: {
             MINIPLAYER_ACTIVE: 'miniplayer-is-active',
@@ -1919,6 +2363,21 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         delete(key) { this.cache.delete(key); }
 
         /**
+         * Returns cache entries in least-to-most recently used order.
+         * @returns {IterableIterator<[string, any]>} Cache entries.
+         */
+        entries() { return this.cache.entries(); }
+
+        /**
+         * Returns cache keys in least-to-most recently used order.
+         * @returns {IterableIterator<string>} Cache keys.
+         */
+        keys() { return this.cache.keys(); }
+
+        /** @returns {number} Current number of cached entries. */
+        get size() { return this.cache.size; }
+
+        /**
          * Clear the cache.
          */
         clear() { this.cache.clear(); }
@@ -2026,6 +2485,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
             /**
              * Get the main container of the regular player.
+             * Mobile web (`m.youtube.com`) exposes the same `#movie_player`
+             * as a top-level sticky player; players inside mobile Shorts
+             * (`shorts-video`) are excluded here and resolved via
+             * `getShortsPlayer` instead.
              * @returns {Element|null} #movie_player container (or null if it doesn't exist).
              */
             getWatchPlayer: () =>
@@ -2038,7 +2501,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
                     if (watchContainer instanceof HTMLElement) {
                         const moviePlayerInsideFlexy = watchContainer?.querySelector(SELECTORS.player.movie);
-                        if (typeof moviePlayerInsideFlexy?.getPlayerState === 'function') {
+                        if (getPlayerApi(moviePlayerInsideFlexy) !== null) {
                             if (isVisiblyDisplayed(moviePlayerInsideFlexy)) {
                                 logInfo('DOMHelpers', `✅ Player found in 1st level and is visible.`);
                                 player = moviePlayerInsideFlexy;
@@ -2052,8 +2515,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                         const moviePlayers = document.querySelectorAll(SELECTORS.player.movie);
                         for (const el of moviePlayers) {
                             if (
-                                typeof el?.getPlayerState === 'function' &&
-                                (!miniPlayer || !miniPlayer.contains(el))
+                                getPlayerApi(el) !== null &&
+                                (!miniPlayer || !miniPlayer.contains(el)) &&
+                                !el.closest(SELECTORS.ELEMENTS.MWEB_SHORTS_VIDEO)
                             ) {
                                 if (isVisiblyDisplayed(el)) {
                                     logInfo('DOMHelpers', `✅ Player found in 2nd level and is visible.`);
@@ -2069,8 +2533,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     if (!player) {
                         const html5VideoPlayer = document.querySelector(SELECTORS.CLASSES.HTML5_VIDEO_PLAYER);
                         if (
-                            typeof html5VideoPlayer?.getPlayerState === 'function' &&
-                            (!miniPlayer || !miniPlayer.contains(html5VideoPlayer))
+                            getPlayerApi(html5VideoPlayer) !== null &&
+                            (!miniPlayer || !miniPlayer.contains(html5VideoPlayer)) &&
+                            !html5VideoPlayer.closest(SELECTORS.ELEMENTS.MWEB_SHORTS_VIDEO)
                         ) {
                             if (isVisiblyDisplayed(html5VideoPlayer)) {
                                 logInfo('DOMHelpers', `✅ Player found in 3rd level and is visible.`);
@@ -2124,11 +2589,15 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
             /**
              * Get the container of the Shorts player.
+             * Desktop returns `#shorts-player`; mobile web (`m.youtube.com`)
+             * reuses `#movie_player` inside `shorts-video`, so fall back to it.
              * @returns {Element|null} Shorts player container (or null if it doesn't exist).
              */
             getShortsPlayer: () =>
                 get('shortsPlayer', () =>
-                    document.querySelector(SELECTORS.shorts.player) ?? null
+                    document.querySelector(SELECTORS.shorts.player)
+                    ?? document.querySelector(SELECTORS.ELEMENTS.MWEB_SHORTS_VIDEO)?.querySelector(SELECTORS.player.movie)
+                    ?? null
                 ),
             /**
              * Get the video element of the Shorts player.
@@ -2296,6 +2765,53 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
     let currentLanguage = DEFAULT_LANGUAGE;
 
+    /**
+     * True when a language code has strings in any translation source.
+     * TRANSLATIONS starts empty while the remote payload is in flight, so any
+     * check against TRANSLATIONS alone would reject a perfectly valid saved
+     * language and reset it to the default (that used to happen on every first
+     * paint, and it also persisted the wrong language over the user's choice).
+     * @param {string|null|undefined} lang - Language code (e.g., 'es-ES').
+     * @returns {boolean}
+     */
+    function hasLanguage(lang) {
+        if (!lang || typeof lang !== 'string') return false;
+        return !!(TRANSLATIONS?.[lang] || FALLBACK_TRANSLATIONS?.[lang]);
+    }
+
+    /**
+     * True once a remote translation catalog has been applied. Before that moment
+     * a language can be perfectly valid and simply unknown locally — only `en-US`
+     * ships in FALLBACK_TRANSLATIONS — so the stored choice must be trusted
+     * instead of being reset to the default and persisted over the user.
+     * Note that `loadTranslations()` resolves with the embedded LOCAL_FALLBACK
+     * when the network fails, so "a payload arrived" is not the same as "the
+     * remote catalog arrived"; see the identity check in the init handler.
+     * @type {boolean}
+     */
+    let remoteTranslationsApplied = false;
+
+    /**
+     * Resolves the language to use at startup: the user's stored choice when it
+     * is usable, otherwise the browser language, otherwise the default.
+     * While the remote catalog is still in flight the stored choice is trusted
+     * (it was validated when saved and only `en-US` ships embedded); once the
+     * catalog is final a language missing from both sources is stale and falls
+     * through to the browser/default resolution.
+     * Shared by init and by the translations handler so both agree.
+     * @param {{language?: string}|null} settings - Loaded settings.
+     * @param {boolean} hasStoredLanguage - Whether a language was persisted.
+     * @returns {string} Language code.
+     */
+    function resolveStartupLanguage(settings, hasStoredLanguage) {
+        const stored = settings?.language;
+        if (hasStoredLanguage && stored && (!remoteTranslationsApplied || hasLanguage(stored))) {
+            return stored;
+        }
+        const detected = detectBrowserLanguage();
+        return hasLanguage(detected) ? detected : DEFAULT_LANGUAGE;
+    }
+
     // Function to get the translated text
     /**
      * Gets the translated text for a specific key.
@@ -2356,13 +2872,18 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
         let validLang = lang;
 
-        // 2. Intelligent fallback search
-        if (!TRANSLATIONS[validLang]) {
+        // 2. Intelligent fallback search. Both sources count as available, and
+        // the search only runs once the catalog is final: before the remote
+        // payload lands a valid language cannot be told apart from an unknown
+        // one, so the startup path trusts the requested language and the
+        // translations handler re-validates it when the payload arrives.
+        if (remoteTranslationsApplied && !hasLanguage(validLang)) {
             const [primary] = lang.split('-');
             // Try exact match of the root (e.g., 'es') or the first subvariant starting with the root
-            validLang = TRANSLATIONS[primary]
+            validLang = hasLanguage(primary)
                 ? primary
-                : Object.keys(TRANSLATIONS).find(k => k.startsWith(`${primary}-`))
+                : [...new Set([...Object.keys(TRANSLATIONS), ...Object.keys(FALLBACK_TRANSLATIONS)])]
+                    .find(k => k.startsWith(`${primary}-`))
                 ?? DEFAULT_LANGUAGE;
         }
 
@@ -2380,14 +2901,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
                     settings = await getSettings();
                 } catch (recursionError) {
                     // Fallback to direct storage access if getSettings() causes recursion
-                    const raw = GM_getValue(CONFIG.STORAGE_KEYS.settings, null);
-                    let parsed = {};
-                    if (raw && typeof raw === 'object') {
-                        parsed = raw;
-                    } else if (typeof raw === 'string' && raw.trim()) {
-                        parsed = JSON.parse(raw);
-                    }
-                    settings = { ...CONFIG.defaultSettings, ...parsed };
+                    const raw = await gmGetValue(CONFIG.STORAGE_KEYS.settings, null);
+                    settings = { ...CONFIG.defaultSettings, ...parseStoredObject(raw) };
                 }
 
                 // We only save if there is really a change in the configuration object
@@ -2929,6 +3444,26 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     z-index: var(--ypp-z-toast, 10001);
     pointer-events: auto;
 }
+/* Floating fallback for mobile web watch (m.youtube.com): its player chrome
+   has no .ytp-time-wrapper, so the display overlays the sticky player. */
+.ypp-time-display.ypp-floating {
+    position: absolute;
+    right: 8px;
+    bottom: 8px;
+    z-index: var(--ypp-z-toast, 10001);
+    pointer-events: auto;
+}
+/* Mobile watch native time row is space-between: absorb the trailing free
+   space so a row-anchored display sits next to the time pill instead of the
+   row far end. Scoped to the mobile control overlay; desktop is unaffected. */
+#player-control-overlay .ypp-time-display {
+    margin-right: auto;
+}
+/* Inside YouTube's own time pill: blend in and stay compact. */
+#player-control-overlay .ytwPlayerTimeDisplayPill .ypp-time-display {
+    background: transparent;
+    height: 22px;
+}
 /* Miniplayer-specific style */
 .ypp-miniplayer-time-display {
     pointer-events: auto;
@@ -3335,6 +3870,11 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 .ypp-videosContainer[data-ypp-show-buttons="false"] .ypp-containerButtonsTime .ypp-buttons-row {
     display: none !important;
 }
+/* Nothing visible in the row buttons (all actions off/hidden and no ⋯):
+   remove the container entirely instead of leaving a reserved strip. */
+.ypp-videosContainer[data-ypp-no-actions="true"] .ypp-videoWrapper .ypp-containerButtonsTime {
+    display: none !important;
+}
 .ypp-toolbar-separator {
     width: 2px;
     height: 24px;
@@ -3525,6 +4065,9 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 .ypp-footer-row-bottom {
     justify-content: space-between;
 }
+.ypp-footer-row-bottom > :last-child {
+    margin-inline-start: auto;
+}
 .ypp-footer-action-menu {
     position: relative;
 }
@@ -3590,6 +4133,13 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     display: flex;
     flex-direction: column;
 }
+#video-list-container.ypp-list-loading {
+    /* While the listing resolves there is no scroller holding the height, so the
+       container would collapse and shrink the modal. Reserve it up front: the
+       skeleton is only an overlay and must never drive layout.
+       .ypp-virtual-stats keeps its own z-index (10) so the spinner stays on top. */
+    min-height: min(60vh, 560px);
+}
 #ypp-virtual-scroller-container {
     flex-grow: 1;
     overflow-y: auto;
@@ -3632,6 +4182,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     display: flex;
     justify-content: flex-end;
     align-items: center;
+    flex-wrap: wrap;
     gap: 12px;
     padding: 16px 24px;
     color: var(--ypp-light);
@@ -3928,7 +4479,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         align-items: flex-start !important;
         justify-content: flex-start !important;
         gap: 6px !important;
-        min-height: 0 !important;
+        /* Keep room for the ⋯ trigger when every row action is hidden:
+           collapsed rows would leave a ~6px strip and the trigger would
+           overflow the clipped row and become invisible. */
+        min-height: 52px !important;
     }
     /* Individual button rows (QA and Actions) */
     .ypp-videosContainer[data-ypp-view-mode="list"] .ypp-videoWrapper .ypp-buttons-row {
@@ -4091,7 +4645,85 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     display: flex;
     gap: 10px;
     margin-top: 10px;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+    align-items: center;
+}
+.ypp-playlist-actions .ypp-btn {
+    min-width: 0;
+    max-width: 100%;
+}
+/* Dismiss convention (shared with the other modal footers): the trailing
+   action (Cancel/Close) is always the last child pinned to inline-end,
+   so users find it in the same corner in every footer. */
+.ypp-playlist-actions > :last-child {
+    margin-inline-start: auto;
+}
+.ypp-playlist-creation-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+.ypp-playlist-creation-header h4 {
+    margin: 0;
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.ypp-playlist-icon-btn {
+    display: inline-flex;
+    align-items: center;
     justify-content: center;
+    width: 30px;
+    height: 30px;
+    flex-shrink: 0;
+    padding: 0;
+    border: 1px solid var(--ypp-border);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--ypp-text-secondary);
+    cursor: pointer;
+    transition-property: color, background, border-color, transform;
+    transition-duration: 0.15s;
+    transition-timing-function: ease;
+}
+.ypp-playlist-icon-btn svg {
+    width: 16px;
+    height: 16px;
+}
+.ypp-playlist-icon-btn:hover {
+    background: var(--ypp-bg-secondary-hover);
+    color: var(--ypp-text);
+}
+.ypp-playlist-icon-btn:active {
+    transform: scale(0.96);
+}
+.ypp-playlist-icon-btn:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: 2px;
+}
+.ypp-playlist-icon-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+}
+.ypp-playlist-icon-btn.is-copied {
+    color: var(--ypp-success);
+    border-color: var(--ypp-success);
+}
+.ypp-playlist-icon-btn.is-error {
+    color: var(--ypp-danger);
+    border-color: var(--ypp-danger);
+}
+@media (prefers-reduced-motion: reduce) {
+    .ypp-playlist-icon-btn {
+        transition: none;
+    }
+    .ypp-playlist-icon-btn:active {
+        transform: none;
+    }
 }
 .ypp-thumb-wrapper {
     position: relative;
@@ -4493,13 +5125,43 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     border-radius: 8px;
     border: 1px solid var(--ypp-border);
     font-size: 1.4rem;
-    max-width: 300px;
+    max-width: min(300px, calc(100vw - 2 * var(--ypp-spacing-md) - 34px));
     animation: ypp-spring-toast-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     backdrop-filter: blur(10px);
     pointer-events: auto;
     overflow: hidden;
     /* So the progress bar does not overflow the rounded borders */
+}
+/* Toasts with buttons need room: the message goes on its own row so action
+   labels cannot squeeze (and visually clip) the main text. */
+.ypp-toast > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.ypp-toast.has-actions {
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 10px;
+    padding-right: 44px;
+    /* Border-box here: max-width already accounts for the padding, so the
+       action row can never push the toast off-screen on narrow viewports. */
+    box-sizing: border-box;
+    max-width: min(380px, calc(100vw - 2 * var(--ypp-spacing-md)));
+}
+.ypp-toast.has-actions > span {
+    flex: 1 1 100%;
+}
+.ypp-toast.has-actions .ypp-toast-actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+    justify-content: flex-end;
+}
+.ypp-toast.has-actions > .ypp-toast-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
 }
 .ypp-toast-progress {
     position: absolute;
@@ -4591,6 +5253,31 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     background: var(--ypp-bg-secondary);
     padding: 2px 6px;
     border-radius: var(--ypp-spacing-sm);
+}
+.ypp-storage-damage {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--ypp-warning);
+    font-weight: 600;
+    white-space: nowrap;
+}
+.ypp-storage-damage-btn {
+    background: var(--ypp-bg-secondary);
+    color: var(--ypp-warning);
+    border: 1px solid var(--ypp-warning);
+    border-radius: var(--ypp-spacing-sm);
+    padding: 2px 8px;
+    font-size: 0.85rem;
+    cursor: pointer;
+}
+.ypp-storage-damage-btn:hover:not(:disabled) {
+    background: var(--ypp-warning);
+    color: var(--ypp-bg);
+}
+.ypp-storage-damage-btn:disabled {
+    opacity: 0.6;
+    cursor: default;
 }
 /* GitHub Backup tabs */
 .ypp-github-tabs {
@@ -4861,7 +5548,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     border-top: 1px solid var(--ypp-border);
 }
 .ypp-management-footer-section[data-section="danger"] .ypp-management-footer-item:last-child {
-    margin-left: auto;
+    margin-inline-start: auto;
 }
 .ypp-management-footer-section[data-section="session"] {
     justify-content: flex-end;
@@ -5408,7 +6095,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const watchPlayer = DOMHelpers.getWatchPlayer();
         if (!watchVideo || !watchPlayer) return;
         const videoId = getPlayerVideoId(watchPlayer);
-        const duration = watchPlayer.getDuration?.() || watchVideo.duration || 0;
+        const duration = getPlayerApi(watchPlayer)?.getDuration?.() || watchVideo.duration || 0;
         if (duration > 0) {
             updateProgressBarGradient(watchVideo.currentTime, duration, 'watch', videoId, {
                 force: true,
@@ -5423,10 +6110,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {HTMLVideoElement} videoEl
      * @param {Element|null} player
      * @param {string|null} videoId
+     * @param {object|null} [session=null] - Session that owns the repaint.
      */
-    const scheduleProgressBarGradientRepaint = (type, videoEl, player, videoId) => {
+    const scheduleProgressBarGradientRepaint = (type, videoEl, player, videoId, session = null) => {
+        const expectedSession = session || (videoEl ? activeProcessingSessions.get(videoEl) : null);
+        const isCurrentSession = () => {
+            if (videoEl && !videoEl.isConnected) return false;
+            return !expectedSession || (
+                !expectedSession.isFinalized &&
+                activeProcessingSessions.get(videoEl) === expectedSession
+            );
+        };
         const paint = () => {
-            const duration = player?.getDuration?.() || videoEl?.duration || 0;
+            if (expectedSession) expectedSession.seekGradientRaf = null;
+            if (!isCurrentSession()) return;
+            const duration = getPlayerApi(player)?.getDuration?.() || videoEl?.duration || 0;
             if (duration > 0 && videoEl) {
                 updateProgressBarGradient(videoEl.currentTime, duration, type, videoId, {
                     force: true,
@@ -5434,7 +6132,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 });
             }
         };
-        requestAnimationFrame(() => requestAnimationFrame(paint));
+        // Route through the session's seekGradientRaf slot when a session owns
+        // this repaint, so finalizeSession() can cancel it. Without this the
+        // nested rAF escaped session teardown (one orphan per seeked event).
+        if (expectedSession && !expectedSession.isFinalized) {
+            try {
+                if (expectedSession.seekGradientRaf) cancelAnimationFrame(expectedSession.seekGradientRaf);
+            } catch (e) { logWarn('scheduleProgressBarGradientRepaint', 'Error cancelling previous repaint', e); }
+            expectedSession.seekGradientRaf = requestAnimationFrame(() => requestAnimationFrame(paint));
+        } else {
+            requestAnimationFrame(() => requestAnimationFrame(paint));
+        }
     };
 
     /**
@@ -5458,7 +6166,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (playerRoot?.querySelector(SELECTORS.CLASSES.YTP_LIVE_BADGE) && isVisiblyDisplayed(playerRoot?.querySelector(SELECTORS.CLASSES.YTP_LIVE_BADGE))) return true;
 
         try {
-            const videoData = typeof player?.getVideoData === 'function' ? player.getVideoData() : null;
+            const videoData = getPlayerApi(player)?.getVideoData?.() ?? null;
             if (videoData?.isLive) return true;
         } catch (e) {
             logWarn('isLivePlaybackForGradient', 'Error getting video data', e)
@@ -5508,6 +6216,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         let container = null;
         let playerRoot = null;
+        // Mobile web watch has no `.ytp-progress-bar`; its progress line uses
+        // the same `ytProgressBar*` surfaces as Shorts (rendered with controls).
+        let useShortsSurfaces = stateKey === 'shorts';
 
         if (stateKey === 'shorts') {
             container = document.querySelector(SELECTORS.progressBar.shorts.played)
@@ -5518,7 +6229,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 clearAllProgressGradientState();
                 return;
             }
-            container = playerRoot.querySelector(SELECTORS.progressBar.regular.bar) ?? playerRoot;
+            const regularBar = playerRoot.querySelector(SELECTORS.progressBar.regular.bar);
+            container = regularBar
+                ?? document.querySelector(SELECTORS.progressBar.shorts.played)
+                ?? playerRoot;
+            // No `.ytp-progress-bar` but `ytProgressBar*` surfaces: mobile web
+            // watch shares the Shorts progress line — paint it as such.
+            useShortsSurfaces = !regularBar && container !== playerRoot;
         }
 
         if (!container) {
@@ -5532,7 +6249,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         if (!force && !containerChanged && colorUnchanged && sameVideo) return;
 
-        if (stateKey === 'shorts') {
+        if (useShortsSurfaces) {
             container = applyProgressColorToShortsSurfaces(progressColor) ?? container;
         } else {
             container = applyProgressColorToPlayerRoot(playerRoot, progressColor) ?? container;
@@ -5566,10 +6283,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             resetProgressBarGradient('all');
             return;
         }
+        const playerApi = getPlayerApi(player);
         const currentTime = videoEl.currentTime
-            ?? (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
+            ?? (typeof playerApi?.getCurrentTime === 'function' ? playerApi.getCurrentTime() : 0);
         const duration = videoEl.duration
-            ?? (typeof player?.getDuration === 'function' ? player.getDuration() : 0);
+            ?? (typeof playerApi?.getDuration === 'function' ? playerApi.getDuration() : 0);
         if (!duration || duration <= 0 || !isFinite(currentTime) || currentTime < 0) return;
         updateProgressBarGradient(currentTime, duration, type, videoId, {
             force: options.force ?? true,
@@ -5585,16 +6303,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         clearAllProgressGradientState();
 
         try {
-            document.querySelectorAll(SELECTORS.player.movie).forEach(player => {
-                clearProgressColorFromPlayerRoot(player);
-            });
-            document.querySelectorAll(SELECTORS.progressBar.resetTargets.join(',')).forEach(el => {
-                if (!el?.style) return;
-                el.style.removeProperty('--ytp-progress-color');
-                el.style.removeProperty('background');
-                el.style.removeProperty('background-color');
-                el.style.removeProperty('background-image');
-            });
+            // 'shorts' owns no #movie_player, so that scan is skipped for it
+            // (halves the work on the per-tick call). watch/miniplayer keep the
+            // full target list because mobile watch paints the Shorts progress
+            // line, which lives on the same surfaces.
+            if (type !== 'shorts') {
+                DOMHelpers.get('progress:reset:players', () => document.querySelectorAll(SELECTORS.player.movie), 250)
+                    .forEach(player => {
+                        clearProgressColorFromPlayerRoot(player);
+                    });
+            }
+            // Cached with a short TTL so the per-tick and per-finalizeSession
+            // calls reuse the NodeList instead of sweeping the document twice.
+            DOMHelpers.get('progress:reset:targets', () => document.querySelectorAll(SELECTORS.progressBar.resetTargets.join(', ')), 250)
+                .forEach(el => {
+                    if (!el?.style) return;
+                    el.style.removeProperty('--ytp-progress-color');
+                    el.style.removeProperty('background');
+                    el.style.removeProperty('background-color');
+                    el.style.removeProperty('background-image');
+                });
         } catch (e) {
             logWarn('resetProgressBarGradient', 'Error resetting progress bar gradient', e)
         }
@@ -5791,7 +6519,252 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     * Provides methods to save, retrieve, and delete data,
     * as well as list stored keys with a specific prefix.
     */
-    const storageCache = new Map();
+    const MAX_STORAGE_CACHE_ENTRIES = 1000;
+    const storageCache = new SimpleLRUCache(MAX_STORAGE_CACHE_ENTRIES);
+    const storageChangeChannel = typeof BroadcastChannel !== 'undefined'
+        ? new BroadcastChannel('youtube-playback-plox-storage')
+        : null;
+    const knownGMFallbackKeys = new Set();
+    /** @type {Set<string>} Local tombstones for primary deletes with failed mirror cleanup. */
+    const locallyDeletedKeys = new Set();
+    /** @type {Set<string>} Keys whose GM fallback is currently a tombstone marker. */
+    const gmTombstoneKeys = new Set();
+    /**
+     * @type {Map<string, {key: string, reason: string, valueType: string, detectedAt: number}>}
+     * Durable records that exist but cannot be read. They are excluded from
+     * enumeration instead of failing it, stay visible in the log header and
+     * can only be removed by the explicit repair action.
+     */
+    const quarantinedRecords = new Map();
+    let quarantineNoticeScheduled = false;
+    let quarantineNoticeShown = false;
+    let quarantineOverflowReported = false;
+    const MAX_QUARANTINED_RECORDS = 5000;
+    const MAX_LOCAL_TOMBSTONES = 2000;
+    // knownGMFallbackKeys grows with library size (one entry per saved video).
+    const MAX_KNOWN_GM_FALLBACK_KEYS = 3000;
+
+    /**
+     * Adds a key to a bounded set, evicting the oldest entry past the cap.
+     * Shared by the deletion/fallback/tombstone registries, which would
+     * otherwise each carry this identical body.
+     * @param {Set<string>} set - Registry to update.
+     * @param {string} key - Key to register.
+     * @param {number} cap - Maximum entries before evicting the oldest.
+     * @returns {void}
+     */
+    function boundedSetAdd(set, key, cap) {
+        set.add(key);
+        if (set.size > cap) {
+            const oldestKey = set.values().next().value;
+            set.delete(oldestKey);
+        }
+    }
+
+    /**
+     * Adds a bounded local deletion tombstone.
+     * @param {string} key - Video storage key.
+     * @returns {void}
+     */
+    function markLocalDeletion(key) {
+        boundedSetAdd(locallyDeletedKeys, key, MAX_LOCAL_TOMBSTONES);
+    }
+
+    /**
+     * Registers a key as present in the GM fallback mirror, keeping the set bounded.
+     * Populated from whole-library GM_listValues() enumeration, so without a cap it
+     * would hold one entry per saved video for the whole page session.
+     * @param {string} key - Video storage key.
+     * @returns {void}
+     */
+    function rememberGMFallbackKey(key) {
+        boundedSetAdd(knownGMFallbackKeys, key, MAX_KNOWN_GM_FALLBACK_KEYS);
+    }
+
+    /**
+     * Registers a key whose GM fallback is currently a tombstone marker.
+     * Bounded like {@link markLocalDeletion}: one entry per deleted video would
+     * otherwise accumulate permanently.
+     * @param {string} key - Video storage key.
+     * @returns {void}
+     */
+    function rememberGMTombstone(key) {
+        boundedSetAdd(gmTombstoneKeys, key, MAX_LOCAL_TOMBSTONES);
+    }
+
+    /** @type {Map<string, number>} Per-key revisions used to avoid unrelated-write retries. */
+    const storageKeyRevisions = new Map();
+    /** @type {number} Revision for full invalidations such as batch writes. */
+    let storageGlobalRevision = 0;
+    const MAX_STORAGE_KEY_REVISIONS = 2000;
+
+    /**
+     * Increments a key revision while keeping the tracking map bounded.
+     * @param {string} key - Video storage key.
+     * @returns {void}
+     */
+    function bumpStorageKeyRevision(key) {
+        storageKeyRevisions.set(key, (storageKeyRevisions.get(key) || 0) + 1);
+        if (storageKeyRevisions.size > MAX_STORAGE_KEY_REVISIONS) {
+            const oldestKey = storageKeyRevisions.keys().next().value;
+            storageKeyRevisions.delete(oldestKey);
+        }
+    }
+
+    /**
+     * Returns the current revision for a key and the full-invalidation epoch.
+     * @param {string} key - Video storage key.
+     * @returns {{keyRevision: number, globalRevision: number}} Revision snapshot.
+     */
+    function getStorageRevisionSnapshot(key) {
+        return {
+            keyRevision: storageKeyRevisions.get(key) || 0,
+            globalRevision: storageGlobalRevision
+        };
+    }
+
+    /**
+     * Checks whether a key or a full invalidation changed since a snapshot.
+     * @param {string} key - Video storage key.
+     * @param {{keyRevision: number, globalRevision: number}} snapshot - Earlier snapshot.
+     * @returns {boolean} True when the read must be retried.
+     */
+    function storageRevisionChanged(key, snapshot) {
+        return (storageKeyRevisions.get(key) || 0) !== snapshot.keyRevision ||
+            storageGlobalRevision !== snapshot.globalRevision;
+    }
+
+    /**
+     * Centralized storage-revision retry guard.
+     * Returns true when the revision changed and a retry should be performed
+     * (caller must invoke get() with retryCount+1). Throws when retries exhausted.
+     * Does not reference get() so scope analysis stays clean.
+     * @param {string} key
+     * @param {{keyRevision:number,globalRevision:number}} startingRevision
+     * @param {number} retryCount
+     * @returns {boolean}
+     */
+    function storageRevisionRetryNeeded(key, startingRevision, retryCount) {
+        if (!storageRevisionChanged(key, startingRevision)) return false;
+        if (retryCount >= 2) throw new Error(`Storage changed repeatedly while reading ${key}`);
+        return true;
+    }
+
+    if (storageChangeChannel) {
+        storageChangeChannel.addEventListener('message', (event) => {
+            const key = event.data?.key;
+            const hasFallback = event.data?.hasFallback === true;
+            const deleted = event.data?.deleted === true;
+            const fallbackKeys = Array.isArray(event.data?.fallbackKeys) ? event.data.fallbackKeys : null;
+            const changedKeys = Array.isArray(event.data?.changedKeys)
+                ? event.data.changedKeys.filter(changedKey => typeof changedKey === 'string')
+                : null;
+            const deletedKeys = new Set(Array.isArray(event.data?.deletedKeys)
+                ? event.data.deletedKeys.filter(changedKey => typeof changedKey === 'string')
+                : []);
+            storageCacheRevision++;
+            if (key === '*') {
+                storageGlobalRevision++;
+                // A batch invalidation must not erase tombstones for unrelated
+                // keys. Only the explicitly changed keys are reconciled.
+                if (changedKeys) {
+                    changedKeys.forEach(changedKey => {
+                        if (deletedKeys.has(changedKey)) {
+                            markLocalDeletion(changedKey);
+                            rememberGMTombstone(changedKey);
+                        } else {
+                            locallyDeletedKeys.delete(changedKey);
+                            gmTombstoneKeys.delete(changedKey);
+                        }
+                        bumpStorageKeyRevision(changedKey);
+                    });
+                }
+            } else if (typeof key === 'string') {
+                bumpStorageKeyRevision(key);
+                if (deleted) {
+                    markLocalDeletion(key);
+                    rememberGMTombstone(key);
+                } else {
+                    locallyDeletedKeys.delete(key);
+                    gmTombstoneKeys.delete(key);
+                }
+            }
+            if (key === '*') {
+                storageCache.clear();
+                if (changedKeys && fallbackKeys) {
+                    const fallbackKeySet = new Set(fallbackKeys);
+                    changedKeys.forEach(changedKey => {
+                        if (fallbackKeySet.has(changedKey)) rememberGMFallbackKey(changedKey);
+                        else knownGMFallbackKeys.delete(changedKey);
+                    });
+                }
+                for (const session of activeProcessingSessions.values()) {
+                    session.savedData = null;
+                    session.savedDataResolved = false;
+                }
+            } else if (typeof key === 'string') {
+                storageCache.delete(key);
+                if (hasFallback) rememberGMFallbackKey(key);
+                else knownGMFallbackKeys.delete(key);
+                for (const session of activeProcessingSessions.values()) {
+                    if (session.lastVideoId === key) {
+                        session.savedData = null;
+                        session.savedDataResolved = false;
+                    }
+                }
+            }
+            isBatchStorageCacheValid = false;
+            scriptStorageUsageCache = null;
+        });
+        GlobalDisposables.add(() => storageChangeChannel.close());
+    }
+
+    /**
+     * Invalidates a session's cached record after a local durable write/delete.
+     * @param {string|Set<string>} keys - Changed key or key set.
+     * @returns {void}
+     */
+    function invalidateSessionSavedData(keys) {
+        const keySet = keys instanceof Set ? keys : new Set([keys]);
+        for (const session of activeProcessingSessions.values()) {
+            if (keySet.has(session.lastVideoId)) {
+                session.savedData = null;
+                session.savedDataResolved = false;
+            }
+        }
+    }
+
+    /**
+     * Invalidates the same video key in other open tabs.
+     * @param {string} key - Changed video key, or '*' for a full invalidation.
+     * @param {boolean} [hasFallback=false] - Whether GM fallback data exists.
+     * @param {string[]|null} [fallbackKeys=null] - Exact fallback keys for a batch invalidation.
+     * @param {boolean} [deleted=false] - Whether the change is a deletion tombstone.
+     * @param {string[]|null} [changedKeys=null] - Exact keys changed by a batch.
+     * @param {string[]|null} [deletedKeys=null] - Exact keys deleted by a batch.
+     * @returns {void}
+     */
+    function broadcastStorageChange(
+        key,
+        hasFallback = false,
+        fallbackKeys = null,
+        deleted = false,
+        changedKeys = null,
+        deletedKeys = null
+    ) {
+        storageCacheRevision++;
+        scriptStorageUsageCache = null;
+        if (key === '*') {
+            storageGlobalRevision++;
+        } else if (typeof key === 'string') {
+            bumpStorageKeyRevision(key);
+        }
+        try {
+            storageChangeChannel?.postMessage({ key, hasFallback, fallbackKeys, deleted, changedKeys, deletedKeys });
+        } catch (error) {
+            logWarn('StorageAsync', 'Could not broadcast storage invalidation', error);
+        }
+    }
 
     // New async storage layer (IndexedDB primary + in-memory cache + fallback)
     const StorageAsync = (() => {
@@ -5800,6 +6773,562 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         let initError = null;
         let readyPromise = null;
         let persistentStorageGranted = null;
+        let activeBackend = 'memory';
+        let idbUnavailableForSession = false;
+        let gmInventoryComplete = false;
+        const GM_TOMBSTONE = '__YPP_GM_TOMBSTONE__';
+        let idbRetryAfter = 0;
+        const IDB_RETRY_DELAY_MS = 5000;
+        /** Tail of the in-instance durable operation queue. */
+        let durableMutationQueue = Promise.resolve();
+        const STORAGE_SNAPSHOT_MAX_ATTEMPTS = 3;
+        const STORAGE_SNAPSHOT_RETRY_DELAY_MS = 50;
+        const STORAGE_SNAPSHOT_BATCH_SIZE = 50;
+        /** Progress log interval (in records) for long batch merges. */
+        const STORAGE_BATCH_PROGRESS_INTERVAL = 500;
+
+        /**
+         * Serializes durable operations in this runtime so a save that started
+         * before a session handoff cannot finish after the replacement save or
+         * delete. Complete snapshot captures use the same queue as a short
+         * read barrier; initial serialization and network work stay outside
+         * it, while import merges may re-read records inside the queue.
+         * Cross-tab ordering still requires backend reconciliation.
+         * @param {() => Promise<*>} operation - Durable operation to run.
+         * @returns {Promise<*>} The queued operation result.
+         */
+        function enqueueDurableOperation(operation) {
+            const queued = durableMutationQueue.then(operation);
+            durableMutationQueue = queued.catch(error => {
+                logWarn('StorageAsync', 'Durable operation failed; continuing operation queue', error);
+            });
+            return queued;
+        }
+
+        /**
+         * Checks whether any durable GM API is available. A missing
+         * GM_listValues() is not a complete enumeration when these APIs exist.
+         * @returns {boolean} True when GM-backed data may exist.
+         */
+        function hasDurableGMStorage() {
+            return typeof GM_getValue === 'function' && typeof GM_setValue === 'function';
+        }
+
+        /**
+         * Checks whether any GM storage API is exposed. Partial API sets still
+         * make enumeration fail-closed because they cannot prove a complete
+         * durable inventory.
+         * @returns {boolean} True when at least one GM storage API exists.
+         */
+        function hasAnyGMStorageApi() {
+            return typeof GM_getValue === 'function' ||
+                typeof GM_setValue === 'function' ||
+                typeof GM_listValues === 'function' ||
+                typeof GM_deleteValue === 'function';
+        }
+
+        /**
+         * Waits for mutations already submitted by this runtime before reading.
+         * This prevents a replacement session from merging an older record while
+         * the previous session's durable save is still settling.
+         * @returns {Promise<void>} Resolves when the current queue tail is idle.
+         */
+        async function waitForDurableMutations() {
+            await durableMutationQueue;
+        }
+
+        /** @returns {boolean} Whether an IDB operation may be attempted now. */
+        const canUseIDB = () => IndexedDBAdapter.isSupported &&
+            (!idbUnavailableForSession || Date.now() >= idbRetryAfter);
+        /**
+         * Identifies malformed-record errors that must not trigger IDB backoff.
+         * @param {*} error - Storage error.
+         * @returns {boolean} True when the error is record-format related.
+         */
+        function isStorageRecordError(error) {
+            const message = String(error?.message || '');
+            return error instanceof TypeError || error?.name === 'SyntaxError' ||
+                /malformed|record|json|serializ|value/i.test(message);
+        }
+        /**
+         * Identifies GM-provider failures that must not disable IndexedDB.
+         * @param {*} error - Storage error.
+         * @returns {boolean} True when the error came from GM access.
+         */
+        function isStorageProviderError(error) {
+            return error?.name === 'TimeoutError' || /GM (fallback|mirror|storage)/i.test(String(error?.message || ''));
+        }
+
+        /**
+         * Shows at most one notice per runtime when unreadable records are
+         * detected, so a corrupt database cannot flood the console or the
+         * user with one message per row.
+         * @returns {void}
+         */
+        function scheduleQuarantineNotice() {
+            if (quarantineNoticeScheduled || quarantineNoticeShown || quarantinedRecords.size === 0) return;
+            quarantineNoticeScheduled = true;
+            queueMicrotask(() => {
+                quarantineNoticeScheduled = false;
+                if (quarantineNoticeShown || quarantinedRecords.size === 0) return;
+                quarantineNoticeShown = true;
+                const records = [...quarantinedRecords.values()];
+                const total = records.length;
+                const emptyRows = records.filter(({ kind }) => kind === 'empty').length;
+                const malformed = total - emptyRows;
+                const sample = records.slice(0, 5)
+                    .map(({ key, kind }) => `${key} (${kind})`)
+                    .join(', ');
+                logWarn(
+                    'StorageAsync',
+                    `${total} unreadable row(s) excluded from the saved-videos list: ${emptyRows} empty, ${malformed} unreadable. Sample: ${sample}${total > 5 ? ', …' : ''}`
+                );
+                if (emptyRows > 0) {
+                    logWarn('StorageAsync', 'Empty rows carry no record: their videos must be restored from a JSON/FreeTube backup or a GitHub backup');
+                }
+                try {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('storageCorruptRecords', { count: total })}`);
+                } catch (error) {
+                    logWarn('StorageAsync', 'Could not show the unreadable-records notice', error);
+                }
+            });
+        }
+
+        /**
+         * Registers an unreadable durable row so listing, enumeration and
+         * exports keep working around it instead of failing closed.
+         * @param {string} key - Video storage key.
+         * @param {string} reason - Diagnostic reason.
+         * @param {string} [valueType] - Detected value type.
+         * @param {'empty'|'malformed'} [kind] - Empty leftover or unreadable value.
+         * @returns {boolean} True when the key was newly quarantined.
+         */
+        function registerQuarantinedRecord(key, reason, valueType = 'unknown', kind = 'malformed') {
+            if (typeof key !== 'string' || !key || quarantinedRecords.has(key)) return false;
+            if (quarantinedRecords.size >= MAX_QUARANTINED_RECORDS) {
+                if (!quarantineOverflowReported) {
+                    quarantineOverflowReported = true;
+                    logWarn('StorageAsync', `Quarantine registry reached ${MAX_QUARANTINED_RECORDS} entries; further unreadable rows are skipped without being tracked`);
+                }
+                return false;
+            }
+            quarantinedRecords.set(key, { key, reason, valueType, kind, detectedAt: Date.now() });
+            scheduleQuarantineNotice();
+            return true;
+        }
+
+        /**
+         * Marks a record error as quarantined so callers can treat an
+         * unreadable primary row as "no readable record" instead of as an
+         * unavailable backend (which must still fail closed).
+         * @param {string} key - Video storage key.
+         * @param {Error} error - Record error raised while reading the key.
+         * @returns {void}
+         */
+        function quarantineRecordError(key, error) {
+            registerQuarantinedRecord(key, error?.message || 'unreadable record');
+            error.quarantined = true;
+        }
+
+        /**
+         * Lists the unreadable rows detected in this runtime.
+         * @returns {Array<{key: string, reason: string, valueType: string, kind: string, detectedAt: number}>} Quarantine details.
+         */
+        function getQuarantinedRecords() {
+            return [...quarantinedRecords.values()];
+        }
+
+        /**
+         * Persists rows that enumeration managed to convert back into valid
+         * records. Runs outside the enumeration itself so listings and exports
+         * never wait for the write-back.
+         * @param {Array<{key: string, value: string, strategy: string}>} repairs - Converted rows.
+         * @returns {Promise<void>}
+         */
+        async function persistRepairedRows(repairs) {
+            if (!Array.isArray(repairs) || repairs.length === 0) return;
+            if (!IndexedDBAdapter.isSupported || !canUseIDB()) return;
+            return enqueueDurableOperation(async () => {
+                try {
+                    await IndexedDBAdapter.bulkPut(repairs);
+                    markIDBAvailable();
+                    activeBackend = 'idb';
+                    const repairedKeys = repairs.map(({ key }) => key);
+                    repairedKeys.forEach((key) => quarantinedRecords.delete(key));
+                    invalidateSessionSavedData(new Set(repairedKeys));
+                    storageCache.clear();
+                    isBatchStorageCacheValid = false;
+                    cachedBatchStorageData = null;
+                    broadcastStorageChange('*', false, null, false, repairedKeys);
+                    logInfo('StorageAsync', `Converted ${repairedKeys.length} damaged record(s) back to the current format`);
+                } catch (error) {
+                    markIDBUnavailable();
+                    logWarn('StorageAsync', 'Could not persist converted records', error);
+                }
+            });
+        }
+
+        /**
+         * Builds a damage report for the rows that enumeration could not
+         * convert, so the user can inspect or archive them before deleting.
+         * @returns {{summary: Object, entries: Array<Object>}} Report payload.
+         */
+        function buildStorageDamageReport() {
+            const records = getQuarantinedRecords();
+            const emptyRows = records.filter(({ kind }) => kind === 'empty');
+            const malformedRows = records.filter(({ kind }) => kind !== 'empty');
+            return {
+                summary: {
+                    version: SCRIPT_VERSION,
+                    date: new Date().toISOString(),
+                    report: 'storage-damage',
+                    totalUnreadableRows: records.length,
+                    rowsWithoutStoredValue: emptyRows.length,
+                    rowsWithUnreadableValue: malformedRows.length,
+                    note: 'Rows listed here were excluded from the saved-videos list and from exports. '
+                        + 'A row without a stored value cannot be reconstructed: restore those videos from a backup.'
+                },
+                entries: records.map(({ key, kind, reason, valueType, detectedAt }) => ({
+                    videoId: key,
+                    kind,
+                    reason,
+                    valueType,
+                    detectedAt: new Date(detectedAt).toISOString()
+                }))
+            };
+        }
+
+        /** Marks IDB temporarily unavailable and schedules a later retry. */
+        const markIDBUnavailable = () => {
+            idbUnavailableForSession = true;
+            idbRetryAfter = Date.now() + IDB_RETRY_DELAY_MS;
+        };
+        /** Marks a successful IDB operation and clears the retry backoff. */
+        const markIDBAvailable = () => {
+            idbUnavailableForSession = false;
+            idbRetryAfter = 0;
+        };
+
+        /**
+         * Chooses the newest of two durable video records by timeWatched.
+         * @param {Object} primary - Primary-backend record.
+         * @param {Object} fallback - GM fallback record.
+         * @returns {{record: Object, usedFallback: boolean}} Selected record.
+         */
+        function pickNewerDurableRecord(primary, fallback) {
+            if (!fallback) return { record: primary, usedFallback: false };
+            const primaryTime = Number(primary?.timeWatched);
+            const fallbackTime = Number(fallback?.timeWatched);
+            const useFallback = !Number.isFinite(primaryTime) || primaryTime <= 0 ||
+                (Number.isFinite(fallbackTime) && fallbackTime > primaryTime);
+            return { record: useFallback ? fallback : primary, usedFallback: useFallback };
+        }
+
+        /**
+         * Reads a video record from the durable GM fallback.
+         * @param {string} key - Video storage key.
+         * @returns {Promise<Object|string|null>} Parsed record, tombstone marker, or null when absent.
+         */
+        async function getGMFallback(key, { allowPrimitive = false } = {}) {
+            if (typeof GM_getValue !== 'function') return null;
+            const raw = await gmGetValue(prefixKey(key), null);
+            if (raw === null || raw === undefined) return null;
+            if (raw === GM_TOMBSTONE) {
+                rememberGMTombstone(key);
+                return GM_TOMBSTONE;
+            }
+            gmTombstoneKeys.delete(key);
+            if (typeof raw === 'object') return raw;
+            if (typeof raw !== 'string') {
+                if (allowPrimitive) return raw;
+                throw new TypeError(`Unsupported GM value type for "${key}": ${typeof raw}`);
+            }
+            try {
+                return JSON.parse(raw);
+            } catch (error) {
+                if (allowPrimitive) return raw;
+                throw error;
+            }
+        }
+
+        /**
+         * Normalizes string and native-object values returned by either durable
+         * backend into a video record.
+         * @param {*} raw - Raw backend value.
+         * @param {{allowPrimitive?: boolean}} [options] - Metadata compatibility mode.
+         * @returns {Object|null} Parsed record, or null for an absent value.
+         */
+        function parseStoredRecord(raw, { allowPrimitive = false } = {}) {
+            if (raw === null || raw === undefined) return null;
+            if (typeof raw === 'object' && !Array.isArray(raw)) return raw;
+            if (typeof raw === 'string') {
+                let parsed;
+                try {
+                    parsed = JSON.parse(raw);
+                } catch (error) {
+                    if (allowPrimitive) return raw;
+                    throw error;
+                }
+                if (allowPrimitive) return parsed;
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                    throw new TypeError('Stored video record is not an object');
+                }
+                return parsed;
+            }
+            if (allowPrimitive) return raw;
+            throw new TypeError(`Unsupported stored value type: ${typeof raw}`);
+        }
+
+        /**
+         * Persists a video record to the durable GM fallback.
+         * @param {string} key - Video storage key.
+         * @param {string} serialized - JSON payload.
+         * @returns {Promise<void>}
+         */
+        async function setGMFallback(key, serialized) {
+            if (typeof GM_setValue !== 'function') {
+                throw new Error('No durable video storage backend is available');
+            }
+            await gmSetValue(prefixKey(key), serialized);
+            gmTombstoneKeys.delete(key);
+        }
+
+        /**
+         * Writes a GM mirror without replacing a newer durable record.
+         * @param {string} key - Video storage key.
+         * @param {string} serialized - Candidate JSON record.
+         * @returns {Promise<{serialized: string, wrote: boolean}>} Canonical result and write status.
+         */
+        async function setGMFallbackNewestWins(key, serialized) {
+            if (typeof GM_getValue === 'function') {
+                const candidate = JSON.parse(serialized);
+                const firstRead = await getGMFallback(key);
+                const latestRead = await getGMFallback(key);
+                for (const observed of [firstRead, latestRead]) {
+                    if (observed && observed !== GM_TOMBSTONE) {
+                        const selected = pickNewerDurableRecord(candidate, observed);
+                        if (selected.usedFallback) {
+                            return { serialized: JSON.stringify(selected.record), wrote: false };
+                        }
+                    }
+                }
+            }
+            await setGMFallback(key, serialized);
+            return { serialized, wrote: true };
+        }
+
+        /**
+         * Removes a video record from the GM fallback.
+         * @param {string} key - Video storage key.
+         * @returns {Promise<void>}
+         */
+        async function deleteGMFallback(key) {
+            const gmKey = prefixKey(key);
+            if (typeof GM_deleteValue === 'function') {
+                try {
+                    await gmDeleteValue(gmKey);
+                    gmTombstoneKeys.delete(key);
+                    return;
+                } catch (error) {
+                    // Some managers expose GM_deleteValue but reject it for a
+                    // missing/partially initialized key. Use an explicit
+                    // sentinel so a stale IDB mirror cannot resurrect it.
+                    if (typeof GM_setValue !== 'function') throw error;
+                    try {
+                        await gmSetValue(gmKey, GM_TOMBSTONE);
+                        rememberGMTombstone(key);
+                        return;
+                    } catch (fallbackError) {
+                        throw new AggregateError([error, fallbackError], `Could not clear GM fallback ${gmKey}`);
+                    }
+                }
+            }
+            if (typeof GM_setValue === 'function') {
+                await gmSetValue(gmKey, GM_TOMBSTONE);
+                rememberGMTombstone(key);
+                return;
+            }
+            throw new Error(`No GM API is available to delete ${key}`);
+        }
+
+        /**
+         * Synchronizes an existing GM mirror after an IDB write. The mirror is
+         * updated rather than blindly deleted: another tab may have written a
+         * newer fallback between the IDB commit and reconciliation.
+         * @param {string} key - Video storage key.
+         * @param {string} serialized - Current IDB JSON value.
+         * @returns {Promise<Object|null>} Canonical record after reconciliation.
+         */
+        async function reconcileGMFallbackAfterIDB(key, serialized) {
+            let currentRecord;
+            try {
+                currentRecord = JSON.parse(serialized);
+            } catch (error) {
+                logWarn('StorageAsync', `Could not parse current IDB record while reconciling ${key}`, error);
+                return null;
+            }
+
+            let fallbackRecord = null;
+            try {
+                fallbackRecord = await getGMFallback(key);
+            } catch (error) {
+                logWarn('StorageAsync', `Could not read GM mirror while reconciling ${key}`, error);
+                throw error;
+            }
+
+            let didWrite = false;
+            if (fallbackRecord === GM_TOMBSTONE) {
+                // Re-read before repairing a marker. Never overwrite a value
+                // that appeared after the first read; a later explicit save
+                // can retry the repair with a fresh comparison.
+                const latestFallback = await getGMFallback(key);
+                if (latestFallback === GM_TOMBSTONE || latestFallback === null) {
+                    try {
+                        await setGMFallback(key, serialized);
+                        didWrite = true;
+                    } catch (error) {
+                        logWarn('StorageAsync', `Could not clear GM tombstone for ${key}`, error);
+                    }
+                } else {
+                    const selected = pickNewerDurableRecord(currentRecord, latestFallback);
+                    if (selected.usedFallback) {
+                        try {
+                            await IndexedDBAdapter.put(key, JSON.stringify(selected.record));
+                            didWrite = true;
+                        } catch (error) {
+                            logWarn('StorageAsync', `Could not preserve newer GM record while clearing tombstone for ${key}`, error);
+                        }
+                        if (didWrite) broadcastStorageChange(key, true);
+                        return selected.record;
+                    }
+                    // The IDB record is newer than the mirror. Avoid an
+                    // unconditional GM write here because another tab may have
+                    // written again after the fresh read.
+                    return currentRecord;
+                }
+                if (didWrite) broadcastStorageChange(key, true);
+                return currentRecord;
+            }
+            if (fallbackRecord) {
+                const selected = pickNewerDurableRecord(currentRecord, fallbackRecord);
+                if (selected.usedFallback) {
+                    try {
+                        await IndexedDBAdapter.put(key, JSON.stringify(selected.record));
+                        didWrite = true;
+                    } catch (error) {
+                        logWarn('StorageAsync', `Could not restore newer GM mirror into IDB for ${key}`, error);
+                    }
+                    if (didWrite) broadcastStorageChange(key, true);
+                    return selected.record;
+                }
+            }
+            if (fallbackRecord) {
+                let fallbackSerialized = null;
+                try {
+                    fallbackSerialized = JSON.stringify(fallbackRecord);
+                } catch (error) {
+                    logWarn('StorageAsync', `Could not serialize GM mirror while reconciling ${key}`, error);
+                }
+                if (fallbackSerialized === serialized) return currentRecord;
+            }
+
+            try {
+                // Keep an existing fallback replica aligned with IDB. This is
+                // safer than deleting it, because deletion can erase a newer
+                // cross-tab write between the read and delete calls.
+                await setGMFallback(key, serialized);
+                didWrite = true;
+            } catch (error) {
+                logWarn('StorageAsync', `Could not synchronize GM mirror for ${key}`, error);
+            }
+            if (didWrite) broadcastStorageChange(key, true);
+            return currentRecord;
+        }
+
+        /**
+         * Synchronizes only mirrors that already exist for a batch.
+         * @param {Array<{key: string, serialized: string}>} entries - Batch entries.
+         * @returns {Promise<{results: Array<{key: string, record: Object|null}>, inventoryComplete: boolean}>} Results and mirror inventory status.
+         */
+        async function reconcileGMFallbacksAfterIDB(entries) {
+            if (!entries.length) return { results: [], inventoryComplete: true };
+            const existingKeys = new Set(knownGMFallbackKeys);
+            let inventoryComplete = false;
+            let gmListFailed = false;
+            if (typeof GM_listValues === 'function') {
+                try {
+                    const gmKeys = await gmListValues();
+                    if (!Array.isArray(gmKeys) || gmKeys.some((key) => typeof key !== 'string')) {
+                        throw new TypeError('GM_listValues did not return an array');
+                    }
+                    for (const gmKey of gmKeys) {
+                        if (typeof gmKey === 'string' && hasPrefix(gmKey)) {
+                            const key = stripPrefix(gmKey);
+                            existingKeys.add(key);
+                            if (!isNonVideoStorageKey(key)) rememberGMFallbackKey(key);
+                        }
+                    }
+                    inventoryComplete = true;
+                    gmInventoryComplete = true;
+                } catch (error) {
+                    gmListFailed = true;
+                    gmInventoryComplete = false;
+                    logWarn('StorageAsync', 'Could not enumerate GM mirrors for batch reconciliation', error);
+                }
+            }
+            if (gmListFailed) {
+                throw new Error('Cannot enumerate a complete GM key set for batch reconciliation');
+            }
+            if (hasAnyGMStorageApi() &&
+                (typeof GM_listValues !== 'function' || typeof GM_getValue !== 'function')) {
+                throw new Error('GM read/list APIs are incomplete for batch reconciliation');
+            }
+
+            if (!inventoryComplete && typeof GM_getValue === 'function') {
+                const probeDeadline = Date.now() + STORAGE_GM_TIMEOUT_MS;
+                for (let offset = 0; offset < entries.length; offset += STORAGE_SNAPSHOT_BATCH_SIZE) {
+                    const remainingMs = probeDeadline - Date.now();
+                    if (remainingMs <= 0) {
+                        const error = new Error('Timed out probing GM mirrors for batch reconciliation');
+                        error.name = 'TimeoutError';
+                        gmInventoryComplete = false;
+                        throw error;
+                    }
+                    const batch = entries.slice(offset, offset + STORAGE_SNAPSHOT_BATCH_SIZE);
+                    let probes;
+                    try {
+                        probes = await withStorageTimeout(
+                            Promise.all(batch.map(async ({ key }) => ({ key, value: await getGMFallback(key) }))),
+                            remainingMs,
+                            'Timed out probing GM mirrors for batch reconciliation'
+                        );
+                    } catch (error) {
+                        gmInventoryComplete = false;
+                        throw error;
+                    }
+                    for (const { key, value } of probes) {
+                        if (value) {
+                            existingKeys.add(key);
+                            rememberGMFallbackKey(key);
+                        }
+                    }
+                }
+            }
+
+            let results;
+            try {
+                results = await Promise.all(entries
+                    .filter(({ key }) => existingKeys.has(key))
+                    .map(async ({ key, serialized }) => ({
+                        key,
+                        record: await reconcileGMFallbackAfterIDB(key, serialized)
+                    })));
+            } catch (error) {
+                gmInventoryComplete = false;
+                throw error;
+            }
+            return { results, inventoryComplete };
+        }
 
         /**
          * Initializes the async layer: detects IndexedDB, migrates data if needed, and populates cache.
@@ -5811,7 +7340,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 try {
                     logInfo('Starting StorageAsync...');
 
-                    if (navigator.storage && navigator.storage.persist) {
+                    if (typeof navigator !== 'undefined' && navigator.storage && navigator.storage.persist) {
                         try {
                             const isPersisted = await navigator.storage.persist();
                             persistentStorageGranted = !!isPersisted;
@@ -5821,103 +7350,1124 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         }
                     }
 
+                    const startingRevision = storageCacheRevision;
                     const result = await IndexedDBAdapter.bootstrap([]);
-                    // Populate in-memory cache from IndexedDB
-                    for (const entry of result.entries) {
-                        storageCache.set(entry.key, entry.value);
+                    if (typeof GM_listValues === 'function') {
+                        try {
+                            const gmKeys = await gmListValues();
+                            if (!Array.isArray(gmKeys) || gmKeys.some((key) => typeof key !== 'string')) throw new TypeError('GM_listValues did not return an array of strings');
+                            gmInventoryComplete = true;
+                            for (const gmKey of gmKeys) {
+                                if (typeof gmKey === 'string' && hasPrefix(gmKey)) {
+                                    const key = stripPrefix(gmKey);
+                                    if (!isNonVideoStorageKey(key)) rememberGMFallbackKey(key);
+                                }
+                            }
+                        } catch (error) {
+                            gmInventoryComplete = false;
+                            logWarn('StorageAsync', 'Could not inspect existing GM fallback keys', error);
+                        }
                     }
-                    isReady = true;
-                    logInfo('StorageAsync ready. Backend:', IndexedDBAdapter.isSupported ? 'IndexedDB' : 'fallback');
+                    // Populate the bounded LRU working set from IndexedDB only
+                    // if no cross-tab invalidation arrived while bootstrap ran.
+                    if (startingRevision === storageCacheRevision) {
+                        for (const entry of result.entries) {
+                            storageCache.set(entry.key, entry.value);
+                        }
+                    } else {
+                        storageCache.clear();
+                        logWarn('StorageAsync', 'Storage changed during bootstrap; deferring cache population');
+                    }
+                    isReady = result.source !== 'unsupported' || hasDurableGMStorage();
+                    if (result.source !== 'unsupported') markIDBAvailable();
+                    activeBackend = result.source === 'unsupported' ? 'gm' : 'idb';
+                    logInfo('StorageAsync ready. Backend:', activeBackend);
                 } catch (err) {
                     initError = err;
-                    logError('StorageAsync initialization failed:', err);
-                    // On error, keep cache empty and delegate to existing sync API
+                    markIDBUnavailable();
+                    activeBackend = 'gm';
+                    isReady = typeof GM_getValue === 'function' && typeof GM_setValue === 'function';
+                    logError('StorageAsync initialization failed; using GM fallback:', err);
                 }
             })();
             return readyPromise;
         }
 
         /**
-         * Gets a value from cache (sync) or IndexedDB (async).
+         * Gets a value from cache, IndexedDB, or the durable GM fallback.
+         * @param {string} key - Video storage key.
+         * @param {{retryCount?: number, skipQueue?: boolean}} [options] - Retry and queue controls.
+         * @returns {Promise<Object|null>} Parsed video record or null.
          */
-        async function get(key) {
+        async function get(key, { retryCount = 0, skipQueue = false } = {}) {
             await initialize();
-            if (storageCache.has(key)) {
+            if (!skipQueue) await waitForDurableMutations();
+            // A local tombstone is a deletion hint, not proof that a newer
+            // competing IDB write does not exist; let the backends reconcile.
+            const allowPrimitive = typeof isNonVideoStorageKey === 'function' && isNonVideoStorageKey(key);
+            const startingRevision = getStorageRevisionSnapshot(key);
+            if (storageCache.has(key) && !knownGMFallbackKeys.has(key) && canUseIDB() &&
+                (!hasAnyGMStorageApi() || gmInventoryComplete)) {
                 try {
-                    return JSON.parse(storageCache.get(key));
-                } catch (_) {
-                    logWarn('StorageAsync', `Corrupted cache entry for key "${key}", removing`);
+                    const cachedRecord = parseStoredRecord(storageCache.get(key), { allowPrimitive });
+                    if (cachedRecord === null) throw new TypeError('Cached video record is empty');
+                    return cachedRecord;
+                } catch (error) {
+                    logWarn('StorageAsync', `Corrupted cache entry for key "${key}", removing`, error);
                     storageCache.delete(key);
-                    return null;
                 }
             }
-            // If not in cache and IndexedDB is available, look it up
-            if (IndexedDBAdapter.isSupported) {
+
+            let idbError = IndexedDBAdapter.isSupported && !canUseIDB()
+                ? new Error('IndexedDB is temporarily unavailable; primary presence is unknown')
+                : null;
+            // Raw primary value, kept outside the try so the repair path can
+            // tell "no stored value at all" from "unparseable stored value".
+            let primaryRawValue;
+            if (IndexedDBAdapter.isSupported && canUseIDB()) {
                 try {
                     const storeResult = await IndexedDBAdapter.runInStore('readonly', (store) => store.get(key));
-                    const raw = storeResult?.result?.value;
-                    if (raw !== undefined) {
-                        storageCache.set(key, raw);
-                        return JSON.parse(raw);
+                    const raw = storeResult && Object.prototype.hasOwnProperty.call(storeResult, 'value')
+                        ? storeResult.value
+                        : storeResult?.result?.value;
+                    primaryRawValue = raw;
+                    if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
+                    const idbValue = parseStoredRecord(raw, { allowPrimitive });
+                    let fallbackValue = null;
+                    let hasAmbiguousTombstone = false;
+                    try {
+                        fallbackValue = await getGMFallback(key, { allowPrimitive });
+                        if (fallbackValue === GM_TOMBSTONE) {
+                            if (idbValue !== null) {
+                                // Do not clear or rewrite the GM mirror here:
+                                // another tab may have written a newer value
+                                // after this read. Keep the IDB record and let
+                                // a later explicit write reconcile safely.
+                                hasAmbiguousTombstone = true;
+                                rememberGMFallbackKey(key);
+                                logWarn('StorageAsync', `Keeping IDB record "${key}" while preserving an ambiguous GM tombstone`);
+                            } else {
+                                // The successful IDB read confirmed absence.
+                                // Do not issue a second delete: a newer write
+                                // may have committed after this read.
+                                rememberGMFallbackKey(key);
+                                storageCache.delete(key);
+                                isBatchStorageCacheValid = false;
+                                invalidateSessionSavedData(key);
+                                if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
+                                return null;
+                            }
+                        }
+                        if (!hasAmbiguousTombstone && !allowPrimitive && fallbackValue !== null && (typeof fallbackValue !== 'object' || Array.isArray(fallbackValue))) {
+                            throw new TypeError('GM fallback video record is not an object');
+                        }
+                    } catch (fallbackError) {
+                        if (!allowPrimitive) throw fallbackError;
+                        fallbackValue = null;
+                        logWarn('StorageAsync', `GM fallback reconciliation failed for ${key}`, fallbackError);
                     }
-                } catch (err) {
-                    logWarn('storageAsync', `Error reading ${key} from IndexedDB: `, err);
+
+                    if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
+                    if (idbValue !== null) {
+                        let selected = hasAmbiguousTombstone
+                            ? { record: idbValue, usedFallback: false }
+                            : pickNewerDurableRecord(idbValue, fallbackValue);
+                        if (!hasAmbiguousTombstone && !selected.usedFallback && fallbackValue !== null) {
+                            const reconciledRecord = await reconcileGMFallbackAfterIDB(key, JSON.stringify(idbValue));
+                            if (reconciledRecord) {
+                                selected = pickNewerDurableRecord(idbValue, reconciledRecord);
+                            }
+                        }
+                        if (selected.usedFallback) {
+                            try {
+                                await IndexedDBAdapter.put(key, JSON.stringify(selected.record));
+                            } catch (reconcileError) {
+                                markIDBUnavailable();
+                                logWarn('StorageAsync', `Could not reconcile newer GM fallback into IDB for ${key}`, reconcileError);
+                            }
+                        }
+                        if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
+                        activeBackend = idbUnavailableForSession ? 'gm' : 'idb';
+                        if (hasAmbiguousTombstone || fallbackValue !== null || selected.usedFallback) rememberGMFallbackKey(key);
+                        else knownGMFallbackKeys.delete(key);
+                        storageCache.set(key, JSON.stringify(selected.record));
+                        if (hasAmbiguousTombstone) isBatchStorageCacheValid = false;
+                        return selected.record;
+                    }
+
+                    if (fallbackValue !== null) {
+                        try {
+                            await IndexedDBAdapter.put(key, JSON.stringify(fallbackValue));
+                        } catch (reconcileError) {
+                            markIDBUnavailable();
+                            logWarn('StorageAsync', `Could not restore GM fallback into IDB for ${key}`, reconcileError);
+                        }
+                        if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
+                        activeBackend = idbUnavailableForSession ? 'gm' : 'idb';
+                        rememberGMFallbackKey(key);
+                        // The mirror supplied a readable record, so the
+                        // primary row is no longer a lost/unknown entry.
+                        if (quarantinedRecords.delete(key)) isBatchStorageCacheValid = false;
+                        storageCache.set(key, JSON.stringify(fallbackValue));
+                        return fallbackValue;
+                    }
+
+                    activeBackend = 'idb';
+                    knownGMFallbackKeys.delete(key);
+                    // A row that stores no value resolves as absent, so it is
+                    // no longer an unreadable entry to report.
+                    quarantinedRecords.delete(key);
+                    return null;
+                } catch (error) {
+                    const isRevisionContention = /Storage changed repeatedly/.test(error?.message || '');
+                    const isRecordCorruption = isStorageRecordError(error);
+                    const isProviderError = isStorageProviderError(error);
+                    if (!isRevisionContention && !isRecordCorruption && !isProviderError) markIDBUnavailable();
+                    idbError = error;
+                    if (isRecordCorruption && !isRevisionContention && !allowPrimitive) {
+                        // The row exists but holds no readable record. Track it
+                        // so the strict listing path can skip this one key
+                        // instead of failing for every saved video.
+                        quarantineRecordError(key, error);
+                    }
+                    logWarn('StorageAsync', `Error reading ${key} from IndexedDB; trying GM fallback`, error);
                 }
             }
-            return null;
-        }
 
-        /**
-         * Saves a value in IndexedDB and updates cache.
-         */
-        async function set(key, value) {
-            await initialize();
-            isBatchStorageCacheValid = false; // Invalidate batch rendering cache
-            const serialized = JSON.stringify(value);
-            storageCache.set(key, serialized);
-            if (IndexedDBAdapter.isSupported) {
-                try {
-                    await IndexedDBAdapter.put(key, serialized);
-                } catch (err) {
+            try {
+                let fallbackValue = await getGMFallback(key, { allowPrimitive });
+                if (fallbackValue === GM_TOMBSTONE && idbError) throw idbError;
+                if (fallbackValue === GM_TOMBSTONE) {
+                    // A confirmed primary absence is already enough to return
+                    // null. A second delete would create a TOCTOU window for a
+                    // newer cross-tab write.
+                    rememberGMFallbackKey(key);
                     storageCache.delete(key);
-                    logWarn('storageAsync', `Error writing ${key} to IndexedDB, cache reverted: `, err);
-                    // Throw the error so the upper-level handler can catch it
-                    throw err;
+                    isBatchStorageCacheValid = false;
+                    invalidateSessionSavedData(key);
+                    if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
+                    return null;
                 }
+                if (!allowPrimitive && fallbackValue !== null && (typeof fallbackValue !== 'object' || Array.isArray(fallbackValue))) {
+                    throw new TypeError('GM fallback video record is not an object');
+                }
+                if (storageRevisionRetryNeeded(key, startingRevision, retryCount)) return get(key, { retryCount: retryCount + 1, skipQueue });
+                // A failed primary read is not proof that the record is absent.
+                // Only return null when the primary read succeeded; otherwise
+                // propagate the backend failure so strict callers do not treat
+                // an unavailable IDB as an empty database. An unreadable row
+                // is the one exception: it provably carries no usable record,
+                // so it resolves as absent and stays in the quarantine list.
+                if (idbError && fallbackValue === null) {
+                    if (idbError.quarantined === true) {
+                        knownGMFallbackKeys.delete(key);
+                        storageCache.delete(key);
+                        return null;
+                    }
+                    throw idbError;
+                }
+                activeBackend = 'gm';
+                if (fallbackValue !== null) {
+                    rememberGMFallbackKey(key);
+                    // A readable mirror record supersedes the quarantine.
+                    if (quarantinedRecords.delete(key)) isBatchStorageCacheValid = false;
+                    // A primary row that stores no value at all (legacy/partial
+                    // write) is provably empty, so the readable mirror can
+                    // repair it without losing anything.
+                    if (idbError?.quarantined === true && typeof primaryRawValue !== 'string' &&
+                        IndexedDBAdapter.isSupported && canUseIDB()) {
+                        try {
+                            await IndexedDBAdapter.put(key, JSON.stringify(fallbackValue));
+                            markIDBAvailable();
+                            activeBackend = 'idb';
+                            logWarn('StorageAsync', `Repaired the unreadable record "${key}" from its GM mirror`);
+                        } catch (repairError) {
+                            markIDBUnavailable();
+                            logWarn('StorageAsync', `Could not repair the unreadable record "${key}" from its GM mirror`, repairError);
+                        }
+                    }
+                    storageCache.set(key, JSON.stringify(fallbackValue));
+                } else {
+                    knownGMFallbackKeys.delete(key);
+                }
+                return fallbackValue;
+            } catch (fallbackError) {
+                throw idbError || fallbackError;
             }
         }
 
         /**
-         * Deletes a key from IndexedDB and cache.
+         * Saves a value durably in IndexedDB, falling back to GM storage.
+         * Cache is updated only after a durable write succeeds.
+         * @param {string} key - Video storage key.
+         * @param {Object} value - Video record.
+         * @param {{commitGuard?: (() => boolean)|null, expectedTimeWatched?: number|null}} [options] - Optional last-moment commit guard.
+         * @returns {Promise<{serialized: string, record: Object}>} Canonical durable record.
          */
-        async function del(key) {
+        async function set(key, value, { commitGuard = null, expectedTimeWatched = null } = {}) {
             await initialize();
-            isBatchStorageCacheValid = false; // Invalidate batch rendering cache
-            storageCache.delete(key);
-            if (IndexedDBAdapter.isSupported) {
+            const serialized = JSON.stringify(value);
+            return enqueueDurableOperation(async () => {
+            const assertCommitAllowed = () => {
+                if (typeof commitGuard === 'function' && !commitGuard()) {
+                    const error = new Error(`Commit cancelled for ${key}`);
+                    error.name = 'AbortError';
+                    error.staleSession = true;
+                    throw error;
+                }
+            };
+            assertCommitAllowed();
+            if (expectedTimeWatched !== null && expectedTimeWatched !== undefined) {
+                const current = await get(key, { skipQueue: true });
+                assertCommitAllowed();
+                const currentTime = Number(current?.timeWatched || 0);
+                const expectedTime = Number(expectedTimeWatched);
+                if (current && (current.isProtected === true || currentTime > expectedTime)) {
+                    const error = new Error(`Record changed before write: ${key}`);
+                    error.reason = current.isProtected === true ? 'protected_record' : 'newer_record';
+                    error.staleSession = true;
+                    throw error;
+                }
+            }
+            let effectiveSerialized = serialized;
+            let hasGMFallback = knownGMFallbackKeys.has(key);
+            // Probe the mirror on every write. A tombstone may have been left by
+            // another tab after its inventory was cached; skipping this read
+            // would let a newer IDB save coexist with that stale tombstone.
+            if (!hasGMFallback && typeof GM_getValue === 'function') {
                 try {
+                    const existingFallback = await getGMFallback(key);
+                    if (existingFallback) {
+                        hasGMFallback = true;
+                        rememberGMFallbackKey(key);
+                    }
+                } catch (error) {
+                    // A slow or unreadable mirror must not veto the IndexedDB
+                    // write: the IDB commit below is the durable save, the read
+                    // path keeps IDB on ambiguous tombstones, and the next write
+                    // re-probes the mirror (falla C).
+                    logWarn('StorageAsync', `GM fallback probe failed for ${key}; continuing with IndexedDB write`, error);
+                }
+            }
+            if (IndexedDBAdapter.isSupported && canUseIDB()) {
+                try {
+                    assertCommitAllowed();
+                    await IndexedDBAdapter.put(key, serialized);
+                    assertCommitAllowed();
+                    if (hasGMFallback) {
+                        const reconciledRecord = await reconcileGMFallbackAfterIDB(key, serialized);
+                        assertCommitAllowed();
+                        if (reconciledRecord) effectiveSerialized = JSON.stringify(reconciledRecord);
+                    }
+                    markIDBAvailable();
+                    activeBackend = 'idb';
+                    if (hasGMFallback) rememberGMFallbackKey(key);
+                    else knownGMFallbackKeys.delete(key);
+                    locallyDeletedKeys.delete(key);
+                    // A successful write replaces any unreadable row.
+                    quarantinedRecords.delete(key);
+                    storageCache.set(key, effectiveSerialized);
+                    invalidateSessionSavedData(key);
+                    isBatchStorageCacheValid = false;
+                    broadcastStorageChange(key, hasGMFallback);
+                    return { serialized: effectiveSerialized, record: JSON.parse(effectiveSerialized) };
+                } catch (error) {
+                    if (error?.staleSession) throw error;
+                    markIDBUnavailable();
+                    logWarn('StorageAsync', `Error writing ${key} to IndexedDB; trying GM fallback`, error);
+                }
+            }
+
+            assertCommitAllowed();
+            const fallbackResult = await setGMFallbackNewestWins(key, serialized);
+            effectiveSerialized = fallbackResult.serialized;
+            assertCommitAllowed();
+            activeBackend = 'gm';
+            rememberGMFallbackKey(key);
+            locallyDeletedKeys.delete(key);
+            // A readable mirror record supersedes any unreadable primary row.
+            quarantinedRecords.delete(key);
+            storageCache.set(key, effectiveSerialized);
+            invalidateSessionSavedData(key);
+            isBatchStorageCacheValid = false;
+            broadcastStorageChange(key, true);
+            return { serialized: effectiveSerialized, record: JSON.parse(effectiveSerialized) };
+            });
+        }
+
+        /**
+         * Saves multiple video records in one durable batch when possible.
+         * @param {Array<{key: string, value: Object}>} entries - Records to persist.
+         * @param {{mergeEntry?: Function|null, commitGuard?: (() => boolean)|null}} [options] - Optional queued merge and commit guard.
+         * @returns {Promise<{writtenKeys: string[], skippedKeys: string[]}>} Batch result.
+         */
+        async function setMany(entries, { mergeEntry = null, commitGuard = null } = {}) {
+            if (!Array.isArray(entries) || entries.length === 0) {
+                return { writtenKeys: [], skippedKeys: [] };
+            }
+            if (hasAnyGMStorageApi() &&
+                (typeof GM_listValues !== 'function' || typeof GM_getValue !== 'function')) {
+                throw new Error('GM read/list APIs are incomplete for batch writes');
+            }
+            await initialize();
+            let serializedEntries = entries.map(({ key, value }) => ({ key, serialized: JSON.stringify(value) }));
+            return enqueueDurableOperation(async () => {
+                const assertCommitAllowed = () => {
+                    if (typeof commitGuard === 'function' && !commitGuard()) {
+                        const error = new Error('Commit cancelled for durable batch');
+                        error.name = 'AbortError';
+                        error.staleSession = true;
+                        throw error;
+                    }
+                };
+                const skippedKeys = [];
+
+                // Import callers can re-read and merge while this operation owns
+                // the durable queue. That closes the read/submit gap without
+                // introducing a second queue or a distributed CAS.
+                if (typeof mergeEntry === 'function') {
+                    const mergedEntries = [];
+                    const totalEntries = serializedEntries.length;
+                    for (const [entryIndex, entry] of serializedEntries.entries()) {
+                        assertCommitAllowed();
+                        const current = await get(entry.key, { skipQueue: true });
+                        assertCommitAllowed();
+                        const incoming = JSON.parse(entry.serialized);
+                        const decision = await mergeEntry({ key: entry.key, current, incoming });
+                        if (decision?.skip) {
+                            skippedKeys.push(entry.key);
+                        } else {
+                            const value = decision && typeof decision === 'object' &&
+                                Object.prototype.hasOwnProperty.call(decision, 'value')
+                                ? decision.value
+                                : decision;
+                            if (!value || typeof value !== 'object') {
+                                throw new TypeError(`Import merge returned no record for "${entry.key}"`);
+                            }
+                            mergedEntries.push({ key: entry.key, serialized: JSON.stringify(value) });
+                        }
+                        // Re-reading every record before writing makes a large
+                        // import a long, silent operation: report progress so it
+                        // is not mistaken for a freeze.
+                        if ((entryIndex + 1) % STORAGE_BATCH_PROGRESS_INTERVAL === 0 || entryIndex + 1 === totalEntries) {
+                            logInfo('setMany', `Merge progress: ${entryIndex + 1}/${totalEntries} records read`);
+                        }
+                    }
+                    serializedEntries = mergedEntries;
+                }
+
+                if (serializedEntries.length === 0) {
+                    return { writtenKeys: [], skippedKeys };
+                }
+                assertCommitAllowed();
+
+                if (IndexedDBAdapter.isSupported && canUseIDB()) {
+                    try {
+                        // Canonical row shape: the adapter also tolerates
+                        // `{key, serialized}`, but never store `undefined`.
+                        await IndexedDBAdapter.bulkPut(serializedEntries.map(({ key, serialized }) => ({ key, value: serialized })));
+                        assertCommitAllowed();
+                        const reconciliation = await reconcileGMFallbacksAfterIDB(serializedEntries);
+                        assertCommitAllowed();
+                        const reconciliationResults = reconciliation.results;
+                        const reconciledByKey = new Map(
+                            reconciliationResults
+                                .filter(({ record }) => record !== null)
+                                .map(({ key, record }) => [key, JSON.stringify(record)])
+                        );
+                        markIDBAvailable();
+                        activeBackend = 'idb';
+                        for (const { key, serialized } of serializedEntries) {
+                            if (knownGMFallbackKeys.has(key)) rememberGMFallbackKey(key);
+                            else knownGMFallbackKeys.delete(key);
+                            locallyDeletedKeys.delete(key);
+                            // A batch write replaces any unreadable row.
+                            quarantinedRecords.delete(key);
+                            storageCache.set(key, reconciledByKey.get(key) || serialized);
+                        }
+                        invalidateSessionSavedData(new Set(serializedEntries.map(({ key }) => key)));
+                        isBatchStorageCacheValid = false;
+                        const fallbackKeys = reconciliation.inventoryComplete
+                            ? serializedEntries
+                                .map(({ key }) => key)
+                                .filter(key => knownGMFallbackKeys.has(key))
+                            : null;
+                        const writtenKeys = serializedEntries.map(({ key }) => key);
+                        broadcastStorageChange(
+                            '*',
+                            fallbackKeys !== null && fallbackKeys.length > 0,
+                            fallbackKeys,
+                            false,
+                            writtenKeys
+                        );
+                        return { writtenKeys, skippedKeys };
+                    } catch (error) {
+                        if (error?.name === 'AbortError' || error?.staleSession) throw error;
+                        markIDBUnavailable();
+                        logWarn('StorageAsync', `IndexedDB batch write failed; using GM fallback`, error);
+                    }
+                }
+
+                // GM has no multi-key transaction API. Wait for every write to
+                // settle before reporting the batch result; otherwise a rejected
+                // Promise.all can return while other writes are still mutating GM.
+                assertCommitAllowed();
+                const gmSettled = await Promise.all(serializedEntries.map(async entry => {
+                    assertCommitAllowed();
+                    try {
+                        const outcome = await setGMFallbackNewestWins(entry.key, entry.serialized);
+                        return { status: 'fulfilled', outcome, entry };
+                    } catch (error) {
+                        return { status: 'rejected', reason: error, entry };
+                    }
+                }));
+                assertCommitAllowed();
+                const gmFailures = gmSettled.filter(result => result.status === 'rejected');
+                const gmApplied = gmSettled
+                    .filter(result => result.status === 'fulfilled' && result.outcome.wrote)
+                    .map(result => ({ key: result.entry.key, serialized: result.outcome.serialized }));
+                const gmPreserved = gmSettled
+                    .filter(result => result.status === 'fulfilled' && !result.outcome.wrote)
+                    .map(result => ({ key: result.entry.key, serialized: result.outcome.serialized }));
+                const gmCanonical = [...gmApplied, ...gmPreserved];
+
+                if (gmCanonical.length > 0) {
+                    activeBackend = 'gm';
+                    for (const { key, serialized } of gmCanonical) {
+                        rememberGMFallbackKey(key);
+                        locallyDeletedKeys.delete(key);
+                        storageCache.set(key, serialized);
+                    }
+                    invalidateSessionSavedData(new Set(gmCanonical.map(({ key }) => key)));
+                    isBatchStorageCacheValid = false;
+                    if (gmApplied.length > 0) {
+                        broadcastStorageChange(
+                            '*',
+                            true,
+                            gmApplied.map(({ key }) => key),
+                            false,
+                            gmApplied.map(({ key }) => key)
+                        );
+                    }
+                }
+                if (gmFailures.length > 0) {
+                    const error = new AggregateError(
+                        gmFailures.map(result => result.reason),
+                        `GM fallback batch failed for ${gmFailures.length} key(s)`
+                    );
+                    error.failedKeys = gmFailures.map(result => result.entry.key);
+                    error.writtenKeys = gmApplied.map(({ key }) => key);
+                    error.skippedKeys = [...skippedKeys, ...gmPreserved.map(({ key }) => key)];
+                    throw error;
+                }
+                return {
+                    writtenKeys: gmApplied.map(({ key }) => key),
+                    skippedKeys: [...skippedKeys, ...gmPreserved.map(({ key }) => key)]
+                };
+            });
+        }
+
+        /**
+         * Deletes a GM mirror only when it has not advanced beyond the record
+         * being deleted. A newer GM record is preserved and reported to the
+         * caller instead of being deleted by a stale tab.
+         * @param {string} key - Video storage key.
+         * @param {number} expectedTimeWatched - Snapshot timestamp for the delete.
+         * @returns {Promise<{skipped: boolean, record?: Object}>} Delete outcome.
+         */
+        async function deleteGMFallbackIfUnchanged(key, expectedTimeWatched) {
+            if (typeof GM_getValue !== 'function') {
+                await deleteGMFallback(key);
+                return { skipped: false };
+            }
+            const current = await getGMFallback(key);
+            if (current && current !== GM_TOMBSTONE) {
+                const currentTime = Number(current.timeWatched);
+                const expectedTime = Number(expectedTimeWatched);
+                if (!Number.isFinite(currentTime) || !Number.isFinite(expectedTime) || currentTime > expectedTime) {
+                    return { skipped: true, record: current };
+                }
+            }
+            await deleteGMFallback(key);
+            return { skipped: false };
+        }
+
+        /**
+         * Deletes a key from the durable backend and cache.
+         * @param {string} key - Video storage key.
+         * @param {{cleanupFallback?: boolean, commitGuard?: (() => boolean)|null, expectedTimeWatched?: number|null}} [options] - Delete options.
+         * @returns {Promise<{success: boolean, durableDeleted: boolean}>} Delete status.
+         */
+        async function del(key, { cleanupFallback = true, commitGuard = null, expectedTimeWatched = null } = {}) {
+            await initialize();
+            return enqueueDurableOperation(async () => {
+            const assertCommitAllowed = () => {
+                if (typeof commitGuard === 'function' && !commitGuard()) {
+                    const error = new Error(`Commit cancelled for delete ${key}`);
+                    error.name = 'AbortError';
+                    error.staleSession = true;
+                    throw error;
+                }
+            };
+            assertCommitAllowed();
+            if (expectedTimeWatched !== null && expectedTimeWatched !== undefined) {
+                const current = await get(key, { skipQueue: true });
+                assertCommitAllowed();
+                const currentTime = Number(current?.timeWatched || 0);
+                const expectedTime = Number(expectedTimeWatched);
+                if (current && (current.isProtected === true || currentTime > expectedTime)) {
+                    const error = new Error(`Record changed before delete: ${key}`);
+                    error.reason = current.isProtected === true ? 'protected_record' : 'newer_record';
+                    error.staleSession = true;
+                    throw error;
+                }
+            }
+            let durableDeleted = false;
+            let deleteExpectedTime = expectedTimeWatched;
+            if (cleanupFallback && (deleteExpectedTime === null || deleteExpectedTime === undefined)) {
+                const current = await get(key, { skipQueue: true });
+                deleteExpectedTime = Number(current?.timeWatched || 0);
+            }
+
+            if (IndexedDBAdapter.isSupported && canUseIDB()) {
+                let primaryDeleteCommitted = false;
+                try {
+                    assertCommitAllowed();
                     await IndexedDBAdapter.del(key);
-                } catch (err) {
-                    logWarn('storageAsync', `Error deleting ${key} from IndexedDB: `, err);
+                    primaryDeleteCommitted = true;
+                    // Once the primary delete commits, finish mirror cleanup
+                    // even if the session guard becomes stale. Otherwise a GM
+                    // mirror could resurrect the deleted record.
+                    durableDeleted = primaryDeleteCommitted;
+                    markIDBAvailable();
+                    activeBackend = 'idb';
+                } catch (error) {
+                    if (error?.name === 'AbortError' || error?.staleSession) {
+                        error.durableDeleted = primaryDeleteCommitted;
+                        error.primaryDeleted = primaryDeleteCommitted;
+                        throw error;
+                    }
+                    markIDBUnavailable();
+                    logError('StorageAsync', `Error deleting ${key} from IndexedDB; preserving GM fallback`, error);
+                    const wrappedError = error instanceof Error ? error : new Error(String(error));
+                    wrappedError.durableDeleted = primaryDeleteCommitted;
+                    wrappedError.primaryDeleted = primaryDeleteCommitted;
+                    throw wrappedError;
                 }
+
+                if (cleanupFallback) {
+                    try {
+                        const mirrorOutcome = await deleteGMFallbackIfUnchanged(key, deleteExpectedTime);
+                        if (mirrorOutcome.skipped) {
+                            const conflict = new Error(`Newer GM record survived delete for ${key}`);
+                            conflict.reason = 'newer_record';
+                            conflict.staleSession = true;
+                            conflict.durableDeleted = true;
+                            conflict.primaryDeleted = true;
+                            rememberGMFallbackKey(key);
+                            locallyDeletedKeys.delete(key);
+                            storageCache.delete(key);
+                            invalidateSessionSavedData(key);
+                            isBatchStorageCacheValid = false;
+                            broadcastStorageChange(key, true);
+                            throw conflict;
+                        }
+                    } catch (error) {
+                        if (error?.reason === 'newer_record') throw error;
+                        logError('StorageAsync', `IDB delete succeeded but GM fallback cleanup failed for ${key}`, error);
+                        const hasTombstone = gmTombstoneKeys.has(key);
+                        rememberGMFallbackKey(key);
+                        if (hasTombstone) markLocalDeletion(key);
+                        else locallyDeletedKeys.delete(key);
+                        storageCache.delete(key);
+                        invalidateSessionSavedData(key);
+                        isBatchStorageCacheValid = false;
+                        broadcastStorageChange(key, true, null, hasTombstone);
+                        const wrappedError = error instanceof Error ? error : new Error(String(error));
+                        wrappedError.durableDeleted = true;
+                        wrappedError.primaryDeleted = true;
+                        throw wrappedError;
+                    }
+                }
+            } else if (IndexedDBAdapter.isSupported) {
+                const error = new Error(
+                    idbUnavailableForSession
+                        ? 'IndexedDB is temporarily unavailable; deletion was not confirmed'
+                        : 'IndexedDB has not been successfully enumerated; deletion was not confirmed'
+                );
+                error.durableDeleted = false;
+                throw error;
+            } else if (cleanupFallback) {
+                assertCommitAllowed();
+                const mirrorOutcome = await deleteGMFallbackIfUnchanged(key, deleteExpectedTime);
+                if (mirrorOutcome.skipped) {
+                    const conflict = new Error(`Newer GM record survived delete for ${key}`);
+                    conflict.reason = 'newer_record';
+                    conflict.staleSession = true;
+                    conflict.durableDeleted = false;
+                    conflict.primaryDeleted = false;
+                    throw conflict;
+                }
+                durableDeleted = true;
+                activeBackend = 'gm';
             }
+
+            if (gmTombstoneKeys.has(key)) {
+                rememberGMFallbackKey(key);
+                markLocalDeletion(key);
+            } else {
+                knownGMFallbackKeys.delete(key);
+                locallyDeletedKeys.delete(key);
+            }
+            storageCache.delete(key);
+            invalidateSessionSavedData(key);
+            isBatchStorageCacheValid = false;
+            const deletionHasTombstone = gmTombstoneKeys.has(key);
+            broadcastStorageChange(key, deletionHasTombstone, null, deletionHasTombstone);
+            try {
+                assertCommitAllowed();
+            } catch (error) {
+                error.durableDeleted = durableDeleted;
+                error.primaryDeleted = durableDeleted;
+                throw error;
+            }
+            return { success: true, durableDeleted };
+            });
         }
 
         /**
-         * Lists all keys from IndexedDB or cache.
+         * Converts the quarantined rows back into the current record format
+         * instead of discarding them. Rows without any recoverable payload
+         * stay quarantined and are reported so the user can archive them or
+         * delete them explicitly afterwards.
+         * @param {{commitGuard?: (() => boolean)|null}} [options] - Commit guard.
+         * @returns {Promise<{repaired: Array<{key: string, strategy: string}>, unrepairable: string[], failed: string[]}>} Repair outcome.
          */
-        async function keys() {
+        async function repairQuarantinedRecords({ commitGuard = null } = {}) {
             await initialize();
-            if (IndexedDBAdapter.isSupported) {
+            const targets = [...quarantinedRecords.keys()];
+            if (targets.length === 0) return { repaired: [], unrepairable: [], failed: [] };
+            if (!IndexedDBAdapter.isSupported || !canUseIDB()) {
+                return { repaired: [], unrepairable: targets, failed: targets };
+            }
+
+            const cancelled = typeof commitGuard === 'function' && !commitGuard();
+            if (cancelled) {
+                logWarn('StorageAsync', 'Storage repair cancelled before converting any row');
+                return { repaired: [], unrepairable: targets, failed: [] };
+            }
+
+            let outcome;
+            try {
+                outcome = await IndexedDBAdapter.repairEntries(targets);
+                markIDBAvailable();
+                activeBackend = 'idb';
+            } catch (error) {
+                markIDBUnavailable();
+                logError('StorageAsync', 'Could not convert the damaged records', error);
+                return { repaired: [], unrepairable: targets, failed: targets };
+            }
+
+            const repairedKeys = outcome.repaired.map(({ key }) => key);
+            repairedKeys.forEach((key) => quarantinedRecords.delete(key));
+            if (repairedKeys.length > 0) {
+                invalidateSessionSavedData(new Set(repairedKeys));
+                storageCache.clear();
+                isBatchStorageCacheValid = false;
+                cachedBatchStorageData = null;
+                broadcastStorageChange('*', false, null, false, repairedKeys);
+                logInfo('StorageAsync', `Storage repair converted ${repairedKeys.length} row(s)`);
+            }
+            // Rows that could not be converted stay registered, so the damage
+            // report and the optional cleanup still see them.
+            return {
+                repaired: outcome.repaired.map(({ key, strategy }) => ({ key, strategy })),
+                unrepairable: outcome.unrepairable,
+                failed: []
+            };
+        }
+
+        /**
+         * Removes the rows left unrepairable by `repairQuarantinedRecords()`.
+         * Nothing is removed implicitly: this is the explicit cleanup behind the
+         * repair flow, offered only after the user saw the damage report. GM
+         * mirrors are never deleted, because a mirror can be the only readable
+         * copy of a record.
+         * @param {{commitGuard?: (() => boolean)|null}} [options] - Commit guard.
+         * @returns {Promise<{purged: string[], failed: string[]}>} Purge outcome.
+         */
+        async function purgeQuarantinedRecords({ commitGuard = null } = {}) {
+            await initialize();
+            const records = [...quarantinedRecords.values()];
+            const emptyRowKeys = records.filter(({ kind }) => kind === 'empty').map(({ key }) => key);
+            const unreadableKeys = records.filter(({ kind }) => kind !== 'empty').map(({ key }) => key);
+            const purged = [];
+            const failed = [];
+
+            if (emptyRowKeys.length > 0) {
+                const aborted = typeof commitGuard === 'function' && !commitGuard();
+                if (aborted) {
+                    logWarn('StorageAsync', 'Repair cancelled before removing the empty rows');
+                    return { purged, failed: [...emptyRowKeys, ...unreadableKeys] };
+                }
                 try {
-                    const entries = await IndexedDBAdapter.getAllEntries();
-                    return entries.map(e => e.key);
-                } catch (err) {
-                    logWarn('storageAsync', 'Error listing keys from IndexedDB, using cache:', err);
+                    await IndexedDBAdapter.bulkDelete(emptyRowKeys);
+                    markIDBAvailable();
+                    activeBackend = 'idb';
+                    const deletedSet = new Set(emptyRowKeys);
+                    emptyRowKeys.forEach((key) => quarantinedRecords.delete(key));
+                    invalidateSessionSavedData(deletedSet);
+                    storageCache.clear();
+                    isBatchStorageCacheValid = false;
+                    cachedBatchStorageData = null;
+                    broadcastStorageChange('*', false, null, true, null, emptyRowKeys);
+                    purged.push(...emptyRowKeys);
+                    logInfo('StorageAsync', `Repair removed ${emptyRowKeys.length} empty row(s) in one transaction`);
+                } catch (error) {
+                    markIDBUnavailable();
+                    logError('StorageAsync', `Could not remove ${emptyRowKeys.length} empty row(s)`, error);
+                    failed.push(...emptyRowKeys);
                 }
             }
-            // Fallback to in-memory cache
-            return Array.from(storageCache.keys());
+
+            for (const key of unreadableKeys) {
+                try {
+                    const result = await del(key, { cleanupFallback: true, commitGuard });
+                    if (result?.success || result?.durableDeleted) {
+                        quarantinedRecords.delete(key);
+                        purged.push(key);
+                        continue;
+                    }
+                    failed.push(key);
+                    logWarn('StorageAsync', `Repair could not confirm the deletion of "${key}"`);
+                } catch (error) {
+                    if (error?.primaryDeleted === true || error?.durableDeleted === true) {
+                        // The unreadable row is gone; a newer GM mirror was
+                        // preserved on purpose.
+                        quarantinedRecords.delete(key);
+                        purged.push(key);
+                        continue;
+                    }
+                    failed.push(key);
+                    logError('StorageAsync', `Could not purge quarantined record "${key}"`, error);
+                }
+            }
+            if (purged.length > 0) {
+                storageCache.clear();
+                isBatchStorageCacheValid = false;
+                cachedBatchStorageData = null;
+                logInfo('StorageAsync', `Repair removed ${purged.length} unreadable row(s)`);
+            }
+            return { purged, failed };
+        }
+
+        /**
+         * Lists video keys from the durable backends and in-memory cache.
+         * @param {{requireComplete?: boolean}} [options] - Require all durable sources.
+         * @returns {Promise<string[]>} Unique video storage keys.
+         */
+        async function keys({ requireComplete = false } = {}) {
+            await initialize();
+            await waitForDurableMutations();
+            const resultKeys = new Set(requireComplete ? [] : storageCache.keys());
+            let idbComplete = !IndexedDBAdapter.isSupported;
+            let gmComplete = !hasAnyGMStorageApi();
+
+            if (IndexedDBAdapter.isSupported && canUseIDB()) {
+                const repairedRows = [];
+                try {
+                    const entries = await IndexedDBAdapter.getAllEntries({
+                        strict: requireComplete,
+                        onUnreadable: ({ key, reason, valueType, kind }) =>
+                            registerQuarantinedRecord(key, reason, valueType, kind),
+                        onRepaired: (repair) => repairedRows.push(repair)
+                    });
+                    for (const entry of entries) resultKeys.add(entry.key);
+                    if (repairedRows.length > 0) await persistRepairedRows(repairedRows);
+                    idbComplete = true;
+                    markIDBAvailable();
+                } catch (error) {
+                    idbComplete = false;
+                    if (!isStorageRecordError(error)) markIDBUnavailable();
+                    logWarn('StorageAsync', 'Error listing keys from IndexedDB; using fallback sources', error);
+                }
+            }
+
+            if (typeof GM_listValues === 'function') {
+                try {
+                    const gmKeys = await gmListValues();
+                    if (!Array.isArray(gmKeys) || gmKeys.some((key) => typeof key !== 'string')) {
+                        throw new TypeError('GM_listValues did not return an array');
+                    }
+                    gmComplete = true;
+                    gmInventoryComplete = true;
+                    for (const gmKey of gmKeys) {
+                        if (typeof gmKey !== 'string' || !hasPrefix(gmKey)) continue;
+                        const key = stripPrefix(gmKey);
+                        if (gmTombstoneKeys.has(key)) continue;
+                        if (!isNonVideoStorageKey(key)) {
+                            resultKeys.add(key);
+                            rememberGMFallbackKey(key);
+                        }
+                    }
+                } catch (error) {
+                    gmComplete = false;
+                    gmInventoryComplete = false;
+                    logWarn('StorageAsync', 'Error listing GM fallback keys', error);
+                }
+            }
+
+            if (requireComplete && (!idbComplete || !gmComplete)) {
+                throw new Error('Cannot enumerate a complete video key set from durable storage');
+            }
+            const usingIDB = IndexedDBAdapter.isSupported && canUseIDB() && idbComplete;
+            activeBackend = usingIDB ? 'idb' : 'gm';
+            return [...resultKeys].filter(key => !isNonVideoStorageKey(key) && !locallyDeletedKeys.has(key));
+        }
+
+        /**
+         * Lists raw durable keys without applying the video/non-video filter.
+         * Used only by migration cleanup before schema metadata is moved.
+         * @returns {Promise<string[]>} Raw backend keys.
+         */
+        async function rawKeys() {
+            await initialize();
+            await waitForDurableMutations();
+            const resultKeys = new Set();
+            let idbComplete = !IndexedDBAdapter.isSupported;
+            let gmComplete = !hasAnyGMStorageApi();
+
+            if (IndexedDBAdapter.isSupported && canUseIDB()) {
+                const repairedRows = [];
+                try {
+                    const entries = await IndexedDBAdapter.getAllEntries({
+                        strict: true,
+                        onUnreadable: ({ key, reason, valueType, kind }) =>
+                            registerQuarantinedRecord(key, reason, valueType, kind),
+                        onRepaired: (repair) => repairedRows.push(repair)
+                    });
+                    for (const entry of entries) resultKeys.add(entry.key);
+                    if (repairedRows.length > 0) await persistRepairedRows(repairedRows);
+                    idbComplete = true;
+                    markIDBAvailable();
+                } catch (error) {
+                    idbComplete = false;
+                    if (!isStorageRecordError(error)) markIDBUnavailable();
+                    logError('StorageAsync', 'Error listing raw IndexedDB keys for migration', error);
+                }
+            }
+            if (typeof GM_listValues === 'function') {
+                try {
+                    const gmKeys = await gmListValues();
+                    if (!Array.isArray(gmKeys) || gmKeys.some((key) => typeof key !== 'string')) {
+                        throw new TypeError('GM_listValues did not return an array');
+                    }
+                    gmComplete = true;
+                    gmInventoryComplete = true;
+                    for (const gmKey of gmKeys) {
+                        if (typeof gmKey === 'string' && hasPrefix(gmKey)) {
+                            const key = stripPrefix(gmKey);
+                            if (gmTombstoneKeys.has(key)) continue;
+                            resultKeys.add(key);
+                            if (!isNonVideoStorageKey(key)) rememberGMFallbackKey(key);
+                        }
+                    }
+                } catch (error) {
+                    gmComplete = false;
+                    gmInventoryComplete = false;
+                    logError('StorageAsync', 'Error listing raw GM fallback keys for migration', error);
+                }
+            }
+            // A supported IDB that has never completed an inventory is not
+            // equivalent to an empty database. Do not let migration advance its
+            // version from cache/GM-only data and permanently skip the missing
+            // primary records.
+            if ((IndexedDBAdapter.isSupported && !idbComplete) || !gmComplete) {
+                throw new Error('Cannot enumerate a complete raw key set from durable storage');
+            }
+            return [...resultKeys].filter(key => !locallyDeletedKeys.has(key));
+        }
+
+        /**
+         * Captures a complete, read-only video snapshot from the durable
+         * backends. The short queue section captures serialized IDB rows and
+         * the GM inventory; parsing and mirror reads happen after the queue is
+         * released so ordinary progress saves are not held behind them.
+         * @param {string[]|null} [keysToExport=null] - Optional storage-key subset.
+         * @returns {Promise<Map<string, Object>>} Canonical records keyed by storage key.
+         */
+        async function getCompleteVideoSnapshot(keysToExport = null) {
+            await initialize();
+            const selectedKeys = Array.isArray(keysToExport)
+                ? new Set(keysToExport.filter(key => typeof key === 'string'))
+                : null;
+
+            for (let attempt = 1; attempt <= STORAGE_SNAPSHOT_MAX_ATTEMPTS; attempt++) {
+                let captured;
+                try {
+                    captured = await enqueueDurableOperation(async () => {
+                        // The callback starts only after previously queued writes
+                        // settle. Later same-tab writes wait behind this short
+                        // capture, but not behind parsing/serialization.
+                        const startingCacheRevision = storageCacheRevision;
+                        gmInventoryComplete = false;
+                        const capturedEntries = [];
+                        const capturedGMKeys = [];
+                        // Declared here (not inside the IDB branch) because the
+                        // captured result is returned after the queue cut.
+                        const repairedRows = [];
+
+                        if (IndexedDBAdapter.isSupported) {
+                            if (!canUseIDB()) {
+                                throw new Error('IndexedDB is temporarily unavailable; complete snapshot is unknown');
+                            }
+                            let entries;
+                            try {
+                                // Rows that can be converted are returned as
+                                // normal entries (so the capture stays complete)
+                                // and written back right after the queue cut.
+                                entries = await IndexedDBAdapter.getAllEntries({
+                                    strict: true,
+                                    validateJson: false,
+                                    onUnreadable: ({ key, reason, valueType, kind }) =>
+                                        registerQuarantinedRecord(key, reason, valueType, kind),
+                                    onRepaired: (repair) => repairedRows.push(repair)
+                                });
+                                markIDBAvailable();
+                            } catch (error) {
+                                if (!isStorageRecordError(error)) markIDBUnavailable();
+                                logWarn('StorageAsync', 'Error reading complete IndexedDB snapshot', error);
+                                throw error;
+                            }
+                            for (const entry of entries) {
+                                const key = entry.key;
+                                if (isNonVideoStorageKey(key)) continue;
+                                if (selectedKeys && !selectedKeys.has(key)) continue;
+                                capturedEntries.push(entry);
+                            }
+                        }
+
+                        let gmInventoryEnumerated = false;
+                        if (typeof GM_listValues === 'function') {
+                            try {
+                                const listedKeys = await gmListValues();
+                                if (!Array.isArray(listedKeys) || listedKeys.some((key) => typeof key !== 'string')) {
+                                    throw new TypeError('GM_listValues did not return an array');
+                                }
+                                gmInventoryEnumerated = true;
+                                for (const gmKey of listedKeys) {
+                                    if (typeof gmKey !== 'string' || !hasPrefix(gmKey)) continue;
+                                    const key = stripPrefix(gmKey);
+                                    if (isNonVideoStorageKey(key)) continue;
+                                    if (selectedKeys && !selectedKeys.has(key)) continue;
+                                    capturedGMKeys.push(key);
+                                }
+                            } catch (error) {
+                                gmInventoryComplete = false;
+                                logWarn('StorageAsync', 'Error listing GM fallback keys for complete snapshot', error);
+                                throw error;
+                            }
+                        } else if (hasAnyGMStorageApi()) {
+                            gmInventoryComplete = false;
+                            throw new Error('Cannot enumerate a complete GM key set for video snapshot');
+                        }
+
+                        // No local write can interleave with this section. A
+                        // change here is a cross-tab/read-repair invalidation;
+                        // retry that cut before releasing the queue.
+                        if (storageCacheRevision !== startingCacheRevision) {
+                            const error = new Error('Storage changed while capturing a complete video snapshot');
+                            error.snapshotContended = true;
+                            throw error;
+                        }
+                        return { capturedEntries, capturedGMKeys, gmInventoryEnumerated, repairedRows };
+                    });
+                } catch (error) {
+                    if (!error?.snapshotContended || attempt === STORAGE_SNAPSHOT_MAX_ATTEMPTS) throw error;
+                    logWarn(
+                        'StorageAsync',
+                        `Storage changed while capturing complete snapshot; retrying (${attempt}/${STORAGE_SNAPSHOT_MAX_ATTEMPTS})`,
+                        error
+                    );
+                    await delay(STORAGE_SNAPSHOT_RETRY_DELAY_MS * attempt);
+                    continue;
+                }
+
+                try {
+                    // From this point on the captured IDB rows are immutable;
+                    // later same-tab writes are valid post-snapshot state and
+                    // must not make an otherwise valid backup fail.
+                    gmInventoryComplete = false;
+                    const snapshot = new Map();
+                    let snapshotRowsSkipped = 0;
+                    for (const entry of captured.capturedEntries) {
+                        try {
+                            snapshot.set(entry.key, parseStoredRecord(entry.value));
+                        } catch (error) {
+                            // A row whose payload does not decode into a
+                            // record must not invalidate the whole backup.
+                            snapshotRowsSkipped += 1;
+                            registerQuarantinedRecord(
+                                entry.key,
+                                `captured row is not a record (${error?.name || 'Error'})`,
+                                'string',
+                                'malformed'
+                            );
+                        }
+                    }
+                    if (snapshotRowsSkipped > 0) {
+                        logWarn('StorageAsync', `Snapshot skipped ${snapshotRowsSkipped} row(s) that are not valid records`);
+                    }
+                    captured.capturedEntries.length = 0;
+
+                    // The converted rows are already part of this immutable
+                    // snapshot; write them back now that the queue is released.
+                    if (captured.repairedRows.length > 0) {
+                        persistRepairedRows(captured.repairedRows)
+                            .catch((error) => logWarn('StorageAsync', 'Deferred record conversion failed', error));
+                        captured.repairedRows.length = 0;
+                    }
+
+                    const fallbackKeys = captured.capturedGMKeys;
+                    if (fallbackKeys.length > 0 && typeof GM_getValue !== 'function') {
+                        throw new Error('GM fallback keys exist but GM_getValue is unavailable');
+                    }
+                    for (let offset = 0; offset < fallbackKeys.length; offset += STORAGE_SNAPSHOT_BATCH_SIZE) {
+                        const batch = fallbackKeys.slice(offset, offset + STORAGE_SNAPSHOT_BATCH_SIZE);
+                        const fallbackValues = await Promise.all(batch.map(async key => ({
+                            key,
+                            rawValue: await getGMFallback(key)
+                        })));
+                        for (const { key, rawValue } of fallbackValues) {
+                            if (rawValue === GM_TOMBSTONE) {
+                                // A surviving IDB value is evidence of a
+                                // later/competing write. Keep it in the backup
+                                // instead of letting an ambiguous legacy
+                                // tombstone erase user data.
+                                rememberGMFallbackKey(key);
+                                continue;
+                            }
+                            if (rawValue === null) {
+                                throw new Error(`GM fallback key "${key}" disappeared during complete snapshot`);
+                            }
+                            const fallbackRecord = parseStoredRecord(rawValue);
+                            const selected = pickNewerDurableRecord(snapshot.get(key) || null, fallbackRecord);
+                            snapshot.set(key, selected.record);
+                            // The mirror is readable, so this key is no longer
+                            // an unreadable primary row.
+                            quarantinedRecords.delete(key);
+                            rememberGMFallbackKey(key);
+                        }
+                    }
+
+                    if (captured.gmInventoryEnumerated) gmInventoryComplete = true;
+                    activeBackend = IndexedDBAdapter.isSupported ? 'idb' : 'gm';
+                    return snapshot;
+                } catch (error) {
+                    gmInventoryComplete = false;
+                    throw error;
+                }
+            }
         }
 
         /**
@@ -5928,6 +8478,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 ready: isReady,
                 error: initError,
                 indexedDBSupported: IndexedDBAdapter.isSupported,
+                activeBackend,
+                durableFallback: activeBackend === 'gm',
                 cacheSize: storageCache.size,
                 persistentStorageGranted
             };
@@ -5937,8 +8489,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             initialize,
             get,
             set,
+            setMany,
             del,
             keys,
+            rawKeys,
+            getCompleteVideoSnapshot,
+            getQuarantinedRecords,
+            buildStorageDamageReport,
+            repairQuarantinedRecords,
+            purgeQuarantinedRecords,
             getBackendInfo
         };
     })();
@@ -5955,6 +8514,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (dbPromise) return dbPromise;
             if (!isSupported) return Promise.reject(new Error('IndexedDB not supported'));
             dbPromise = new Promise((resolve, reject) => {
+                let settled = false;
+                let openTimeoutId = null;
+                const failOpen = (error) => {
+                    if (settled) return;
+                    settled = true;
+                    if (openTimeoutId !== null) clearTimeout(openTimeoutId);
+                    dbPromise = null;
+                    reject(error);
+                };
+
                 try {
                     const request = indexedDB.open(DB_NAME, DB_VERSION);
                     request.onupgradeneeded = () => {
@@ -5965,6 +8534,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     };
                     request.onsuccess = () => {
                         const db = request.result;
+                        if (settled) {
+                            db.close();
+                            return;
+                        }
+                        settled = true;
+                        if (openTimeoutId !== null) clearTimeout(openTimeoutId);
                         // Invalidate the cached connection so the next operation
                         // reopens it cleanly if it is closed unexpectedly
                         // (e.g. versionchange from another tab, storage eviction).
@@ -5973,17 +8548,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         resolve(db);
                     };
                     request.onerror = () => {
-                        // Invalidate the promise so a transient open failure
-                        // (e.g. storage locked) is retried on the next operation.
-                        // A persistent open failure (corruption/permissions)
-                        // will keep logging this distinct message.
-                        dbPromise = null;
-                        logError('IndexedDBAdapter', 'Database open failed, will retry on next operation:', request.error);
-                        reject(request.error);
+                        const error = request.error || new Error('IndexedDB open failed');
+                        logError('IndexedDBAdapter', 'Database open failed, will retry on next operation:', error);
+                        failOpen(error);
                     };
-                    request.onblocked = () => logWarn('IndexedDBAdapter', 'Initialization blocked, waiting for previous tabs');
+                    request.onblocked = () => {
+                        logWarn('IndexedDBAdapter', 'Initialization blocked, waiting for previous tabs');
+                        if (openTimeoutId === null) {
+                            openTimeoutId = setTimeout(() => {
+                                failOpen(new Error('IndexedDB open blocked by another connection'));
+                            }, 10000);
+                        }
+                    };
                 } catch (error) {
-                    reject(error);
+                    failOpen(error);
                 }
             });
             return dbPromise;
@@ -6034,19 +8612,324 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return operationQueue;
         }
 
-        function sanitizeEntries(rawEntries) {
-            if (!Array.isArray(rawEntries)) return [];
-            return rawEntries
-                .map((entry) => ({
-                    key: entry?.key,
-                    value: typeof entry?.value === 'string' ? entry.value : null,
-                    updatedAt: Number.isFinite(entry?.updatedAt) ? entry.updatedAt : Date.now()
-                }))
-                .filter((entry) => typeof entry.key === 'string' && typeof entry.value === 'string');
+        /**
+         * Describes a stored value for quarantine diagnostics.
+         * @param {*} value - Raw IndexedDB value.
+         * @returns {string} Human-readable type description.
+         */
+        function describeStoredValueType(value) {
+            if (value === null) return 'null';
+            if (value === undefined) return 'undefined';
+            if (Array.isArray(value)) return 'array';
+            return typeof value;
         }
 
-        function getAllEntries() {
-            return runInStore('readonly', (store) => store.getAll()).then(sanitizeEntries);
+        /**
+         * Reports whether a row carries any stored value at all. A row written
+         * with `value: undefined` holds no record, so it can never be read,
+         * exported or resumed: it is an empty leftover, not a damaged record.
+         * @param {*} rawValue - Raw IndexedDB value.
+         * @returns {boolean} True when the row stores nothing.
+         */
+        function isEmptyStoredValue(rawValue) {
+            return rawValue === undefined || rawValue === null;
+        }
+
+        /**
+         * Fields that identify a stored value as a video record. Used to avoid
+         * "repairing" arbitrary junk into a phantom entry.
+         */
+        const RECORD_FIELD_HINTS = [
+            'videoId', 'timeWatched', 'currentTime', 'duration', 'title',
+            'channelName', 'channelId', 'thumbnail', 'isCompleted',
+            'forceResumeTime', 'completionHistory', 'viewCount'
+        ];
+
+        /**
+         * Converts an arbitrary structured-clone value into a JSON-safe copy,
+         * dropping cycles and coercing values JSON cannot represent.
+         * @param {*} value - Value to convert.
+         * @param {WeakSet} [seen] - Already visited objects (cycle guard).
+         * @returns {*} JSON-safe copy, or undefined when the value is dropped.
+         */
+        function sanitizeToJsonSafe(value, seen = new WeakSet()) {
+            if (value === null) return null;
+            const valueType = typeof value;
+            if (valueType === 'string' || valueType === 'boolean') return value;
+            if (valueType === 'number') return Number.isFinite(value) ? value : null;
+            if (valueType === 'bigint') return value.toString();
+            if (valueType !== 'object') return undefined;
+            if (seen.has(value)) return undefined;
+            seen.add(value);
+            if (value instanceof Date) return value.toISOString();
+            if (Array.isArray(value)) {
+                return value.map((item) => {
+                    const safeItem = sanitizeToJsonSafe(item, seen);
+                    return safeItem === undefined ? null : safeItem;
+                });
+            }
+            if (typeof Map !== 'undefined' && value instanceof Map) {
+                const fromMap = {};
+                for (const [mapKey, mapValue] of value.entries()) {
+                    const safeValue = sanitizeToJsonSafe(mapValue, seen);
+                    if (safeValue !== undefined) fromMap[String(mapKey)] = safeValue;
+                }
+                return fromMap;
+            }
+            if (typeof Set !== 'undefined' && value instanceof Set) {
+                return [...value].map((item) => {
+                    const safeItem = sanitizeToJsonSafe(item, seen);
+                    return safeItem === undefined ? null : safeItem;
+                });
+            }
+            const plain = {};
+            for (const [entryKey, entryValue] of Object.entries(value)) {
+                const safeValue = sanitizeToJsonSafe(entryValue, seen);
+                if (safeValue !== undefined) plain[entryKey] = safeValue;
+            }
+            return plain;
+        }
+
+        /**
+         * Attempts to convert an unreadable stored value into a valid JSON
+         * record so the row can be repaired in place instead of discarded.
+         * Conservative by design: nothing is invented. A value that does not
+         * already look like a record is reported as unrepairable.
+         * @param {*} rawValue - Raw IndexedDB value.
+         * @param {string} key - Video storage key (fallback `videoId`).
+         * @returns {{value: string, strategy: string}|null} Repair payload or null.
+         */
+        function attemptStoredValueRepair(rawValue, key) {
+            if (isEmptyStoredValue(rawValue)) return null;
+
+            if (typeof rawValue === 'string') {
+                const cleaned = rawValue.replace(/^\uFEFF/, '').trim();
+                if (!cleaned) return null;
+                let parsed = null;
+                try {
+                    parsed = JSON.parse(cleaned);
+                } catch (error) {
+                    parsed = null;
+                }
+                // Legacy writers sometimes double-encoded the payload, so a
+                // parsed string literal is decoded once more.
+                if (typeof parsed === 'string') {
+                    try {
+                        parsed = JSON.parse(parsed);
+                    } catch (decodeError) {
+                        logWarn('IndexedDBAdapter', `Could not decode the double-encoded value of "${key}"`, decodeError);
+                        return null;
+                    }
+                }
+                if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return null;
+                if (!RECORD_FIELD_HINTS.some((field) => Object.prototype.hasOwnProperty.call(parsed, field))) return null;
+                const record = typeof parsed.videoId === 'string' && parsed.videoId ? parsed : { ...parsed, videoId: key };
+                try {
+                    return { value: JSON.stringify(record), strategy: 'recovered-json' };
+                } catch (error) {
+                    logWarn('IndexedDBAdapter', `Recovered value of "${key}" is not serializable`, error);
+                    return null;
+                }
+            }
+
+            if (typeof rawValue === 'object') {
+                const sanitized = sanitizeToJsonSafe(rawValue);
+                if (!sanitized || typeof sanitized !== 'object' || Array.isArray(sanitized)) return null;
+                if (!RECORD_FIELD_HINTS.some((field) => Object.prototype.hasOwnProperty.call(sanitized, field))) return null;
+                const record = typeof sanitized.videoId === 'string' && sanitized.videoId
+                    ? sanitized
+                    : { ...sanitized, videoId: key };
+                try {
+                    return { value: JSON.stringify(record), strategy: 'sanitized-object' };
+                } catch (error) {
+                    logWarn('IndexedDBAdapter', `Sanitized value of "${key}" is not serializable`, error);
+                    return null;
+                }
+            }
+
+            // A bare primitive (number/boolean) carries no record fields, so
+            // converting it would invent data that never existed.
+            return null;
+        }
+
+        /**
+         * Normalizes raw IndexedDB rows, converting unreadable values back into
+         * valid records when possible.
+         *
+         * Three outcomes per row:
+         * - readable: normalized as before.
+         * - repairable: converted in place, reported through `onRepaired` and
+         *   returned so listing/exports keep seeing the record.
+         * - unrepairable: reported through `onUnreadable` and skipped, so a
+         *   single damaged row cannot invalidate the whole enumeration.
+         *
+         * Without `onUnreadable`, unrepairable rows keep failing closed.
+         * @param {*} rawEntries - Raw result of IDBObjectStore.getAll().
+         * @param {{strict?: boolean, validateJson?: boolean, onUnreadable?: Function|null, onRepaired?: Function|null, allowRepair?: boolean}} [options] - Validation policy.
+         * @returns {Array<{key: string, value: string, updatedAt: number, repaired?: string}>} Normalized rows.
+         */
+        function sanitizeEntries(rawEntries, {
+            strict = false,
+            validateJson = strict,
+            onUnreadable = null,
+            onRepaired = null,
+            allowRepair = true
+        } = {}) {
+            if (!Array.isArray(rawEntries)) {
+                if (strict) throw new TypeError('IndexedDB getAll did not return an array');
+                return [];
+            }
+
+            const entries = [];
+            const pushEntry = (entry, value, repairedStrategy) => {
+                if (typeof onRepaired === 'function') {
+                    onRepaired({ key: entry.key, value, strategy: repairedStrategy });
+                }
+                entries.push({
+                    key: entry.key,
+                    value,
+                    updatedAt: Number.isFinite(entry.updatedAt) ? entry.updatedAt : Date.now(),
+                    repaired: repairedStrategy
+                });
+            };
+
+            rawEntries.forEach((entry, index) => {
+                if (!entry || typeof entry.key !== 'string') {
+                    if (strict) throw new TypeError(`Malformed IndexedDB entry at index ${index}`);
+                    return;
+                }
+
+                // Rows without any stored value are empty leftovers; rows with
+                // an unreadable value still carry data worth converting.
+                const kind = isEmptyStoredValue(entry.value) ? 'empty' : 'malformed';
+                let value = null;
+                let valueType = 'unknown';
+                let failure = null;
+                try {
+                    if (typeof entry.value === 'string') {
+                        value = entry.value;
+                        valueType = 'string';
+                    } else if (entry.value && typeof entry.value === 'object') {
+                        valueType = describeStoredValueType(entry.value);
+                        value = JSON.stringify(entry.value);
+                        valueType = 'object';
+                    } else {
+                        valueType = describeStoredValueType(entry.value);
+                    }
+                } catch (error) {
+                    value = null;
+                    failure = { type: 'serialize', cause: error };
+                }
+
+                if (!failure && typeof value === 'string' && validateJson) {
+                    try {
+                        const parsed = JSON.parse(value);
+                        // A record is always a plain object. Arrays and
+                        // primitives would blow up later in
+                        // `parseStoredRecord()`, so they are treated as damaged
+                        // here instead of failing halfway through a backup.
+                        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+                            failure = { type: 'shape' };
+                        }
+                    } catch (error) {
+                        failure = { type: 'json', cause: error };
+                    }
+                }
+
+                if (typeof value !== 'string' && !failure) {
+                    failure = { type: 'value' };
+                }
+
+                if (failure) {
+                    const repair = allowRepair ? attemptStoredValueRepair(entry.value, entry.key) : null;
+                    if (repair) {
+                        pushEntry(entry, repair.value, repair.strategy);
+                        return;
+                    }
+                    if (typeof onUnreadable === 'function') {
+                        onUnreadable({
+                            key: entry.key,
+                            reason: kind === 'empty'
+                                ? 'row stores no value'
+                                : `unreadable stored value (${valueType})`,
+                            valueType,
+                            kind
+                        });
+                        return;
+                    }
+                    if (strict) {
+                        if (failure.type === 'serialize') {
+                            throw new TypeError(`Could not serialize IndexedDB entry "${entry.key}"`, { cause: failure.cause });
+                        }
+                        if (failure.type === 'json') {
+                            throw new TypeError(`Malformed IndexedDB JSON for key "${entry.key}"`, { cause: failure.cause });
+                        }
+                        if (failure.type === 'shape') {
+                            throw new TypeError(`Malformed IndexedDB record for key "${entry.key}"`);
+                        }
+                        throw new TypeError(`Malformed IndexedDB value for key "${entry.key}"`);
+                    }
+                    return;
+                }
+
+                entries.push({
+                    key: entry.key,
+                    value,
+                    updatedAt: Number.isFinite(entry.updatedAt) ? entry.updatedAt : Date.now()
+                });
+            });
+            return entries;
+        }
+
+        /**
+         * Reads all rows from the IndexedDB store in one readonly transaction.
+         * @param {{strict?: boolean, validateJson?: boolean, onUnreadable?: Function|null, onRepaired?: Function|null, allowRepair?: boolean}} [options] - Strict row/JSON policy.
+         * @returns {Promise<Array<{key: string, value: string, updatedAt: number, repaired?: string}>>} Stored rows.
+         */
+        function getAllEntries({ strict = false, validateJson = strict, onUnreadable = null, onRepaired = null, allowRepair = true } = {}) {
+            return runInStore('readonly', (store) => store.getAll())
+                .then(rawEntries => sanitizeEntries(rawEntries, { strict, validateJson, onUnreadable, onRepaired, allowRepair }));
+        }
+
+        /**
+         * Re-reads the given keys and converts the damaged rows in place
+         * instead of discarding them. Writes happen in a single transaction
+         * after the readonly capture, so enumeration is never blocked.
+         * @param {string[]} keys - Keys to inspect.
+         * @returns {Promise<{repaired: Array<{key: string, value: string, strategy: string}>, unrepairable: string[]}>} Repair outcome.
+         */
+        async function repairEntries(keys = []) {
+            if (!keys.length) return { repaired: [], unrepairable: [] };
+            const wanted = new Set(keys);
+            // `runInStore` only captures the last request result, so read the
+            // store once and filter instead of issuing one request per key.
+            const allRows = await runInStore('readonly', (store) => store.getAll());
+            const rowsByKey = new Map();
+            (Array.isArray(allRows) ? allRows : []).forEach((row) => {
+                if (row && typeof row.key === 'string' && wanted.has(row.key)) rowsByKey.set(row.key, row);
+            });
+            const repaired = [];
+            const unrepairable = [];
+            keys.forEach((key) => {
+                const row = rowsByKey.get(key);
+                if (!row) {
+                    unrepairable.push(key);
+                    return;
+                }
+                const repair = attemptStoredValueRepair(row.value, row.key);
+                if (repair) repaired.push({ key: row.key, value: repair.value, strategy: repair.strategy });
+                else unrepairable.push(key);
+            });
+            if (repaired.length > 0) {
+                await runInStore('readwrite', (store) => {
+                    let lastRequest = null;
+                    repaired.forEach(({ key, value }) => {
+                        lastRequest = store.put({ key, value, updatedAt: Date.now() });
+                    });
+                    return lastRequest;
+                });
+            }
+            return { repaired, unrepairable };
         }
 
         function putEntry(key, value) {
@@ -6057,11 +8940,51 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return runInStore('readwrite', (store) => store.delete(key));
         }
 
-        function bulkPut(entries = []) {
-            if (!entries.length) return Promise.resolve();
+        /**
+         * Deletes several keys in a single readwrite transaction.
+         * @param {string[]} keys - Keys to delete.
+         * @returns {Promise<void>}
+         */
+        function bulkDelete(keys = []) {
+            if (!keys.length) return Promise.resolve();
             return runInStore('readwrite', (store) => {
                 let lastRequest = null;
-                entries.forEach(({ key, value }) => {
+                keys.forEach((key) => {
+                    lastRequest = store.delete(key);
+                });
+                return lastRequest;
+            });
+        }
+
+        /**
+         * Writes several records in one transaction.
+         * Accepts both `{key, value}` and `{key, serialized}` entries so a
+         * shape mismatch can never store a record with an undefined value
+         * (which used to make every imported record unreadable in IDB).
+         * @param {Array<{key: string, value?: string, serialized?: string}>} entries - Records to store.
+         * @returns {Promise<void>}
+         */
+        function bulkPut(entries = []) {
+            if (!entries.length) return Promise.resolve();
+            const skippedKeys = [];
+            const normalizedEntries = [];
+            entries.forEach((entry) => {
+                const value = typeof entry?.value === 'string'
+                    ? entry.value
+                    : (typeof entry?.serialized === 'string' ? entry.serialized : null);
+                if (typeof entry?.key !== 'string' || !entry.key || value === null) {
+                    if (entry?.key) skippedKeys.push(entry.key);
+                    return;
+                }
+                normalizedEntries.push({ key: entry.key, value });
+            });
+            if (skippedKeys.length > 0) {
+                logError('IndexedDBAdapter', `Bulk write skipped ${skippedKeys.length} entry(ies) without a serializable value`, skippedKeys.slice(0, 10));
+            }
+            if (normalizedEntries.length === 0) return Promise.resolve();
+            return runInStore('readwrite', (store) => {
+                let lastRequest = null;
+                normalizedEntries.forEach(({ key, value }) => {
                     lastRequest = store.put({ key, value, updatedAt: Date.now() });
                 });
                 return lastRequest;
@@ -6100,7 +9023,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     entryCount = await runInStore('readonly', (store) => store.count());
                 }
                 let persisted = null;
-                if (navigator.storage && typeof navigator.storage.persisted === 'function') {
+                if (typeof navigator !== 'undefined' && navigator.storage && typeof navigator.storage.persisted === 'function') {
                     persisted = await navigator.storage.persisted();
                 }
                 return { openOk: true, storePresent, entryCount, dbVersion: db.version, persisted, error: null };
@@ -6116,11 +9039,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (!isSupported) return Promise.resolve();
                 return enqueue(() => putEntry(key, value));
             },
+            bulkPut: (entries) => {
+                if (!isSupported || !entries?.length) return Promise.resolve();
+                return enqueue(() => bulkPut(entries));
+            },
             del: (key) => {
                 if (!isSupported) return Promise.resolve();
                 return enqueue(() => deleteEntry(key));
             },
+            bulkDelete: (keys) => {
+                if (!isSupported || !keys?.length) return Promise.resolve();
+                return enqueue(() => bulkDelete(keys));
+            },
             getAllEntries,
+            repairEntries,
             runInStore,
             diagnose
         };
@@ -6154,15 +9086,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const Storage = {
         /**
          * Saves a value to the available backend (now delegates to StorageAsync).
+         * @param {string} key - Storage key.
+         * @param {*} value - Value to persist.
+         * @param {{commitGuard?: (() => boolean)|null}} [options] - Optional commit guard.
+         * @returns {Promise<{success: boolean, savedData?: Object, reason?: string, error?: Error}>} Status.
          */
-        async set(key, value) {
+        async set(key, value, options = {}) {
             // Intercept non-video keys
             if (isNonVideoStorageKey(key)) {
                 try {
+                    if (typeof options.commitGuard === 'function' && !options.commitGuard()) {
+                        return { success: false, reason: 'stale_session' };
+                    }
                     const gmKey = prefixKey(key);                    // Skip saving if it's a legacy playlist_meta_ key (silent purge on write attempt)
                     if (key.startsWith('playlist_meta_')) return { success: true };
 
-                    await GM_setValue(gmKey, JSON.stringify(value));
+                    await gmSetValue(gmKey, JSON.stringify(value));
+                    if (typeof options.commitGuard === 'function' && !options.commitGuard()) {
+                        return { success: false, reason: 'stale_session' };
+                    }
                     return { success: true };
                 } catch (err) {
                     logError('Storage', `Storage.set (GM): Error on key "${key}"`, err);
@@ -6174,8 +9116,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // return { success: false, reason: 'storage_full', error: new Error('QuotaExceededError') };
 
             try {
-                await StorageAsync.set(key, value);
+                const durableResult = await StorageAsync.set(key, value, options);
+                return { success: true, savedData: durableResult?.record || value };
             } catch (err) {
+                if (err?.staleSession) {
+                    logWarn('Storage', `Storage.set cancelled stale write for key "${key}"`, err);
+                    return { success: false, reason: 'stale_session', error: err };
+                }
                 logError('Storage', `Storage.set: Error saving key "${key}"`, err);
                 // Detect quota errors: by name (standard) or numeric code 22 (QUOTA_EXCEEDED_ERR)
                 // Some browsers/IDB report the error only by code, not by name
@@ -6193,73 +9140,206 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         },
 
         /**
-         * Gets a value from storage (now delegates to StorageAsync).
+         * Persists multiple video records in one storage batch.
+         * @param {Array<{key: string, value: Object}>} entries - Video records.
+         * @param {{mergeEntry?: Function|null, commitGuard?: (() => boolean)|null}} [options] - Optional queued merge and commit guard.
+         * @returns {Promise<{success: boolean, reason?: string, failedKeys?: string[], writtenKeys?: string[], skippedKeys?: string[], error?: Error}>} Result status.
          */
-        async get(key) {
+        async setMany(entries, options = {}) {
+            try {
+                const result = await StorageAsync.setMany(entries, options);
+                return {
+                    success: true,
+                    writtenKeys: result?.writtenKeys || [],
+                    skippedKeys: result?.skippedKeys || []
+                };
+            } catch (error) {
+                logError('Storage', 'Storage.setMany: batch write failed', error);
+                const isQuotaError = error?.name === 'QuotaExceededError' ||
+                    error?.name === 'NS_ERROR_DOM_QUOTA_REACHED' ||
+                    error?.code === 22 ||
+                    String(error?.message || '').toLowerCase().includes('quota');
+                return {
+                    success: false,
+                    reason: error?.name === 'AbortError' || error?.staleSession
+                        ? 'stale_session'
+                        : isQuotaError ? 'storage_full' : 'storage_error',
+                    failedKeys: Array.isArray(error?.failedKeys) ? error.failedKeys : [],
+                    writtenKeys: Array.isArray(error?.writtenKeys) ? error.writtenKeys : [],
+                    skippedKeys: Array.isArray(error?.skippedKeys) ? error.skippedKeys : [],
+                    error
+                };
+            }
+        },
+
+        /**
+         * Captures a complete read-only video snapshot from durable storage.
+         * @param {string[]|null} [keysToExport=null] - Optional storage-key subset.
+         * @returns {Promise<Map<string, Object>>} Canonical records keyed by storage key.
+         */
+        async getCompleteVideoSnapshot(keysToExport = null) {
+            try {
+                return await StorageAsync.getCompleteVideoSnapshot(keysToExport);
+            } catch (error) {
+                logError('Storage', 'Storage.getCompleteVideoSnapshot: Error capturing video records', error);
+                throw error;
+            }
+        },
+
+        /**
+         * Lists durable rows that exist but cannot be read.
+         * @returns {Array<{key: string, reason: string, valueType: string, kind: string, detectedAt: number}>} Quarantine details.
+         */
+        getQuarantinedRecords() {
+            return StorageAsync.getQuarantinedRecords();
+        },
+
+        /**
+         * Builds the damage report for rows that could not be converted, so
+         * they can be archived before anything is removed.
+         * @returns {{summary: Object, entries: Array<Object>}} Report payload.
+         */
+        getStorageDamageReport() {
+            return StorageAsync.buildStorageDamageReport();
+        },
+
+        /**
+         * Converts damaged rows back into the current record format instead of
+         * discarding them. Rows without a recoverable payload stay listed.
+         * @param {{commitGuard?: (() => boolean)|null}} [options] - Commit guard.
+         * @returns {Promise<{repaired: Array<Object>, unrepairable: string[], failed: string[]}>} Repair outcome.
+         */
+        async repairQuarantinedRecords(options = {}) {
+            try {
+                return await StorageAsync.repairQuarantinedRecords(options);
+            } catch (error) {
+                logError('Storage', 'Storage.repairQuarantinedRecords: conversion failed', error);
+                throw error;
+            }
+        },
+
+        /**
+         * Deletes the unreadable records after explicit user confirmation.
+         * @param {{commitGuard?: (() => boolean)|null}} [options] - Commit guard.
+         * @returns {Promise<{purged: string[], failed: string[]}>} Purge outcome.
+         */
+        async purgeQuarantinedRecords(options = {}) {
+            try {
+                return await StorageAsync.purgeQuarantinedRecords(options);
+            } catch (error) {
+                logError('Storage', 'Storage.purgeQuarantinedRecords: repair failed', error);
+                throw error;
+            }
+        },
+
+        /**
+         * Gets a value from storage (GM for config, durable async backend for videos).
+         * @param {string} key - Storage key.
+         * @param {{throwOnError?: boolean}} [options] - Error policy for video reads.
+         * @returns {Promise<any>} Stored value or null.
+         */
+        async get(key, { throwOnError = false } = {}) {
             if (isNonVideoStorageKey(key)) {
                 try {
-                    const gmKey = prefixKey(key);                    if (typeof GM_getValue === 'function') {
-                        const raw = await GM_getValue(gmKey, null);
-                        if (raw) {
-                            try { return JSON.parse(raw); } catch (_) {
-                                logWarn('Storage', `Corrupted GM_* value for key "${key}", ignoring`);
-                                return null;
-                            }
+                    const gmKey = prefixKey(key);
+                    if (typeof GM_getValue !== 'function') return null;
+                    const raw = await gmGetValue(gmKey, null);
+                    if (raw === null || raw === undefined || raw === '') return null;
+                    if (typeof raw === 'object') return raw;
+                    if (typeof raw === 'string') {
+                        try {
+                            return JSON.parse(raw);
+                        } catch (error) {
+                            logWarn('Storage', `Corrupted GM_* value for key "${key}", ignoring`, error);
+                            return null;
                         }
                     }
+                    logWarn('Storage', `Unsupported GM_* value type for key "${key}": ${typeof raw}`);
                     return null;
-                } catch (err) {
-                    logError('Storage', `Storage.get (GM): Error on key "${key}"`, err);
+                } catch (error) {
+                    logError('Storage', `Storage.get (GM): Error on key "${key}"`, error);
+                    if (throwOnError) throw error;
                     return null;
                 }
             }
             try {
                 return await StorageAsync.get(key);
-            } catch (err) {
-                logError('Storage', `Storage.get: Error getting key "${key}"`, err);
+            } catch (error) {
+                logError('Storage', `Storage.get: Error getting key "${key}"`, error);
+                if (throwOnError) throw error;
                 return null;
             }
         },
 
         /**
-         * Deletes a value (now delegates to StorageAsync).
+         * Deletes a value from GM and any durable video backend.
+         * @param {string} key - Storage key.
+         * @param {{cleanupFallback?: boolean, commitGuard?: (() => boolean)|null, expectedTimeWatched?: number|null}} [options] - Delete options.
+         * @returns {Promise<{success: boolean, reason?: string, error?: Error}>} Result status.
          */
-        async del(key) {
+        async del(key, options = {}) {
             if (isNonVideoStorageKey(key)) {
-                // Hoisted above the try: referencing it inside the catch used to throw
-                // a ReferenceError (block-scoped), turning a logged warning into an
-                // unhandled rejection for callers awaiting Storage.del().
                 const gmKey = prefixKey(key);
                 try {
-                    if (typeof GM_deleteValue === 'function') {
-                        await GM_deleteValue(gmKey);
-                    } else {
-                        await GM_setValue(gmKey, null);
+                    if (typeof GM_deleteValue === 'function') await gmDeleteValue(gmKey);
+                    else if (typeof GM_setValue === 'function') await gmSetValue(gmKey, null);
+                    try {
+                        await StorageAsync.del(key, { ...options, cleanupFallback: false });
+                    } catch (error) {
+                        logWarn('Storage', `GM delete succeeded but legacy IDB cleanup failed for "${key}"`, error);
                     }
-                } catch (_) { logWarn('Storage', `Failed to delete GM key "${gmKey}"`, _); }
-                // If the key existed in IDB (legacy), also delete it for cleanup
-                try { await StorageAsync.del(key); } catch (_) { logWarn('Storage', `Failed to delete IDB legacy key "${key}"`); }
-                return;
+                    return { success: true };
+                } catch (error) {
+                    logError('Storage', `Failed to delete GM key "${gmKey}"`, error);
+                    return { success: false, reason: 'storage_error', error };
+                }
             }
             try {
-                await StorageAsync.del(key);
-            } catch (err) {
-                logError('Storage', `Storage.del: Error deleting key "${key}"`, err);
+                const result = await StorageAsync.del(key, options);
+                return {
+                    success: result?.success !== false,
+                    durableDeleted: result?.durableDeleted === true
+                };
+            } catch (error) {
+                logError('Storage', `Storage.del: Error deleting key "${key}"`, error);
+                return {
+                    success: false,
+                    reason: 'storage_error',
+                    durableDeleted: error?.durableDeleted === true,
+                    primaryDeleted: error?.primaryDeleted === true,
+                    error
+                };
             }
         },
 
         /**
-         * Lists keys (now delegates to StorageAsync).
+         * Lists video keys from the durable backends.
+         * @param {{throwOnError?: boolean, requireComplete?: boolean}} [options] - Error/source policy.
+         * @returns {Promise<string[]>} Video storage keys.
          */
-        async keys() {
+        async keys({ throwOnError = false, requireComplete = false } = {}) {
             try {
-                return await StorageAsync.keys();
-            } catch (err) {
-                logError('Storage', 'Storage.keys: Error listing keys', err);
+                return await StorageAsync.keys({ requireComplete });
+            } catch (error) {
+                logError('Storage', 'Storage.keys: Error listing keys', error);
+                if (throwOnError) throw error;
                 return [];
             }
         }
     };
+
+    /**
+     * Parses a raw stored value into a plain object.
+     * Unusable input resolves to an empty object, matching the previous
+     * per-caller fallbacks.
+     * @param {*} raw - Value returned by Storage (object, JSON string or null).
+     * @returns {Object} Parsed object, or `{}` when the value is unusable.
+     */
+    function parseStoredObject(raw) {
+        if (raw && typeof raw === 'object') return raw;
+        if (typeof raw === 'string' && raw.trim()) return JSON.parse(raw);
+        return {};
+    }
 
     /**
      * Helper functions for settings and filters using centralized Storage.
@@ -6267,15 +9347,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const getSettings = async () => {
         try {
-            const raw = await Storage.get(CONFIG.STORAGE_KEYS.settings);
-            let parsed = {};
-
-            if (raw && typeof raw === 'object') {
-                parsed = raw;
-            } else if (typeof raw === 'string' && raw.trim()) {
-                parsed = JSON.parse(raw);
-            }
-
+            const parsed = parseStoredObject(await Storage.get(CONFIG.STORAGE_KEYS.settings));
             return { ...CONFIG.defaultSettings, ...parsed };
         } catch (error) {
             logError('getSettings', 'Error loading user settings:', error);
@@ -6285,15 +9357,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     const getSettingsWithMeta = async () => {
         try {
-            const raw = await Storage.get(CONFIG.STORAGE_KEYS.settings);
-            let parsed = {};
-
-            if (raw && typeof raw === 'object') {
-                parsed = raw;
-            } else if (typeof raw === 'string' && raw.trim()) {
-                parsed = JSON.parse(raw);
-            }
-
+            const parsed = parseStoredObject(await Storage.get(CONFIG.STORAGE_KEYS.settings));
             return {
                 settings: { ...CONFIG.defaultSettings, ...parsed },
                 hadLanguageInStorage: Object.prototype.hasOwnProperty.call(parsed || {}, 'language')
@@ -6304,11 +9368,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
     };
 
+    /**
+     * Persists main user settings.
+     * @param {Object} settings - Settings payload.
+     * @returns {Promise<{success: boolean, reason?: string, error?: Error}>} Result status.
+     */
     const setSettings = async (settings) => {
         try {
-            await Storage.set(CONFIG.STORAGE_KEYS.settings, settings);
+            return await Storage.set(CONFIG.STORAGE_KEYS.settings, settings, {
+                commitGuard: () => isInstanceActive()
+            });
         } catch (error) {
             logError('setSettings', 'Error saving user settings:', error);
+            return { success: false, reason: 'storage_error', error };
         }
     };
 
@@ -6357,13 +9429,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (src.colouredLabelsVisibility === undefined && src.dimColouredLabels === 'hidden') {
             merged.colouredLabelsVisibility = 'hiddenUntilHover';
         }
-        if (merged.colouredLabelsStyle !== 'color' && merged.colouredLabelsStyle !== 'grayscale') {
-            merged.colouredLabelsStyle = merged.colouredLabelsStyle === 'grayscaleOnHover' ? 'grayscale' : d.colouredLabelsStyle;
+        const validLabelStyles = new Set(['color', 'colorOnHover', 'grayscaleOnHover', 'grayscale']);
+        const validLabelVisibility = new Set(['alwaysVisible', 'dimUntilHover', 'hiddenUntilHover', 'hidden']);
+        if (!validLabelStyles.has(merged.colouredLabelsStyle)) {
+            merged.colouredLabelsStyle = d.colouredLabelsStyle;
         }
-        if (merged.colouredLabelsVisibility === 'hidden') {
-            merged.colouredLabelsVisibility = 'hiddenUntilHover';
-        }
-        if (merged.colouredLabelsVisibility !== 'alwaysVisible' && merged.colouredLabelsVisibility !== 'dimUntilHover' && merged.colouredLabelsVisibility !== 'hiddenUntilHover') {
+        if (!validLabelVisibility.has(merged.colouredLabelsVisibility)) {
             merged.colouredLabelsVisibility = d.colouredLabelsVisibility;
         }
 
@@ -6409,15 +9480,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     const getFilters = async () => {
         try {
-            const raw = await Storage.get(CONFIG.STORAGE_KEYS.filters);
-            let parsed = {};
-
-            if (raw && typeof raw === 'object') {
-                parsed = raw;
-            } else if (typeof raw === 'string' && raw.trim()) {
-                parsed = JSON.parse(raw);
-            }
-
+            const parsed = parseStoredObject(await Storage.get(CONFIG.STORAGE_KEYS.filters));
             return { ...CONFIG.defaultFilters, ...parsed };
         } catch (error) {
             logError('getFilters', 'Error al cargar filtros del usuario:', error);
@@ -6425,14 +9488,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
     };
 
-    const setFilters = async (newValues) => {
-        try {
-            const current = await getFilters();
-            const updated = { ...current, ...newValues };
-            await Storage.set(CONFIG.STORAGE_KEYS.filters, updated);
-        } catch (error) {
-            logError('setFilters', 'Error al guardar filtros del usuario:', error);
-        }
+    /** Serializes read-modify-write filter updates in this tab. */
+    let filtersWriteQueue = Promise.resolve();
+    /**
+     * Persists a filter patch without allowing concurrent patches to overwrite one another.
+     * @param {Object} newValues - Partial filter values.
+     * @returns {Promise<void>}
+     */
+    const setFilters = (newValues) => {
+        filtersWriteQueue = filtersWriteQueue
+            .catch(err => logWarn('setFilters', 'queue chain reset', err))
+            .then(async () => {
+                const current = await getFilters();
+                const updated = { ...current, ...newValues };
+                const result = await Storage.set(CONFIG.STORAGE_KEYS.filters, updated);
+                if (!result?.success) throw result?.error || new Error(result?.reason || 'storage_error');
+            })
+            .catch(error => {
+                logError('setFilters', 'Error al guardar filtros del usuario:', error);
+            });
+        return filtersWriteQueue;
     };
 
     // ============================================================================================================
@@ -6448,6 +9523,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let _lastAdRoot = null;
     let _lastAdResult = null;
     let _lastAdRootTime = 0;
+
+    // Cheap pre-filter for findVisibleAdUi: same families as
+    // ads.ui.activePlayer without the `:not(...)` qualifiers (plain
+    // class/tag lookup). It matches a superset of the full query, so a
+    // miss here implies the full scan below also misses and is skipped.
+    const AD_UI_GATE_SELECTOR = SELECTORS.ads.ui.activePlayer.map((s) => s.split(':not')[0]).join(', ');
 
     const _MAX_VIDEO_METADATA_CACHE_SIZE = 100;
     const _videoMetadataCache = new SimpleLRUCache(_MAX_VIDEO_METADATA_CACHE_SIZE);
@@ -6538,7 +9619,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // --- 4. Legitimate Content Validation in Feed ---
                 // If inside a standard video renderer without ad badges
                 try {
-                    const videoItem = DOMHelpers.closestComposed(node, 'ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, .video-renderer');
+                    const videoItem = DOMHelpers.closestComposed(node, 'ytd-video-renderer, ytd-rich-item-renderer, ytd-grid-video-renderer, ytd-compact-video-renderer, yt-lockup-view-model, .video-renderer');
                     if (videoItem) {
                         const inFeedSelector = SELECTORS.ads.elements.inFeed.concat(SELECTORS.ads.elements.masthead).join(', ');
                         if (!DOMHelpers.closestComposed(videoItem, inFeedSelector)) {
@@ -6572,6 +9653,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 _lastAdRoot = root;
                 _lastAdRootTime = now;
+
+                // Gate: no ad-family node at all → the qualified scan cannot hit.
+                if (!root.querySelector(AD_UI_GATE_SELECTOR)) {
+                    _lastAdResult = null;
+                    return null;
+                }
 
                 // Grouped native multi-query + layout post-validation
                 const activeUiSelector = SELECTORS.ads.ui.activePlayer.join(', ');
@@ -6619,6 +9706,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Reverse Search: limit scope to avoid iterating entire DOM with complex queries (O(k))
                 const adContainers = DOMHelpers.get('ad:containers', () => document.querySelectorAll('.ytd-in-feed-ad-layout-renderer, .video-ads, ytd-display-ad-renderer, #masthead-ad'), 500);
 
+                // The id is interpolated into CSS attribute selectors below, so a
+                // stray quote or bracket would throw SyntaxError on every call
+                // (fail-open plus log spam). Anything but the canonical shape
+                // cannot match those selectors anyway.
+                if (!VIDEO_ID_PATTERN.test(videoId)) {
+                    _adIdCache.set(videoId, { val: false, ts: now });
+                    return false;
+                }
+
                 for (const adCont of adContainers) {
                     if (adCont.querySelector(`a[href*="${videoId}"], ytd-thumbnail[video-id="${videoId}"], [id="thumbnail"][href*="${videoId}"]`)) {
                         _adIdCache.set(videoId, { val: true, ts: now });
@@ -6661,6 +9757,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          * @param {Function} options.renderItem - Async function that renders an item.
          * @param {number} [options.bufferSize=5] - Extra items to render above/below viewport.
          * @param {Function} [options.onRender] - Callback when render completes.
+         * @param {(element: HTMLElement) => void} [options.onItemDispose] - Callback for an evicted item.
          */
         constructor(options) {
             this.container = options.container;
@@ -6672,12 +9769,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             this.renderItem = options.renderItem;
             this.bufferSize = options.bufferSize ?? 5;
             this.onRender = options.onRender || null;
+            this.onItemDispose = options.onItemDispose || null;
 
             this.renderedItems = new Map();
             this.renderingItems = new Set();
+            this.renderingVersions = new Map();
+            this.renderVersion = 0;
             this.spacer = null;
             this.destroyed = false;
             this.scrollHandler = null;
+            this._scrollDisposer = null;
+            this._disposables = new DisposableStore();
             this.lastScrollTop = -1;
 
             // Cache of accumulated Y positions
@@ -6718,7 +9820,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     });
                 }
             };
-            this.container.addEventListener('scroll', this.scrollHandler, { passive: true });
+            // Tracked in the per-instance store so destroy() always releases it,
+            // even if the container is removed without going through destroy().
+            this._scrollDisposer = addDisposableListener(this.container, 'scroll', this.scrollHandler, { passive: true }, this._disposables);
 
             // Initial render
             this._render();
@@ -6878,6 +9982,52 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         /**
+         * Removes one rendered item and releases resources owned by it.
+         * @param {HTMLElement} element - Rendered virtual item.
+         * @returns {void}
+         * @private
+         */
+        _disposeRenderedItem(element) {
+            element.remove();
+            if (!this.onItemDispose) return;
+            try {
+                this.onItemDispose(element);
+            } catch (error) {
+                logWarn('VirtualScroller', 'Error disposing rendered item', error);
+            }
+        }
+
+        /**
+         * Disposes rendered items outside the given range (plus buffer).
+         * @param {number} startIdx - First visible index.
+         * @param {number} endIdx - Last visible index (exclusive).
+         * @returns {void}
+         * @private
+         */
+        _evictOutsideRange(startIdx, endIdx) {
+            for (const [idx, el] of this.renderedItems) {
+                if (idx < startIdx - this.bufferSize || idx >= endIdx + this.bufferSize) {
+                    if (!this.renderingItems.has(idx)) {
+                        this._disposeRenderedItem(el);
+                        this.renderedItems.delete(idx);
+                    }
+                }
+            }
+        }
+
+        /**
+         * Forgets every rendered item without disposing it.
+         * Callers must dispose the elements first.
+         * @returns {void}
+         * @private
+         */
+        _clearRenderedState() {
+            this.renderedItems.clear();
+            this.renderingItems.clear();
+            this.renderingVersions.clear();
+        }
+
+        /**
          * Renders visible items.
          * @private
          */
@@ -6889,21 +10039,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Cleanup: remove items rendered outside the visible range (plus buffer).
             // Without this eviction, scrolling a long list renders and retains EVERY
             // item subtree until the modal closes, defeating the virtualization.
-            for (const [idx, el] of this.renderedItems) {
-                if (idx < startIdx - this.bufferSize || idx >= endIdx + this.bufferSize) {
-                    if (!this.renderingItems.has(idx)) {
-                        el.remove();
-                        this.renderedItems.delete(idx);
-                    }
-                }
-            }
+            this._evictOutsideRange(startIdx, endIdx);
 
             // Render: add new items
             const renderPromises = [];
+            const renderVersion = this.renderVersion;
             for (let i = startIdx; i < endIdx; i++) {
                 if (!this.renderedItems.has(i) && !this.renderingItems.has(i)) {
                     this.renderingItems.add(i);
-                    renderPromises.push(this._renderItemAt(i));
+                    this.renderingVersions.set(i, renderVersion);
+                    renderPromises.push(this._renderItemAt(i, renderVersion));
                 }
             }
 
@@ -6911,21 +10056,34 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 await Promise.all(renderPromises);
             }
 
+            if (this.destroyed || renderVersion !== this.renderVersion) return;
+
+            // Items awaited above may have landed outside the range this pass computed
+            // (the list can be re-sorted or resized while their async render is pending).
+            // The eviction loop above runs before those promises resolve, so re-check now
+            // to avoid leaving stale items positioned in the spacer until the next scroll.
+            const currentRange = this._getVisibleRange();
+            this._evictOutsideRange(currentRange.startIdx, currentRange.endIdx);
+
             // After rendering new items, verify heights to fix gaps/overlaps
             this._checkHeights();
 
             if (this.onRender) {
-                this.onRender({
-                    visibleStart: startIdx,
-                    visibleEnd: endIdx,
-                    totalItems: this.items.length,
-                    // renderedCount: this.renderedItems.size
-                });
+                try {
+                    this.onRender({
+                        visibleStart: startIdx,
+                        visibleEnd: endIdx,
+                        totalItems: this.items.length,
+                        // renderedCount: this.renderedItems.size
+                    });
+                } catch (error) {
+                    logWarn('VirtualScroller', 'Error in onRender callback', error);
+                }
             }
         }
 
-        async _renderItemAt(index) {
-            const currentVersion = this.renderVersion;
+        async _renderItemAt(index, renderVersion = this.renderVersion) {
+            const currentVersion = renderVersion;
             if (this.destroyed || index >= this.items.length) {
                 this.renderingItems.delete(index);
                 return;
@@ -6935,7 +10093,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const item = this.items[index];
                 let el = await this.renderItem(item, index);
 
-                if (this.destroyed || currentVersion !== this.renderVersion) return;
+                if (this.destroyed || currentVersion !== this.renderVersion) {
+                    // The row may have created listeners/timers before an
+                    // update or modal teardown invalidated the render. It is
+                    // not in renderedItems, so dispose it explicitly.
+                    if (el && typeof el === 'object') {
+                        try {
+                            this.onItemDispose?.(el);
+                        } catch (error) {
+                            logWarn('VirtualScroller', 'Error disposing stale rendered item', error);
+                        }
+                    }
+                    return;
+                }
 
                 if (typeof el === 'string') {
                     const temp = document.createElement('div');
@@ -6955,7 +10125,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             } catch (err) {
                 logError('VirtualScroller', `Error rendering item ${index}`, err);
             } finally {
-                this.renderingItems.delete(index);
+                if (this.renderingVersions.get(index) === currentVersion) {
+                    this.renderingItems.delete(index);
+                    this.renderingVersions.delete(index);
+                }
             }
         }
 
@@ -6970,11 +10143,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Aggressive spacer cleanup to ensure no orphaned items from previous async renders
             if (this.spacer) {
                 const orphans = this.spacer.querySelectorAll('.ypp-virtual-item');
-                orphans.forEach(el => el.remove());
+                orphans.forEach(el => this._disposeRenderedItem(el));
             }
 
-            this.renderedItems.clear();
-            this.renderingItems.clear();
+            this._clearRenderedState();
             if (this.measuredHeights) this.measuredHeights.clear();
 
             // Update height and re-render
@@ -6987,10 +10159,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          * Forces a full re-render.
          */
         refresh() {
+            this.renderVersion = (this.renderVersion || 0) + 1;
             for (const el of this.renderedItems.values()) {
-                el.remove();
+                this._disposeRenderedItem(el);
             }
-            this.renderedItems.clear();
+            this._clearRenderedState();
             this.lastScrollTop = -1;
             this._render();
         }
@@ -7036,16 +10209,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          */
         destroy() {
             this.destroyed = true;
+            this.renderVersion = (this.renderVersion || 0) + 1;
 
+            try { this._scrollDisposer?.(); } catch (e) { logWarn('VirtualScroller', 'Error disposing scroll listener', e); }
+            this._scrollDisposer = null;
+            try { this._disposables?.dispose?.(); } catch (e) { logWarn('VirtualScroller', 'Error disposing scroller store', e); }
             if (this.scrollHandler && this.container) {
-                this.container.removeEventListener('scroll', this.scrollHandler);
+                try { this.container.removeEventListener('scroll', this.scrollHandler); } catch (e) { logWarn('VirtualScroller', 'Error removing scroll listener', e); }
             }
 
             for (const el of this.renderedItems.values()) {
-                el.remove();
+                this._disposeRenderedItem(el);
             }
-            this.renderedItems.clear();
-            this.renderingItems.clear();
+            this._clearRenderedState();
+            // Symmetry with updateItems()/refresh(): a destroyed instance must not
+            // keep measured heights or the item/offset arrays alive.
+            this.measuredHeights.clear();
+            this.items = [];
+            this.itemOffsets = [];
 
             if (this.spacer) {
                 this.spacer.remove();
@@ -7060,39 +10241,41 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     /**
      * Collects all stored video data for sync or export.
+     * @param {string} [method='export'] - Backup method recorded in metadata.
+     * @param {string[]|null} [keysToExport=null] - Optional storage-key subset.
      * @returns {Promise<Object|null>} Object with all data or null if no data.
      */
     const getSyncData = async (method = 'export', keysToExport = null) => {
         try {
-            const exportData = {};
-            let keys = (await Storage.keys()).filter(k => !isNonVideoStorageKey(k));
-
-            if (keysToExport && Array.isArray(keysToExport)) {
-                keys = keys.filter(k => keysToExport.includes(k));
-            }
-
-            if (keys.length === 0) return null;
+            const records = await Storage.getCompleteVideoSnapshot(keysToExport);
+            if (records.size === 0) return null;
 
             // Add metadata at the beginning
-            exportData['__metadata__'] = {
-                version: SCRIPT_VERSION,
-                date: new Date().toISOString(),
-                totalEntries: keys.length,
-                backupMethod: method
+            const exportData = {
+                __metadata__: {
+                    version: SCRIPT_VERSION,
+                    date: new Date().toISOString(),
+                    totalEntries: records.size,
+                    backupMethod: method
+                }
             };
 
-            for (const k of keys) {
-                const data = await Storage.get(k);
-                if (data) exportData[k] = data;
+            for (const [key, data] of records) {
+                exportData[key] = data;
             }
             return exportData;
         } catch (error) {
             logError('getSyncData', 'Error collecting data:', error);
-            return null;
+            throw error;
         }
     };
 
-    // Native JSON export/import (preserves videoTypes)
+    /**
+     * Exports native JSON data to a user-visible file/share destination.
+     * @param {string[]|null} keysToExport - Optional subset of storage keys.
+     * @param {string} filenameSuffix - Filename discriminator.
+     * @returns {Promise<string|false>} Download status, or false on failure.
+     */
     const exportDataToFile = async (keysToExport = null, filenameSuffix = 'backup') => {
         try {
             const exportData = await getSyncData('export', keysToExport);
@@ -7101,7 +10284,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (!exportData) {
                 logLog('exportDataToFile', 'No data to export');
                 showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
-                return;
+                return false;
             }
 
             const jsonString = JSON.stringify(exportData, null, 2);
@@ -7114,7 +10297,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (fileSizeMB > 50) {
                 logWarn('exportDataToFile', `File too large: ${fileSizeMB.toFixed(2)}MB (recommended limit: 50MB)`);
                 showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLarge', { size: fileSizeMB.toFixed(2), limit: 50 })}`);
-                return;
+                return false;
             }
 
             const timestamp = new Date().toISOString().split('T')[0];
@@ -7133,10 +10316,179 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 showFloatingToast(`${SVG_ICONS.upload} ${t('itemsExported', { count })}`);
             }
             logLog('exportDataToFile', `Exported ${count} videos (${fileSizeMB.toFixed(2)}MB) - status: ${status}`);
+            return status;
         } catch (error) {
             logError('exportDataToFile', 'Error exporting:', error);
             showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
+            return false;
         }
+    };
+
+    /**
+     * Downloads a report of the rows that enumeration could not convert, so
+     * the user can inspect or archive them before anything is removed.
+     * @returns {Promise<boolean>} True when the report was delivered.
+     */
+    const exportStorageDamageReport = async () => {
+        try {
+            const report = Storage.getStorageDamageReport();
+            if (!report?.entries?.length) {
+                showFloatingToast(`${SVG_ICONS.check} ${t('storageDamageNone')}`);
+                return true;
+            }
+            const jsonString = JSON.stringify(report, null, 2);
+            const blob = new Blob([jsonString], { type: 'application/json' });
+            const timestamp = new Date().toISOString().split('T')[0];
+            const status = await downloadBlobMobileSafe(
+                blob,
+                `youtube-playback-plox-v${SCRIPT_VERSION}-storage-damage-${timestamp}.json`
+            );
+            if (status === 'failed') {
+                showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
+                return false;
+            }
+            showFloatingToast(`${SVG_ICONS.upload} ${t('storageDamageExported', { count: report.entries.length })}`);
+            logLog('exportStorageDamageReport', `Exported a damage report with ${report.entries.length} row(s) - status: ${status}`);
+            return true;
+        } catch (error) {
+            logError('exportStorageDamageReport', 'Error exporting the damage report:', error);
+            showFloatingToast(`${SVG_ICONS.error} ${t('exportError')}`);
+            return false;
+        }
+    };
+
+    /**
+     * Guided repair flow for damaged durable rows.
+     *
+     * 1. Converts every row that can be converted back to the current format.
+     * 2. Offers a downloadable report of whatever remains.
+     * 3. Deletes the remaining rows only on an explicit confirmation, and
+     *    never touches GM mirrors.
+     *
+     * @param {HTMLElement|null} [trigger] - Button that started the flow.
+     * @returns {Promise<void>}
+     */
+    const runStorageRepairFlow = async (trigger = null) => {
+        const damaged = Storage.getQuarantinedRecords();
+        if (damaged.length === 0) {
+            showFloatingToast(`${SVG_ICONS.check} ${t('storageDamageNone')}`);
+            return;
+        }
+        if (trigger) trigger.disabled = true;
+        try {
+            const shouldConvert = confirm(t('storageRepairConvertPrompt', { count: damaged.length }));
+            let unrepairable = damaged.length;
+            if (shouldConvert) {
+                const result = await Storage.repairQuarantinedRecords({
+                    commitGuard: () => isInstanceActive()
+                });
+                const repairedCount = Array.isArray(result?.repaired) ? result.repaired.length : 0;
+                unrepairable = Array.isArray(result?.unrepairable) ? result.unrepairable.length : 0;
+                if (repairedCount > 0) {
+                    showFloatingToast(`${SVG_ICONS.check} ${t('storageRepairConverted', { count: repairedCount })}`);
+                } else {
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('storageRepairNothingConverted')}`);
+                }
+            }
+
+            if (unrepairable > 0 && confirm(t('storageRepairReportPrompt', { count: unrepairable }))) {
+                await exportStorageDamageReport();
+            }
+            if (unrepairable > 0 && confirm(t('storageRepairDeletePrompt', { count: unrepairable }))) {
+                storageDestructiveEpoch += 1;
+                const purge = await Storage.purgeQuarantinedRecords({
+                    commitGuard: () => isInstanceActive()
+                });
+                const purgedCount = Array.isArray(purge?.purged) ? purge.purged.length : 0;
+                const failedCount = Array.isArray(purge?.failed) ? purge.failed.length : 0;
+                if (purgedCount > 0) {
+                    showFloatingToast(`${SVG_ICONS.check} ${t('repairStorageDone', { count: purgedCount })}`);
+                }
+                if (failedCount > 0) {
+                    logError('runStorageRepairFlow', `${failedCount} damaged row(s) could not be removed`);
+                    showFloatingToast(`${SVG_ICONS.error} ${t('repairStorageFailed', { count: failedCount })}`);
+                }
+            }
+        } catch (error) {
+            logError('runStorageRepairFlow', 'Storage repair failed', error);
+            showFloatingToast(`${SVG_ICONS.error} ${t('storageRepairFailed')}`);
+        } finally {
+            if (trigger) trigger.disabled = false;
+            if (Storage.getQuarantinedRecords().length === 0) {
+                // Nothing damaged left: drop both entry points.
+                DOMHelpers.get('repair:btn', () => document.getElementById('ypp-repair-storage-btn'), 0)?.remove();
+            }
+            renderStorageDamageNotice();
+            await updateVideoList();
+        }
+    };
+
+    /**
+     * Owns the listeners of the current damaged-rows notice. Rebuilt on every
+     * render because the notice children are replaced each time.
+     * @type {DisposableStore|null}
+     */
+    let storageDamageNoticeDisposables = null;
+
+    /**
+     * Renders (or hides) the damaged-rows notice inside the saved-videos list
+     * header, so the affected keys are visible without opening the console.
+     * @returns {void}
+     */
+    const renderStorageDamageNotice = () => {
+        const statsBar = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
+        if (!statsBar) return;
+        let notice = statsBar.querySelector('#ypp-storage-damage');
+        const damaged = Storage.getQuarantinedRecords();
+        if (damaged.length === 0) {
+            if (notice) notice.remove();
+            storageDamageNoticeDisposables?.dispose?.();
+            storageDamageNoticeDisposables = null;
+            return;
+        }
+        if (!notice) {
+            notice = createElement('span', { className: 'ypp-storage-damage', id: 'ypp-storage-damage' });
+            statsBar.appendChild(notice);
+        }
+        const emptyRows = damaged.filter(({ kind }) => kind === 'empty').length;
+        const unreadable = damaged.length - emptyRows;
+        const details = unreadable > 0
+            ? `${t('storageDamageSummary', { total: damaged.length, empty: emptyRows, unreadable })}`
+            : t('storageDamageSummaryEmpty', { total: damaged.length });
+
+        // setInnerHTML below replaces every child of `notice`, so the buttons are
+        // rebuilt on each call. Registering their listeners in a per-notice store
+        // (instead of the modal store) keeps repeated refreshes from accumulating
+        // disposables bound to buttons that were just discarded.
+        if (storageDamageNoticeDisposables) {
+            ModalDisposables.remove(storageDamageNoticeDisposables);
+            storageDamageNoticeDisposables.dispose();
+            storageDamageNoticeDisposables = null;
+        }
+        const nextDisposables = new DisposableStore();
+        storageDamageNoticeDisposables = nextDisposables;
+        ModalDisposables.add(nextDisposables);
+
+        const repairBtn = createElement('button', {
+            className: 'ypp-storage-damage-btn',
+            html: t('repairStorage'),
+            attributes: { type: 'button', title: t('storageDamageRepairTitle') }
+        });
+        addDisposableListener(repairBtn, 'click', async (event) => {
+            event.stopPropagation();
+            await runStorageRepairFlow(repairBtn);
+        }, {}, nextDisposables);
+        const reportBtn = createElement('button', {
+            className: 'ypp-storage-damage-btn',
+            html: t('exportDamageReport'),
+            attributes: { type: 'button', title: t('storageDamageReportTitle') }
+        });
+        addDisposableListener(reportBtn, 'click', async (event) => {
+            event.stopPropagation();
+            await exportStorageDamageReport();
+        }, {}, nextDisposables);
+        setInnerHTML(notice, `<span title="${sanitizeHTML(details)}">${SVG_ICONS.warning} ${sanitizeHTML(t('storageDamageTitle', { count: damaged.length }))}</span>`);
+        notice.append(repairBtn, reportBtn);
     };
 
     /**
@@ -7176,8 +10528,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 });
                 document.body.appendChild(textarea);
                 textarea.select();
-                document.execCommand('copy');
+                const copied = document.execCommand('copy');
                 document.body.removeChild(textarea);
+                if (!copied) throw new Error('Clipboard copy command was rejected');
             }
 
             const count = format === 'freetube' ? text.split('\n').length : Object.keys(JSON.parse(text)).filter(k => k !== '__metadata__').length;
@@ -7189,10 +10542,247 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
     };
 
+    /**
+     * Resolves an imported record against the local record using newest-wins.
+     * Completion events from both records are unioned so a newer backup cannot
+     * erase local watch history. Internal-only flags (protection and fixed
+     * time) are never weakened by an older or partial external backup.
+     * @param {Object|null|undefined} existingRecord - Current local record.
+     * @param {Object} incomingRecord - Valid normalized imported record.
+     * @returns {{data: Object, usedIncoming: boolean}} Merge decision.
+     */
+    function mergeImportedVideoData(existingRecord, incomingRecord) {
+        if (!existingRecord || typeof existingRecord !== 'object') {
+            return { data: incomingRecord, usedIncoming: true, changed: true };
+        }
+
+        const existing = normalizeVideoData(existingRecord, incomingRecord.videoId);
+        const incoming = normalizeVideoData(incomingRecord, incomingRecord.videoId);
+        // Imports often omit playlist context entirely. Do not let the
+        // normalizer's null/empty placeholders erase a known local association.
+        const mergedPlaylistFields = {
+            lastViewedPlaylistId: incomingRecord.lastViewedPlaylistId ?? existing.lastViewedPlaylistId ?? null,
+            lastViewedPlaylistType: incomingRecord.lastViewedPlaylistType || existing.lastViewedPlaylistType || '',
+            lastViewedPlaylistItemId: incomingRecord.lastViewedPlaylistItemId ?? existing.lastViewedPlaylistItemId ?? null,
+            playlistTitle: incomingRecord.playlistTitle ?? existing.playlistTitle ?? null
+        };
+        const existingTimestamp = Number(existing.timeWatched);
+        const incomingTimestamp = Number(incoming.timeWatched);
+        const hasComparableExistingTime = Number.isFinite(existingTimestamp) && existingTimestamp > 0;
+        const incomingIsNewer = !hasComparableExistingTime ||
+            (Number.isFinite(incomingTimestamp) && incomingTimestamp > existingTimestamp);
+        const existingHistory = normalizeCompletionHistory(existing.completionHistory);
+        const incomingHistory = normalizeCompletionHistory(incoming.completionHistory);
+        const mergedHistory = normalizeCompletionHistory({
+            events: [...new Set([...existingHistory.events, ...incomingHistory.events])]
+        });
+
+        if (!incomingIsNewer) {
+            const mergedData = normalizeVideoData({
+                ...existing,
+                completionHistory: mergedHistory,
+                viewCount: Math.max(Number(existing.viewCount) || 0, Number(incoming.viewCount) || 0)
+            }, incoming.videoId);
+            const historyChanged = mergedHistory.events.length > existingHistory.events.length;
+            const viewCountChanged = Number(mergedData.viewCount || 0) > Number(existing.viewCount || 0);
+            return {
+                data: mergedData,
+                usedIncoming: false,
+                changed: historyChanged || viewCountChanged
+            };
+        }
+
+        const merged = normalizeVideoData({
+            ...existing,
+            ...incoming,
+            ...mergedPlaylistFields,
+            completionHistory: mergedHistory,
+            viewCount: Math.max(Number(existing.viewCount) || 0, Number(incoming.viewCount) || 0),
+            isProtected: existing.isProtected === true || incoming.isProtected === true,
+            forceResumeTime: incoming.forceResumeTime || existing.forceResumeTime
+        }, incoming.videoId);
+        return { data: merged, usedIncoming: true, changed: true };
+    }
+
+    /** @type {string[]} Keys that may wrap the record map in a third-party export. */
+    const IMPORT_WRAPPER_KEYS = ['data', 'videos', 'records', 'items', 'savedVideos', 'export', 'backup'];
+
+    /**
+     * Guesses the shape of an import file from its leading characters.
+     * @param {string} text - Raw file content.
+     * @returns {string} One of `empty`, `html`, `json-array`, `json-object`, `text`.
+     */
+    function detectImportFormat(text) {
+        const trimmed = text.trimStart();
+        if (!trimmed) return 'empty';
+        if (/^<(?:!doctype|html|\?xml)/i.test(trimmed)) return 'html';
+        if (trimmed.startsWith('[')) return 'json-array';
+        if (trimmed.startsWith('{')) return 'json-object';
+        return 'text';
+    }
+
+    /**
+     * Checks whether an object holds at least one importable video record.
+     * @param {Object} candidate - Parsed object to inspect.
+     * @returns {boolean} True when at least one usable record key exists.
+     */
+    function hasImportableRecords(candidate) {
+        if (!candidate || typeof candidate !== 'object' || Array.isArray(candidate)) return false;
+        return Object.keys(candidate).some((key) => {
+            if (key === '__metadata__' || key.startsWith('userSettings') || key.startsWith('userFilters')) return false;
+            if (isNonVideoStorageKey(key)) return false;
+            const value = candidate[key];
+            return !!value && typeof value === 'object';
+        });
+    }
+
+    /**
+     * Detects a FreeTube database export, which only the FreeTube importer
+     * understands. Native backups are flat maps keyed by video id and can
+     * never carry a `videos` array.
+     * @param {*} parsed - Parsed JSON payload.
+     * @returns {boolean} True when the payload is a FreeTube export.
+     */
+    function looksLikeFreeTubeExport(parsed) {
+        return !!parsed && typeof parsed === 'object' && !Array.isArray(parsed) && Array.isArray(parsed.videos);
+    }
+
+    /**
+     * Parses a native JSON backup tolerantly: a UTF-8 BOM and surrounding
+     * whitespace are ignored, arrays of records are indexed by `videoId` and a
+     * single wrapper object is unwrapped. Wrong files (HTML pages, FreeTube
+     * exports, empty documents) are reported with a usable reason instead of a
+     * raw `JSON.parse` exception.
+     * @param {string} text - Raw file content.
+     * @returns {{ok: boolean, data?: Object, format: string, hint?: string, error?: Error}} Parse outcome.
+     */
+    function parseImportPayload(text) {
+        const cleaned = String(text || '').replace(/^\uFEFF/, '').trim();
+        const format = detectImportFormat(cleaned);
+        if (format === 'empty') return { ok: false, format, hint: 'empty' };
+        if (format === 'html') return { ok: false, format, hint: 'html' };
+
+        let parsed;
+        try {
+            parsed = JSON.parse(cleaned);
+        } catch (error) {
+            return { ok: false, format, hint: 'json', error };
+        }
+
+        if (looksLikeFreeTubeExport(parsed)) return { ok: false, format, hint: 'freetube' };
+
+        if (Array.isArray(parsed)) {
+            const byVideoId = {};
+            parsed.forEach((record) => {
+                if (!record || typeof record !== 'object') return;
+                const videoId = typeof record.videoId === 'string' ? record.videoId.trim() : '';
+                if (videoId) byVideoId[videoId] = record;
+            });
+            return Object.keys(byVideoId).length > 0
+                ? { ok: true, data: byVideoId, format: 'json-array' }
+                : { ok: false, format, hint: 'empty' };
+        }
+
+        if (!parsed || typeof parsed !== 'object') return { ok: false, format, hint: 'json' };
+
+        const wrapperKey = IMPORT_WRAPPER_KEYS.find((key) => hasImportableRecords(parsed[key]));
+        if (wrapperKey) return { ok: true, data: parsed[wrapperKey], format: `${format}/${wrapperKey}` };
+        return { ok: true, data: parsed, format };
+    }
+
+    /**
+     * Builds a guard that aborts an import commit when the storage state changed
+     * or another destructive operation took ownership.
+     * @returns {() => boolean} Guard for `Storage.setMany`.
+     */
+    function createImportCommitGuard() {
+        const importEpoch = storageDestructiveEpoch;
+        return () =>
+            isInstanceActive() &&
+            storageDestructiveEpoch === importEpoch &&
+            !clearAllInFlight &&
+            !undoInFlight &&
+            !autoCleanupInFlight &&
+            !selectedDeleteInFlight;
+    }
+
+    /**
+     * Re-reads pending imported records right before writing and commits them
+     * in one durable batch, so a concurrent local save is never regressed.
+     * @param {Array<{key: string, value: Object}>} pendingEntries - Merge results to commit.
+     * @param {() => boolean} commitGuard - Last-moment ownership guard.
+     * @returns {Promise<{writtenCount: number, rereadSkippedCount: number, batchSkippedCount: number, unwrittenCount: number, success: boolean, reason?: string, error?: *}>}
+     */
+    async function commitImportedEntries(pendingEntries, commitGuard) {
+        const refreshedEntries = [];
+        let rereadSkippedCount = 0;
+        for (const entry of pendingEntries) {
+            try {
+                const latest = await Storage.get(entry.key, { throwOnError: true });
+                const refreshedMerge = mergeImportedVideoData(latest, entry.value);
+                if (refreshedMerge.usedIncoming || refreshedMerge.changed) {
+                    refreshedEntries.push({ key: entry.key, value: refreshedMerge.data });
+                    if (!refreshedMerge.usedIncoming) rereadSkippedCount++;
+                } else {
+                    rereadSkippedCount++;
+                }
+            } catch (error) {
+                // The caller logs with its own module literal (audit-lint W02).
+                throw new Error(`Could not re-read ${entry.key} before import write: ${error?.message ?? error}`, { cause: error });
+            }
+        }
+
+        const batchResult = refreshedEntries.length > 0
+            ? await Storage.setMany(refreshedEntries, {
+                mergeEntry: ({ current, incoming }) => {
+                    const merge = mergeImportedVideoData(current, incoming);
+                    return merge.usedIncoming || merge.changed ? { value: merge.data } : { skip: true };
+                },
+                commitGuard
+            })
+            : { success: true, writtenKeys: [], skippedKeys: [] };
+
+        const writtenCount = Array.isArray(batchResult.writtenKeys) ? batchResult.writtenKeys.length : 0;
+        const batchSkippedCount = Array.isArray(batchResult.skippedKeys) ? batchResult.skippedKeys.length : 0;
+        return {
+            writtenCount,
+            rereadSkippedCount,
+            batchSkippedCount,
+            unwrittenCount: Math.max(0, refreshedEntries.length - writtenCount - batchSkippedCount),
+            success: batchResult.success,
+            reason: batchResult.reason,
+            error: batchResult.error
+        };
+    }
+
+    /**
+     * Imports a native JSON backup without regressing newer local records.
+     * @param {File} file - Selected JSON backup.
+     * @returns {Promise<void>}
+     */
     const importDataFromFile = async (file) => {
+        const importCommitGuard = createImportCommitGuard();
         try {
             const text = await file.text();
-            const data = JSON.parse(text);
+            const parsedImport = parseImportPayload(text);
+            if (!parsedImport.ok) {
+                if (parsedImport.hint === 'freetube') {
+                    logWarn('importDataFromFile', 'The selected file is a FreeTube export; it needs the FreeTube importer');
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('importLooksLikeFreeTube')}`);
+                } else if (parsedImport.format === 'html') {
+                    logWarn('importDataFromFile', 'The selected file is an HTML document, not a backup');
+                    showFloatingToast(`${SVG_ICONS.error} ${t('importNotJson')}`);
+                } else if (parsedImport.hint === 'empty') {
+                    logWarn('importDataFromFile', 'The selected file contains no importable records');
+                    showFloatingToast(`${SVG_ICONS.warning} ${t('noValidVideos')}`);
+                } else {
+                    logError('importDataFromFile', `Could not parse the selected file as JSON: ${parsedImport.error?.message || 'unknown error'}`, parsedImport.error);
+                    showFloatingToast(`${SVG_ICONS.error} ${t('importNotJson')}`);
+                }
+                return;
+            }
+            const data = parsedImport.data;
+            logLog('importDataFromFile', `Import payload accepted (${parsedImport.format})`);
 
             if (typeof data !== 'object' || data === null) {
                 showFloatingToast(`${SVG_ICONS.error} ${t('invalidFormat')}`);
@@ -7204,9 +10794,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             // Early filtering to avoid processing invalid keys
             const validKeys = Object.keys(data).filter(key =>
+                key !== '__metadata__' &&
                 !key.startsWith('userSettings') &&
                 !key.startsWith('userFilters') &&
-                key !== '__metadata__'
+                !isNonVideoStorageKey(key)
             );
 
             if (validKeys.length === 0) {
@@ -7215,21 +10806,40 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return;
             }
 
+            const pendingEntries = [];
             for (const key of validKeys) {
-                // Normalize data before saving to ensure Format A
                 const normalized = normalizeVideoData(data[key], key);
-
-                // Validate value has minimum video structure after normalization
-                if (normalized && typeof normalized === 'object' && normalized.videoId) {
-                    await Storage.set(key, normalized);
-                    importCount++;
-                } else {
+                if (!normalized || typeof normalized !== 'object' || !normalized.videoId) {
                     logLog('importDataFromFile', `Invalid entry skipped (or missing videoId): ${key}`);
+                    skipped++;
+                    continue;
+                }
+
+                const existing = await Storage.get(key, { throwOnError: true });
+                const mergeResult = mergeImportedVideoData(existing, normalized);
+                if (mergeResult.usedIncoming || mergeResult.changed) {
+                    pendingEntries.push({ key, value: mergeResult.data });
+                    if (!mergeResult.usedIncoming) skipped++;
+                } else {
                     skipped++;
                 }
             }
 
+            if (pendingEntries.length > 0) {
+                // Re-read immediately before the batch so a local save that
+                // completed while the import was being parsed is not regressed.
+                const commit = await commitImportedEntries(pendingEntries, importCommitGuard);
+                if (!isInstanceActive()) return;
+                importCount += commit.writtenCount;
+                skipped += commit.rereadSkippedCount + commit.batchSkippedCount + commit.unwrittenCount;
+                if (!commit.success) {
+                    const messageKey = commit.reason === 'storage_full' ? 'storageFull' : 'importError';
+                    showFloatingToast(`${SVG_ICONS.error} ${t(messageKey)}`);
+                }
+            }
+
             await updateVideoList();
+            if (!isInstanceActive()) return;
 
             if (importCount > 0) {
                 showFloatingToast(`${SVG_ICONS.check} ${t('itemsImported', { count: importCount })} ${skipped > 0 ? ` (${skipped} ${t('omitedVideos')})` : ''}`);
@@ -7248,15 +10858,22 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
 
     const getGitHubErrorMsg = (resp) => {
-        try { return JSON.parse(resp.responseText)?.message; } catch (_) { return null; }
+        try {
+            return JSON.parse(resp.responseText)?.message;
+        } catch (error) {
+            logWarn('GitHub', 'Could not parse API error response', error);
+            return null;
+        }
     };
 
     /**
      * Backs up data to a GitHub Gist.
      */
-    const backupToGitHubGist = async (data, initialModeSettings, isManual) => {
+    const backupToGitHubGist = async (data, initialModeSettings) => {
+        if (!isInstanceActive()) return false;
         // Fresh pull from storage to prevent stale gistId/token drift
         const fullSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+        if (!isInstanceActive()) return false;
         const modeSettings = { ...fullSettings.gist, ...(initialModeSettings || {}) };
 
         return new Promise((resolve) => {
@@ -7291,72 +10908,110 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return resolve(false);
             }
 
-            const url = gistId ? `https://api.github.com/gists/${gistId}` : 'https://api.github.com/gists';
-            const method = gistId ? 'PATCH' : 'POST';
+            const headers = {
+                'Authorization': `token ${cleanToken}`,
+                'Accept': 'application/vnd.github.v3+json',
+                'Content-Type': 'application/json'
+            };
+            const payload = JSON.stringify(gistData);
 
-            GM_xmlhttpRequest({
-                method: method,
-                url: url,
-                headers: {
-                    'Authorization': `token ${cleanToken}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'Content-Type': 'application/json'
-                },
-                data: JSON.stringify(gistData),
-                timeout: 60000,
-                onload: async (response) => {
-                    // Wrap everything: an uncaught exception here (invalid JSON body,
-                    // missing result.id, storage failure) would leave the promise
-                    // unresolved forever and stall the whole auto-backup chain.
-                    try {
-                        if (response.status >= 200 && response.status < 300) {
-
-                            const result = JSON.parse(response.responseText);
-                            if (!result || typeof result.id !== 'string') {
-                                throw new Error('Malformed GitHub response: missing gist id');
-                            }
-
-                            // Update the current object for UI feedback if the modal is open
-                            // Persist sync metadata
-                            let storedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
-                            if (!storedSettings.gist) storedSettings.gist = {};
-
-                            storedSettings.gist.id = result.id;
-                            storedSettings.gist.url = result.html_url;
-                            storedSettings.gist.lastSync = Date.now();
-
-                            // Auto-remove token if applicable
-                            if (fullSettings.autoDeleteToken) {
-                                storedSettings.gist.token = '';
-                            }
-
-                            await Storage.set(CONFIG.STORAGE_KEYS.github, storedSettings);
-
-                            logInfo('backupToGitHubGist', 'GitHub backup successful:', result.id.slice(0, 10) + '...');
-                            resolve(true);
-                        } else {
-                            logError('backupToGitHubGist', 'GitHub backup error:', response.status);
+            /**
+             * Sends one Gist request and always settles the outer promise.
+             * @param {'POST'|'PATCH'} method - HTTP method.
+             * @param {string} url - GitHub API endpoint.
+             * @param {string} description - Log context for failures.
+             * @returns {void}
+             */
+            const sendGistRequest = (method, url, description) => {
+                GM_xmlhttpRequest({
+                    method: method,
+                    url: url,
+                    headers: headers,
+                    data: payload,
+                    timeout: 60000,
+                    onload: async (response) => {
+                        // Wrap everything: an uncaught exception here (invalid JSON body,
+                        // missing result.id, storage failure) would leave the promise
+                        // unresolved forever and stall the whole auto-backup chain.
+                        try {
                             const ghMsg = getGitHubErrorMsg(response);
-                            showFloatingToast(`${SVG_ICONS.error} ${sanitizeHTML(ghMsg) || 'GitHub error'} (${response.status})`);
+                            if (response.status >= 200 && response.status < 300) {
+
+                                const result = JSON.parse(response.responseText);
+                                if (!result || typeof result.id !== 'string') {
+                                    throw new Error('Malformed GitHub response: missing gist id');
+                                }
+
+                                // Update the current object for UI feedback if the modal is open
+                                // Persist sync metadata
+                                if (!isInstanceActive()) {
+                                    resolve(false);
+                                    return;
+                                }
+                                let storedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+                                if (!isInstanceActive()) {
+                                    resolve(false);
+                                    return;
+                                }
+                                if (!storedSettings.gist) storedSettings.gist = {};
+
+                                storedSettings.gist.id = result.id;
+                                storedSettings.gist.url = result.html_url;
+                                storedSettings.gist.lastSync = Date.now();
+
+                                // Auto-remove token if applicable
+                                if (modeSettings.autoDeleteToken ?? fullSettings.autoDeleteToken) {
+                                    storedSettings.gist.token = '';
+                                }
+
+                                const settingsResult = await Storage.set(CONFIG.STORAGE_KEYS.github, storedSettings, {
+                                    commitGuard: () => isInstanceActive()
+                                });
+                                if (!settingsResult?.success) {
+                                    throw settingsResult?.error || new Error(settingsResult?.reason || 'storage_error');
+                                }
+
+                                logInfo('backupToGitHubGist', 'GitHub backup successful:', result.id.slice(0, 10) + '...');
+                                resolve(true);
+                            } else if (method === 'PATCH' && response.status === 404) {
+                                // The stored gist id is gone (deleted, or owned by
+                                // another token). Creating a fresh secret gist keeps
+                                // the automatic backup alive and reports the real cause
+                                // if the token itself lacks access.
+                                logWarn(
+                                    'backupToGitHubGist',
+                                    `Stored gist is not reachable (404${ghMsg ? `: ${ghMsg}` : ''}); creating a new one`
+                                );
+                                sendGistRequest('POST', 'https://api.github.com/gists', 'create');
+                            } else {
+                                logError('backupToGitHubGist', `GitHub backup error: ${response.status}${ghMsg ? ` - ${ghMsg}` : ''}`, response.responseText);
+                                showFloatingToast(`${SVG_ICONS.error} ${sanitizeHTML(ghMsg) || 'GitHub error'} (${response.status})`);
+                                resolve(false);
+                            }
+                        } catch (err) {
+                            logError('backupToGitHubGist', `Error processing ${description} response:`, err);
+                            showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')}`);
                             resolve(false);
                         }
-                    } catch (err) {
-                        logError('backupToGitHubGist', 'Error processing GitHub response:', err);
-                        showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')}`);
+                    },
+                    ontimeout: () => {
+                        logWarn('backupToGitHubGist', `GitHub backup request timed out (${description})`);
+                        showFloatingToast(`${SVG_ICONS.error} GitHub timeout`);
+                        resolve(false);
+                    },
+                    onerror: (err) => {
+                        logError('backupToGitHubGist', `Network error during GitHub backup (${description}):`, err);
+                        showFloatingToast(`${SVG_ICONS.error} GitHub network error`);
                         resolve(false);
                     }
-                },
-                ontimeout: () => {
-                    logWarn('backupToGitHubGist', 'GitHub backup request timed out');
-                    showFloatingToast(`${SVG_ICONS.error} GitHub timeout`);
-                    resolve(false);
-                },
-                onerror: (err) => {
-                    logError('backupToGitHubGist', 'Network error during GitHub backup:', err);
-                    showFloatingToast(`${SVG_ICONS.error} GitHub network error`);
-                    resolve(false);
-                }
-            });
+                });
+            };
+
+            if (gistId) {
+                sendGistRequest('PATCH', `https://api.github.com/gists/${gistId}`, 'update');
+            } else {
+                sendGistRequest('POST', 'https://api.github.com/gists', 'create');
+            }
         });
     };
 
@@ -7364,19 +11019,35 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Backs up data to a private GitHub repository.
      */
     const backupToGithubRepository = async (data, initialModeSettings, isManual) => {
+        if (!isInstanceActive()) return false;
         // Fresh pull from storage to prevent token drift
         const fullSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+        if (!isInstanceActive()) return false;
         const modeSettings = { ...fullSettings.repo, ...(initialModeSettings || {}) };
 
         return new Promise((resolve) => {
+            let settled = false;
+            /** @param {boolean} success @returns {void} */
+            const finish = (success) => {
+                if (settled) return;
+                settled = true;
+                resolve(success);
+            };
+
             const { owner: repoOwner, name: repoName, token } = modeSettings;
             if (!repoOwner || !repoName) {
                 if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubBackupError')}`);
-                return resolve(false);
+                finish(false);
+                return;
             }
-            const cleanOwner = (repoOwner || '').trim().replace(/[^a-z0-9-]/gi, '');
-            const cleanName = (repoName || '').trim().replace(/[^a-z0-9-_.]/gi, '');
+            const cleanOwner = repoOwner.trim().replace(/[^a-z0-9-]/gi, '');
+            const cleanName = repoName.trim().replace(/[^a-z0-9-_.]/gi, '');
             const cleanToken = (token || '').trim().replace(/[^\x00-\xFF]/g, '');
+            if (!cleanOwner || !cleanName || !/^[a-zA-Z0-9_]+$/.test(cleanToken)) {
+                if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubBackupError')}`);
+                finish(false);
+                return;
+            }
 
             const jsonString = JSON.stringify(data, null, 2);
             const fileSizeMB = jsonString.length / (1024 * 1024);
@@ -7388,7 +11059,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (isManual) {
                     showFloatingToast(`${SVG_ICONS.warning} ${t('fileTooLarge', { size: fileSizeMB.toFixed(2), limit: 50 })}`);
                 }
-                resolve(false);
+                finish(false);
                 return;
             }
 
@@ -7407,12 +11078,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 method: 'GET',
                 url: baseUrl,
                 headers: headers,
+                timeout: 60000,
                 onload: (repoResponse) => {
                     if (repoResponse.status !== 200) {
                         logError('backupToGithubRepository', 'Could not access repository:', repoResponse.status);
                         const ghMsg = getGitHubErrorMsg(repoResponse);
-                        showFloatingToast(`${SVG_ICONS.error} ${ghMsg || t('githubBackupError')} (${repoResponse.status})`);
-                        return resolve(false);
+                        showFloatingToast(`${SVG_ICONS.error} ${sanitizeHTML(ghMsg) || t('githubBackupError')} (${repoResponse.status})`);
+                        return finish(false);
                     }
 
                     let repoInfo;
@@ -7421,12 +11093,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     } catch (parseErr) {
                         logError('backupToGithubRepository', 'Invalid JSON response (possible redirect/rate-limit):', parseErr);
                         showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Invalid response)`);
-                        return resolve(false);
+                        return finish(false);
                     }
                     if (!repoInfo.private) {
                         logError('backupToGithubRepository', 'Repository is NOT private.');
                         showFloatingToast(`${SVG_ICONS.error} ${t('githubRepoPrivacyError')}`);
-                        return resolve(false);
+                        return finish(false);
                     }
 
                     // 2. Get the file SHA if it already exists
@@ -7434,6 +11106,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         method: 'GET',
                         url: `${baseUrl}/contents/${fileName}`,
                         headers: headers,
+                        timeout: 60000,
                         onload: (fileResponse) => {
                             let sha = null;
                             if (fileResponse.status === 200) {
@@ -7468,58 +11141,104 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                     content: contentBase64,
                                     sha: sha
                                 }),
-                                onload: async (putResponse) => {
-                                    if (putResponse.status >= 200 && putResponse.status < 300) {
-                                        // Persistir metadatos
-                                        let storedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
-                                        if (!storedSettings.repo) storedSettings.repo = {};
+                                timeout: 60000,
+                                onload: (putResponse) => {
+                                    void (async () => {
+                                        try {
+                                            if (putResponse.status < 200 || putResponse.status >= 300) {
+                                                const ghMsg = getGitHubErrorMsg(putResponse);
+                                                logError('backupToGithubRepository', 'Error uploading file:', putResponse.status);
+                                                showFloatingToast(`${SVG_ICONS.error} ${sanitizeHTML(ghMsg) || t('githubBackupError')} (${putResponse.status})`);
+                                                finish(false);
+                                                return;
+                                            }
 
-                                        storedSettings.repo.lastSync = Date.now();
+                                            if (!isInstanceActive()) {
+                                                finish(false);
+                                                return;
+                                            }
+                                            const storedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+                                            if (!isInstanceActive()) {
+                                                finish(false);
+                                                return;
+                                            }
+                                            if (!storedSettings.repo) storedSettings.repo = {};
+                                            storedSettings.repo.lastSync = Date.now();
+                                            if (modeSettings.autoDeleteToken ?? fullSettings.autoDeleteToken) {
+                                                storedSettings.repo.token = '';
+                                            }
 
-                                        // Auto-remove token if applicable
-                                        if (fullSettings.autoDeleteToken) {
-                                            storedSettings.repo.token = '';
+                                            const settingsResult = await Storage.set(CONFIG.STORAGE_KEYS.github, storedSettings, {
+                                commitGuard: () => isInstanceActive()
+                            });
+                                            if (!settingsResult?.success) {
+                                                throw settingsResult?.error || new Error(settingsResult?.reason || 'storage_error');
+                                            }
+
+                                            logInfo('backupToGithubRepository', 'Repository backup successful');
+                                            finish(true);
+                                        } catch (error) {
+                                            logError('backupToGithubRepository', 'Error processing upload response', error);
+                                            showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')}`);
+                                            finish(false);
                                         }
-
-                                        await Storage.set(CONFIG.STORAGE_KEYS.github, storedSettings);
-
-                                        logInfo('backupToGithubRepository', 'Repository backup successful');
-                                        resolve(true);
-                                    } else {
-                                        logError('backupToGithubRepository', 'Error uploading file:', putResponse.status);
-                                        const ghMsg = getGitHubErrorMsg(putResponse);
-                                        showFloatingToast(`${SVG_ICONS.error} ${ghMsg || t('githubBackupError')} (${putResponse.status})`);
-                                        resolve(false);
-                                    }
+                                    })();
+                                },
+                                ontimeout: () => {
+                                    logWarn('backupToGithubRepository', 'Upload request timed out');
+                                    showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Timeout)`);
+                                    finish(false);
                                 },
                                 onerror: (err) => {
                                     logError('backupToGithubRepository', 'Network error:', err);
                                     showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Network error)`);
-                                    resolve(false);
+                                    finish(false);
                                 }
                             });
+                        },
+                        ontimeout: () => {
+                            logWarn('backupToGithubRepository', 'SHA lookup timed out');
+                            showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Timeout)`);
+                            finish(false);
                         },
                         onerror: (err) => {
                             logError('backupToGithubRepository', 'Error getting SHA:', err);
                             showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (SHA lookup failed)`);
-                            resolve(false);
+                            finish(false);
                         }
                     });
+                },
+                ontimeout: () => {
+                    logWarn('backupToGithubRepository', 'Repository check timed out');
+                    showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Timeout)`);
+                    finish(false);
                 },
                 onerror: (err) => {
                     logError('backupToGithubRepository', 'Network error checking repo:', err);
                     showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')} (Network error)`);
-                    resolve(false);
+                    finish(false);
                 }
             });
         });
     };
 
+    /** @type {Set<'gist'|'repo'>} In-flight backup types for this page. */
+    const activeRemoteBackupTypes = new Set();
+
     /**
      * Unified entry point for remote backups.
      */
     const performRemoteBackup = async (type = 'gist', isManual = false, settingsOverride = null) => {
-        let githubSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+        if (!isInstanceActive()) return false;
+        if (activeRemoteBackupTypes.has(type)) {
+            logWarn('performRemoteBackup', `Backup already in progress for ${type}`);
+            if (isManual) showFloatingToast(`${SVG_ICONS.warning} ${t('githubBackupNow')} (${type})`);
+            return false;
+        }
+        activeRemoteBackupTypes.add(type);
+        try {
+            let githubSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+            if (!isInstanceActive()) return false;
 
         const modeSettings = settingsOverride
             ? { ...(githubSettings[type] || {}), ...settingsOverride }
@@ -7539,6 +11258,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         const data = await getSyncData(isManual ? 'manual' : 'auto');
+        if (!isInstanceActive()) return false;
         if (!data) {
             showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
             return false;
@@ -7550,14 +11270,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (type === 'repo') {
             success = await backupToGithubRepository(data, modeSettings, isManual);
         } else {
-            success = await backupToGitHubGist(data, modeSettings, isManual);
+            success = await backupToGitHubGist(data, modeSettings);
         }
+        if (!isInstanceActive()) return false;
 
         if (success) {
             showFloatingToast(`${SVG_ICONS.check} ${t('githubBackupSuccess')}`);
 
             // Re-read settings from GM to get updated values (lastSync, gistId, etc.)
             const updatedSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+            if (!isInstanceActive()) return false;
 
             // Update UI in real time if the modal is open
             const lastSyncEl = document.getElementById(`ypp-github-last-sync-${type}`);
@@ -7568,10 +11290,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             if (type === 'gist') {
                 const gistContainer = document.getElementById('ypp-github-gist-link-container-gist');
-                if (gistContainer && updatedSettings.gist?.url) {
+                const safeGistUrl = getSafeUrl(updatedSettings.gist?.url, ['https://gist.github.com/']);
+                if (gistContainer && safeGistUrl !== '#') {
                     const link = createElement('a', {
                         className: 'ypp-link',
-                        props: { href: updatedSettings.gist.url, target: '_blank', rel: 'noopener noreferrer' },
+                        props: { href: safeGistUrl, target: '_blank', rel: 'noopener noreferrer' },
                         html: `${SVG_ICONS.linkExternal} ${t('githubGistView')}`
                     });
                     gistContainer.replaceChildren(link);
@@ -7590,7 +11313,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
         }
 
-        return success;
+            return success;
+        } catch (error) {
+            if (error?.name !== 'AbortError') {
+                logError('performRemoteBackup', 'Remote backup failed', error);
+                showFloatingToast(`${SVG_ICONS.error} ${t('githubBackupError')}`);
+            }
+            return false;
+        } finally {
+            activeRemoteBackupTypes.delete(type);
+        }
     };
 
     /**
@@ -7643,8 +11375,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     await Storage.set(CONFIG.STORAGE_KEYS.github, fresh);
 
-                    await performRemoteBackup(type, false);
-                    logInfo('checkGitHubBackup', `Backup (${type}) completed successfully`);
+                    const backupSucceeded = await performRemoteBackup(type, false);
+                    if (backupSucceeded) {
+                        logInfo('checkGitHubBackup', `Backup (${type}) completed successfully`);
+                    } else {
+                        logWarn('checkGitHubBackup', `Backup (${type}) did not complete`);
+                    }
                 } catch (err) {
                     logError('checkGitHubBackup', `Backup error (${type})`, err);
                 }
@@ -7816,10 +11552,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             const result = await importFromFreeTubeFormat(data);
+            if (!isInstanceActive()) return;
             await updateVideoList();
+            if (!isInstanceActive()) return;
 
             if (result.imported > 0) {
-                showFloatingToast(`${SVG_ICONS.check} ${result.imported} ${t('videosImportedFromFreeTubeDB')} ${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
+                const skippedSuffix = result.skipped > 0 ? ` (${result.skipped} ${t('omitedVideos')})` : '';
+                const failedSuffix = result.failed > 0 ? ` (${result.failed} ${t('errors')})` : '';
+                showFloatingToast(`${SVG_ICONS.check} ${result.imported} ${t('videosImportedFromFreeTubeDB')}${skippedSuffix}${failedSuffix}`);
             } else {
                 showFloatingToast(`${SVG_ICONS.error} ${t('noVideosImportedFromFreeTubeDB')} ${result.failed > 0 ? ` (${result.failed} ${t('errors')})` : ''}`);
             }
@@ -7835,81 +11575,101 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     // MARK: 🔄 Normalize Video Data
     /**
+     * Rebuilds completion history into the canonical {events, daily, total} shape.
+     * Invalid imported data is discarded instead of being spread or traversed.
+     * @param {Array|Object|null|undefined} history - Raw completion history.
+     * @param {number|null} [seedTimestamp] - Legacy completion timestamp to seed.
+     * @returns {{events: number[], daily: Record<string, number>, total: number}} Safe history.
+     */
+    function normalizeCompletionHistory(history, seedTimestamp = null) {
+        const nowLimit = Date.now() + 60000;
+        const rawEvents = Array.isArray(history) ? history : (Array.isArray(history?.events) ? history.events : []);
+        const events = rawEvents
+            .map(Number)
+            .filter(timestamp => Number.isFinite(timestamp) && timestamp > 0 && timestamp <= nowLimit)
+            .sort((a, b) => a - b)
+            .slice(-50);
+
+        const seed = Number(seedTimestamp);
+        if (Number.isFinite(seed) && seed > 0 && seed <= nowLimit && events.length === 0) {
+            events.push(seed);
+        }
+
+        const daily = {};
+        for (const timestamp of events) {
+            const day = new Date(timestamp).toISOString().slice(0, 10);
+            daily[day] = (daily[day] || 0) + 1;
+        }
+        return { events, daily, total: events.length };
+    }
+
+    /**
      * Normalizes video data to the internal format.
      * Converts legacy fields (Format B) to modern fields (Format A) and ensures consistency.
      * @param {Object} data - Data to normalize
      * @returns {Object} Normalized data with modern schema and no deprecated fields
      */
     function normalizeVideoData(data, fallbackId = '') {
-        if (!data || typeof data !== 'object') return data;
+        if (!data || typeof data !== 'object' || Array.isArray(data)) return null;
 
-        const resolvedTimeWatched = data.timeWatched;
-        const resolvedIsCompleted = data.isCompleted || false;
+        const safeText = (value) => {
+            if (typeof value === 'string') return value;
+            if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+            return '';
+        };
+        const safeNumber = (value, fallback = 0) => {
+            const number = Number(value);
+            return Number.isFinite(number) ? number : fallback;
+        };
+        const safeNullableText = (value) => {
+            const text = safeText(value);
+            return text || null;
+        };
+        const resolvedTimeWatched = safeNumber(data.timeWatched, 0);
+        const resolvedIsCompleted = data.isCompleted === true;
 
-        // Backward compatibility with entries without completion history.
-        // If the video was already marked `isCompleted = true` but has
-        // no history (data created before `completionHistory` existed), it
-        // seeds a single entry using `timeWatched` as the last completion date.
-        // It is idempotent: only acts on the first read/write cycle
-        // post-update, since after saving the array it will no longer be empty.
-        let resolvedCompletionHistory = data.completionHistory;
-
-        // Silent safety migration: if it's an array or undefined, initialize the O(1) analytical structure.
-        if (!resolvedCompletionHistory || Array.isArray(resolvedCompletionHistory)) {
-            const arr = Array.isArray(resolvedCompletionHistory) ? resolvedCompletionHistory : [];
-            resolvedCompletionHistory = {
-                events: [...arr],
-                daily: {},
-                total: arr.length
-            };
-        }
-
-        // Regenerate daily if empty but events exist (migrated data case)
-        if (resolvedCompletionHistory.events.length > 0 && Object.keys(resolvedCompletionHistory.daily).length === 0) {
-            resolvedCompletionHistory.daily = {};
-            for (const ts of resolvedCompletionHistory.events) {
-                const day = new Date(ts).toISOString().slice(0, 10);
-                resolvedCompletionHistory.daily[day] = (resolvedCompletionHistory.daily[day] || 0) + 1;
-            }
-        }
-
-        // Idempotent history seeding
-        if (resolvedIsCompleted && resolvedCompletionHistory.events.length === 0 && resolvedTimeWatched) {
-            resolvedCompletionHistory.events = [resolvedTimeWatched];
-            resolvedCompletionHistory.total = 1;
-        }
-
-        if (resolvedCompletionHistory.events.length > 0) {
-            resolvedCompletionHistory.events = resolvedCompletionHistory.events
-                .filter(ts => Number.isFinite(ts) && ts > 0 && ts < Date.now() + 60000)
-                .sort((a, b) => a - b)
-        }
+        // Backward compatibility and corruption recovery: malformed object
+        // shapes are rebuilt from their valid events, and legacy completed
+        // records without history are seeded from timeWatched.
+        // Legacy completed records may carry `completionHistory: []` (or an
+        // object with no valid events). Seed those from timeWatched as well;
+        // checking only for a missing property loses the completion count.
+        const historySeed = resolvedIsCompleted ? resolvedTimeWatched : null;
+        const resolvedCompletionHistory = normalizeCompletionHistory(data.completionHistory, historySeed);
+        const forceResumeTime = safeNumber(data.forceResumeTime, 0);
+        const viewCount = data.viewCount !== undefined
+            ? safeNumber(data.viewCount, 0)
+            : (parseInt(String(data.viewsNumber ?? '').replace(/[,\.\s]/g, ''), 10) || 0);
 
         const result = {
-            videoId: data.videoId || fallbackId,
-            title: data.title || '',
-            author: data.author || '',
-            authorId: data.authorId || '',
-            published: data.published || 0,
-            description: data.description || '',
-            watchProgress: data.watchProgress ?? data.timestamp ?? 0,
-            lengthSeconds: data.lengthSeconds ?? data.duration ?? 0,
+            videoId: safeText(data.videoId) || safeText(fallbackId),
+            title: safeText(data.title),
+            author: safeText(data.author),
+            authorId: safeText(data.authorId),
+            published: safeNumber(data.published, 0),
+            description: safeText(data.description),
+            watchProgress: safeNumber(data.watchProgress ?? data.timestamp, 0),
+            lengthSeconds: safeNumber(data.lengthSeconds ?? data.duration, 0),
             timeWatched: resolvedTimeWatched,
             type: normalizeVideoType(data.type ?? data.videoType),
-            viewCount: data.viewCount ?? (parseInt(data.viewsNumber?.toString().replace(/[,\.\s]/g, '')) || 0),
-            isLive: data.isLive || false,
+            viewCount,
+            isLive: data.isLive === true,
+            // Absolute live-stream clock (stream-start-based) for DVR-window
+            // mapping on resume. 0 = unknown (older records, VODs).
+            liveAbsoluteTime: safeNumber(data.liveAbsoluteTime, 0),
+            liveAbsoluteDuration: safeNumber(data.liveAbsoluteDuration, 0),
             isCompleted: resolvedIsCompleted,
             // Preserve navigation/playlist fields if they exist
-            lastViewedPlaylistId: data.lastViewedPlaylistId ?? null,
-            lastViewedPlaylistType: '',
-            lastViewedPlaylistItemId: data.lastViewedPlaylistItemId ?? null,
+            lastViewedPlaylistId: safeNullableText(data.lastViewedPlaylistId),
+            lastViewedPlaylistType: safeText(data.lastViewedPlaylistType),
+            lastViewedPlaylistItemId: safeNullableText(data.lastViewedPlaylistItemId),
             // Internal Format
-            playlistTitle: data.playlistTitle ?? null,
+            playlistTitle: safeNullableText(data.playlistTitle),
             completionHistory: resolvedCompletionHistory,
-            isProtected: data.isProtected || false,
-            ...(data.forceResumeTime ? { forceResumeTime: data.forceResumeTime } : {}),
+            isProtected: data.isProtected === true,
+            ...(forceResumeTime > 0 ? { forceResumeTime } : {}),
             // Preserve FreeTube _id if it exists (important for compatibility)
-            ...(data._id ? { _id: data._id } : {})
+            ...(safeText(data._id) ? { _id: safeText(data._id) } : {})
         };
 
         return result;
@@ -8108,50 +11868,46 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     function fromFreeTubeFormat(freeTubeData) {
         if (!freeTubeData || !freeTubeData.videoId) return null;
 
-        // Normalize to ensure Format A and clean legacy fields
-        const normalized = normalizeVideoData(freeTubeData);
-
-        // Determine if the video is completed based on progress
-        let isCompleted = normalized.isCompleted || false;
-        const watchProgress = normalized.watchProgress;
-        const lengthSeconds = normalized.lengthSeconds;
-
-        if (!isCompleted && lengthSeconds > 0) {
-            // Consider completed if progress >= 95% or less than 30 seconds remaining
-            const progressPercent = (watchProgress / lengthSeconds) * 100;
-            const remainingSeconds = lengthSeconds - watchProgress;
+        // Determine completion before normalization so a progress-derived
+        // completion can seed the canonical history from timeWatched.
+        const rawProgress = Number(freeTubeData.watchProgress ?? freeTubeData.currentTime ?? 0);
+        const rawDuration = Number(freeTubeData.lengthSeconds ?? 0);
+        let isCompleted = freeTubeData.isCompleted === true;
+        if (!isCompleted && rawDuration > 0) {
+            const progressPercent = (rawProgress / rawDuration) * 100;
+            const remainingSeconds = rawDuration - rawProgress;
             isCompleted = progressPercent >= (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) || remainingSeconds <= 30;
         }
+
+        const normalized = normalizeVideoData({ ...freeTubeData, isCompleted });
+        if (!normalized) return null;
 
         return {
             ...normalized,
             type: normalizeVideoType(normalized.type),
-            isCompleted: isCompleted
+            isCompleted
         };
     }
 
     // MARK: ⬆ Export To FreeTube
     /**
     * Exports all saved videos in FreeTube format
-    * @returns {Array} Array of videos in FreeTube format
+    * @returns {Promise<Array>} Array of videos in FreeTube format
     */
     async function exportToFreeTubeFormat(specificKeys = null) {
-        const videoKeys = specificKeys || (await Storage.keys()).filter(key => !isNonVideoStorageKey(key));
-
+        const snapshot = await Storage.getCompleteVideoSnapshot(specificKeys);
         const freeTubeData = [];
         let videoCount = 0;
         let shortCount = 0;
 
         let iter = 0;
-        for (const key of videoKeys) {
-            const data = await Storage.get(key);
-            if (!data) continue;
+        for (const [key, data] of snapshot) {
 
             // Compatibility with old format (nested playlists)
             if (data.videos) {
                 logLog('exportToFreeTubeFormat', `Exporting legacy playlist ${key} with ${Object.keys(data.videos).length} videos`);
                 Object.entries(data.videos).forEach(([vidKey, videoObj]) => {
-                    const internal = Object.assign({}, videoObj, { videoId: videoObj.videoId || vidKey });
+                    const internal = { ...videoObj, videoId: videoObj.videoId || vidKey };
                     const formatted = toFreeTubeFormat(internal);
                     freeTubeData.push(formatted);
                     if (internal.type === 'shorts' || internal.type === 'preview_shorts') shortCount++;
@@ -8159,7 +11915,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 });
             } else {
                 // FreeTube format: the video is already in the correct format, just map fields if needed
-                const internal = Object.assign({}, data, { videoId: data.videoId || key });
+                const internal = { ...data, videoId: data.videoId || key };
                 const formatted = toFreeTubeFormat(internal);
                 freeTubeData.push(formatted);
                 if (internal.type === 'shorts' || internal.type === 'preview_shorts') {
@@ -8184,7 +11940,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     * @returns {Object} Import result { imported: number, failed: number }
     */
     async function importFromFreeTubeFormat(freeTubeData) {
+        const importCommitGuard = createImportCommitGuard();
         let importedCount = 0;
+        let skippedCount = 0;
         let failedCount = 0;
 
         if (!Array.isArray(freeTubeData)) {
@@ -8207,32 +11965,38 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
         }
 
-        // 2. Process and import sequentially
+        // 2. Resolve all merges first, then use one durable batch. This keeps
+        // large FreeTube imports responsive while preserving newest-wins rules.
+        const pendingEntries = [];
         for (const [vId, internalFormat] of uniqueVideos) {
             try {
-                // Merge with existing data if present (e.g. preserve higher viewCount)
-                const existingInStorage = await Storage.get(vId);
-                let finalData = internalFormat;
-
-                if (existingInStorage) {
-                    finalData = normalizeVideoData({
-                        ...existingInStorage,
-                        ...internalFormat,
-                        viewCount: Math.max(existingInStorage.viewCount || 0, internalFormat.viewCount || 0)
-                    });
+                const existingInStorage = await Storage.get(vId, { throwOnError: true });
+                const mergeResult = mergeImportedVideoData(existingInStorage, internalFormat);
+                if (mergeResult.usedIncoming || mergeResult.changed) {
+                    pendingEntries.push({ key: vId, value: mergeResult.data });
+                    if (!mergeResult.usedIncoming) skippedCount++;
+                } else {
+                    skippedCount++;
                 }
-
-                await Storage.set(vId, finalData);
-                importedCount++;
-                if (importedCount % 20 === 0) logLog('importFromFreeTubeFormat', `Progress: ${importedCount} imported...`);
             } catch (error) {
-                logError('importFromFreeTubeFormat', `Error importing ${vId}:`, error);
+                logError('importFromFreeTubeFormat', `Error reading/merging ${vId}:`, error);
                 failedCount++;
             }
         }
 
-        logLog('importFromFreeTubeFormat', `Import complete: ${importedCount} successes, ${failedCount} failures out of ${uniqueVideos.size} unique.`);
-        return { imported: importedCount, failed: failedCount, total: freeTubeData.length };
+        if (pendingEntries.length > 0) {
+            const commit = await commitImportedEntries(pendingEntries, importCommitGuard);
+            if (!isInstanceActive()) return { imported: importedCount, failed: failedCount, total: freeTubeData.length };
+            importedCount += commit.writtenCount;
+            skippedCount += commit.rereadSkippedCount;
+            if (!commit.success) {
+                failedCount += commit.unwrittenCount;
+                logError('importFromFreeTubeFormat', 'FreeTube batch write partially failed', commit.error);
+            }
+        }
+
+        logLog('importFromFreeTubeFormat', `Import complete: ${importedCount} imported, ${skippedCount} skipped, ${failedCount} failed out of ${uniqueVideos.size} unique.`);
+        return { imported: importedCount, skipped: skippedCount, failed: failedCount, total: freeTubeData.length };
     }
 
     // MARK: 🔄 Insert Completion Event
@@ -8244,17 +12008,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {number} duration - Original video duration.
      */
     function insertCompletionEvent(history, now, duration = 0) {
-        const base = (!history || Array.isArray(history))
-            ? {
-                events: Array.isArray(history) ? [...history] : [],
-                daily: {},
-                total: Array.isArray(history) ? history.length : 0
-            }
-            : {
-                events: [...(history.events || [])],
-                daily: { ...(history.daily || {}) },
-                total: history.total || 0
-            };
+        const base = normalizeCompletionHistory(history);
 
         const last = base.events.at(-1);
         const debounceThreshold =
@@ -8294,12 +12048,66 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     // MARK: 💾 Save Video Generic
     /**
+     * Clears the per-session completion flag when playback jumped backward
+     * (loop or manual restart) instead of finishing naturally.
+     * @param {object|null} session - Active session.
+     * @param {object|null} sourceData - Last persisted record.
+     * @param {number} currentTime - Current playback time.
+     * @param {number} duration - Media duration.
+     * @returns {void}
+     */
+    function resetCompletionOnLoop(session, sourceData, currentTime, duration) {
+        if (!session?.hasLoggedCompletion || cachedSettings?.countOncePerSession) return;
+        const previousProgress = sourceData?.watchProgress || 0;
+        const delta = previousProgress - currentTime;
+        const isNearStart = currentTime < Math.max(1, duration * 0.2);
+        const wasNearEnd = previousProgress > (duration * 0.75);
+        const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
+        if (wasLoop) session.hasLoggedCompletion = false;
+    }
+
+    /**
      * Unified logic to save video progress and playback state.
      * @private
+     * @param {Object} [options] - Save options.
+     * @param {*} [options.cachedSavedData] - Known record (skips the storage read).
+     * @param {boolean} [options.savedDataKnownAbsent] - Fast-path confirmed no
+     * record exists; skips the re-read (`??` cannot carry a known-null).
      */
     async function internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, logContext, options = {}) {
         const { videoId, lengthSeconds: duration, lastViewedPlaylistId: playlistId } = videoInfo;
         const session = videoEl ? activeProcessingSessions.get(videoEl) : null;
+        const expectedSession = options.expectedSession ?? session;
+
+        /**
+         * Checks that an asynchronous save still belongs to the session that
+         * initiated it. Manual saves without an active session are exempt.
+         * @returns {boolean} True when the save may continue.
+         */
+        const isExpectedSessionCurrent = () => !expectedSession ||
+            (!expectedSession.isFinalized && activeProcessingSessions.get(videoEl) === expectedSession);
+
+        if (!isExpectedSessionCurrent()) {
+            return { success: false, reason: 'stale_session', videoId, type: finalType };
+        }
+        const isDestructiveEpochCurrent = () =>
+            options.destructiveEpoch === undefined ||
+            options.destructiveEpoch === storageDestructiveEpoch;
+        const commitGuard = () =>
+            isExpectedSessionCurrent() &&
+            isDestructiveEpochCurrent() &&
+            !(typeof clearAllInFlight !== 'undefined' && clearAllInFlight) &&
+            !(typeof undoInFlight !== 'undefined' && undoInFlight) &&
+            !(typeof autoCleanupInFlight !== 'undefined' && autoCleanupInFlight) &&
+            !(typeof selectedDeleteInFlight !== 'undefined' && selectedDeleteInFlight);
+        if (!isDestructiveEpochCurrent() ||
+            (typeof clearAllInFlight !== 'undefined' && clearAllInFlight) ||
+            (typeof undoInFlight !== 'undefined' && undoInFlight) ||
+            (typeof autoCleanupInFlight !== 'undefined' && autoCleanupInFlight) ||
+            (typeof selectedDeleteInFlight !== 'undefined' && selectedDeleteInFlight)) {
+            return { success: false, reason: 'destructive_operation_in_progress', videoId, type: finalType };
+        }
+
         const isHybridAutoSave = cachedSettings.manualSaveHybridMode && session?.isAutoSaveAuthorized;
 
         // Ignore if manual save mode is active and this is not a manual save
@@ -8317,11 +12125,29 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return { success: false, reason: 'duration_not_ready' };
         }
 
-        const sourceData = options.cachedSavedData ?? await getSavedVideoData(videoId, playlistId);
+        const sourceData = options.cachedSavedData
+            ?? (options.savedDataKnownAbsent ? null : await getSavedVideoData(videoId, playlistId, { throwOnError: true }));
+        if (!isExpectedSessionCurrent() || !isDestructiveEpochCurrent()) {
+            return { success: false, reason: 'stale_session', videoId, type: finalType };
+        }
         const now = Date.now();
 
         // 1. Livestream Management
         if (finalType === 'live') {
+            // Absolute stream clock (stream-start-based) for DVR-window mapping
+            // on resume. The element clock is window-relative and slides; without
+            // the absolute reference a revisit seeks stale content on multi-day
+            // lives. Best-effort: 0 means unknown and resume falls back to the
+            // window-relative offset.
+            let liveAbsoluteTime = 0;
+            let liveAbsoluteDuration = 0;
+            try {
+                const liveApi = getPlayerApi(player);
+                const absTime = typeof liveApi?.getCurrentTime === 'function' ? liveApi.getCurrentTime() : undefined;
+                const absDuration = typeof liveApi?.getDuration === 'function' ? liveApi.getDuration() : undefined;
+                if (typeof absTime === 'number' && isFinite(absTime) && absTime >= 0) liveAbsoluteTime = absTime;
+                if (typeof absDuration === 'number' && isFinite(absDuration) && absDuration > 0) liveAbsoluteDuration = absDuration;
+            } catch (_) { logLog('internalSaveVideoGeneric', 'Live absolute clock unavailable; continuing without it'); }
             const videoData = {
                 ...sourceData,
                 ...pickVideoInfoFields(videoInfo),
@@ -8329,10 +12155,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 timeWatched: now,
                 type: 'live',
                 isLive: true,
-                isCompleted: false
+                isCompleted: false,
+                liveAbsoluteTime,
+                liveAbsoluteDuration
             };
+            if (!isExpectedSessionCurrent() || !isDestructiveEpochCurrent()) {
+                return { success: false, reason: 'stale_session', videoId, type: 'live' };
+            }
             const normalizedData = normalizeVideoData(videoData);
-            const storageResult = await Storage.set(videoId, normalizedData);
+            const storageResult = await Storage.set(videoId, normalizedData, { commitGuard });
+            if (!isExpectedSessionCurrent()) {
+                return { success: false, reason: 'stale_session', videoId, type: 'live' };
+            }
 
             logLog(logContext, `✅ Livestream saved:`, () => ({
                 ...videoData,
@@ -8342,7 +12176,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (storageResult && !storageResult.success) {
                 return { success: false, reason: storageResult.reason, videoId, type: 'live', error: storageResult.error };
             }
-            return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'live', savedData: videoData };
+            return { success: true, videoId, watchProgress: videoData.watchProgress, type: 'live', savedData: storageResult.savedData || videoData };
         }
 
         // 2. Standard logic for regular videos, shorts and previews
@@ -8372,7 +12206,27 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     watchProgress: 0,
                     completionHistory: history
                 });
-                await Storage.set(videoId, base);
+                if (!isExpectedSessionCurrent() || !isDestructiveEpochCurrent()) {
+                    return { success: false, reason: 'stale_session', videoId, type: finalType };
+                }
+                const fixedTimeResult = await Storage.set(videoId, base, { commitGuard });
+                if (!isExpectedSessionCurrent()) {
+                    return { success: false, reason: 'stale_session', videoId, type: finalType };
+                }
+                if (!fixedTimeResult?.success) {
+                    return { success: false, reason: fixedTimeResult?.reason || 'storage_error', videoId, type: finalType, error: fixedTimeResult?.error };
+                }
+                // The completion record was persisted, but normal progress is
+                // intentionally not overwritten for fixed-time videos. Return
+                // the canonical record so the session cache does not retry the
+                // same completion write on every tick.
+                return {
+                    success: false,
+                    reason: 'fixed_time_no_overwrite',
+                    videoId,
+                    type: finalType,
+                    savedData: fixedTimeResult.savedData || base
+                };
             } else if (currentTime < 1) {
                 // Detect if user pressed "Replay" (time jumped to < 1s in an active session after completion)
                 if (session && session.hasLoggedCompletion) {
@@ -8425,35 +12279,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     session.hasLoggedCompletion = true;
                 }
             } else {
-                if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
-                    const prev = sourceData?.watchProgress || 0;
-                    const delta = prev - currentTime;
-                    const isNearStart = currentTime < Math.max(1, duration * 0.2);
-                    const wasNearEnd = prev > (duration * 0.75);
-                    const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
-                    if (wasLoop) {
-                        session.hasLoggedCompletion = false;
-                    }
-                }
+                resetCompletionOnLoop(session, sourceData, currentTime, duration);
             }
         } else {
             if (isFinished && session && !session.hasLoggedCompletion) {
                 videoData.completionHistory = insertCompletionEvent(videoData.completionHistory, now, duration);
                 session.hasLoggedCompletion = true;
-            } else if (session && session.hasLoggedCompletion && !cachedSettings.countOncePerSession) {
-                const prev = sourceData?.watchProgress || 0;
-                const delta = prev - currentTime;
-                const isNearStart = currentTime < Math.max(1, duration * 0.2);
-                const wasNearEnd = prev > (duration * 0.75);
-                const wasLoop = delta > (duration * 0.3) || (isNearStart && wasNearEnd);
-                if (wasLoop) {
-                    session.hasLoggedCompletion = false;
-                }
+            } else {
+                resetCompletionOnLoop(session, sourceData, currentTime, duration);
             }
         }
 
+        if (!isExpectedSessionCurrent() || !isDestructiveEpochCurrent()) {
+            return { success: false, reason: 'stale_session', videoId, type: finalType };
+        }
         const normalizedData = normalizeVideoData(videoData);
-        const storageResult = await Storage.set(videoId, normalizedData);
+        const storageResult = await Storage.set(videoId, normalizedData, { commitGuard });
+        if (!isExpectedSessionCurrent()) {
+            return { success: false, reason: 'stale_session', videoId, type: finalType };
+        }
 
         logLog(logContext, `✅ Video/Short/Preview saved:`, () => ({
             ...videoData,
@@ -8464,7 +12308,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return { success: false, reason: storageResult.reason, videoId, type: finalType, error: storageResult.error };
         }
 
-        return { success: true, videoId, watchProgress: videoData.watchProgress, type: finalType, savedData: videoData };
+        return { success: true, videoId, watchProgress: videoData.watchProgress, type: finalType, savedData: storageResult.savedData || videoData };
     }
 
     // ============================================================================================================
@@ -8480,15 +12324,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     * @param {string|null} playlistId - Playlist ID (optional)
     * @returns {Object|null} - Saved data or null if not found
     */
-    async function getSavedVideoData(videoId, playlistId = null) {
+    async function getSavedVideoData(videoId, playlistId = null, { throwOnError = false } = {}) {
         logLog('getSavedVideoData', `Looking for saved data for ID: ${videoId} | Playlist ID: ${playlistId}`);
         if (!videoId) return null;
 
-        let videoData = await Storage.get(videoId);
+        let videoData = await Storage.get(videoId, { throwOnError });
 
         // Fallback context: if not found by videoId, try the playlist directly
         if (!videoData && playlistId) {
-            const oldPlaylistData = await Storage.get(playlistId);
+            const oldPlaylistData = await Storage.get(playlistId, { throwOnError });
             if (oldPlaylistData?.videos?.[videoId]) {
                 logLog('getSavedVideoData', `✅ Video found in old format (nested playlist)`);
                 videoData = oldPlaylistData.videos[videoId];
@@ -8497,11 +12341,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Flexible additional search
         if (!videoData) {
-            const keys = (await Storage.keys?.()) || [];
+            const keys = await Storage.keys({ throwOnError, requireComplete: throwOnError });
             const altKey = keys.find(k => k === videoId || k.endsWith(`_${videoId}`));
             if (altKey) {
                 logLog('getSavedVideoData', `✅ Video found with alternative key: ${altKey}`);
-                videoData = await Storage.get(altKey);
+                videoData = await Storage.get(altKey, { throwOnError });
             }
         }
 
@@ -8577,10 +12421,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         let id = null;
+        const playerApi = getPlayerApi(player);
 
         // 1. Lightweight first
         try {
-            id = player.getVideoData?.()?.video_id;
+            id = playerApi?.getVideoData?.()?.video_id;
         } catch (e) {
             logWarn('getPlayerVideoId', 'getVideoData failed', e);
         }
@@ -8588,7 +12433,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // 2. Heavy fallback
         if (!id) {
             try {
-                const resp = player.getPlayerResponse?.();
+                const resp = playerApi?.getPlayerResponse?.();
                 id = resp?.videoDetails?.videoId
                     ?? resp?.microformat?.playerMicroformatRenderer?.externalVideoId;
             } catch (e) {
@@ -8605,6 +12450,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         logWarn('getPlayerVideoId', '❌ could not obtain videoId from player');
         return null;
+    };
+
+    /**
+     * Invalidates the cached player→videoId mapping for a player instance.
+     * The 2 s TTL outlives an SPA src change and the 1 s ID-retry cadence, so
+     * every transition path that must re-read the player API calls this first.
+     * @param {YT.Player|null|undefined} player - Player instance; nullish values are a no-op.
+     */
+    const invalidatePlayerVideoIdCache = (player) => {
+        if (player) playerVideoIdCache.delete(player);
     };
 
     // MARK: 📺 Get YouTube Page Type
@@ -8872,14 +12727,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * parseYouTubeResource("https://www.youtube.com/@NASA/live")
      * // { type: "live", id: null, channelId: "NASA", isHandle: true }
      */
-    function parseYouTubeResource(input) {
+    function _parseYouTubeResourceImpl(input) {
         if (!input || typeof input !== 'string') return null;
 
         const trimmed = input.trim();
-        const VIDEO_ID_RE = /^[A-Za-z0-9_-]{11}$/;
 
         // --- Bare video ID ---
-        if (VIDEO_ID_RE.test(trimmed)) {
+        if (VIDEO_ID_PATTERN.test(trimmed)) {
             return { type: 'video', id: trimmed };
         }
 
@@ -8936,7 +12790,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         // --- Standard video: watch?v= ---
-        if (vParam && VIDEO_ID_RE.test(vParam)) {
+        if (vParam && VIDEO_ID_PATTERN.test(vParam)) {
             logLog('parseYouTubeResource', 'watch?v=', vParam);
             return { type: 'video', id: vParam, context: buildContext() };
         }
@@ -8979,7 +12833,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // --- youtu.be/{id} short links ---
         if (host === 'youtu.be') {
             const shortId = path.slice(1);
-            if (VIDEO_ID_RE.test(shortId)) {
+            if (VIDEO_ID_PATTERN.test(shortId)) {
                 logLog('parseYouTubeResource', 'youtu.be', shortId);
                 return { type: 'video', id: shortId, context: buildContext() };
             }
@@ -9017,6 +12871,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         return null;
     }
+
+    // Memoized wrapper: parseYouTubeResource is a pure function of its input string.
+    const _parseYouTubeResourceCache = new Map();
+    const parseYouTubeResource = (input) => {
+        if (typeof input !== 'string') return _parseYouTubeResourceImpl(input);
+        const cached = _parseYouTubeResourceCache.get(input);
+        if (cached !== undefined) return cached;
+        const result = _parseYouTubeResourceImpl(input);
+        if (_parseYouTubeResourceCache.size >= 100) _parseYouTubeResourceCache.clear();
+        _parseYouTubeResourceCache.set(input, result);
+        return result;
+    };
 
     // MARK: 📺 Get YouTube Video ID from URL
     /**
@@ -9137,7 +13003,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const shouldThrottlePlaylistNameFetch = (playlistId) => {
         const lastAttempt = playlistNameFetchCooldowns.get(playlistId);
         if (!lastAttempt) return false;
-        return (Date.now() - lastAttempt) < PLAYLIST_NAME_FETCH_COOLDOWN_MS;
+        const elapsed = Date.now() - lastAttempt;
+        if (elapsed >= PLAYLIST_NAME_FETCH_COOLDOWN_MS) {
+            // Cooldown expired: release the entry so the Map cannot grow
+            // unboundedly (one entry per visited playlist, never deleted).
+            try { playlistNameFetchCooldowns.delete(playlistId); } catch (e) { logWarn('shouldThrottlePlaylistNameFetch', 'Error pruning expired cooldown', e); }
+            return false;
+        }
+        // Opportunistic sweep: prune other expired entries when the Map grows.
+        if (playlistNameFetchCooldowns.size > PLAYLIST_COOLDOWN_SWEEP_THRESHOLD) {
+            const now = Date.now();
+            for (const [key, timestamp] of playlistNameFetchCooldowns) {
+                if ((now - timestamp) >= PLAYLIST_NAME_FETCH_COOLDOWN_MS) {
+                    playlistNameFetchCooldowns.delete(key);
+                }
+                if (playlistNameFetchCooldowns.size <= PLAYLIST_COOLDOWN_SWEEP_THRESHOLD) break;
+            }
+        }
+        return true;
     };
 
     /**
@@ -9289,23 +13172,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     if (currentPageType === 'watch' || currentPageType === 'live') {
                         // Playlist panel in the watch-page sidebar (covers mixes and standard playlists)
-                        element = DOMHelpers.get(`playlist:name:${playlistId}`, () => (
-                            document.querySelector('ytd-playlist-panel-renderer #header-description h3 a') ||
-                            document.querySelector('ytd-playlist-panel-renderer #header-description h3') ||
-                            document.querySelector('ytd-playlist-panel-renderer yt-formatted-string.title') ||
-                            document.querySelector('#header-description yt-formatted-string.title') ||
-                            document.querySelector('#container #header-description yt-formatted-string') ||
-                            document.querySelector('yt-formatted-string.title:nth-child(1)') ||
-                            document.querySelector('.byline-title')
-                        ), 250);
+                        element = DOMHelpers.get(`playlist:name:${playlistId}`, () => queryFirst(document, [
+                            'ytd-playlist-panel-renderer #header-description h3 a',
+                            'ytd-playlist-panel-renderer #header-description h3',
+                            'ytd-playlist-panel-renderer yt-formatted-string.title',
+                            '#header-description yt-formatted-string.title',
+                            '#container #header-description yt-formatted-string',
+                            'yt-formatted-string.title:nth-child(1)',
+                            '.byline-title'
+                        ]), 250);
                     }
 
                     if (currentPageType === 'playlist') {
                         // Playlist browse page header (also covers miniplayer scenario)
-                        element = DOMHelpers.get(`playlist:browseName:${playlistId}`, () => (
-                            document.querySelector('.yt-page-header-view-model__page-header-title h1') ||
-                            document.querySelector('yt-page-header-view-model h1.dynamicTextViewModelH1')
-                        ), 250);
+                        element = DOMHelpers.get(`playlist:browseName:${playlistId}`, () => queryFirst(document, [
+                            '.yt-page-header-view-model__page-header-title h1',
+                            'yt-page-header-view-model h1.dynamicTextViewModelH1'
+                        ]), 250);
                     }
 
                     const domTitle = element?.textContent?.trim();
@@ -9416,15 +13299,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const seekPlayListeners = new WeakMap();
 
     /**
-     * Schedules automatic display message cleanup.
-     * Cancels any previous timeout for the same context before creating a new one.
+     * Cancels a pending display cleanup for the given context.
+     * @param {'watch'|'shorts'|'miniplayer'|'preview'} context - Display context.
+     * @returns {void}
+     */
+    const cancelPendingDisplayClear = (context) => {
+        const prev = displayClearTimeouts.get(context);
+        if (!prev) return;
+        clearTimeout(prev);
+        displayClearTimeouts.delete(context);
+    };
+
+    /**
+     * Schedules a display cleanup, replacing any pending one for the context.
      * @param {'watch'|'shorts'|'miniplayer'|'preview'} context - Display context.
      * @param {() => void} clearFn - Function that clears the display.
      * @param {number} delayMs - Milliseconds until cleanup.
      */
     const scheduleDisplayClear = (context, clearFn, delayMs) => {
-        const prev = displayClearTimeouts.get(context);
-        if (prev) clearTimeout(prev);
+        cancelPendingDisplayClear(context);
         displayClearTimeouts.set(context, setTimeout(() => {
             try { clearFn(); } catch (_) { logWarn('DisplayManager', 'Error on scheduleDisplayClear', _); }
             displayClearTimeouts.delete(context);
@@ -9505,9 +13398,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Generated structure:
      *   [listBtn (.ypp-btn-history)] | [message (.ypp-time-display-message)]
      *
+     * @param {DisposableStore|null} [store=null] - Store owning listeners on the split button.
      * @returns {{ listBtn: HTMLButtonElement, messageEl: HTMLSpanElement }} Created nodes.
      */
-    function createSplitButtonGroup() {
+    function createSplitButtonGroup(store = null) {
         const listBtn = createElement('button', {
             className: `ypp-btn-history${cachedSettings.showHistoryButton === false ? ' ypp-d-none' : ''}`,
             html: SVG_ICONS.clockRotateLeft,
@@ -9515,8 +13409,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             onClickEvent: (e) => {
                 e.stopPropagation();
                 e.preventDefault();
-                showSavedVideosList();
-            }
+                void showSavedVideosList().catch(error => {
+                    logError('createSplitButtonGroup', 'Error opening saved videos', error);
+                });
+            },
+            store
         });
 
         const messageEl = createElement('span', { className: 'ypp-time-display-message ypp-d-none' });
@@ -9611,10 +13508,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Centralizes manual save logic to avoid redundant callbacks.
      *
      * @param {HTMLElement} displayEl - Display root element (.ypp-time-display).
-     * @param {HTMLElement} player - Corresponding player instance.
      * @param {string} contextType - Context ('watch', 'shorts', 'miniplayer', 'preview').
+     * @param {DisposableStore|null} [store=null] - Store owning the button listener.
      */
-    function setupManualSaveButton(displayEl, player, contextType) {
+    function setupManualSaveButton(displayEl, contextType, store = null) {
         if (!cachedSettings?.manualSaveMode || !(displayEl instanceof Element)) return;
 
         // Avoid duplicates if already injected
@@ -9656,7 +13553,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     session.savedData = result.savedData;
                 }
 
-            }
+            },
+            store
         });
 
         // Insert after the list button (listBtn)
@@ -9723,12 +13621,42 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         let shortsTimeDisplay;
 
         let shortsRetryTimers = [];
+        /** @type {Set<number>} Pending animation frames owned by the Shorts anchor. */
+        const shortsRetryRafIds = new Set();
+        /** @type {number} Incremented whenever the Shorts anchor is stopped. */
+        let shortsPanelGeneration = 0;
         let miniplayerTimeDisplay;
         let inlinePreviewTimeDisplay;
 
 
         /** @type {Map<'watch'|'shorts'|'miniplayer'|'preview', { videoEl: HTMLVideoElement|null, videoId: string|null }>} */
         const displayIdentity = new Map();
+
+        /**
+         * Returns the listener store owned by a display node, creating it when
+         * the node was found in the DOM before this manager initialized it.
+         * @param {HTMLElement|null} display - Display root element.
+         * @returns {DisposableStore|null} Display-owned disposable store.
+         */
+        const getDisplayDisposables = (display) => {
+            if (!display) return null;
+            if (!display._yppDisposables || display._yppDisposables._isDisposed) {
+                display._yppDisposables = new DisposableStore();
+            }
+            return display._yppDisposables;
+        };
+
+        /**
+         * Disposes listeners owned by a display before detaching it.
+         * @param {HTMLElement|null} display - Display root element.
+         * @returns {void}
+         */
+        const disposeDisplayNode = (display) => {
+            if (!display) return;
+            display._yppDisposables?.dispose?.();
+            display._yppDisposables = null;
+            display.remove();
+        };
 
         const getDisplay = (context) => {
             const displayMap = {
@@ -9844,11 +13772,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             delete display.dataset.isFixedTime;
             restoreDisplayButtons(display);
             applySavedStateToDisplay(display, true, false);
-            const prev = displayClearTimeouts.get(context);
-            if (prev) {
-                clearTimeout(prev);
-                displayClearTimeouts.delete(context);
-            }
+            cancelPendingDisplayClear(context);
+        };
+
+        /**
+         * Schedules a Shorts anchor frame and tracks it for teardown.
+         * @param {() => void} callback - Frame callback.
+         * @returns {number} Animation-frame ID.
+         */
+        const scheduleShortsFrame = (callback) => {
+            const frameId = requestAnimationFrame(() => {
+                shortsRetryRafIds.delete(frameId);
+                callback();
+            });
+            shortsRetryRafIds.add(frameId);
+            return frameId;
         };
 
         const reanchorShortsDisplay = (message = null) => {
@@ -9857,9 +13795,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             const activePanel = getActiveShortsControlsContainer();
             const overlayRoot = DOMHelpers.get('display:shortsOverlayRoot', () => document.querySelector(SELECTORS.ELEMENTS.REEL_PLAYER_OVERLAY_RENDERER), 200) || DOMHelpers.getShortsPlayer();
+            const anchorGeneration = shortsPanelGeneration;
 
             if (!activePanel || !isVisiblyDisplayed(activePanel)) {
                 const reattach = () => {
+                    if (anchorGeneration !== shortsPanelGeneration || window.__YPP__?.instanceId !== INSTANCE_ID) return;
                     const panel = getActiveShortsControlsContainer();
                     if (panel && isVisiblyDisplayed(panel)) {
                         try { panel.appendChild(shortsTimeDisplay); } catch (_) { logWarn('reanchorShortsDisplay', 'Error reattaching display to panel'); }
@@ -9871,7 +13811,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         return;
                     }
                     if (message) showDisplayMessage(shortsTimeDisplay, message);
-                    requestAnimationFrame(() => {
+                    scheduleShortsFrame(() => {
+                        if (anchorGeneration !== shortsPanelGeneration || window.__YPP__?.instanceId !== INSTANCE_ID) return;
                         try {
                             if (!isVisiblyDisplayed(shortsTimeDisplay) && overlayRoot) {
                                 try { overlayRoot.appendChild(shortsTimeDisplay); } catch (_) { logWarn('reanchorShortsDisplay', 'Error on re-attach display rAF'); }
@@ -9882,9 +13823,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     });
                 };
                 if (document.visibilityState === 'visible' && typeof requestAnimationFrame === 'function') {
-                    requestAnimationFrame(reattach);
+                    scheduleShortsFrame(reattach);
                 } else {
-                    setTimeout(reattach, 50);
+                    const reattachTimer = setTimeout(() => {
+                        shortsRetryTimers = shortsRetryTimers.filter(timer => timer !== reattachTimer);
+                        reattach();
+                    }, 50);
+                    shortsRetryTimers.push(reattachTimer);
                 }
                 return false;
             }
@@ -9894,6 +13839,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
             shortsTimeDisplay.classList.toggle('ypp-floating', shortsTimeDisplay.parentElement !== activePanel);
             return true;
+        };
+
+        /**
+         * Detects mobile web watch, whose player chrome has no `.ytp-*`
+         * containers to host the time display.
+         * @returns {boolean} True on `m.youtube.com` watch without desktop player chrome.
+         */
+        const isMobileWatchDisplayFallback = () => {
+            if (currentPageType !== 'watch') return false;
+            const desktopFlexy = DOMHelpers.get('display:desktopFlexy', () => document.querySelector('ytd-watch-flexy'), 250);
+            if (desktopFlexy) return false;
+            return !!DOMHelpers.get('display:mobileWatch', () => document.querySelector(SELECTORS.ELEMENTS.YTM_WATCH), 250);
         };
 
         /**
@@ -9910,28 +13867,74 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (resolvedPlayer) {
                     const playerContainer = resolvedPlayer;
                     destroy('miniplayer');
+                    // Mobile web: a display created floating before YouTube built
+                    // its time pill upgrades into the pill once it exists.
+                    if (watchTimeDisplay?.classList.contains('ypp-floating') && watchTimeDisplay.isConnected && isMobileWatchDisplayFallback()) {
+                        const latePill = DOMHelpers.get('player:mobileTimePill', () => document.querySelector(`${SELECTORS.ELEMENTS.MWEB_PLAYER_TIME_DISPLAY} ${SELECTORS.CLASSES.MWEB_TIME_PILL}`), 250);
+                        if (latePill instanceof Element && latePill !== watchTimeDisplay.parentElement) {
+                            try {
+                                latePill.appendChild(watchTimeDisplay);
+                                watchTimeDisplay.classList.remove('ypp-floating');
+                            } catch (_) { logWarn('ensure/watch', 'Failed to upgrade mobile display into time pill'); }
+                        }
+                    }
                     // isConnected check: YouTube can rebuild player controls leaving the
                     // old display detached; without this we'd keep serving a dead node.
                     if (hasTimeDisplayMessage(watchTimeDisplay) && watchTimeDisplay.isConnected) return getDisplay(context);
-                    if (watchTimeDisplay) { watchTimeDisplay.remove(); watchTimeDisplay = null; }
+                    if (watchTimeDisplay) { disposeDisplayNode(watchTimeDisplay); watchTimeDisplay = null; }
 
                     const timeWrapper = DOMHelpers.get('player:timeWrapper', () =>
-                        playerContainer.querySelector('.ytp-time-wrapper')
-                        ?? playerContainer.querySelector('.ytp-left-controls')
-                        ?? playerContainer.querySelector('.ytp-chrome-controls')
-                        ?? document.querySelector('.ytp-time-wrapper')
-                        ?? document.querySelector('.ytp-left-controls')
-                        ?? document.querySelector('.ytp-chrome-bottom'), 100);
+                        queryFirst(playerContainer, ['.ytp-time-wrapper', '.ytp-left-controls', '.ytp-chrome-controls'])
+                        ?? queryFirst(document, ['.ytp-time-wrapper', '.ytp-left-controls', '.ytp-chrome-bottom']), 100);
 
-                    if (!timeWrapper) { logWarn('ensure/watch', '⚠️ No valid container found for UI injection in playback bar.'); return getDisplay(context); }
+                    if (!timeWrapper) {
+                        // Mobile web watch has no `.ytp-*` chrome. Prefer YouTube's
+                        // own time pill: auto-hide and positioning are then managed
+                        // by YouTube itself, mirroring the desktop injection into
+                        // `.ytp-time-wrapper`. Row and floating anchors are fallbacks.
+                        // Desktop keeps the previous behavior (warn + no display).
+                        if (isMobileWatchDisplayFallback()) {
+                            const timePill = DOMHelpers.get('player:mobileTimePill', () => document.querySelector(`${SELECTORS.ELEMENTS.MWEB_PLAYER_TIME_DISPLAY} ${SELECTORS.CLASSES.MWEB_TIME_PILL}`), 250);
+                            const timeHost = timePill ?? DOMHelpers.get('player:mobileTimeHost', () => document.querySelector(SELECTORS.ELEMENTS.MWEB_PLAYER_TIME_DISPLAY), 250);
+                            const nativeRow = timeHost?.closest('.player-controls-bottom.player-controls-bottom-left') ?? timeHost;
+                            const mobileAnchor = timePill instanceof Element
+                                ? timePill
+                                : (nativeRow instanceof Element
+                                    ? nativeRow
+                                    : DOMHelpers.get('player:mobileWatchAnchor', () => document.querySelector(SELECTORS.IDS.PLAYER_CONTAINER), 250));
+                            if (mobileAnchor instanceof Element) {
+                                const useFloating = mobileAnchor !== timePill && mobileAnchor !== nativeRow;
+                                destroy('miniplayer');
+                                if (hasTimeDisplayMessage(watchTimeDisplay) && watchTimeDisplay.isConnected) return getDisplay(context);
+                                if (watchTimeDisplay) { disposeDisplayNode(watchTimeDisplay); watchTimeDisplay = null; }
+
+                                watchTimeDisplay = createElement('div', {
+                                    id: 'ypp-time-display-indicator',
+                                    className: useFloating ? 'ypp-time-display ypp-floating' : 'ypp-time-display'
+                                });
+                                const mobileDisposables = getDisplayDisposables(watchTimeDisplay);
+                                const { listBtn: mobileListBtn, messageEl: mobileMessageEl } = createSplitButtonGroup(mobileDisposables);
+                                watchTimeDisplay.appendChild(mobileListBtn);
+                                setupManualSaveButton(watchTimeDisplay, 'watch', mobileDisposables);
+                                watchTimeDisplay.appendChild(mobileMessageEl);
+                                delete watchTimeDisplay.dataset.isFixedTime;
+                                try { mobileAnchor.appendChild(watchTimeDisplay); } catch (_) { logWarn('ensure/watch', 'Failed to attach mobile display'); return getDisplay(context); }
+                                clear('watch');
+                                return getDisplay(context);
+                            }
+                        }
+                        logWarn('ensure/watch', '⚠️ No valid container found for UI injection in playback bar.');
+                        return getDisplay(context);
+                    }
 
                     watchTimeDisplay = createElement('div', {
                         id: 'ypp-time-display-indicator',
                         className: 'ypp-time-display'
                     });
-                    const { listBtn, messageEl } = createSplitButtonGroup();
+                    const displayDisposables = getDisplayDisposables(watchTimeDisplay);
+                    const { listBtn, messageEl } = createSplitButtonGroup(displayDisposables);
                     watchTimeDisplay.appendChild(listBtn);
-                    setupManualSaveButton(watchTimeDisplay, playerContainer, 'watch');
+                    setupManualSaveButton(watchTimeDisplay, 'watch', displayDisposables);
                     watchTimeDisplay.appendChild(messageEl);
                     delete watchTimeDisplay.dataset.isFixedTime;
                     if (timeWrapper) timeWrapper.insertAdjacentElement('beforeend', watchTimeDisplay);
@@ -9947,17 +13950,22 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         shortsTimeDisplay = existing;
                     } else {
                         shortsTimeDisplay = createElement('div', { className: 'ypp-shorts-time-display' });
-                        const { listBtn, messageEl } = createSplitButtonGroup();
+                        const displayDisposables = getDisplayDisposables(shortsTimeDisplay);
+                        const { listBtn, messageEl } = createSplitButtonGroup(displayDisposables);
                         shortsTimeDisplay.appendChild(listBtn);
-                        setupManualSaveButton(shortsTimeDisplay, DOMHelpers.getShortsPlayer(), 'shorts');
+                        setupManualSaveButton(shortsTimeDisplay, 'shorts', displayDisposables);
                         shortsTimeDisplay.appendChild(messageEl);
                         clear('shorts');
                     }
                 }
 
+                if (shortsTimeDisplay) getDisplayDisposables(shortsTimeDisplay);
+
                 if (shortsPlayerControls instanceof Element) {
                     const redundant = shortsPlayerControls.querySelectorAll('.ypp-shorts-time-display');
-                    redundant.forEach(el => { if (el !== shortsTimeDisplay) el.remove(); });
+                    redundant.forEach(el => {
+                        if (el !== shortsTimeDisplay) disposeDisplayNode(el);
+                    });
                 }
 
                 const target = (shortsPlayerControls instanceof Element && shortsPlayerControls) || (overlayRoot instanceof Element && overlayRoot) || document.body;
@@ -9968,12 +13976,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 shortsTimeDisplay.classList.toggle('ypp-floating', !(shortsPlayerControls instanceof Element));
 
                 if (shortsPlayerControls instanceof Element) {
-                    shortsRetryTimers.forEach(t => clearTimeout(t));
-                    shortsRetryTimers = [];
-                    if (shortsPanelObserver) {
-                        try { shortsPanelObserver.disconnect(); } catch (_) { logWarn('ensureDisplayAnchored', 'Error disconnecting shortsPanelObserver', _); }
-                        shortsPanelObserver = null;
-                    }
+                    stopShortsPanelObserver();
                 } else {
                     startShortsPanelObserver();
                 }
@@ -9982,15 +13985,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (resolvedPlayer) {
                     const playerContainer = resolvedPlayer;
                     if (hasTimeDisplayMessage(miniplayerTimeDisplay) && miniplayerTimeDisplay.isConnected) return getDisplay(context);
-                    if (miniplayerTimeDisplay) { miniplayerTimeDisplay.remove(); miniplayerTimeDisplay = null; }
+                    if (miniplayerTimeDisplay) { disposeDisplayNode(miniplayerTimeDisplay); miniplayerTimeDisplay = null; }
 
-                    const controls = playerContainer.querySelector('.ytp-time-wrapper') || playerContainer.querySelector('.ytp-left-controls') || DOMHelpers.get('display:miniplayerTimeWrapper', () => document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper'), 200) || DOMHelpers.get('display:miniplayerLeftControls', () => document.querySelector('ytd-miniplayer-player-container .ytp-left-controls'), 200);
+                    const controls = queryFirst(playerContainer, ['.ytp-time-wrapper', '.ytp-left-controls']) || DOMHelpers.get('display:miniplayerTimeWrapper', () => document.querySelector('ytd-miniplayer-player-container .ytp-time-wrapper'), 200) || DOMHelpers.get('display:miniplayerLeftControls', () => document.querySelector('ytd-miniplayer-player-container .ytp-left-controls'), 200);
                     if (!controls) return getDisplay(context);
 
                     miniplayerTimeDisplay = createElement('div', { id: 'ypp-miniplayer-time-display', className: 'ypp-time-display ypp-miniplayer-time-display' });
-                    const { listBtn, messageEl } = createSplitButtonGroup();
+                    const displayDisposables = getDisplayDisposables(miniplayerTimeDisplay);
+                    const { listBtn, messageEl } = createSplitButtonGroup(displayDisposables);
                     miniplayerTimeDisplay.appendChild(listBtn);
-                    setupManualSaveButton(miniplayerTimeDisplay, playerContainer, 'miniplayer');
+                    setupManualSaveButton(miniplayerTimeDisplay, 'miniplayer', displayDisposables);
                     miniplayerTimeDisplay.appendChild(messageEl);
                     controls.appendChild(miniplayerTimeDisplay);
                     clear('miniplayer');
@@ -10000,15 +14004,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (resolvedPlayer) {
                     const previewPlayerEl = resolvedPlayer;
                     if (hasTimeDisplayMessage(inlinePreviewTimeDisplay) && inlinePreviewTimeDisplay.isConnected) return getDisplay(context);
-                    if (inlinePreviewTimeDisplay) { inlinePreviewTimeDisplay.remove(); inlinePreviewTimeDisplay = null; }
+                    if (inlinePreviewTimeDisplay) { disposeDisplayNode(inlinePreviewTimeDisplay); inlinePreviewTimeDisplay = null; }
 
                     inlinePreviewTimeDisplay = createElement('div', { id: 'ypp-inline-preview-time-display', className: 'ypp-time-display ypp-inline-preview-time-display' });
-                    const { listBtn, messageEl } = createSplitButtonGroup();
+                    const displayDisposables = getDisplayDisposables(inlinePreviewTimeDisplay);
+                    const { listBtn, messageEl } = createSplitButtonGroup(displayDisposables);
                     inlinePreviewTimeDisplay.appendChild(listBtn);
-                    setupManualSaveButton(inlinePreviewTimeDisplay, previewPlayerEl, 'preview');
+                    setupManualSaveButton(inlinePreviewTimeDisplay, 'preview', displayDisposables);
                     inlinePreviewTimeDisplay.appendChild(messageEl);
                     previewPlayerEl.appendChild(inlinePreviewTimeDisplay);
-                    addDisposableListener(inlinePreviewTimeDisplay, 'click', (e) => { e.stopPropagation(); e.preventDefault(); }, { passive: false });
+                    addDisposableListener(inlinePreviewTimeDisplay, 'click', (e) => { e.stopPropagation(); e.preventDefault(); }, { passive: false }, displayDisposables);
                     clear('preview');
                 }
             }
@@ -10109,19 +14114,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 releasePlayListener(context, identity?.videoEl);
             }
 
-            const prev = displayClearTimeouts.get(context);
-            if (prev) {
-                clearTimeout(prev);
-                displayClearTimeouts.delete(context);
-            }
+            cancelPendingDisplayClear(context);
         }
 
         const destroy = (context) => {
+            if (context === 'shorts') stopShortsPanelObserver();
             clear(context, { reason: 'destroy' });
             const display = getDisplay(context);
-            if (display) {
-                display.remove();
-            }
+            disposeDisplayNode(display);
             displayIdentity.delete(context);
             switch (context) {
                 case 'watch': watchTimeDisplay = null; break;
@@ -10176,6 +14176,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         function startShortsPanelObserver() {
             if (shortsPanelObserver) return;
+            const observerGeneration = shortsPanelGeneration;
             logLog('startShortsPanelObserver', '🔍 Starting observer and retries for Metapanel...');
             shortsRetryTimers.forEach(t => clearTimeout(t));
             shortsRetryTimers = [];
@@ -10194,7 +14195,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             shortsPanelObserver = new MutationObserver(() => {
                 if (!isShortsPanelTicking) {
                     isShortsPanelTicking = true;
-                    requestAnimationFrame(() => {
+                    scheduleShortsFrame(() => {
+                        if (observerGeneration !== shortsPanelGeneration || window.__YPP__?.instanceId !== INSTANCE_ID) {
+                            isShortsPanelTicking = false;
+                            return;
+                        }
                         if (currentPageType !== 'shorts') {
                             // Left Shorts: tear down the body-wide observer to avoid
                             // perpetual mutation processing on other pages.
@@ -10218,8 +14223,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          * @private
          */
         function stopShortsPanelObserver() {
+            shortsPanelGeneration += 1;
             shortsRetryTimers.forEach(t => clearTimeout(t));
             shortsRetryTimers = [];
+            shortsRetryRafIds.forEach(frameId => cancelAnimationFrame(frameId));
+            shortsRetryRafIds.clear();
             if (shortsPanelObserver) {
                 try { shortsPanelObserver.disconnect(); } catch (_) { logWarn('stopShortsPanelObserver', 'Error disconnecting shortsPanelObserver', _); }
                 shortsPanelObserver = null;
@@ -10229,6 +14237,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             bind,
             clear,
             destroy,
+            stopShortsPanelObserver,
             ensure,
             release,
             show,
@@ -10244,6 +14253,58 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
 
     const toastTimeouts = new WeakMap();
+    /** @type {Set<() => void>} Cleanup callbacks for toasts owned by this runtime. */
+    const activeToastCleanups = new Set();
+
+    /**
+     * Removes a toast's runtime resources without invoking user callbacks.
+     * @param {HTMLElement} toast - Toast node.
+     * @returns {void}
+     */
+    function disposeToastRuntime(toast) {
+        if (!toast) return;
+        const cleanup = toast._yppRuntimeCleanup;
+        if (cleanup) {
+            activeToastCleanups.delete(cleanup);
+            toast._yppRuntimeCleanup = null;
+        }
+        if (toastTimeouts.has(toast)) {
+            clearTimeout(toastTimeouts.get(toast));
+            toastTimeouts.delete(toast);
+        }
+        toast._yppTransitionCleanup?.();
+        toast._yppDisposables?.dispose?.();
+        toast._yppDisposables = null;
+        toast._yppDestroyed = true;
+        if (toast.isConnected) toast.remove();
+        const container = toast.parentElement;
+        if (container && container.children.length === 0) {
+            container.remove();
+            DOMHelpers.removeExact('ui:toastContainer');
+        }
+    }
+
+    /**
+     * Registers one toast for hot-reload teardown.
+     * @param {HTMLElement} toast - Toast node.
+     * @returns {void}
+     */
+    function registerToastRuntime(toast) {
+        const cleanup = () => disposeToastRuntime(toast);
+        toast._yppRuntimeCleanup = cleanup;
+        activeToastCleanups.add(cleanup);
+    }
+
+    destroyToasts = () => {
+        for (const cleanup of [...activeToastCleanups]) cleanup();
+        activeToastCleanups.clear();
+        const container = DOMHelpers.get('ui:toastContainer', () => document.querySelector('.ypp-toast-container'), 0);
+        if (container && container.children.length === 0) {
+            container.remove();
+            DOMHelpers.removeExact('ui:toastContainer');
+        }
+    };
+    GlobalDisposables.add(destroyToasts);
 
     function createToastContainer() {
         let container = DOMHelpers.get('ui:toastContainer', () => {
@@ -10267,11 +14328,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
+    * Grace period before a deferred toast fade fires after an action kept the
+    * toast open, so the user still has time to retry a failed undo/restore.
+    * @type {number}
+    */
+    const TOAST_ACTION_FADE_GRACE_MS = 10000;
+
+    /**
     * Fades and removes a toast after a delay.
     * @param {HTMLElement} toast - Toast element to remove.
     * @param {number} duration - Time in ms before starting fade out.
     */
     function fadeAndRemoveToast(toast, duration) {
+        if (!isInstanceActive() || toast._yppDestroyed) return;
+        if (toast._yppActionInFlight) {
+            toast._yppFadePending = true;
+            return;
+        }
         // Clear previous timeout if it exists
         if (toastTimeouts.has(toast)) {
             clearTimeout(toastTimeouts.get(toast));
@@ -10279,21 +14352,22 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         const timeoutId = setTimeout(() => {
-            // Disable interaction and start fade
+            // Cancel a transition/fallback callback inherited from a previous
+            // use of a persistent toast.
+            toast._yppTransitionCleanup?.();
             toast.style.pointerEvents = 'none';
             toast.style.opacity = '0';
             const container = toast.parentElement;
             let cleanupTimer = null;
 
             const onTransitionEnd = () => {
-                toast.removeEventListener('transitionend', onTransitionEnd);
-                if (cleanupTimer) {
-                    clearTimeout(cleanupTimer);
-                    cleanupTimer = null;
-                }
+                cleanup();
+                if (toast._yppRuntimeCleanup) activeToastCleanups.delete(toast._yppRuntimeCleanup);
+                toast._yppRuntimeCleanup = null;
+                toast._yppDisposables?.dispose?.();
+                toast._yppDisposables = null;
 
                 // Execute onDismiss callback before removing from DOM
-                // Only runs ONCE thanks to the WeakSet tracking
                 if (toast._yppOnDismiss && !toast._yppDismissed) {
                     toast._yppDismissed = true;
                     try {
@@ -10303,18 +14377,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                 }
 
-                if (toast.isConnected) {
-                    toast.remove();
-                }
-                // If the container is empty, remove it and invalidate its DOM cache entry
+                if (toast.isConnected) toast.remove();
                 if (container && container.children.length === 0) {
                     container.remove();
                     DOMHelpers.removeExact('ui:toastContainer');
                 }
             };
 
+            const cleanup = () => {
+                toast.removeEventListener('transitionend', onTransitionEnd);
+                if (cleanupTimer) clearTimeout(cleanupTimer);
+                cleanupTimer = null;
+                toast._yppTransitionCleanup = null;
+            };
+            toast._yppTransitionCleanup = cleanup;
             toast.addEventListener('transitionend', onTransitionEnd);
-            // Fallback in case transitionend doesn't fire (safety)
             cleanupTimer = setTimeout(onTransitionEnd, 600);
             toastTimeouts.delete(toast);
         }, duration);
@@ -10332,6 +14409,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     *   - action: { label: string, callback: function }
     */
     function showFloatingToast(message, duration, options = {}) {
+        if (!isInstanceActive()) return;
         // If the second argument is an object, assume it's the options
         if (typeof duration === 'object' && duration !== null) {
             options = duration;
@@ -10355,20 +14433,34 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 clearTimeout(toastTimeouts.get(toast));
                 toastTimeouts.delete(toast);
             }
+            if (toast._yppRuntimeCleanup) {
+                activeToastCleanups.delete(toast._yppRuntimeCleanup);
+                toast._yppRuntimeCleanup = null;
+            }
+            toast._yppDisposables?.dispose?.();
+            toast._yppDisposables = null;
+            toast._yppTransitionCleanup?.();
             // Reset content, style and dismissal state
             setInnerHTML(toast, '');
             toast.style.opacity = '1';
             toast.style.pointerEvents = '';
             toast._yppDismissed = false;
             toast._yppOnDismiss = null;
+            toast._yppActionInFlight = false;
+            toast._yppFadePending = false;
+            toast._yppDestroyed = false;
         } else {
             toast = createElement('div', { className: 'ypp-toast sombra' });
-            if (options.action) toast.classList.add('has-action');
+            toast._yppDestroyed = false;
             container.appendChild(toast);
             // Initialize opacity 0 before animating
             toast.style.opacity = '0';
             requestAnimationFrame(() => (toast.style.opacity = '1'));
         }
+
+        const toastDisposables = new DisposableStore();
+        toast._yppDisposables = toastDisposables;
+        registerToastRuntime(toast);
 
         // Store onDismiss callback on the toast element
         // Will execute when the toast is removed for any reason (X, timeout, action)
@@ -10382,21 +14474,59 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         toast.appendChild(messageSpan);
 
         const actions = options.actions || (options.action ? [options.action] : []);
+        // Reused persistent toasts keep their classes, so keep the layout class
+        // in sync with the actions actually rendered for this message.
+        toast.classList.toggle('has-actions', actions.length > 0);
         if (actions.length > 0) {
             const actionsContainer = createElement('div', { className: 'ypp-toast-actions' });
             actions.forEach(action => {
                 const actionBtn = createElement('button', {
                     className: 'ypp-toast-action',
                     text: action.label,
-                    onClickEvent: () => {
-                        if (typeof action.callback === 'function') {
-                            action.callback();
+                    onClickEvent: async () => {
+                        if (!isInstanceActive() || toast._yppDestroyed || !toast.isConnected) return;
+                        if (toast._yppActionInFlight) return;
+                        toast._yppActionInFlight = true;
+                        toast._yppFadePending = false;
+                        // Disarm the auto-remove timer that was armed when the toast
+                        // was created. Without this, a slow async action can have its
+                        // toast removed mid-flight by a fade requested before the user
+                        // ever clicked, losing the success/failure feedback.
+                        if (toastTimeouts.has(toast)) {
+                            clearTimeout(toastTimeouts.get(toast));
+                            toastTimeouts.delete(toast);
                         }
-                        if (action.closeOnClick !== false) {
-                            fadeAndRemoveToast(toast, 0);
+                        let actionSucceeded = true;
+                        try {
+                            if (typeof action.callback === 'function') {
+                                actionSucceeded = await action.callback() !== false;
+                            }
+                        } catch (error) {
+                            actionSucceeded = false;
+                            logError('showFloatingToast', `Action callback failed: ${action.label}`, error);
+                        } finally {
+                            if (!isInstanceActive() || toast._yppDestroyed) return;
+                            toast._yppActionInFlight = false;
+                            const hadPendingFade = toast._yppFadePending;
+                            const shouldClose = action.closeOnClick !== false &&
+                                (!action.keepOpenOnFailure || actionSucceeded);
+                            if (shouldClose) {
+                                fadeAndRemoveToast(toast, 0);
+                            } else {
+                                // A timeout/close request that arrived while
+                                // the action was running is intentionally held
+                                // when the action failed, so recovery data is
+                                // not discarded before the user can retry.
+                                toast._yppFadePending = false;
+                                // It is deferred rather than dropped: re-arm the
+                                // fade so the toast still self-cleans once the
+                                // retry window elapses.
+                                if (hadPendingFade) fadeAndRemoveToast(toast, TOAST_ACTION_FADE_GRACE_MS);
+                            }
                         }
                     },
-                    attributes: { 'aria-label': action.label, type: 'button' }
+                    attributes: { 'aria-label': action.label, type: 'button' },
+                    store: toastDisposables
                 });
                 actionsContainer.appendChild(actionBtn);
             });
@@ -10409,8 +14539,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             html: SVG_ICONS.close,
             attributes: { 'aria-label': t('close'), title: t('close'), type: 'button' },
             onClickEvent: () => {
+                if (toast._yppActionInFlight) return;
                 fadeAndRemoveToast(toast, 0);
-            }
+            },
+            store: toastDisposables
         });
         toast.appendChild(closeBtn);
 
@@ -10439,16 +14571,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     const renderLanguageSection = (currentLang, store) => {
         const sortedLanguages = Object.entries(LANGUAGE_FLAGS).sort((a, b) => a[1].name.localeCompare(b[1].name));
-        const options = sortedLanguages.map(([code, lang]) => ({
-            value: code,
-            label: sanitizeHTML(lang.name),
-            icon: LANGUAGE_FLAGS[code]?.ISO_3166 ? `
-            <img
-                src="https://flagcdn.com/${LANGUAGE_FLAGS[code].ISO_3166}.svg"
-                width="30"
-                title="${lang.name}"
-                alt="${lang.name}">` : SVG_ICONS.world
-        }));
+        const options = sortedLanguages.map(([code, lang]) => {
+            const safeName = sanitizeHTML(lang.name);
+            const isoCode = /^[a-z]{2}$/i.test(String(lang.ISO_3166 || '')) ? String(lang.ISO_3166).toLowerCase() : null;
+            return {
+                value: code,
+                label: safeName,
+                icon: isoCode ? `
+                <img
+                    src="https://flagcdn.com/${isoCode}.svg"
+                    width="30"
+                    title="${safeName}"
+                    alt="${safeName}">` : SVG_ICONS.world
+            };
+        });
 
         const wrapper = createElement('div', { className: 'ypp-settings-section' });
         const label = createElement('label', {
@@ -10799,43 +14935,79 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
 
     async function showSettingsUI() {
-        // Hide video modal if it exists, but do not delete it
-        let wasVideosModalOpen = false;
-        if (videosOverlay && videosContainer) {
+        const generation = ++settingsModalGeneration;
+        settingsModalCleanup?.();
+
+        const [loadedSettings, loadedGithubSettings] = await Promise.all([
+            getSettings(),
+            Storage.get(CONFIG.STORAGE_KEYS.github)
+        ]);
+        if (generation !== settingsModalGeneration) return;
+        assertActiveInstance();
+
+        const settings = { ...(loadedSettings || CONFIG.defaultSettings) };
+        const githubSettings = { ...(loadedGithubSettings ?? CONFIG.defaultGithubSettings) };
+
+        // Hide the video modal if it exists, but keep its state for restoration.
+        const wasVideosModalOpen = !!(videosOverlay && videosContainer);
+        if (wasVideosModalOpen) {
             videosOverlay.style.display = 'none';
             videosContainer.style.display = 'none';
-            wasVideosModalOpen = true;
         }
 
-        // Close other modals except the video modal
-        const existingModals = DOMHelpers.get('ui:allModals', () => document.querySelectorAll('.ypp-modalOverlay'), 50);
+        const existingModals = document.querySelectorAll('.ypp-modalOverlay');
         existingModals.forEach(modal => {
             if (modal !== videosOverlay) modal.remove();
         });
 
         const settingsDisposables = new DisposableStore();
+        const previouslyFocusedElement = document.activeElement;
+        const bodyOverflowOwner = `${SETTINGS_BODY_OVERFLOW_OWNER}:${generation}`;
+        let isClosed = false;
 
         const closeModal = () => {
-            settingsDisposables.clear();
+            if (settingsModalCleanup !== closeModal || isClosed) return;
+            isClosed = true;
+            settingsDisposables.dispose();
             overlay.remove();
-            document.body.style.overflow = '';
-            // Restore video modal if it was open
+            releaseBodyOverflow(bodyOverflowOwner);
+            if (settingsModalCleanup === closeModal) settingsModalCleanup = null;
             if (wasVideosModalOpen && videosOverlay && videosContainer) {
                 videosOverlay.style.display = '';
                 videosContainer.style.display = '';
             }
+            if (previouslyFocusedElement instanceof HTMLElement && previouslyFocusedElement.isConnected) {
+                previouslyFocusedElement.focus();
+            }
         };
+        settingsModalCleanup = closeModal;
 
-        const settings = { ...await getSettings() };
-        const githubSettings = { ...(await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings) };
+        /**
+         * Handles Escape and keeps keyboard focus inside the settings dialog.
+         * @param {KeyboardEvent} event - Browser keyboard event.
+         * @returns {void}
+         */
+        const onSettingsKeyDown = (event) => {
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeModal();
+                return;
+            }
+            trapTabFocus(event, [overlay]);
+        };
+        addDisposableListener(document, 'keydown', onSettingsKeyDown, {}, settingsDisposables);
 
         const overlay = createElement('div', {
             className: 'ypp-modalOverlay',
-            attributes: { 'aria-modal': 'true', role: 'dialog' },
-            onClickEvent: (e) => { if (e.target === overlay) closeModal(); }
+            attributes: { 'aria-modal': 'true', role: 'dialog', 'aria-label': t('settings') },
+            onClickEvent: (e) => { if (e.target === overlay) closeModal(); },
+            store: settingsDisposables
         });
 
-        const modal = createElement('div', { className: 'ypp-modalBox ypp-shadow-md' });
+        const modal = createElement('div', {
+            className: 'ypp-modalBox ypp-shadow-md',
+            attributes: { tabindex: '-1' }
+        });
 
         const header = createElement('div', {
             className: 'ypp-modalHeader',
@@ -10847,11 +15019,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 createElement('button', {
                     className: 'ypp-btn ypp-btn-circle ypp-btn-outline-danger',
                     id: 'btn-close-settings',
-                    // NOTE: createElement has no `ariaLabel` key; it must go in attributes
-                    attributes: { type: 'button', 'aria-label': t('close') },
-                    title: t('close'),
+                    attributes: { type: 'button', 'aria-label': t('close'), title: t('close') },
                     html: SVG_ICONS.close,
-                    onClickEvent: closeModal
+                    onClickEvent: closeModal,
+                    store: settingsDisposables
                 })
             ]
         });
@@ -10968,7 +15139,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             className: 'ypp-btn ypp-btn-dark ypp-shadow-md',
             // html: `${SVG_ICONS.github} ${t('youtubePlaybackPlox')} ${SVG_ICONS.linkExternal}`,
             html: `${SVG_ICONS.github} ${SVG_ICONS.linkExternal}`,
-            onClickEvent: () => { window.open(getSafeUrl('https://github.com/Alplox/Youtube-Playback-Plox/'), '_blank'); }
+            onClickEvent: () => { window.open(getSafeUrl('https://github.com/Alplox/Youtube-Playback-Plox/'), '_blank'); },
+            store: settingsDisposables
         });
 
         const viewBtn = createElement('button', {
@@ -10976,12 +15148,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             html: `${SVG_ICONS.clockRotateLeft} ${t('savedVideos')}`,
             // Must go through closeModal() (not a bare overlay.remove()): otherwise
             // settings listeners leak and body overflow stays locked (scroll blocked).
-            onClickEvent: async () => { closeModal(); await showSavedVideosList(); }
+            onClickEvent: async () => { closeModal(); await showSavedVideosList(); },
+            store: settingsDisposables
         });
         const saveBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-success ypp-shadow-md',
             html: `${SVG_ICONS.saveFill} ${t('save')}`,
             onClickEvent: async () => {
+                if (isClosed || generation !== settingsModalGeneration || !isInstanceActive()) return;
+                assertActiveInstance();
                 const getVal = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.value ?? bodyModalSettings.querySelector(`[id="${name}-dropdown"]`)?.dataset.value;
                 const isChecked = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.checked;
 
@@ -11047,21 +15222,30 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     lastViewedType: getVal('githubLastViewedType') || 'gist'
                 };
 
-                await Promise.all([
+                const [settingsResult, githubResult] = await Promise.all([
                     setSettings(newSettings),
                     Storage.set(CONFIG.STORAGE_KEYS.github, newGithubSettings)
                 ]);
+                if (isClosed || generation !== settingsModalGeneration || !isInstanceActive()) return;
+                if (!settingsResult?.success || !githubResult?.success) {
+                    showFloatingToast(`${SVG_ICONS.error} ${t('errorSaving')}`);
+                    return;
+                }
 
+                if (isClosed || generation !== settingsModalGeneration || !isInstanceActive()) return;
                 cachedSettings = newSettings;
                 await setLanguage(newSettings.language);
+                if (isClosed || generation !== settingsModalGeneration || !isInstanceActive()) return;
                 showFloatingToast(`${SVG_ICONS.check} ${t('configurationSaved')}`);
                 location.reload();
-            }
+            },
+            store: settingsDisposables
         });
 
         // Event listeners for Manual Backup (Delegation)
         bodyModalSettings.querySelectorAll('.ypp-github-backup-btn').forEach(btn => {
             addDisposableListener(btn, 'click', async (e) => {
+                if (isClosed || generation !== settingsModalGeneration || !isInstanceActive()) return;
                 const type = e.currentTarget.getAttribute('data-type');
                 const getVal = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.value;
                 const isChecked = (name) => bodyModalSettings.querySelector(`[name="${name}"]`)?.checked;
@@ -11077,12 +15261,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (type === 'gist') {
                     currentModeSettings.id = getVal('gist_id');
                 } else {
-                    currentModeSettings.repoOwner = getVal('repo_owner');
-                    currentModeSettings.repoName = getVal('repo_name');
+                    currentModeSettings.owner = getVal('repo_owner');
+                    currentModeSettings.name = getVal('repo_name');
                 }
 
                 // Pass current settings to performRemoteBackup
                 await performRemoteBackup(type, true, currentModeSettings);
+                if (!isInstanceActive() || isClosed || generation !== settingsModalGeneration) return;
             }, {}, settingsDisposables);
         });
 
@@ -11108,7 +15293,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     return window.ytcfg.data_.INNERTUBE_CLIENT_VERSION;
                 }
                 const player = typeof DOMHelpers !== 'undefined' && typeof DOMHelpers.getWatchPlayer === 'function' ? DOMHelpers.getWatchPlayer() : null;
-                const playerResponse = player && typeof player.getPlayerResponse === 'function' ? player.getPlayerResponse() : null;
+                const playerResponse = getPlayerApi(player)?.getPlayerResponse?.() ?? null;
                 if (playerResponse?.context?.client?.clientVersion) {
                     return playerResponse.context.client.clientVersion;
                 }
@@ -11127,11 +15312,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const idbDiag = (typeof IndexedDBAdapter !== 'undefined' && typeof IndexedDBAdapter.diagnose === 'function')
                     ? await IndexedDBAdapter.diagnose()
                     : null;
+                const quarantinedRecords = typeof Storage?.getQuarantinedRecords === 'function'
+                    ? Storage.getQuarantinedRecords()
+                    : [];
+                const emptyQuarantinedRows = quarantinedRecords.filter(({ kind }) => kind === 'empty').length;
+                const unreadableQuarantinedRows = quarantinedRecords.length - emptyQuarantinedRows;
                 let storageEstimate = null;
                 if (navigator.storage && typeof navigator.storage.estimate === 'function') {
                     try {
                         storageEstimate = await navigator.storage.estimate();
-                    } catch (_) { storageEstimate = null; }
+                    } catch (error) {
+                        logWarn('SettingsUI', 'Storage estimate unavailable while copying logs', error);
+                        storageEstimate = null;
+                    }
                 }
                 const innerTubeClientVersion = getInnerTubeClientVersion();
                 const safeModeActive = (typeof FailSafeManager !== 'undefined' && typeof FailSafeManager.isSafeMode === 'function') ? FailSafeManager.isSafeMode() : null;
@@ -11145,8 +15338,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     `YouTube Client: ${innerTubeClientVersion}`,
                     `Safe Mode: ${safeModeActive === null ? 'unknown' : safeModeActive ? 'ACTIVE (saving disabled)' : 'off'}`,
                     `Active Sessions: ${activeSessions === null ? 'unknown' : activeSessions}`,
-                    `Storage Backend: ${storageInfo.indexedDBSupported ? 'IndexedDB' : 'Fallback'} (Cache: ${storageInfo.cacheSize || 0})`,
+                    `Storage Backend: ${storageInfo.activeBackend || (storageInfo.indexedDBSupported ? 'IndexedDB' : 'Fallback')} (Cache: ${storageInfo.cacheSize || 0})`,
                     `IDB: ${idbDiag ? (idbDiag.openOk ? `open OK, v${idbDiag.dbVersion ?? '?'}, store ${idbDiag.storePresent ? `'savedVideos' (${idbDiag.entryCount} entries)` : 'MISSING'}` : `open FAILED (${idbDiag.error})`) : 'diagnose unavailable'}`,
+                    `IDB quarantine: ${quarantinedRecords.length === 0 ? 'none' : `${quarantinedRecords.length} unreadable row(s) excluded from the list: ${emptyQuarantinedRows} empty, ${unreadableQuarantinedRows} unreadable (${quarantinedRecords.slice(0, 10).map(({ key }) => key).join(', ')}${quarantinedRecords.length > 10 ? ', …' : ''})`}`,
                     `Persistent storage: ${storageInfo.persistentStorageGranted === null || storageInfo.persistentStorageGranted === undefined ? 'unknown' : storageInfo.persistentStorageGranted ? 'granted' : 'denied'}`,
                     `Storage usage: ${storageEstimate && Number.isFinite(storageEstimate.usage) && Number.isFinite(storageEstimate.quota) ? `${(storageEstimate.usage / 1048576).toFixed(1)} / ${(storageEstimate.quota / 1048576).toFixed(1)} MB` : 'unknown'}`,
                     `Date: ${new Date().toISOString()}`,
@@ -11212,8 +15406,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const btnCloseSettings = createElement('button', {
             className: 'ypp-btn ypp-btn-secondary',
             html: `${SVG_ICONS.close} ${t('close')}`,
-            attributes: { 'aria-label': t('close') },
-            onClickEvent: closeModal
+            attributes: { type: 'button', 'aria-label': t('close') },
+            onClickEvent: closeModal,
+            store: settingsDisposables
         });
 
 
@@ -11240,7 +15435,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         });
 
         document.body.appendChild(overlay);
-        document.body.style.overflow = 'hidden';
+        acquireBodyOverflow(bodyOverflowOwner);
+        requestAnimationFrame(() => {
+            if (generation === settingsModalGeneration && overlay.isConnected) modal.focus();
+        });
     }
 
     // ============================================================================================================
@@ -11327,12 +15525,47 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
+     * Builds the list of partial-failure messages shown after bulk operations.
+     * @param {Object} [counts] - Failure counters.
+     * @param {number} [counts.skippedProtected=0] - Protected records kept.
+     * @param {number} [counts.skippedNull=0] - Corrupted records skipped.
+     * @param {number} [counts.readErrors=0] - Read failures.
+     * @param {number} [counts.skippedConflicts=0] - Newer/protected records kept.
+     * @param {number} [counts.failedDeletes=0] - Delete failures.
+     * @returns {string[]} Messages for the counters that are above zero.
+     */
+    function buildSkipParts({ skippedProtected = 0, skippedNull = 0, readErrors = 0, skippedConflicts = 0, failedDeletes = 0 } = {}) {
+        const parts = [];
+        if (skippedProtected > 0) parts.push(t('protectedItemsSkipped', { count: skippedProtected }));
+        if (skippedNull > 0) parts.push(`${skippedNull} corrupted entries skipped`);
+        if (readErrors > 0) parts.push(`${readErrors} read errors`);
+        if (skippedConflicts > 0) parts.push(`${skippedConflicts} newer/protected kept`);
+        if (failedDeletes > 0) parts.push(`${failedDeletes} delete errors`);
+        return parts;
+    }
+
+    /**
      * Updates footer buttons dynamically based on active mode (Management or Normal)
      * Only modifies mode-specific buttons; does not touch playlist flow.
      */
     function updateFooterButtons() {
         const modalFooter = DOMHelpers.get('list:modalFooter', () => document.querySelector('.ypp-footer'), 500);
         if (!modalFooter) return;
+
+        // This function rebuilds the footer from scratch on every mode toggle, so the
+        // previous render's listeners must be released before its nodes are dropped.
+        // Removing the containers only detaches the DOM; the disposables would keep
+        // the removed buttons (and their closures) alive in the store otherwise.
+        // Unregister the spent store before disposing it: ModalDisposables is a Set of
+        // store objects, so without remove() every rebuild would leave one dead
+        // entry (and its captured closures) behind until the modal closes.
+        if (modalFooter._yppFooterDisposables) {
+            ModalDisposables.remove(modalFooter._yppFooterDisposables);
+            modalFooter._yppFooterDisposables.dispose();
+        }
+        const footerDisposables = new DisposableStore();
+        modalFooter._yppFooterDisposables = footerDisposables;
+        ModalDisposables.add(footerDisposables);
 
         if (isManagementMode) {
             // Hide normal footer buttons
@@ -11417,29 +15650,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
 
                     // Update checkboxes in the DOM without recreating the VirtualScroller
-                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
-                        const vid = checkbox.getAttribute('data-video-id');
-                        if (vid) checkbox.checked = selectedVideos.has(vid);
-                    });
+                    syncSelectionCheckboxes();
 
                     updateManagementFooterState();
-                }
+                },
+                store: footerDisposables
             });
-            const btnClearSelection = createElement('button', {
-                id: 'ypp-clear-selection-btn',
-                className: 'ypp-btn ypp-btn-outline-warning ypp-shadow-md ypp-management-footer-item',
-                html: `${SVG_ICONS.close} ${t('clearSelection')}`,
-                onClickEvent: () => {
-                    if (selectedVideos.size === 0) return;
-                    selectedVideos.clear();
-
-                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
-                        checkbox.checked = false;
-                    });
-
-                    updateManagementFooterState();
-                }
-            });
+            const btnClearSelection = createClearSelectionButton(footerDisposables, updateManagementFooterState);
 
             /**
             * Creates a button with an upward-opening dropdown submenu (for footer actions).
@@ -11483,6 +15700,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 });
 
                 let isOpen = false;
+                const menuGeneration = savedVideosModalGeneration;
+                const outsideListenerStore = new DisposableStore();
+                (store ?? GlobalDisposables).add(outsideListenerStore);
 
                 const onOutsideClick = (event) => {
                     if (!wrapper.contains(event.target)) closeMenu();
@@ -11493,7 +15713,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     isOpen = false;
                     list.classList.add('ypp-d-none');
                     trigger.setAttribute('aria-expanded', 'false');
-                    document.removeEventListener('click', onOutsideClick);
+                    outsideListenerStore.clear();
                     if (getCurrentlyOpen() === closeMenu) setCurrentlyOpen(null);
                 };
 
@@ -11508,7 +15728,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // Persistent listener (no {once:true}): a single click anywhere used
                     // to disarm it, leaving the menu stuck open against later outside clicks.
                     requestAnimationFrame(() => {
-                        if (isOpen) document.addEventListener('click', onOutsideClick);
+                        if (isOpen && menuGeneration === savedVideosModalGeneration && wrapper.isConnected) {
+                            outsideListenerStore.clear();
+                            addDisposableListener(document, 'click', onOutsideClick, {}, outsideListenerStore);
+                        }
                     });
                 };
 
@@ -11579,13 +15802,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
 
             let importIsOpen = false;
+            const importMenuGeneration = savedVideosModalGeneration;
+            // Released on every footer rebuild via modalFooter, otherwise each
+            // toggle would strand one more store in ModalDisposables.
+            if (modalFooter._yppImportOutsideListenerStore) {
+                ModalDisposables.remove(modalFooter._yppImportOutsideListenerStore);
+                modalFooter._yppImportOutsideListenerStore.dispose();
+            }
+            const importOutsideListenerStore = new DisposableStore();
+            modalFooter._yppImportOutsideListenerStore = importOutsideListenerStore;
+            ModalDisposables.add(importOutsideListenerStore);
 
             const closeImportMenu = () => {
                 if (!importIsOpen) return;
                 importIsOpen = false;
                 importList.classList.add('ypp-d-none');
                 importTrigger.setAttribute('aria-expanded', 'false');
-                document.removeEventListener('click', onImportOutsideClick);
+                importOutsideListenerStore.clear();
                 if (getCurrentlyOpenFooterMenu() === closeImportMenu) setCurrentlyOpenFooterMenu(null);
             };
 
@@ -11604,7 +15837,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 setCurrentlyOpenFooterMenu(closeImportMenu);
                 // Persistent listener (no {once:true}) so later outside clicks keep closing it
                 requestAnimationFrame(() => {
-                    if (importIsOpen) document.addEventListener('click', onImportOutsideClick);
+                    if (importIsOpen && importMenuGeneration === savedVideosModalGeneration && importMenuWrapper.isConnected) {
+                        importOutsideListenerStore.clear();
+                        addDisposableListener(document, 'click', onImportOutsideClick, {}, importOutsideListenerStore);
+                    }
                 });
             }, {}, ModalDisposables);
 
@@ -11710,61 +15946,145 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (!confirm(t('confirmDeleteSelected').replace('{count}', selectedVideos.size))) return;
 
                     const idsToDelete = Array.from(selectedVideos);
-                    const allKeys = await Storage.keys();
+                    storageDestructiveEpoch += 1;
+                    selectedDeleteInFlight = true;
+                    try {
 
-                    // Undo cache
+                    // Undo cache contains only records whose durable deletion
+                    // was confirmed (or whose primary deletion succeeded but
+                    // fallback cleanup still needs recovery).
                     const rollbackData = [];
                     let skippedProtected = 0;
+                    let skippedConflicts = 0;
+                    let failedDeletes = 0;
+                    let readErrors = 0;
 
                     for (const id of idsToDelete) {
-                        const itemData = await Storage.get(id);
-                        if (!itemData) continue;
+                        let itemData;
+                        try {
+                            itemData = await Storage.get(id, { throwOnError: true });
+                        } catch (error) {
+                            readErrors++;
+                            logError('deleteSelected', `Failed to read "${id}" before deletion`, error);
+                            continue;
+                        }
+                        if (!itemData || typeof itemData !== 'object') continue;
 
                         if (itemData.isProtected) {
                             skippedProtected++;
                             continue;
                         }
 
-                        rollbackData.push({ type: 'video', id, data: itemData });
+                        try {
+                            const latest = await Storage.get(id, { throwOnError: true });
+                            const latestTime = Number(latest?.timeWatched || 0);
+                            const snapshotTime = Number(itemData.timeWatched || 0);
+                            if (latest?.isProtected === true || latestTime > snapshotTime) {
+                                skippedConflicts++;
+                                logWarn('deleteSelected', `Skipped deletion of newer/protected record "${id}"`);
+                                continue;
+                            }
+                        } catch (error) {
+                            readErrors++;
+                            logError('deleteSelected', `Could not re-read "${id}" before deletion`, error);
+                            continue;
+                        }
 
-                        await Storage.del(id);
-                        PlaybackDisplayManager.syncFixedTime({ videoId: id, isFixedTime: false, timeValue: 0 });
-                        PlaybackDisplayManager.syncSavedState({ videoId: id, isSaved: false });
+                        const deleteResult = await Storage.del(id, {
+                            commitGuard: () => isInstanceActive(),
+                            expectedTimeWatched: itemData.timeWatched
+                        });
+                        if (!deleteResult?.success && !deleteResult?.durableDeleted) {
+                            failedDeletes++;
+                            logError('deleteSelected', `Failed to delete "${id}"`, deleteResult?.error);
+                            continue;
+                        }
+
+                        rollbackData.push({ type: 'video', id, data: itemData });
+                        if (deleteResult.success) {
+                            PlaybackDisplayManager.syncFixedTime({ videoId: id, isFixedTime: false, timeValue: 0 });
+                            PlaybackDisplayManager.syncSavedState({ videoId: id, isSaved: false });
+                        } else {
+                            failedDeletes++;
+                        }
                     }
-                    selectedVideos.clear();
+                    for (const item of rollbackData) selectedVideos.delete(item.id);
                     updateManagementFooterState();
                     await updateVideoList();
 
                     const deletedCount = rollbackData.length;
                     if (deletedCount > 0) {
+                        const errorParts = buildSkipParts({ skippedProtected, readErrors, skippedConflicts, failedDeletes });
+                        const errorSuffix = errorParts.length > 0 ? ` (${errorParts.join(', ')})` : '';
                         // Toast with Undo option visible for 10 seconds
-                        showFloatingToast(`🚮 ${t('itemsDeleted', { count: deletedCount })}${skippedProtected > 0 ? ` (${t('protectedItemsSkipped', { count: skippedProtected })})` : ''}`, 10000, {
+                        showFloatingToast(`🚮 ${t('itemsDeleted', { count: deletedCount })}${errorSuffix}`, 10000, {
                             action: {
                                 label: t('undo'),
                                 callback: async () => {
+                                    let restoredCount = 0;
+                                    let skippedNewer = 0;
+                                    let restoreFailures = 0;
                                     for (const item of rollbackData) {
-                                        if (item.type === 'video') {
-                                            await Storage.set(item.id, item.data);
+                                        if (item.type !== 'video') continue;
+                                        try {
+                                            const restoreOutcome = await restoreDeletedRecordIfUnchanged(item.id, item.data, () => isInstanceActive());
+                                            if (restoreOutcome.skipped) {
+                                                skippedNewer++;
+                                            } else {
+                                                restoredCount++;
+                                            }
+                                        } catch (error) {
+                                            restoreFailures++;
+                                            logError('deleteSelected', `Failed to restore "${item.id}"`, error);
                                         }
                                     }
                                     await updateVideoList();
-                                    showFloatingToast(`${SVG_ICONS.check} ${t('itemsRestored').replace('{count}', deletedCount)}`, 3000);
-                                }
+                                    if (restoreFailures > 0) {
+                                        showFloatingToast(`${SVG_ICONS.error} ${t('errorSaving')} (${restoreFailures})`, 5000);
+                                        return false;
+                                    }
+                                    const skippedMsg = skippedNewer > 0 ? ` (${skippedNewer} newer kept)` : '';
+                                    showFloatingToast(`${SVG_ICONS.check} ${t('itemsRestored').replace('{count}', restoredCount)}${skippedMsg}`, 3000);
+                                    return true;
+                                },
+                                keepOpenOnFailure: true
                             }
                         });
-                    } else if (skippedProtected > 0) {
-                        showFloatingToast(`${SVG_ICONS.warning} ${t('protectedItemsSkipped', { count: skippedProtected })}`);
+                    } else if (skippedProtected > 0 || readErrors > 0 || failedDeletes > 0) {
+                        const errorParts = buildSkipParts({ skippedProtected, readErrors, skippedConflicts, failedDeletes });
+                        showFloatingToast(`${SVG_ICONS.warning} ${errorParts.join(', ')}`);
                     }
 
-                }
+                    } finally {
+                        selectedDeleteInFlight = false;
+                    }
+                },
+                store: footerDisposables
             });
             btnDeleteSelected.disabled = selectedVideos.size === 0;
 
             const btnClearAll = createElement('button', {
                 className: 'ypp-btn ypp-btn-outline-danger ypp-shadow-md ypp-management-footer-item',
                 html: `${SVG_ICONS.trash} ${t('clearAll')}`,
-                onClickEvent: async () => { await clearAllData(); }
+                onClickEvent: async () => { await clearAllData(); },
+                store: footerDisposables
             });
+
+            // Only rendered when unreadable durable rows were detected, so
+            // the repair entry stays invisible on healthy installations.
+            const quarantinedAtBuild = Storage.getQuarantinedRecords();
+            const btnRepairStorage = quarantinedAtBuild.length > 0
+                ? createElement('button', {
+                    id: 'ypp-repair-storage-btn',
+                    className: 'ypp-btn ypp-btn-outline-warning ypp-shadow-md ypp-management-footer-item',
+                    html: `${SVG_ICONS.warning} ${t('repairStorage')} (${quarantinedAtBuild.length})`,
+                    attributes: { type: 'button' },
+                    onClickEvent: async () => {
+                        await runStorageRepairFlow(btnRepairStorage);
+                    },
+                    store: footerDisposables
+                })
+                : null;
 
 
             const cancelBtn = createElement('button', {
@@ -11772,12 +16092,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 html: `${SVG_ICONS.close} ${t('cancel')}`,
                 onClickEvent: async () => {
                     toggleManagementMode();
-                }
+                },
+                store: footerDisposables
             });
 
             managementModeContainer.append(selectionInfo);
             selectionSection.append(btnSelectAll, btnClearSelection);
             dataSection.append(importMenuWrapper, exportAllMenu, exportSelectedMenu);
+            if (btnRepairStorage) dataSection.append(btnRepairStorage);
             dangerSection.append(btnDeleteSelected, btnClearAll);
             dangerSection.append(cancelBtn);
             btnGroup.append(selectionSection, dataSection, dangerSection/* , sessionSection */);
@@ -11808,8 +16130,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
 
             const playlistTitle = createElement('h4', {
-                html: `${SVG_ICONS.playlist} ${t('playlistLinkGenerated')}`,
-                styles: { marginBottom: '10px' }
+                html: `${SVG_ICONS.playlist} ${t('playlistLinkGenerated')}`
             });
 
             const playlistInfo = createElement('p', {
@@ -11828,6 +16149,44 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
 
             const playlistActions = createElement('div', { className: 'ypp-playlist-actions' });
+
+            // Icon-only copy/open controls live in the header so feedback
+            // (copy -> check swap) never changes the button box. Fixed 30x30
+            // size in CSS keeps layout stable; text feedback would resize
+            // the footer row on every copy.
+            const copyBtn = createElement('button', {
+                id: 'ypp-playlist-copy-link-btn',
+                className: 'ypp-playlist-icon-btn',
+                html: SVG_ICONS.copy,
+                attributes: { type: 'button', title: t('copyLink'), 'aria-label': t('copyLink') },
+                onClickEvent: () => {
+                    if (!playlistTextarea.value) {
+                        alert(t('selectAtLeastOne'));
+                        return;
+                    }
+
+                    if (playlistTextarea.value) copyToClipboard(playlistTextarea.value, copyBtn);
+                },
+                store: footerDisposables
+            });
+
+            const openBtn = createElement('button', {
+                id: 'ypp-playlist-open-link-btn',
+                className: 'ypp-playlist-icon-btn',
+                html: SVG_ICONS.linkExternal,
+                attributes: { type: 'button', title: t('openPlaylist'), 'aria-label': t('openPlaylist') },
+                onClickEvent: () => {
+                    if (!playlistTextarea.value) {
+                        alert(t('selectAtLeastOne'));
+                        return;
+                    }
+                    if (playlistTextarea.value) window.open(getSafeUrl(playlistTextarea.value), '_blank');
+                },
+                store: footerDisposables
+            });
+
+            const playlistHeader = createElement('div', { className: 'ypp-playlist-creation-header' });
+            playlistHeader.append(playlistTitle, copyBtn, openBtn);
 
             const items = getVirtualScrollerVideoItems();
             const allSelected = items.length > 0 && items.every(v => selectedVideos.has(v.info.videoId));
@@ -11856,30 +16215,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         }
                     }
 
-                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
-                        const vid = checkbox.getAttribute('data-video-id');
-                        if (vid) checkbox.checked = selectedVideos.has(vid);
-                    });
+                    syncSelectionCheckboxes();
 
                     refreshPlaylistState();
-                }
+                },
+                store: footerDisposables
             });
 
-            const btnClearSelection = createElement('button', {
-                id: 'ypp-clear-selection-btn',
-                className: 'ypp-btn ypp-btn-outline-warning ypp-shadow-md ypp-management-footer-item',
-                html: `${SVG_ICONS.close} ${t('clearSelection')}`,
-                onClickEvent: () => {
-                    if (selectedVideos.size === 0) return;
-                    selectedVideos.clear();
-
-                    DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
-                        checkbox.checked = false;
-                    });
-
-                    refreshPlaylistState();
-                }
-            });
+            const btnClearSelection = createClearSelectionButton(footerDisposables, () => refreshPlaylistState());
 
             const refreshPlaylistState = () => {
                 const size = selectedVideos.size;
@@ -11897,58 +16240,30 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 btnClearSelection.disabled = size === 0;
 
-                const copyBtn = DOMHelpers.get('playlist:copyBtn', () => document.getElementById('ypp-playlist-copy-link-btn'), 5000);
-                const openBtn = DOMHelpers.get('playlist:openBtn', () => document.getElementById('ypp-playlist-open-link-btn'), 5000);
+                const copyBtnEl = DOMHelpers.get('playlist:copyBtn', () => document.getElementById('ypp-playlist-copy-link-btn'), 5000);
+                const openBtnEl = DOMHelpers.get('playlist:openBtn', () => document.getElementById('ypp-playlist-open-link-btn'), 5000);
 
-                if (copyBtn) copyBtn.disabled = size === 0;
-                if (openBtn) openBtn.disabled = size === 0;
+                if (copyBtnEl) copyBtnEl.disabled = size === 0;
+                if (openBtnEl) openBtnEl.disabled = size === 0;
             };
 
-            playlistRefreshHandler = refreshPlaylistState;
-            playlistAreaElement = playlistArea;
-            playlistArea.addEventListener('ypp-selection-changed', refreshPlaylistState);
-
-            const copyBtn = createElement('button', {
-                id: 'ypp-playlist-copy-link-btn',
-                className: 'ypp-btn ypp-btn-info ypp-shadow-md',
-                html: `${SVG_ICONS.copy} ${t('copyLink')}`,
-                onClickEvent: () => {
-                    if (!playlistTextarea.value) {
-                        alert(t('selectAtLeastOne'));
-                        return;
-                    }
-
-                    if (playlistTextarea.value) copyToClipboard(playlistTextarea.value, copyBtn);
-                }
-            });
-
-            const openBtn = createElement('button', {
-                id: 'ypp-playlist-open-link-btn',
-                className: 'ypp-btn ypp-btn-outline-primary ypp-shadow-md',
-                html: `${t('openPlaylist')} ${SVG_ICONS.linkExternal}`,
-                onClickEvent: () => {
-                    if (!playlistTextarea.value) {
-                        alert(t('selectAtLeastOne'));
-                        return;
-                    }
-                    if (playlistTextarea.value) window.open(getSafeUrl(playlistTextarea.value), '_blank');
-                }
-            });
+            // Tracked by footerDisposables so the rebuild at the top of
+            // updateFooterButtons() releases it before #ypp-playlist-area is dropped.
+            addDisposableListener(playlistArea, 'ypp-selection-changed', refreshPlaylistState, {}, footerDisposables);
 
             const cancelBtn = createElement('button', {
                 className: 'ypp-btn ypp-btn-secondary ypp-shadow-md',
                 html: `${SVG_ICONS.close} ${t('cancel')}`,
-                onClickEvent: async () => { await togglePlaylistCreationMode(); }
+                onClickEvent: async () => { await togglePlaylistCreationMode(); },
+                store: footerDisposables
             });
 
             playlistActions.appendChild(btnSelectAll);
             playlistActions.appendChild(btnClearSelection);
-            playlistActions.appendChild(copyBtn);
-            playlistActions.appendChild(openBtn);
             playlistActions.appendChild(cancelBtn);
 
             playlistArea.appendChild(playlistInfo);
-            playlistArea.appendChild(playlistTitle);
+            playlistArea.appendChild(playlistHeader);
             playlistArea.appendChild(playlistTextarea);
             playlistArea.appendChild(playlistActions);
 
@@ -12015,8 +16330,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     /**
      * Copies text to the clipboard using the Clipboard API.
+     * Icon-only feedback (copy -> check) keeps the fixed-size header button
+     * stable: no text swap, no className replacement, no layout shift.
      * @param {string} text - Text to copy
-     * @param {HTMLElement} button - Button that shows visual feedback
+     * @param {HTMLElement} button - Icon-only button that shows visual feedback
      */
     async function copyToClipboard(text, button) {
         if (!text || !button) {
@@ -12024,16 +16341,26 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return;
         }
 
-        const originalHTML = button.innerHTML;
-        const originalClassName = button.className;
+        if (button._yppCopyFeedbackTimeout) {
+            clearTimeout(button._yppCopyFeedbackTimeout);
+            button._yppCopyFeedbackTimeout = 0;
+        }
+        button.classList.remove('is-copied', 'is-error');
 
         // Helper to show success state temporarily
         const showSuccess = (restoreIcon = SVG_ICONS.copy) => {
-            setInnerHTML(button, `${SVG_ICONS.check} ${t('linkCopied')}`);
-            button.className = 'ypp-btn ypp-btn-success';
-            setTimeout(() => {
-                setInnerHTML(button, `${restoreIcon} ${t('copyLink')}`);
-                button.className = originalClassName;
+            setInnerHTML(button, SVG_ICONS.check);
+            button.classList.add('is-copied');
+            button.classList.remove('is-error');
+            button.setAttribute('title', t('linkCopied'));
+            button.setAttribute('aria-label', t('linkCopied'));
+            button._yppCopyFeedbackTimeout = setTimeout(() => {
+                if (!button.isConnected) return;
+                setInnerHTML(button, restoreIcon);
+                button.classList.remove('is-copied');
+                button.setAttribute('title', t('copyLink'));
+                button.setAttribute('aria-label', t('copyLink'));
+                button._yppCopyFeedbackTimeout = 0;
             }, 2000);
         };
 
@@ -12077,15 +16404,57 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             } catch (fallbackErr) {
                 logError('copyToClipboard', 'Fallback also failed:', fallbackErr);
-                // Show visual error to the user
-                setInnerHTML(button, `${SVG_ICONS.x} ${t('error')}`);
-                button.className = 'ypp-btn ypp-btn-danger';
-                setTimeout(() => {
-                    setInnerHTML(button, originalHTML);
-                    button.className = originalClassName;
+                // Show visual error to the user without resizing the button
+                if (button._yppCopyFeedbackTimeout) {
+                    clearTimeout(button._yppCopyFeedbackTimeout);
+                }
+                setInnerHTML(button, SVG_ICONS.close);
+                button.classList.remove('is-copied');
+                button.classList.add('is-error');
+                button.setAttribute('title', t('error'));
+                button.setAttribute('aria-label', t('error'));
+                button._yppCopyFeedbackTimeout = setTimeout(() => {
+                    if (!button.isConnected) return;
+                    setInnerHTML(button, SVG_ICONS.copy);
+                    button.classList.remove('is-error');
+                    button.setAttribute('title', t('copyLink'));
+                    button.setAttribute('aria-label', t('copyLink'));
+                    button._yppCopyFeedbackTimeout = 0;
                 }, 2000);
             }
         }
+    }
+
+    /**
+     * Synchronizes every rendered selection checkbox with `selectedVideos`.
+     * @returns {void}
+     */
+    function syncSelectionCheckboxes() {
+        DOMHelpers.get('list:videoCheckboxes', () => document.querySelectorAll('.ypp-video-checkbox'), 100).forEach(checkbox => {
+            const videoId = checkbox.getAttribute('data-video-id');
+            checkbox.checked = videoId ? selectedVideos.has(videoId) : false;
+        });
+    }
+
+    /**
+     * Builds the footer button that clears the current selection.
+     * @param {DisposableStore} store - Store owning the button listener.
+     * @param {() => void} onCleared - Refreshes the owning view after clearing.
+     * @returns {HTMLElement} Clear-selection button.
+     */
+    function createClearSelectionButton(store, onCleared) {
+        return createElement('button', {
+            id: 'ypp-clear-selection-btn',
+            className: 'ypp-btn ypp-btn-outline-warning ypp-shadow-md ypp-management-footer-item',
+            html: `${SVG_ICONS.close} ${t('clearSelection')}`,
+            onClickEvent: () => {
+                if (selectedVideos.size === 0) return;
+                selectedVideos.clear();
+                syncSelectionCheckboxes();
+                onCleared();
+            },
+            store
+        });
     }
 
     /**
@@ -12144,11 +16513,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const SCORE_DELTA_THRESHOLD = 2;
         let activeSelection = null;
 
+        /**
+         * Finds the DOM root that owns a video element for a given context.
+         * Shorts falls back to mobile web (`shorts-video`), where YouTube
+         * reuses `#movie_player` instead of `#shorts-player`.
+         * @param {HTMLVideoElement|null} videoEl - Video element to locate.
+         * @param {string} context - One of `watch`, `shorts`, `miniplayer`, `preview`.
+         * @returns {Element|null} Context root, or null when it does not exist.
+         */
         const getContextRoot = (videoEl, context) => {
             if (!videoEl) return null;
             const rootSelectors = {
                 watch: () => videoEl.closest(SELECTORS.player.movie),
-                shorts: () => videoEl.closest(SELECTORS.shorts.player),
+                shorts: () => videoEl.closest(SELECTORS.shorts.player) ?? videoEl.closest(SELECTORS.ELEMENTS.MWEB_SHORTS_VIDEO),
                 miniplayer: () => videoEl.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT),
                 preview: () => videoEl.closest(SELECTORS.inlinePreview.player) || videoEl.closest(SELECTORS.IDS.VIDEO_PREVIEW_CONTAINER)
             };
@@ -12266,6 +16643,27 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         };
     })();
 
+    /**
+     * Canonical field order for routing-decision telemetry. One list keeps every
+     * line of the same event comparable in the log.
+     */
+    const ROUTING_DECISION_FIELDS = ['decision', 'reason', 'context', 'videoId', 'toVideoId', 'sessionId', 'transitionToken', 'handoffMode'];
+
+    /**
+     * Emits a `routingDecision` telemetry event with a normalized payload.
+     * Fields a call site does not provide are dropped instead of logged as
+     * `undefined`, so every decision keeps the same shape.
+     * @param {{decision: string, reason?: string, context?: string, videoId?: string, toVideoId?: string, sessionId?: string, transitionToken?: string, handoffMode?: string}} details - Decision and its optional context.
+     */
+    const logRoutingDecision = (details) => {
+        const payload = { decision: details.decision };
+        ROUTING_DECISION_FIELDS.forEach((field) => {
+            const value = details[field];
+            if (value !== undefined && value !== null) payload[field] = value;
+        });
+        SessionTelemetry.emit('routingDecision', payload);
+    };
+
     const shouldDropVideoEvent = (videoEl) => {
         if (!videoEl) return true;
         if (!(videoEl instanceof HTMLVideoElement)) return true;
@@ -12364,6 +16762,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (!RouteContextResolver.isContextLocked(session.videoEl, session.type)) return;
                 SessionTelemetry.emit('fallbackRetry', { source, context: session.type, sessionId: session.sessionId, transitionToken: session.transitionToken });
                 try {
+                    VideoObserverManager.invalidateTypeCache(session.videoEl);
                     VideoObserverManager.enqueueWithResolver(session.videoEl, session.type, 'fallbackRetry');
                 } catch (_) {
                     logWarn('SessionFallbackManager', `⚠️ fallbackRetry failed for ${session.lastVideoId || session.sessionId}`);
@@ -12380,6 +16779,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 tries++;
                 SessionTelemetry.emit('fallbackWatchdog', { source, context: session.type, sessionId: session.sessionId, transitionToken: session.transitionToken });
                 try {
+                    VideoObserverManager.invalidateTypeCache(session.videoEl);
                     VideoObserverManager.enqueueWithResolver(session.videoEl, session.type, 'fallbackWatchdog');
                 } catch (_) {
                     logWarn('SessionFallbackManager', `⚠️ fallbackWatchdog enqueueWithResolver failed for ${session.lastVideoId || session.sessionId}`);
@@ -12399,6 +16799,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // MARK: 📡 Video Observer Manager
     // ============================================================================================================
     /**
+     * Queue size from which enqueueVideo sweeps detached videos. Declared here
+     * (not with the modal/UI constants further down) because enqueueVideo reads
+     * it during the same evaluation pass: a later `const` would be in its TDZ.
+     * @type {number}
+     */
+    const PENDING_VIDEOS_SWEEP_THRESHOLD = 10;
+
+    /**
      * Handles video observation and processing in isolation by type.
      */
     const VideoObserverManager = (() => {
@@ -12408,8 +16816,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         let previewWatchdogId = null;
         /** @description Miniplayer visibility cache to avoid excessive querySelector calls */
         let isMiniplayerActive = false;
-        /** @description Record of videos currently waiting for ad completion to be re-enqueued */
-        const activeAdWaiters = new WeakSet();
+        /** @description Per-video cleanup callbacks for ad recovery. */
+        const activeAdWaiters = new WeakMap();
+        /** @description Explicit teardown registry for page-level cleanup. */
+        const adRecoveryCleanups = new Set();
         /** @description Marks miniplayer videos in src transition for session handoff */
         const miniplayerTransitions = new WeakSet();
         /** @description Timer for deferred miniplayer detection post-bootstrap */
@@ -12456,6 +16866,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         /**
          * Executes processing of queued videos asynchronously.
+         *
+         * Two invariants keep the queue drainable:
+         * 1. Every item is processed inside its own try/catch. Context resolution
+         *    reads the DOM (`closest`, `isConnected`), and a queued `<video>` can be
+         *    detached between `Array.from(pendingVideos)` and this loop when
+         *    YouTube recycles grid/Shorts nodes. An uncaught throw there would
+         *    abandon the whole batch and leave `isBatchProcessing` stuck at true,
+         *    which permanently stops both draining and re-scheduling the queue.
+         * 2. The flag is reset in a `finally`-style block, so no throw path can
+         *    skip it.
          */
         const processBatch = () => {
             if (pendingVideos.size === 0) {
@@ -12467,26 +16887,36 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const batch = Array.from(pendingVideos);
             pendingVideos.clear();
 
-            batch.forEach(video => {
-                const cachedType = videoTypeCache.get(video);
-                const type = RouteContextResolver.resolveContext(video, cachedType || null);
-                if (!type || !RouteContextResolver.canProcessContext(video, type)) return;
+            try {
+                batch.forEach(video => {
+                    try {
+                        const cachedType = videoTypeCache.get(video);
+                        const type = RouteContextResolver.resolveContext(video, cachedType || null);
+                        if (!type || !RouteContextResolver.canProcessContext(video, type)) return;
 
-                // If video no longer has src, ignore
-                if (!video.src) return;
+                        // If video no longer has src, ignore
+                        if (!video.src) return;
 
-                logInfo('VideoObserverManager', `🎥 Processing video type: ${type}`, { src: video.src });
+                        logInfo('VideoObserverManager', `🎥 Processing video type: ${type}`, { src: video.src });
 
-                processMediaVideo(video, type).catch(err => {
-                    logError('VideoObserverManager', `Error processing ${type} video`, err);
+                        processMediaVideo(video, type).catch(err => {
+                            logError('VideoObserverManager', `Error processing ${type} video`, err);
+                        });
+                    } catch (err) {
+                        // Expected for recycled/detached nodes: drop this item only.
+                        // Deliberately a warning-level log: this path can fire routinely
+                        // during fast scrolling and must not feed the global error tracker.
+                        logWarn('VideoObserverManager', `⏭️ Skipped detached queued video: ${err?.message || err}`);
+                        videoTypeCache.delete(video);
+                    }
                 });
-            });
-
-            // Continue with the next batch if there are more videos
-            if (pendingVideos.size > 0) {
-                queueMicrotask(processBatch);
-            } else {
-                isBatchProcessing = false;
+            } finally {
+                // Continue with the next batch if there are more videos
+                if (pendingVideos.size > 0) {
+                    queueMicrotask(processBatch);
+                } else {
+                    isBatchProcessing = false;
+                }
             }
         };
 
@@ -12510,6 +16940,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     const currentSession = activeProcessingSessions.get(previewVideo);
                     if (currentSession?.type === 'preview') return;
 
+                    videoTypeCache.delete(previewVideo);
                     enqueueVideo(previewVideo, 'preview');
                 } catch (_) { logWarn('ensurePreviewWatchdog', 'Error in preview watchdog timeout', _); }
             }, 700);
@@ -12517,6 +16948,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Watch player wait state
         let watchPlayerWaitState = { timeoutId: null, intervalId: null, resolved: false };
+
+        /**
+         * Clears the pending timers of the watch-player wait loop.
+         * @param {boolean} [isResolved=false] - Value stored in the resolved flag.
+         * @returns {void}
+         */
+        const clearWatchPlayerWait = (isResolved = false) => {
+            if (watchPlayerWaitState.timeoutId) {
+                clearTimeout(watchPlayerWaitState.timeoutId);
+                watchPlayerWaitState.timeoutId = null;
+            }
+            if (watchPlayerWaitState.intervalId) {
+                clearInterval(watchPlayerWaitState.intervalId);
+                watchPlayerWaitState.intervalId = null;
+            }
+            watchPlayerWaitState.resolved = isResolved;
+        };
 
 
         // Time configuration
@@ -12529,20 +16977,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          * @param {boolean} force - If true, forces reprocessing ignoring cache
          */
         const waitForWatchPlayerReactive = (force = false) => {
-            const clearWaitState = (isResolved = false) => {
-                if (watchPlayerWaitState.timeoutId) {
-                    clearTimeout(watchPlayerWaitState.timeoutId);
-                    watchPlayerWaitState.timeoutId = null;
-                }
-                if (watchPlayerWaitState.intervalId) {
-                    clearInterval(watchPlayerWaitState.intervalId);
-                    watchPlayerWaitState.intervalId = null;
-                }
-                watchPlayerWaitState.resolved = isResolved;
-            };
-
             // Clear previous state completely (new search)
-            clearWaitState();
+            clearWatchPlayerWait();
 
             // Immediate check (fast path)
             const existingVideo = DOMHelpers.getWatchPlayerVideo();
@@ -12566,14 +17002,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // If we are no longer in watch or live, abort
                 if (currentPageType !== 'watch' && currentPageType !== 'live') {
-                    clearWaitState(true);
+                    clearWatchPlayerWait(true);
                     logInfo('VideoObserverManager', '🚪 User left watch/live, stopping search');
                     return false;
                 }
 
                 const video = DOMHelpers.getWatchPlayerVideo();
                 if (video) {
-                    clearWaitState(true);
+                    clearWatchPlayerWait(true);
 
                     if (video.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT)) {
                         logLog('VideoObserverManager', '⏭️ Video in miniplayer, skipping watch bootstrap');
@@ -12604,7 +17040,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // currentPageType is not updated, this prevents the interval from living forever.
             watchPlayerWaitState.timeoutId = setTimeout(() => {
                 if (!watchPlayerWaitState.resolved) {
-                    clearWaitState(true);
+                    clearWatchPlayerWait(true);
                     logWarn('VideoObserverManager',
                         `⏱️ Timeout (${WATCH_PLAYER_MAX_WAIT / 1000}s) #movie_player not found`);
                 }
@@ -12654,6 +17090,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // If no sync video but not on watch/live, schedule retry
                 // since YouTube can apply `miniplayer-is-active` on ytd-app AFTER navigation.
                 // We schedule a short retry to cover that timing gap.
+                if (deferredMiniplayerTimer !== null) clearTimeout(deferredMiniplayerTimer);
                 deferredMiniplayerTimer = setTimeout(() => {
                     deferredMiniplayerTimer = null;
                     // Cache TTL is 125ms, so at 600ms it will re-evaluate the DOM guaranteed.
@@ -12685,51 +17122,48 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          */
         const scheduleAdRecovery = (videoElement, type) => {
             if (!videoElement || activeAdWaiters.has(videoElement)) return;
-            activeAdWaiters.add(videoElement);
-
             logInfo('VideoObserverManager', `🔄 Ad recovery scheduled for [${type}] video`);
 
+            const disposables = new DisposableStore();
             let lastCheck = 0;
+            let cleanedUp = false;
             let intervalId = null;
+
+            /** @returns {void} Releases listeners, timer and registries. */
             const cleanup = () => {
-                videoElement.removeEventListener('timeupdate', onAdWait);
-                videoElement.removeEventListener('play', onAdWait);
-                if (intervalId) clearInterval(intervalId);
+                if (cleanedUp) return;
+                cleanedUp = true;
+                if (intervalId !== null) clearInterval(intervalId);
+                disposables.dispose();
                 activeAdWaiters.delete(videoElement);
+                adRecoveryCleanups.delete(cleanup);
                 logLog('VideoObserverManager', `🧹 Ad recovery cleaned up for [${type}] video`);
             };
+
+            /** @returns {void} Checks ad state with event/interval throttling. */
             const onAdWait = () => {
-                // Throttling: Only check ads every 1000ms to reduce load without losing reactivity
                 const now = Date.now();
                 if (now - lastCheck < 1000) return;
                 lastCheck = now;
-
                 if (!document.contains(videoElement)) {
-                    logLog('VideoObserverManager', `🗑️ Video [${type}] removed from DOM during ad recovery`);
                     cleanup();
                     return;
                 }
-
                 const isStillAd = AdDetector.isNodeWithinAdContainer(videoElement);
-                logLog('VideoObserverManager', `🔍 Ad recovery check [${type}]: still in ad = ${isStillAd}`);
-
                 if (!isStillAd) {
                     cleanup();
                     logInfo('VideoObserverManager', `✅ Video [${type}] cleared from ads, re-evaluating...`);
-                    // Invalidate the type cache so the re-enqueue below is not silently
-                    // dropped by enqueueVideo's "already processed for this type" guard.
                     videoTypeCache.delete(videoElement);
                     enqueueVideo(videoElement, type);
                 }
             };
 
-            videoElement.addEventListener('timeupdate', onAdWait);
-            videoElement.addEventListener('play', onAdWait);
-            // Fallback: cover cases where there are no events (e.g. pause/buffering after false positive)
+            activeAdWaiters.set(videoElement, cleanup);
+            adRecoveryCleanups.add(cleanup);
+            addDisposableListener(videoElement, 'timeupdate', onAdWait, {}, disposables);
+            addDisposableListener(videoElement, 'play', onAdWait, {}, disposables);
             intervalId = setInterval(onAdWait, 1000);
             logInfo('VideoObserverManager', `⏰ Ad recovery started for [${type}] with events and interval`);
-
-            // Run an immediate check
             onAdWait();
         };
 
@@ -12765,11 +17199,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             logLog('VideoObserverManager', `📥 Enqueuing video [${type}] for processing (Total pending: ${pendingVideos.size + 1})`);
-            SessionTelemetry.emit('routingDecision', {
-                decision: 'enqueue',
-                reason: triggerSource,
-                context: type
-            });
+            logRoutingDecision({ decision: 'enqueue', reason: triggerSource, context: type });
+            // Opportunistic sweep: YouTube recycles grid/Shorts nodes, so fast
+            // scrolling can queue videos that detach before processBatch drains
+            // them. Drop detached entries while the queue is hot to avoid
+            // retaining detached <video> subtrees between drains.
+            if (pendingVideos.size >= PENDING_VIDEOS_SWEEP_THRESHOLD) {
+                for (const queued of pendingVideos) {
+                    if (!queued.isConnected) {
+                        pendingVideos.delete(queued);
+                        try { videoTypeCache.delete(queued); } catch (_) { logWarn('enqueueVideo', 'Error pruning detached queued video', _); }
+                    }
+                }
+            }
             videoTypeCache.set(videoElement, type);
             pendingVideos.add(videoElement);
 
@@ -12806,14 +17248,42 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             miniplayerState: null,
             preview: null
         };
+        /** @type {Record<'watch'|'shorts'|'miniplayer'|'miniplayerState'|'preview', Element|null>} */
+        let observedTargets = {
+            watch: null,
+            shorts: null,
+            miniplayer: null,
+            miniplayerState: null,
+            preview: null
+        };
         const initObservers = (forceBootstrap = false, preserveMiniplayer = false, skipCleanup = false) => {
             if (!skipCleanup) cleanup(preserveMiniplayer);
 
-            // If skipCleanup is true and observers are already initialized, do not recreate them
-            if (skipCleanup && observers.watch && observers.shorts && observers.miniplayer && observers.miniplayerState && observers.preview) {
+            // A truthy observer object is not enough: YouTube may create the
+            // object before the corresponding target exists. Reuse only when
+            // every observer is still bound to its current target.
+            const currentTargets = {
+                watch: DOMHelpers.getWatchPlayer(),
+                shorts: DOMHelpers.getShortsPlayer(),
+                miniplayer: DOMHelpers.getMiniplayerElement(),
+                miniplayerState: DOMHelpers.get('page:app', () => document.querySelector('ytd-app'), 100),
+                preview: DOMHelpers.getInlinePreviewMainContainer()
+            };
+            const observersAreCurrent = Object.keys(currentTargets).every(key =>
+                observers[key] && (
+                    currentTargets[key] === null
+                        ? observedTargets[key] === null
+                        : observedTargets[key] === currentTargets[key]
+                )
+            );
+            if (skipCleanup && observersAreCurrent) {
                 logLog('VideoObserverManager', '⏭️ Observers already initialized, skipping recreation');
                 bootstrap(forceBootstrap);
                 return;
+            }
+            if (skipCleanup && (observers.watch || observers.shorts || observers.miniplayer || observers.miniplayerState || observers.preview)) {
+                logWarn('VideoObserverManager', 'Observer target changed or was missing; recreating observer set');
+                cleanup(preserveMiniplayer);
             }
 
             const config = { childList: true, subtree: true, attributes: true, attributeFilter: ['src'] };
@@ -12847,7 +17317,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                             // Invalidate playerVideoId cache to avoid stale data in SPA navigation
                             const player = videoEl.closest(SELECTORS.player.movie);
-                            if (player) playerVideoIdCache.delete(player);
+                            invalidatePlayerVideoIdCache(player);
 
                             // Get current videoId after src change
                             const currentVideoId = player ? getPlayerVideoId(player) : null;
@@ -12895,7 +17365,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (videoEl.closest(SELECTORS.shorts.player)) {
                             logLog('VideoObserverManager', '📱 Shorts: src change detected, resetting session and enqueuing');
                             const player = videoEl.closest(SELECTORS.shorts.player);
-                            if (player) playerVideoIdCache.delete(player);
+                            invalidatePlayerVideoIdCache(player);
                             resetSessionAndEnqueue(videoEl, 'shorts');
                             return;
                         }
@@ -12937,7 +17407,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             PlaybackDisplayManager.destroy('miniplayer');
                             resetProgressBarGradient('all');
                             clearPlayerCache();
-                            requestAnimationFrame(() => requestAnimationFrame(repaintWatchProgressBarFromActivePlayer));
+                            requestAnimationFrame(() => requestAnimationFrame(() => {
+                                if (window.__YPP__?.instanceId !== INSTANCE_ID || isMiniplayerActive) return;
+                                repaintWatchProgressBarFromActivePlayer();
+                            }));
                         }
                         return;
                     }
@@ -12966,7 +17439,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             lastMiniplayerSrc = newSrc;
                             logLog('VideoObserverManager', '📱 Miniplayer: src change detected, resetting session and enqueuing');
                             const player = videoEl.closest(SELECTORS.ELEMENTS.MINIPLAYER_ELEMENT);
-                            if (player) playerVideoIdCache.delete(player);
+                            invalidatePlayerVideoIdCache(player);
                             miniplayerTransitions.add(videoEl);
                             resetSessionAndEnqueue(videoEl, 'miniplayer');
                             return;
@@ -13019,7 +17492,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             logLog('VideoObserverManager', '👁️ Preview: src change detected, resetting session and enqueuing');
                             // Invalidate playerVideoId cache to avoid stale data
                             const player = isPreview ? (videoEl.closest(SELECTORS.inlinePreview.player) || videoEl.closest(SELECTORS.IDS.VIDEO_PREVIEW_CONTAINER)) : null;
-                            if (player) playerVideoIdCache.delete(player);
+                            invalidatePlayerVideoIdCache(player);
                             // Invalidate Shorts detection cache to avoid incorrect sub-tagging
                             delete videoEl.dataset.yppShortsPreview;
                             const currentPreviewId = player ? getPlayerVideoId(player) : null;
@@ -13078,6 +17551,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const playerContainer = DOMHelpers.getWatchPlayer();
                 if (playerContainer) {
                     observers.watch.observe(playerContainer, config);
+                    observedTargets.watch = playerContainer;
                     logInfo('VideoObserverManager', '✅ Watch observer initialized');
                 } else {
                     logWarn('VideoObserverManager', '⚠️ Could not find Watch container (movie_player). Could not initialize its observer.');
@@ -13087,6 +17561,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const shorts = DOMHelpers.getShortsPlayer();
                 if (shorts) {
                     observers.shorts.observe(shorts, config);
+                    observedTargets.shorts = shorts;
                     logInfo('VideoObserverManager', '✅ Shorts observer initialized');
                 } else {
                     logWarn('VideoObserverManager', 'ℹ️ Shorts container not found (normal if not in /shorts)');
@@ -13096,6 +17571,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const previewEl = DOMHelpers.getInlinePreviewMainContainer();
                 if (previewEl) {
                     observers.preview.observe(previewEl, config);
+                    observedTargets.preview = previewEl;
                     logInfo('VideoObserverManager', '✅ Previews observer initialized');
                 }
 
@@ -13106,12 +17582,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         attributes: true,
                         attributeFilter: [SELECTORS.RAW.attrs.MINIPLAYER_ACTIVE]
                     });
+                    observedTargets.miniplayerState = ytdApp;
                 }
 
                 // Video observer: ytd-miniplayer (childList + src)
                 const miniContainer = DOMHelpers.getMiniplayerElement();
                 if (miniContainer) {
                     observers.miniplayer.observe(miniContainer, config);
+                    observedTargets.miniplayer = miniContainer;
                     logInfo('VideoObserverManager', '✅ Miniplayer observers initialized');
                 }
 
@@ -13129,13 +17607,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const cleanup = (preserveMiniplayer = false) => {
             Object.values(observers).forEach(obs => obs?.disconnect());
             observers = { watch: null, shorts: null, miniplayer: null, miniplayerState: null, preview: null };
+            observedTargets = { watch: null, shorts: null, miniplayer: null, miniplayerState: null, preview: null };
 
-            if (shortsPanelObserver) {
-                shortsPanelObserver.disconnect();
-                shortsPanelObserver = null;
-            }
+            // The queue is dropped here, so the "processing" flag must be released too.
+            // A flag stuck at true would make enqueueVideo() stop scheduling processBatch(),
+            // leaving the script unable to resume tracking after a navigation or teardown.
+            isBatchProcessing = false;
+
+            // The observer and its retry timers are owned by the display
+            // manager. Disconnecting only the observer leaves delayed retries
+            // alive and can resurrect the Shorts UI after a teardown.
+            PlaybackDisplayManager.stopShortsPanelObserver();
 
             pendingVideos.clear();
+            for (const cleanupAdRecovery of [...adRecoveryCleanups]) cleanupAdRecovery();
             stopAllSessions(preserveMiniplayer);
 
             if (previewWatchdogId) {
@@ -13155,15 +17640,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             displayClearTimeouts.clear();
 
             // Clean up Watch player wait observer
-            if (watchPlayerWaitState.timeoutId) {
-                clearTimeout(watchPlayerWaitState.timeoutId);
-                watchPlayerWaitState.timeoutId = null;
-            }
-            if (watchPlayerWaitState.intervalId) {
-                clearInterval(watchPlayerWaitState.intervalId);
-                watchPlayerWaitState.intervalId = null;
-            }
-            watchPlayerWaitState.resolved = true;
+            clearWatchPlayerWait(true);
 
             logLog('VideoObserverManager', '🧹 Timers released (Partial SPA Teardown)');
         };
@@ -13172,6 +17649,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             logLog('VideoObserverManager', '🧹 Resetting video type cache');
             videoTypeCache = new WeakMap();
             pendingVideos.clear();
+            // Same invariant as cleanup(): an emptied queue must not leave the
+            // scheduling flag set, otherwise no further enqueue would be drained.
+            isBatchProcessing = false;
         };
 
         return {
@@ -13205,10 +17685,71 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const activeProcessingSessions = new Map();
     const previewTransitions = new WeakSet(); // Marks elements in transition to avoid race conditions
+
+    /**
+     * Reports whether a session was replaced by a newer one or already finalized.
+     * @param {HTMLVideoElement} videoEl - Element the session was created for.
+     * @param {object|null|undefined} session - Session to validate.
+     * @returns {boolean} True when the session is no longer the active one.
+     */
+    function isSessionStale(videoEl, session) {
+        return !session || session.isFinalized || activeProcessingSessions.get(videoEl) !== session;
+    }
     /** @type {WeakMap<HTMLVideoElement, { videoId: string, ts: number }>} */
     const recentResumeAttempts = new WeakMap();
     let sessionIdCounter = 0;
     let transitionTokenCounter = 0;
+
+    /** Retries left per element when video-ID resolution lags behind SPA navigation. */
+    const ID_MISMATCH_MAX_RETRIES = 4;
+    /** Delay between video-ID resolution retries during SPA transitions. */
+    const ID_MISMATCH_RETRY_MS = 1000;
+    /** @type {WeakMap<HTMLVideoElement, { url: string, count: number }>} */
+    const idMismatchRetries = new WeakMap();
+
+    /**
+     * Retries session startup when video-ID resolution fails during SPA
+     * transitions (player API still reports the previous video while the URL
+     * already changed). Bounded per element and pinned to the URL seen at
+     * scheduling time; a later navigation owns its own flow. Existing retry
+     * state is cleared once a session starts for the element.
+     * @param {HTMLVideoElement} videoEl - Video element that failed ID resolution.
+     * @param {string} type - Processing context (`watch`, `shorts`, ...).
+     * @param {Element|null} player - Player element, used to bust the stale ID cache.
+     * @returns {void}
+     */
+    const scheduleIdMismatchRetry = (videoEl, type, player) => {
+        if (!videoEl?.isConnected) return;
+        const url = window.location.href;
+        const state = idMismatchRetries.get(videoEl);
+        if (state && state.url === url && state.count >= ID_MISMATCH_MAX_RETRIES) return;
+        idMismatchRetries.set(videoEl, { url, count: state && state.url === url ? state.count + 1 : 1 });
+        setTimeout(() => {
+            if (!videoEl.isConnected) {
+                idMismatchRetries.delete(videoEl);
+                return;
+            }
+            // A later navigation owns its own flow; do not fight it.
+            if (window.location.href !== url) return;
+            const liveSession = activeProcessingSessions.get(videoEl);
+            if (liveSession && !liveSession.isFinalized) {
+                idMismatchRetries.delete(videoEl);
+                return;
+            }
+            // The player-ID cache (2s TTL) can still serve the pre-transition
+            // ID on a 1s retry cadence; bust it so resolution re-reads the API.
+            try {
+                invalidatePlayerVideoIdCache(player);
+            } catch (_) { /* cache bust is best-effort */ }
+            logLog('processMediaVideo', `🔄 Retrying video-ID resolution [${type}] after SPA transition`);
+            try {
+                VideoObserverManager.invalidateTypeCache(videoEl);
+                VideoObserverManager.enqueueWithResolver(videoEl, type, 'idMismatchRetry');
+            } catch (_) {
+                logWarn('processMediaVideo', 'idMismatchRetry enqueue failed', _);
+            }
+        }, ID_MISMATCH_RETRY_MS);
+    };
 
     /** @type {WeakMap<object, Set<number>>} Stores timeoutIds per session for cleanup in finalizeSession */
     const sessionTimeoutIds = new WeakMap();
@@ -13222,7 +17763,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {number} timeoutId
      */
     const createSessionTimeout = (sessionRef, fn, delayMs) => {
-        if (!sessionRef || sessionRef.isFinalized) return -1;
+        if (!sessionRef || sessionRef.isFinalized) {
+            // Returning -1 silently drops the callback. That is expected for a
+            // finalized session, but a missing session means the caller lost track
+            // of the owning session; log it so the skipped work is diagnosable.
+            if (!sessionRef) {
+                logWarn('createSessionTimeout', '⚠️ Timeout skipped: no session reference provided');
+            }
+            return -1;
+        }
         if (!sessionTimeoutIds.has(sessionRef)) {
             sessionTimeoutIds.set(sessionRef, new Set());
         }
@@ -13262,10 +17811,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             ['finalized', new Set([])]
         ]);
         const dedupeByKey = new Map();
+        const pendingRecoveryTimers = new Set();
         const DEDUPE_MS = 450;
         const DEDUPE_MAX_SIZE = 500;
 
-        const buildSessionId = (videoEl, context, videoId) => {
+        /**
+         * Cancels context-mismatch recovery callbacks owned by this runtime.
+         * @returns {void}
+         */
+        const clearPendingRecovery = () => {
+            for (const timerId of pendingRecoveryTimers) clearTimeout(timerId);
+            pendingRecoveryTimers.clear();
+        };
+
+        const buildSessionId = (context, videoId) => {
             sessionIdCounter += 1;
             return `${context}:${videoId || 'unknown'}:${sessionIdCounter}`;
         };
@@ -13308,12 +17867,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const dedupeTs = dedupeByKey.get(dedupeKey);
             if (dedupeTs !== undefined) {
                 if ((now - dedupeTs) < DEDUPE_MS) {
-                    SessionTelemetry.emit('routingDecision', {
-                        decision: 'dedupe',
-                        reason: source,
-                        context,
-                        videoId
-                    });
+                    logRoutingDecision({ decision: 'dedupe', reason: source, context, videoId });
                     return { accepted: false, reason: 'dedupe' };
                 }
                 dedupeByKey.delete(dedupeKey);
@@ -13344,7 +17898,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const sessionToken = `${identityKey}::${transitionToken}`;
             const abortController = new AbortController();
             const session = {
-                sessionId: buildSessionId(videoEl, context, videoId),
+                sessionId: buildSessionId(context, videoId),
                 sessionToken,
                 transitionToken,
                 identityKey,
@@ -13364,10 +17918,37 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 isAutoSaveAuthorized: false,
                 isUserSeeking: false,
                 _scriptSeekPending: false,
-                abortController
+                // Element has been seen past 1s at least once this session: tells
+                // "still at its start position" apart from a real reset to 0
+                // (isAwaitingFirstPlayback) and re-arms the rescue budget.
+                sawPlayback: false,
+                // Persistence-rescue retries spent on this session; reset when the
+                // element advances. Bounded by PERSISTENCE_RESCUE_MAX_ATTEMPTS.
+                rescueAttempts: 0,
+                // Playback reached the end at least once in this session (set by the
+                // element 'ended' listener). The tick can be throttled in a
+                // background tab and never see the final seconds, so this flag is
+                // the only reliable signal that a later reset to 0 is a natural end
+                // and not a failed save.
+                naturalEnd: false,
+                // Last duration seen while the media was loaded. YouTube unloads
+                // the media after the ended screen, leaving `videoEl.duration` as
+                // NaN; the remembered value still lets the save guard recognize
+                // the completion zone.
+                knownDuration: Number.isFinite(Number(videoEl?.duration)) ? Number(videoEl.duration) : 0,
+                abortController,
+                disposables: new DisposableStore()
             };
+            // Defensive: never drop a live session on the floor. If a previous session is
+            // still tracked for this element, replace() would orphan its interval
+            // and disposables. Callers already finalize beforehand, so this is a no-op
+            // in the normal flow.
+            const replacedSession = activeProcessingSessions.get(videoEl);
+            if (replacedSession && !replacedSession.isFinalized) {
+                finalizeSession(videoEl, 'replacedByStartSession');
+            }
             activeProcessingSessions.set(videoEl, session);
-            SessionTelemetry.emit('routingDecision', {
+            logRoutingDecision({
                 decision: 'start',
                 reason: source,
                 context,
@@ -13377,20 +17958,32 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return { accepted: true, session };
         };
 
-        const finalizeSession = (videoEl, reason = 'stop') => {
+        const finalizeSession = (videoEl, reason = 'stop', { destroyDisplay = false } = {}) => {
             const session = activeProcessingSessions.get(videoEl);
             if (!session || session.isFinalized) return;
             transitionState(session, 'stopping', reason);
             session.isFinalized = true;
             session.state = 'finalized';
             if (session.intervalId) clearInterval(session.intervalId);
+            if (session.seekGradientRaf) {
+                cancelAnimationFrame(session.seekGradientRaf);
+                session.seekGradientRaf = null;
+            }
             if (session.abortController) session.abortController.abort();
+            // A finalized session must reject any late listener/timer registration.
+            // `clear()` would keep the store active and allow async callbacks to
+            // attach resources after teardown.
+            session.disposables?.dispose();
             clearSessionTimeouts(session);
-            PlaybackDisplayManager.release(session.type, { videoEl, videoId: session.lastVideoId });
+            if (destroyDisplay) {
+                PlaybackDisplayManager.destroy(session.type);
+            } else {
+                PlaybackDisplayManager.release(session.type, { videoEl, videoId: session.lastVideoId });
+            }
             resetProgressBarGradient('all');
             SessionFallbackManager.clear(videoEl);
             activeProcessingSessions.delete(videoEl);
-            SessionTelemetry.emit('routingDecision', {
+            logRoutingDecision({
                 decision: 'stop',
                 reason,
                 context: session.type,
@@ -13402,7 +17995,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // is still connected to the DOM, schedule a re-enqueue to resume tracking.
             if (reason === 'context_mismatch' && videoEl.isConnected && document.contains(videoEl)) {
                 logLog('SessionOrchestrator', `🔄 Scheduling re-enqueue after context_mismatch for [${session.type}] - ${session.lastVideoId}`);
-                setTimeout(() => {
+                const recoveryTimerId = setTimeout(() => {
+                    pendingRecoveryTimers.delete(recoveryTimerId);
+                    if (window.__YPP__?.instanceId !== INSTANCE_ID) return;
                     if (!activeProcessingSessions.has(videoEl)) {
                         // Invalidate the type cache: without this, enqueueWithResolver resolves
                         // the same (cached) type and the re-enqueue is silently dropped.
@@ -13410,6 +18005,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         VideoObserverManager.enqueueWithResolver(videoEl, session.type, 'contextMismatchRecovery');
                     }
                 }, 500);
+                pendingRecoveryTimers.add(recoveryTimerId);
             }
         };
 
@@ -13430,7 +18026,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const prev = activeProcessingSessions.get(videoEl);
             if (!prev || prev.isFinalized) return null;
             transitionState(prev, 'transitioning', reason);
-            SessionTelemetry.emit('routingDecision', {
+            logRoutingDecision({
                 decision: 'handoff',
                 reason,
                 handoffMode,
@@ -13439,7 +18035,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 transitionToken: prev.transitionToken,
                 toVideoId
             });
-            finalizeSession(videoEl, `${reason}:${handoffMode}`);
+            finalizeSession(videoEl, `${reason}:${handoffMode}`, { destroyDisplay: true });
             return null;
         };
 
@@ -13447,13 +18043,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             startSession,
             finalizeSession,
             handoffSession,
-            transitionState
+            transitionState,
+            clearPendingRecovery
         };
     })();
 
     /**
+     * Contexts whose restarted session re-applies the resume and therefore need
+     * the guard below. Previews and live sessions keep their previous behavior
+     * (no guard) so their paths stay untouched.
+     * @type {Set<string>}
+     */
+    const RESUME_REAPPLY_GUARD_CONTEXTS = new Set(['watch', 'shorts', 'miniplayer']);
+
+    /**
      * Prevents redundant re-seeks when a session restarts during SPA navigation
      * but the video is already playing close to the saved progress.
+     * Covers watch/shorts/miniplayer: after a mid-roll ad the rebuilt session
+     * used to seek backwards and toast "Resumiendo en…" on every ad, because
+     * only the miniplayer was guarded.
      * @param {HTMLVideoElement} videoEl
      * @param {string} type
      * @param {string} videoId
@@ -13461,7 +18069,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {boolean}
      */
     const shouldSkipResumeForActivePlayback = (videoEl, type, videoId, savedData) => {
-        if (!videoEl || !savedData || type !== 'miniplayer') return false;
+        if (!videoEl || !savedData || !RESUME_REAPPLY_GUARD_CONTEXTS.has(type)) return false;
         if ((savedData.forceResumeTime || 0) > 0) return false;
 
         // Anti re-seek cooldown
@@ -13480,6 +18088,61 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
 
         return false;
+    };
+
+    /**
+     * True when the element is still sitting at its initial position because
+     * playback never began: the user paused the video before starting it, or no
+     * metadata/data has loaded yet. A `currentTime` of 0 in that state is not an
+     * element reset — nothing was lost and there is nothing to persist — so the
+     * save guard must not report it as a blocked/failed save.
+     * @param {HTMLVideoElement} videoEl
+     * @param {object|null} session - Active session (tracks whether the element ever advanced).
+     * @returns {boolean}
+     */
+    const isAwaitingFirstPlayback = (videoEl, session) => {
+        if (!videoEl) return false;
+        // Any recorded advance (or a committed save) makes a 0s report a reset.
+        if (session?.sawPlayback === true || session?.hasRealSave === true) return false;
+        return videoEl.paused === true || videoEl.readyState < 1;
+    };
+
+    /**
+     * True when a known progress already sits in the completion zone of a known
+     * duration. Used to tell the natural end of a video (YouTube drops the
+     * element clock back to 0 on the ended screen / with the media unloaded)
+     * apart from a real element reset: seeking to that position again would only
+     * replay the last seconds, end the video and reset the clock to 0 once more.
+     * Deliberately independent from `isResumeAtCompletionZone`, which is a resume
+     * policy (it honors `resumeCompletedFromStart`).
+     * @param {number} progress - Known progress in seconds.
+     * @param {number} duration - Known duration in seconds.
+     * @returns {boolean}
+     */
+    const isProgressInCompletionZone = (progress, duration) => {
+        const safeProgress = Number(progress) || 0;
+        const safeDuration = Number(duration) || 0;
+        if (safeProgress <= 0 || safeDuration <= 0) return false;
+        const finishPercent = (cachedSettings?.staticFinishPercent || DEFAULT_STATIC_FINISH_PERCENT) / 100;
+        // 1 s of tolerance: element clocks and metadata durations can disagree by a tick.
+        return safeProgress >= Math.max(0, safeDuration * finishPercent - 1);
+    };
+
+    /**
+     * True when the YouTube player reports its ENDED state (`0`).
+     * The `<video>` clock can already be back at 0 while the player still knows
+     * the video ended (ended screen, media unloaded). This is an independent
+     * signal from `videoEl.ended`, which is cleared by that reset.
+     * @param {object|null} player - Player element (e.g. `#movie_player`).
+     * @returns {boolean}
+     */
+    const isPlayerReportingEnd = (player) => {
+        try {
+            const api = getPlayerApi(player);
+            return typeof api?.getPlayerState === 'function' && api.getPlayerState() === 0;
+        } catch (_) {
+            return false;
+        }
     };
 
     /**
@@ -13514,6 +18177,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Mainly used during navigation (cleanup).
      */
     const stopAllSessions = (preserveMiniplayer = false) => {
+        SessionOrchestrator.clearPendingRecovery();
         const sessionCount = activeProcessingSessions.size;
         if (sessionCount === 0) return;
 
@@ -13540,23 +18204,30 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
+     * Copies metadata returned by saveStatus into the owning session.
+     * @param {object} session - Active session.
+     * @param {object|null} result - Result returned by PlaybackController.saveStatus.
+     * @returns {void}
+     */
+    function absorbSaveResult(session, result) {
+        if (result?.videoInfo) session.videoInfo = result.videoInfo;
+        if (result?.savedData) session.savedData = result.savedData;
+    }
+
+    /**
      * Starts a tracking (polling) session for a video.
      * @param {HTMLVideoElement} videoEl
      * @param {string} type - Context (watch, shorts, miniplayer, preview)
      * @param {string} videoId - Video ID to track
      * @param {object} player - YouTube player object
      * @param {string|null} playlistId - Playlist ID (optional)
+     * @param {{throwOnError?: boolean}} [options] - Propagate durable read failures.
      */
     const startProcessingSession = async (videoEl, type, videoId, player) => {
         FailSafeManager.maybeExit();
 
         if (!RouteContextResolver.isContextLocked(videoEl, type)) {
-            SessionTelemetry.emit('routingDecision', {
-                decision: 'reject',
-                reason: 'contextMismatch',
-                context: type,
-                videoId
-            });
+            logRoutingDecision({ decision: 'reject', reason: 'contextMismatch', context: type, videoId });
             return;
         }
 
@@ -13564,9 +18235,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const currentSession = activeProcessingSessions.get(videoEl);
         if (currentSession?.lastVideoId === videoId && currentSession?.type === type && currentSession?.state !== 'finalized') return;
 
-        // If there is an old session for a different video on the same element, clean it
-        if (currentSession && currentSession.lastVideoId !== videoId) {
-            SessionOrchestrator.finalizeSession(videoEl, 'preStartCleanup');
+        // If the element is being reused for a different video or context,
+        // finalize the old session before replacing the Map entry. Without the
+        // context check, a Watch → Miniplayer handoff on the same <video>
+        // would orphan the old interval and leak its display state.
+        if (currentSession && !currentSession.isFinalized &&
+            (currentSession.lastVideoId !== videoId || currentSession.type !== type)) {
+            SessionOrchestrator.finalizeSession(
+                videoEl,
+                currentSession.lastVideoId !== videoId ? 'preStartCleanup' : 'contextHandoff',
+                { destroyDisplay: currentSession.type !== type }
+            );
         }
 
         // Finalize any other active session in this context playing a different video
@@ -13577,7 +18256,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 SessionOrchestrator.finalizeSession(el, 'supersededByNewVideo');
             }
             if (sess.type !== type && sess.lastVideoId === videoId) {
-                SessionOrchestrator.finalizeSession(el, 'contextHandoff');
+                SessionOrchestrator.finalizeSession(el, 'contextHandoff', { destroyDisplay: true });
             }
         }
 
@@ -13618,7 +18297,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             notifySeekOrProgress(0, 'progress', { videoType: type, videoEl, isLoading: true });
         }
 
-        const fastPlaylistId = (typeof player?.getPlaylistId === 'function' ? player.getPlaylistId() : null) ||
+        const startPlayerApi = getPlayerApi(player);
+        const fastPlaylistId = (typeof startPlayerApi?.getPlaylistId === 'function' ? startPlayerApi.getPlaylistId() : null) ||
             (type === 'watch' ? extractYouTubePlaylistIdFromUrl(window.location.href) : null);
 
         // Initialize basic metadata immediately in the session so that the first save
@@ -13631,8 +18311,44 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             author: null,
             isLive: false,
             viewCount: 0,
-            lengthSeconds: player?.getDuration?.() || videoEl.duration || 0
+            lengthSeconds: startPlayerApi?.getDuration?.() || videoEl.duration || 0
         };
+        if (sessionRef.videoInfo.lengthSeconds > 0) {
+            sessionRef.knownDuration = Math.max(sessionRef.knownDuration || 0, sessionRef.videoInfo.lengthSeconds);
+        }
+
+        // Natural end: YouTube drops the element clock back to 0 once the video
+        // finishes (ended screen, media unloaded, autoplay handoff). Ticks cannot
+        // be trusted to have seen the final seconds — a background tab throttles
+        // them to ~1/min, so the last save may sit below the completion zone.
+        // This event is the only reliable "the video really ended" signal, and it
+        // also persists the completion while the clock still reports the end.
+        const handleNaturalEnd = () => {
+            if (isSessionStale(videoEl, sessionRef)) return;
+            sessionRef.naturalEnd = true;
+            const endDuration = Number(videoEl.duration);
+            if (Number.isFinite(endDuration) && endDuration > 0) {
+                sessionRef.knownDuration = Math.max(sessionRef.knownDuration || 0, endDuration);
+            }
+            // Previews loop and are not persisted: only the reset guard needs the flag.
+            if (type === 'preview') return;
+            const persistCompletion = (attempt = 0) => {
+                if (isSessionStale(videoEl, sessionRef)) return;
+                PlaybackController.saveStatus(player, videoEl, type, videoId, sessionRef.videoInfo, {
+                    expectedSession: sessionRef
+                }).then(result => {
+                    if (isSessionStale(videoEl, sessionRef)) return;
+                    absorbSaveResult(sessionRef, result);
+                    // A tick save was in flight when the video ended; retry once so
+                    // the completion is not lost to the mutual-exclusion guard.
+                    if (result?.reason === 'already_saving' && attempt === 0) {
+                        createSessionTimeout(sessionRef, () => persistCompletion(1), 1200);
+                    }
+                }).catch(err => logWarn('process', `End-of-playback save failed for ${videoId}`, err));
+            };
+            persistCompletion();
+        };
+        addDisposableListener(videoEl, 'ended', handleNaturalEnd, undefined, sessionRef.disposables);
 
         const isLiveSession = isLivePlaybackForGradient(videoEl, player, videoId, sessionRef);
         if (isLiveSession) {
@@ -13645,39 +18361,60 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     playerHint: player
                 });
             }
-            scheduleProgressBarGradientRepaint(type, videoEl, player, videoId);
+            scheduleProgressBarGradientRepaint(type, videoEl, player, videoId, sessionRef);
 
             const handleSeekingForGradient = () => {
-                if (activeProcessingSessions.get(videoEl) !== sessionRef || sessionRef.isFinalized) return;
+                if (isSessionStale(videoEl, sessionRef)) return;
                 if (isLivePlaybackForGradient(videoEl, player, videoId, sessionRef)) return;
                 if (sessionRef.seekGradientRaf) cancelAnimationFrame(sessionRef.seekGradientRaf);
                 sessionRef.seekGradientRaf = requestAnimationFrame(() => {
                     sessionRef.seekGradientRaf = null;
+                    if (isSessionStale(videoEl, sessionRef)) return;
                     refreshProgressBarGradientForSession(videoEl, player, type, videoId);
                 });
             };
             const handleSeekedForGradient = () => {
-                if (activeProcessingSessions.get(videoEl) !== sessionRef || sessionRef.isFinalized) return;
+                if (isSessionStale(videoEl, sessionRef)) return;
                 if (sessionRef._scriptSeekPending) {
                     sessionRef._scriptSeekPending = false;
                 } else {
+                    // shortcut: a scrub is a bounded event, not a permanent state.
+                    // The latch is re-armed on every user seek and released by a
+                    // session-scoped timeout, so the seeks that respect it
+                    // (persistence rescue, rebound re-seek, resume retry) are only
+                    // disabled while the user is actually scrubbing.
                     sessionRef.isUserSeeking = true;
+                    sessionRef._userSeekToken = (sessionRef._userSeekToken || 0) + 1;
+                    const seekToken = sessionRef._userSeekToken;
+                    createSessionTimeout(sessionRef, () => {
+                        if (sessionRef._userSeekToken === seekToken) {
+                            sessionRef.isUserSeeking = false;
+                        }
+                    }, THRESHOLDS.USER_SEEK_HOLD_MS);
                 }
                 if (isLivePlaybackForGradient(videoEl, player, videoId, sessionRef)) return;
                 refreshProgressBarGradientForSession(videoEl, player, type, videoId);
-                scheduleProgressBarGradientRepaint(type, videoEl, player, videoId);
+                scheduleProgressBarGradientRepaint(type, videoEl, player, videoId, sessionRef);
             };
             const seekListenerOptions = sessionRef.abortController
                 ? { signal: sessionRef.abortController.signal }
                 : undefined;
-            addDisposableListener(videoEl, 'seeking', handleSeekingForGradient, seekListenerOptions);
-            addDisposableListener(videoEl, 'seeked', handleSeekedForGradient, seekListenerOptions);
+            addDisposableListener(videoEl, 'seeking', handleSeekingForGradient, seekListenerOptions, sessionRef.disposables);
+            addDisposableListener(videoEl, 'seeked', handleSeekedForGradient, seekListenerOptions, sessionRef.disposables);
         }
 
         sessionRef.isResumePending = true;
-        getSavedVideoData(videoId, fastPlaylistId).then(async savedData => {
-            // Verify session wasn't finalized during async storage read
-            if (savedData && activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized) {
+        getSavedVideoData(videoId, fastPlaylistId, { throwOnError: true }).then(async savedData => {
+            // Verify identity before mutating either UI or session state. The
+            // previous code only guarded the savedData branch, allowing a stale
+            // "not found" result to update a replacement session.
+            if (isSessionStale(videoEl, sessionRef)) return;
+
+            // The storage answer is now known (record or confirmed absent),
+            // so later ticks can skip re-reading until invalidated.
+            sessionRef.savedDataResolved = true;
+
+            if (savedData) {
                 // Hybrid Mode: If the video already exists in the database, authorize auto-save immediately
                 if (cachedSettings?.manualSaveHybridMode) {
                     sessionRef.isAutoSaveAuthorized = true;
@@ -13741,29 +18478,46 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     PlaybackController.resume(player, videoId, videoEl, savedData, type, sessionRef)
                         .catch(err => logError('process', `Error in resume for ${videoId}`, err));
                 }
-            } else if (!savedData) {
+            } else {
                 PlaybackDisplayManager.syncSavedState({ videoId, isSaved: false });
             }
             sessionRef.isResumePending = false;
         }).catch(err => {
             logError('process', `Error getting savedData for ${videoId}`, err);
-            if (sessionRef) sessionRef.isResumePending = false;
+            if (!isSessionStale(videoEl, sessionRef)) {
+                sessionRef.isResumePending = false;
+            }
         });
 
         // 2. Start heavy metadata waterfall in background
         // We don't block the save interval start waiting for metadata (Level 3 waterfall can take seconds)
         (async () => {
             try {
-                const freshInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+                const freshInfo = await getCascadedVideoInfo(player, videoId, type);
 
                 // Critical post-await protection: If navigation or finalization occurred during waterfall, abort.
-                const sessionStillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
+                const sessionStillValid = !isSessionStale(videoEl, sessionRef);
                 if (!sessionStillValid) return;
 
                 // Merge fresh metadata into session, preserving playlistId and playlistTitle from fast-path if new one is invalid.
                 if (freshInfo) {
-                    // Merge by overwriting existing values with fresh data
+                    // Merge by overwriting existing values with fresh data.
+                    // A null playlist field from an incomplete waterfall must not
+                    // erase a valid fast-path association. Watch/Shorts can
+                    // explicitly clear it when the current URL has no playlist;
+                    // preview and miniplayer cannot prove standalone context.
+                    const playlistFields = new Set([
+                        'lastViewedPlaylistId',
+                        'playlistTitle',
+                        'lastViewedPlaylistType',
+                        'lastViewedPlaylistItemId'
+                    ]);
+                    const canValidateStandalone = (type === 'watch' || type === 'shorts') &&
+                        !extractYouTubePlaylistIdFromUrl(window.location.href);
                     for (const [key, value] of Object.entries(freshInfo)) {
+                        const isMissingPlaylistValue = playlistFields.has(key) &&
+                            (value === null || value === undefined || value === '');
+                        if (isMissingPlaylistValue && !canValidateStandalone) continue;
                         if (value !== undefined) {
                             sessionRef.videoInfo[key] = value;
                         }
@@ -13786,7 +18540,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const sessionTick = async () => {
             try {
                 const currentSession = activeProcessingSessions.get(videoEl);
-                const isLocked = RouteContextResolver.isContextLocked(videoEl, type);
+                let isLocked = RouteContextResolver.isContextLocked(videoEl, type);
+
+                // An ad is a definite state, not a transient context mismatch. While
+                // one runs, YouTube reports the video as inside an ad container and
+                // the context unlocks, so the check below used to end the session as
+                // 'context_mismatch' after the 3-tick tolerance and never reached the
+                // kill switch that calls waitForAdClear() (the ad recovery monitor).
+                // Treating the ad as "locked" routes it through that ad branch:
+                // correct finalize reason plus scheduled recovery. The scan only runs
+                // when the context is already unlocked, so a healthy tick pays nothing.
+                const isAdUnlock = !isLocked && AdDetector.isNodeWithinAdContainer(videoEl);
+                if (isAdUnlock) isLocked = true;
 
                 if (!currentSession || currentSession !== sessionRef || sessionRef.isFinalized || !isLocked) {
                     const isMismatch = !isLocked && currentSession === sessionRef && !sessionRef.isFinalized;
@@ -13821,6 +18586,32 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 tickCount++;
 
+                // Remember the largest duration seen while the media was loaded.
+                // The ended screen unloads it (`duration` becomes NaN), and the
+                // completion-zone checks below still need a reference then.
+                const tickDuration = Number(videoEl.duration);
+                if (Number.isFinite(tickDuration) && tickDuration > 0) {
+                    sessionRef.knownDuration = Math.max(sessionRef.knownDuration || 0, tickDuration);
+                }
+
+                // The element moved off its start position: any previous 0s stall is
+                // over, so re-arm the "never played" flag and the rescue budget.
+                // Without this, one early stall would mark the session forever and
+                // suppress the next rescue.
+                if (videoEl.currentTime > 1) {
+                    sessionRef.sawPlayback = true;
+                    sessionRef.rescueAttempts = 0;
+                    sessionRef.completionResetLogged = false;
+                    // A replay/seek back leaves the end position: the natural-end
+                    // flag only protects the reset that follows the end of that
+                    // playback. The ended element itself stays at the end, so it
+                    // must not clear the flag here.
+                    if (sessionRef.naturalEnd && !videoEl.ended &&
+                        videoEl.currentTime < (sessionRef.knownDuration || 0) - 5) {
+                        sessionRef.naturalEnd = false;
+                    }
+                }
+
                 // --- UI WATCHDOG ---
                 // If the user uses scripts like "Engine Tamer", the DOM may be replaced post-load.
                 // We periodically check if our UI is still present and re-inject it if necessary.
@@ -13836,9 +18627,31 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Uses sessionRef.savedData (resolved asynchronously from storage in fast-path).
                 // If the video is still at 0s but we should have resumed, force a last-resort re-seek.
                 const sessionSavedData = sessionRef.savedData;
-                const isCurrentlyAd = AdDetector.isNodeWithinAdContainer(videoEl);
-                if (tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && (sessionSavedData?.watchProgress ?? 0) > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !isCurrentlyAd && !sessionRef.isUserSeeking) {
-                    logWarn('sessionTick', `🆘 Persistence Rescue: The video is still at 0s after ${tickCount}s. Retrying resume...`);
+                // Bounded per session: once the budget runs out the rescue stops instead
+                // of retrying for the rest of the session (see THRESHOLDS comment).
+                const rescueBudgetLeft = sessionRef.rescueAttempts < THRESHOLDS.PERSISTENCE_RESCUE_MAX_ATTEMPTS;
+                // A finished video must never be rescued. When playback ends,
+                // YouTube drops the element clock back to 0 (ended screen, media
+                // unloaded), so the saved position sits in the completion zone or
+                // the record is already completed. Re-seeking it replays the last
+                // seconds, ends the video again and resets the clock to 0 — the
+                // infinite rescue/save-blocked loop this gate removes.
+                const knownSavedProgress = Number(sessionSavedData?.watchProgress) || 0;
+                const knownSavedDuration = Number(sessionRef.videoInfo?.lengthSeconds) || Number(videoEl.duration) || sessionRef.knownDuration || 0;
+                const isCompletedRecord = sessionSavedData?.isCompleted === true;
+                const savedInCompletionZone = isProgressInCompletionZone(knownSavedProgress, knownSavedDuration);
+                // Gate cheap conditions before paying a full ad-container scan.
+                const rescueDue = rescueBudgetLeft && !sessionRef.naturalEnd && tickCount >= THRESHOLDS.PERSISTENCE_RESCUE_START_TICKS && tickCount % THRESHOLDS.PERSISTENCE_RESCUE_EVERY_N_TICKS === 0 && videoEl.currentTime < 1 && knownSavedProgress > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S && !sessionRef.isUserSeeking && !videoEl.ended && !isCompletedRecord && !savedInCompletionZone && !isPlayerReportingEnd(player);
+                // Pay the ad scan only when rescue can actually fire; the result
+                // is reused by the kill switch below (same tick, no DOM change
+                // between the two reads, so decisions are identical).
+                const isCurrentlyAd = rescueDue ? AdDetector.isNodeWithinAdContainer(videoEl) : null;
+                if (rescueDue && !isCurrentlyAd) {
+                    sessionRef.rescueAttempts += 1;
+                    logWarn('sessionTick', `🆘 Persistence Rescue: The video is still at 0s after ${tickCount}s. Retrying resume (${sessionRef.rescueAttempts}/${THRESHOLDS.PERSISTENCE_RESCUE_MAX_ATTEMPTS})...`);
+                    if (sessionRef.rescueAttempts >= THRESHOLDS.PERSISTENCE_RESCUE_MAX_ATTEMPTS) {
+                        logWarn('sessionTick', `🛑 Persistence Rescue gave up on ${videoId}: the element never left 0s (left paused before starting, or metadata never loaded). Known progress stays protected; no more retries this session.`);
+                    }
                     PlaybackController.resume(player, videoId, videoEl, sessionSavedData, type, sessionRef)
                         .catch(err => logError('sessionTick', `Error in persistence rescue for ${videoId}`, err));
                 }
@@ -13849,7 +18662,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 // Kill Switch
                 const isDisconnected = !document.contains(videoEl);
-                const isAdNow = AdDetector.isNodeWithinAdContainer(videoEl);
+                // Reuses the rescue scan when it ran this tick; otherwise scans once.
+                const isAdNow = isCurrentlyAd ?? (isAdUnlock || AdDetector.isNodeWithinAdContainer(videoEl));
                 const currentVideoId = getPlayerVideoId(player);
                 const hasIdChanged = currentVideoId !== videoId;
                 const isHiddenGhost = (type === 'preview' || type === 'miniplayer') && !isVisiblyDisplayed(videoEl);
@@ -13876,6 +18690,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // don't end the session - let the observer handle the transition
                     if (hasIdChanged && previewTransitions.has(videoEl)) {
                         previewTransitions.delete(videoEl);
+                        VideoObserverManager.invalidateTypeCache(videoEl);
                         if (FailSafeManager.isSafeMode()) {
                             SessionOrchestrator.finalizeSession(videoEl, 'safeModePreviewTransition');
                             VideoObserverManager.enqueueWithResolver(videoEl, 'preview', 'safeModeRestart');
@@ -13900,12 +18715,27 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         return;
                     }
 
+                    // Player-API video swaps can change the ID without a src
+                    // mutation. Give the API a short settling window, then
+                    // rebuild the miniplayer session through the normal path.
+                    if (hasIdChanged && type === 'miniplayer' && !isDisconnected && !isAdNow) {
+                        session.idMismatchCount = (session.idMismatchCount || 0) + 1;
+                        if (session.idMismatchCount <= 2) return;
+                        VideoObserverManager.clearMiniplayerTransition(videoEl);
+                        SessionOrchestrator.finalizeSession(videoEl, 'miniplayerIdChanged');
+                        VideoObserverManager.requeueMiniplayer(videoEl);
+                        return;
+                    }
+
                     const logReason = isDisconnected ? 'Element removed' :
                         isAdNow ? 'Ad detected' :
                             hasIdChanged ? `ID changed: ${currentVideoId}` :
                                 `${type === 'miniplayer' ? 'Miniplayer closed' : 'Preview hidden'} (ghost)`;
                     logWarn('sessionTick', `🛑 Stopping session [${type}] - ${videoId}. Reason: ${logReason}`);
 
+                    if (isHiddenGhost && document.contains(videoEl)) {
+                        VideoObserverManager.invalidateTypeCache(videoEl);
+                    }
                     SessionOrchestrator.finalizeSession(videoEl, logReason);
                     if (isAdNow) {
                         try {
@@ -13931,24 +18761,29 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     session.lastKnownSrc = videoEl.currentSrc || videoEl.src || session.lastKnownSrc || null;
                 }
                 const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session?.videoInfo);
-                if (result?.videoInfo && session) {
-                    session.videoInfo = result.videoInfo;
+                if (isSessionStale(videoEl, session)) {
+                    logLog('sessionTick', `Ignoring stale save result [${type}] - ${videoId}`);
+                    return;
                 }
-                if (result?.savedData && session) {
-                    session.savedData = result.savedData;
-                }
+                absorbSaveResult(session, result);
                 // Mark that at least one real save occurred (so loading cleanup doesn't remove it)
-                if (result?.success && session) {
+                if (result?.success) {
                     session.hasRealSave = true;
                     session.silentFailureCount = 0;
                 } else if (session && result && !result.success) {
                     const indicativeReasons = [
                         'invalid_time_metrics', 'duration_not_ready', 'missing_video_metadata',
-                        'storage_error', 'storage_full', 'exception'
+                        'storage_error', 'storage_full', 'exception',
+                        'implausible_time', 'element_reset_unconfirmed'
                     ];
                     if (indicativeReasons.includes(result.reason)) {
                         session.silentFailureCount = (session.silentFailureCount || 0) + 1;
-                        if (session.silentFailureCount >= 8) {
+                        // One toast per reason per session: a reason that keeps firing
+                        // (element stuck at 0, storage blocked) otherwise repeats every
+                        // 8 ticks for as long as the session lives.
+                        session.reportedSaveBlocks ??= new Set();
+                        if (session.silentFailureCount >= 8 && !session.reportedSaveBlocks.has(result.reason)) {
+                            session.reportedSaveBlocks.add(result.reason);
                             const errDetail = result?.error
                                 ? (typeof result.error === 'string' ? result.error : (result.error?.message || result.error?.name || ''))
                                 : '';
@@ -13975,7 +18810,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Cleanup transient loading state after 2.5s (the first real save will replace it)
         // Only cleans if no real save has occurred yet (case: slow metadata waterfall)
         createSessionTimeout(sessionRef, () => {
-            const stillValid = activeProcessingSessions.get(videoEl) === sessionRef && !sessionRef.isFinalized;
+            const stillValid = !isSessionStale(videoEl, sessionRef);
             if (stillValid && !sessionRef.hasRealSave) {
                 PlaybackDisplayManager.clear(type, { videoEl, videoId });
             }
@@ -14005,12 +18840,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     if (session.isResumePending) return;
 
                     const result = await PlaybackController.saveStatus(player, videoEl, type, videoId, session.videoInfo);
-                    if (result?.videoInfo) {
-                        session.videoInfo = result.videoInfo;
-                    }
-                    if (result?.savedData) {
-                        session.savedData = result.savedData;
-                    }
+                    if (isSessionStale(videoEl, session)) return;
+                    absorbSaveResult(session, result);
                 } catch (_) {
                     logWarn('process', `⚠️ Preview fast-path saveStatus failed for ${videoId}`);
                 }
@@ -14113,7 +18944,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Critical validation: prevents race conditions in SPA navigation for Shorts.
                 if (!playerVideoId || playerVideoId !== urlId) {
                     // Possible stale cache: clear and retry once
-                    if (player) playerVideoIdCache.delete(player);
+                    invalidatePlayerVideoIdCache(player);
                     playerVideoId = player ? getPlayerVideoId(player) : null;
                 }
 
@@ -14140,7 +18971,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
 
                 // Avoid stale IDs during miniplayer src/SPA transition.
-                playerVideoIdCache.delete(player);
+                invalidatePlayerVideoIdCache(player);
                 return true;
             },
             resolveVideoId: (_videoEl, player) => {
@@ -14183,30 +19014,41 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             },
             afterPlayerResolved: async (videoEl) => {
                 // Session debounce to avoid CPU spikes when scrolling over the grid.
-                if (videoEl.dataset.yppDebouncing === 'true') return false;
-                videoEl.dataset.yppDebouncing = 'true';
+                // The token is instance-scoped so a hot reload cannot strand the
+                // marker on a reused <video> element.
+                if (videoEl.dataset.yppDebouncing) return false;
+                const debounceToken = `${INSTANCE_ID}:${Date.now()}:${Math.random().toString(36).slice(2)}`;
+                videoEl.dataset.yppDebouncing = debounceToken;
+                previewDebounceElements.add(videoEl);
 
-                await delay(150);
-                delete videoEl.dataset.yppDebouncing;
+                try {
+                    await delay(150);
+                    assertActiveInstance();
 
-                if (!videoEl.isConnected) {
-                    logLog('processMediaVideo/preview', '⏭️ Preview disconnected after debounce, skipping.');
-                    return false;
+                    if (!videoEl.isConnected) {
+                        logLog('processMediaVideo/preview', '⏭️ Preview disconnected after debounce, skipping.');
+                        return false;
+                    }
+
+                    if (AdDetector.isNodeWithinAdContainer(videoEl)) {
+                        logWarn('processMediaVideo/preview', '🚫 Ad detected in Preview (post-debounce), skipping processing.');
+                        return false;
+                    }
+
+                    return true;
+                } finally {
+                    previewDebounceElements.delete(videoEl);
+                    if (videoEl.dataset.yppDebouncing === debounceToken) {
+                        delete videoEl.dataset.yppDebouncing;
+                    }
                 }
-
-                if (AdDetector.isNodeWithinAdContainer(videoEl)) {
-                    logWarn('processMediaVideo/preview', '🚫 Ad detected in Preview (post-debounce), skipping processing.');
-                    return false;
-                }
-
-                return true;
             },
             resolveVideoId: (videoEl, player) => {
                 const resolvedPlayerVideoId = player ? getPlayerVideoId(player) : null;
                 const activeMiniplayer = DOMHelpers.getMiniplayerPlayer();
                 const activeMiniplayerId = activeMiniplayer ? getPlayerVideoId(activeMiniplayer) : null;
-                const previewHref = videoEl.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-rich-grid-media')
-                    ?.querySelector?.('a#thumbnail[href], a.yt-simple-endpoint[href]')
+                const previewHref = videoEl.closest('ytd-rich-item-renderer, ytd-video-renderer, ytd-compact-video-renderer, ytd-grid-video-renderer, ytd-rich-grid-media, yt-lockup-view-model')
+                    ?.querySelector?.('a#thumbnail[href], a.yt-simple-endpoint[href], a.ytLockupViewModelContentImage[href]')
                     ?.getAttribute?.('href') || null;
                 const previewHrefVideoId = previewHref ? extractYouTubeVideoIdFromUrl(previewHref) : null;
                 // Prefer the tile link ID when available, to avoid stale IDs
@@ -14260,7 +19102,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             const isAd = AdDetector.isNodeWithinAdContainer(videoEl);
             if (isAd) {
-                logWarn(config.logScope, `🚫 Ad detected in ${type}, skipping processing.`);
+                logWarn('processMediaVideo', `🚫 Ad detected in ${type}, skipping processing.`);
                 // Ensure display is cleaned if there was a previous "loading" message hanging
                 PlaybackDisplayManager.clear(type, { videoEl });
                 if (type === 'preview') {
@@ -14273,7 +19115,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const player = config.getPlayer(videoEl);
             if (!player && !config.allowMissingPlayer) {
                 if (config.missingPlayerLog) {
-                    logWarn(config.logScope, config.missingPlayerLog);
+                    logWarn('processMediaVideo', config.missingPlayerLog);
                 }
                 return;
             }
@@ -14284,12 +19126,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             const videoId = config.resolveVideoId(videoEl, player);
-            if (!videoId) return;
+            if (!videoId) {
+                scheduleIdMismatchRetry(videoEl, type, player);
+                return;
+            }
+            idMismatchRetries.delete(videoEl);
 
             config.initDisplay(player);
             logInfo(config.logScope, config.startLog(videoId));
             startProcessingSession(videoEl, type, videoId, player).catch(err => {
-                logError(config.logScope, `Error starting session for ${videoId}`, err);
+                logError('processMediaVideo', `Error starting session for ${videoId}`, err);
+                const partialSession = activeProcessingSessions.get(videoEl);
+                if (partialSession && !partialSession.isFinalized && !partialSession.intervalId) {
+                    SessionOrchestrator.finalizeSession(videoEl, 'startupFailed');
+                }
+                VideoObserverManager.invalidateTypeCache(videoEl);
             });
         } catch (err) {
             logError('processMediaVideo', `Unhandled error processing ${type} video`, err);
@@ -14299,6 +19150,54 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
     // MARK: PlaybackController
     // ============================================================================================================
+
+    /**
+     * Maps a saved absolute live-stream position onto the current DVR window.
+     * The element clock is window-relative and slides (multi-day lives keep a
+     * bounded window while the absolute stream clock grows); a saved offset is
+     * only valid while its content is still inside the window.
+     * @param {object|Element|null} player - Player instance for the absolute clock.
+     * @param {HTMLVideoElement|null} videoEl - Video element for the window size.
+     * @param {number} savedAbs - Absolute stream time saved earlier.
+     * @returns {number|null} Window-relative seek target, or null when the
+     * position fell out of the window or the clocks are unusable (caller should
+     * rejoin live instead of seeking).
+     */
+    function mapLiveAbsoluteToWindow(player, videoEl, savedAbs) {
+        try {
+            const api = getPlayerApi(player);
+            const apiDur = typeof api?.getDuration === 'function' ? api.getDuration() : undefined;
+            const elDur = videoEl?.duration;
+            if (typeof apiDur !== 'number' || !isFinite(apiDur) || apiDur <= 0) return null;
+            if (typeof elDur !== 'number' || !isFinite(elDur) || elDur <= 0) return null;
+            const WINDOW_TOLERANCE_S = 5;
+            const windowStartAbs = Math.max(0, apiDur - elDur);
+            if (savedAbs < windowStartAbs - WINDOW_TOLERANCE_S || savedAbs > apiDur + WINDOW_TOLERANCE_S) return null;
+            return Math.min(Math.max(savedAbs - windowStartAbs, 0), Math.max(elDur - 1, 0));
+        } catch (_) {
+            logLog('mapLiveAbsoluteToWindow', 'Clock read failed; treating position as out of window');
+            return null;
+        }
+    }
+
+    /**
+     * Applies a seek through the player API when available, falling back to the element.
+     * @param {object} player - Player instance.
+     * @param {HTMLVideoElement} videoEl - Video element.
+     * @param {number} time - Target time in seconds.
+     * @param {object|null} session - Session that should flag the script-driven seek.
+     * @param {object|null} [playerApi=null] - Already-resolved player API, if any.
+     * @returns {void}
+     */
+    function applySeek(player, videoEl, time, session, playerApi = null) {
+        if (session) session._scriptSeekPending = true;
+        const api = playerApi ?? getPlayerApi(player);
+        if (typeof api?.seekTo === 'function') {
+            api.seekTo(time, true);
+        } else {
+            videoEl.currentTime = time;
+        }
+    }
 
     /**
      * Modular controller for handling resume and save progress
@@ -14348,11 +19247,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const getExpectedDuration = () => {
                     if (session?.videoInfo?.lengthSeconds > 0) return session.videoInfo.lengthSeconds;
                     let dur = 0;
+                    const resumeApi = getPlayerApi(player);
                     try {
                         dur =
-                            player?.getPlayerResponse?.()?.videoDetails?.lengthSeconds ||
-                            player?.getDuration?.() ||
-                            player?.getVideoData?.()?.length_seconds ||
+                            resumeApi?.getPlayerResponse?.()?.videoDetails?.lengthSeconds ||
+                            resumeApi?.getDuration?.() ||
+                            resumeApi?.getVideoData?.()?.length_seconds ||
                             videoEl.duration;
                     } catch (e) {
                         dur = videoEl.duration;
@@ -14384,26 +19284,45 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // Replaces the previous while loop that called getPlayerVideoId every 500ms.
                     try {
                         await new Promise((resolve, reject) => {
+                            let timeout = null;
+                            let removeMetadataListener = () => {};
+                            let removeCanPlayListener = () => {};
+                            let removeAbortListener = () => {};
                             const cleanup = () => {
-                                videoEl.removeEventListener('loadedmetadata', onReady);
-                                videoEl.removeEventListener('canplay', onReady);
                                 if (timeout) clearTimeout(timeout);
+                                removeMetadataListener();
+                                removeCanPlayListener();
+                                removeAbortListener();
                             };
-
-                            const onReady = () => {
+                            const rejectAsStale = () => {
                                 cleanup();
+                                reject(new Error('session_finalized'));
+                            };
+                            const onReady = () => {
                                 const currentSession = activeProcessingSessions.get(videoEl);
                                 if (session && (session.isFinalized || currentSession !== session)) {
-                                    reject(new Error('session_finalized'));
+                                    rejectAsStale();
                                     return;
                                 }
+                                cleanup();
                                 resolve();
                             };
+                            const onAbort = () => rejectAsStale();
 
-                            videoEl.addEventListener('loadedmetadata', onReady, { once: true });
-                            videoEl.addEventListener('canplay', onReady, { once: true });
+                            // Without a session, `session?.disposables` would be undefined and
+                            // addDisposableListener would default to GlobalDisposables, keeping
+                            // these listeners for the whole page lifetime. A local store is
+                            // released by cleanup() below; if a session exists it owns the
+                            // listeners and this one stays empty.
+                            const localStore = session ? null : new DisposableStore();
+                            const listenerStore = session?.disposables ?? localStore;
+                            removeMetadataListener = addDisposableListener(videoEl, 'loadedmetadata', onReady, { once: true }, listenerStore);
+                            removeCanPlayListener = addDisposableListener(videoEl, 'canplay', onReady, { once: true }, listenerStore);
+                            if (session?.abortController) {
+                                removeAbortListener = addDisposableListener(session.abortController.signal, 'abort', onAbort, { once: true }, listenerStore);
+                            }
 
-                            const timeout = setTimeout(() => {
+                            timeout = setTimeout(() => {
                                 cleanup();
                                 resolve();
                             }, 10000);
@@ -14413,6 +19332,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         return;
                     }
                 }
+
+                if (session && (session.isFinalized || activeProcessingSessions.get(videoEl) !== session)) return;
 
                 // Final verification right before applying seek
                 if (videoId !== (player ? getPlayerVideoId(player) : null)) {
@@ -14425,6 +19346,85 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     // If duration is 0 or invalid (common in initial Shorts or Lives), trust timeToSeek
                     let safeTime = timeToSeek;
+
+                    // Lives: the saved window-relative offset goes stale as the
+                    // DVR window slides (multi-day lives), and it is meaningless
+                    // once the stream ends and the recording becomes a VOD.
+                    const savedLiveAbs = Number(savedData.liveAbsoluteTime) || 0;
+                    const savedLiveAbsDur = Number(savedData.liveAbsoluteDuration) || 0;
+                    const savedWasLive = savedData.isLive === true || savedData.type === 'live';
+                    if (savedWasLive && !isForced && !savedData.isCompleted) {
+                        if (savedLiveAbs > 0) {
+                            // Absolute stream clock available: place the saved
+                            // position on the timeline that is playing NOW.
+                            // Live timeline = DVR window that still slides
+                            // (API duration ahead of the element duration).
+                            let mappedLiveTime = null;
+                            let wasLiveTimeline = false;
+                            let liveSkipReason = '';
+                            try {
+                                const liveApi = getPlayerApi(player);
+                                const apiDuration = typeof liveApi?.getDuration === 'function' ? liveApi.getDuration() : undefined;
+                                const elementDuration = Number(videoEl.duration) || 0;
+                                if (typeof apiDuration === 'number' && isFinite(apiDuration) &&
+                                    elementDuration > 0 && apiDuration > elementDuration + THRESHOLDS.LIVE_WINDOW_DRIFT_S) {
+                                    wasLiveTimeline = true;
+                                    mappedLiveTime = mapLiveAbsoluteToWindow(player, videoEl, savedLiveAbs);
+                                    if (mappedLiveTime === null) liveSkipReason = 'saved position fell out of the DVR window';
+                                }
+                            } catch (_) {
+                                logLog('PlaybackController', 'Live clock read failed; trying fixed-timeline mapping');
+                            }
+                            if (!wasLiveTimeline) {
+                                // Stream ended (or just started): the timeline is
+                                // fixed. The VOD ends at the stream end, so the
+                                // position equals its length minus the seconds
+                                // the user was behind the live edge when saved.
+                                const vodDuration = Number(videoEl.duration) || finalDuration || 0;
+                                if (vodDuration > 0) {
+                                    if (savedLiveAbsDur > 0) {
+                                        const behindEdge = savedLiveAbsDur >= savedLiveAbs ? (savedLiveAbsDur - savedLiveAbs) : 0;
+                                        const candidate = vodDuration - behindEdge;
+                                        if (candidate >= 0 && candidate <= vodDuration) {
+                                            // candidate === vodDuration means he was
+                                            // at the live edge: the VOD ends there.
+                                            mappedLiveTime = Math.min(candidate, vodDuration - 1);
+                                        } else {
+                                            liveSkipReason = 'saved live position is outside the retained VOD range';
+                                        }
+                                    } else if (savedLiveAbs < vodDuration) {
+                                        // No distance-to-edge stored (older record):
+                                        // the absolute offset itself is the position.
+                                        mappedLiveTime = savedLiveAbs;
+                                    } else {
+                                        liveSkipReason = 'saved live position is outside the retained VOD range';
+                                    }
+                                } else {
+                                    liveSkipReason = 'live-to-VOD duration unknown';
+                                }
+                            }
+                            if (mappedLiveTime === null) {
+                                logLog('PlaybackController', `⏭️ Resume skipped for ${videoId}: ${liveSkipReason || 'unmapped live position'}, ${wasLiveTimeline ? 'staying on live edge' : 'starting the VOD'}`);
+                                return;
+                            }
+                            if (mappedLiveTime !== timeToSeek) {
+                                logLog('PlaybackController', `🧭 ${wasLiveTimeline ? 'Live DVR' : 'Live→VOD'} remap for ${videoId}: ${formatTime(timeToSeek)} → ${formatTime(mappedLiveTime)}`);
+                                timeToSeek = mappedLiveTime;
+                                safeTime = mappedLiveTime;
+                            }
+                        } else {
+                            // Legacy live record (saved before absolute-clock
+                            // capture): the stored offset is a DVR coordinate
+                            // that cannot be translated reliably. Fresh records
+                            // (same session, window barely moved) keep the seek.
+                            const savedAt = Number(savedData.timeWatched) || 0;
+                            const recordAgeMs = savedAt > 0 ? Date.now() - savedAt : 0;
+                            if (savedAt > 0 && recordAgeMs > THRESHOLDS.LIVE_LEGACY_STALE_MS) {
+                                logLog('PlaybackController', `⏭️ Resume skipped for ${videoId}: legacy live record is ${formatTime(recordAgeMs / 1000)} old, starting at the live edge`);
+                                return;
+                            }
+                        }
+                    }
 
                     // If video is completed and saved progress is low (accidental reset or initial load)
                     // and we do NOT want to restart (resumeCompletedFromStart is false),
@@ -14440,12 +19440,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                     try {
                         // Apply seek via API if available, otherwise directly on the element
-                        if (session) session._scriptSeekPending = true;
-                        if (typeof player?.seekTo === 'function') {
-                            player.seekTo(safeTime, true);
-                        } else {
-                            videoEl.currentTime = safeTime;
-                        }
+                        applySeek(player, videoEl, safeTime, session);
                         logLog('PlaybackController', `✅ Seek applied successfully to ${formatTime(safeTime)}`);
 
                         // Mark expected time and resume moment to avoid false "backward jumps" during loading
@@ -14462,7 +19457,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                                 force: true,
                                 playerHint: player
                             });
-                            scheduleProgressBarGradientRepaint(type, videoEl, player, videoId);
+                            scheduleProgressBarGradientRepaint(type, videoEl, player, videoId, session);
                         }
 
                         // --- PERSISTENCE CHECK ---
@@ -14476,12 +19471,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             // If the time jumped backward by more than 5 seconds compared to the requested resume time
                             if (safeTime > 10 && currentTime < (safeTime - 5) && !session?.isUserSeeking) {
                                 logWarn('PlaybackController', `🔄 Backward jump detected after resume (${formatTime(safeTime)} -> ${formatTime(currentTime)}). Retrying persistence...`);
-                                if (session) session._scriptSeekPending = true;
-                                if (typeof player?.seekTo === 'function') {
-                                    player.seekTo(safeTime, true);
-                                } else {
-                                    videoEl.currentTime = safeTime;
-                                }
+                                applySeek(player, videoEl, safeTime, session);
                             }
                         }, 800);
                     } catch (e) {
@@ -14502,7 +19492,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
          * @param {string} type - Context
          * @param {string} videoId - Video ID
          * @param {object|null} videoInfo - Cached metadata
-         * @param {object|null} options - Additional options, { isManual: true }
+         * @param {object|null} options - Additional options, { isManual, expectedSession, destructiveEpoch }
          */
         async saveStatus(player, videoEl, type, videoId, videoInfo = null, options = {}) {
             // Redundant protection: Don't process if no elements or it's an ad
@@ -14510,20 +19500,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return { success: false, reason: 'early_exit_no_element_or_ad' };
             }
             if (!RouteContextResolver.isContextLocked(videoEl, type)) {
-                SessionTelemetry.emit('routingDecision', {
-                    decision: 'reject',
-                    reason: 'contextMismatchBeforeSave',
-                    context: type,
-                    videoId
-                });
+                logRoutingDecision({ decision: 'reject', reason: 'contextMismatchBeforeSave', context: type, videoId });
                 return { success: false, reason: 'context_mismatch' };
             }
 
             const session = activeProcessingSessions.get(videoEl);
+            const expectedSession = options.expectedSession ?? session;
 
             // If no active session or it was finalized, abort, UNLESS user requested explicit manual save
             if ((!session || session.isFinalized) && !options.isManual) {
                 return { success: false, reason: 'invalid_session' };
+            }
+            if (expectedSession && (expectedSession.isFinalized || activeProcessingSessions.get(videoEl) !== expectedSession)) {
+                return { success: false, reason: 'stale_session' };
             }
 
             // Prevent concurrent executions for the same session (mutual exclusion)
@@ -14535,14 +19524,99 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Throttle marker captured before the async save; restored on failure so
             // the next tick retries instead of silently throttling the lost progress.
             let previousSavedTime;
+            const restoreThrottleMarker = () => {
+                if (previousSavedTime !== undefined) {
+                    videoEl.dataset.lastSavedTime = previousSavedTime;
+                }
+            };
 
             try {
-                const currentTime = videoEl.currentTime || (typeof player?.getCurrentTime === 'function' ? player.getCurrentTime() : 0);
-                const duration = videoEl.duration || (typeof player?.getDuration === 'function' ? player.getDuration() : 0);
+                const saveApi = getPlayerApi(player);
+                // Element clock wins: a legitimate currentTime of 0 must not
+                // trigger the player-API fallback (|| treated 0 as missing and,
+                // on livestreams, persisted the API clock instead — falla A).
+                const elementTime = videoEl.currentTime;
+                const elementDuration = videoEl.duration;
+                const hasElementTime = typeof elementTime === 'number' && isFinite(elementTime) && elementTime >= 0;
+                const hasElementDuration = typeof elementDuration === 'number' && isFinite(elementDuration) && elementDuration > 0;
+                const readApiNumber = (getter) => {
+                    try {
+                        const value = typeof saveApi?.[getter] === 'function' ? saveApi[getter]() : undefined;
+                        return typeof value === 'number' && isFinite(value) ? value : undefined;
+                    } catch (_) {
+                        return undefined;
+                    }
+                };
+                const currentTime = hasElementTime ? elementTime : (readApiNumber('getCurrentTime') ?? 0);
+                const duration = hasElementDuration ? elementDuration : (readApiNumber('getDuration') ?? 0);
+                // Keep the largest duration seen for this session: the ended screen
+                // unloads the media, and the reset guard below still needs a
+                // reference to tell a natural end from a real reset.
+                if (session && isFinite(duration) && duration > 0) {
+                    session.knownDuration = Math.max(session.knownDuration || 0, duration);
+                }
 
                 // Allow very low times (0) to detect "Replay" in fixed-time videos
                 if (!isFinite(currentTime) || currentTime < 0 || isNaN(duration) || duration <= 0) {
                     return { success: false, reason: 'invalid_time_metrics' };
+                }
+
+                // Guard against clock-domain mixing: the player API clock can live
+                // in a different coordinate space (livestreams). Never persist a
+                // time that overshoots the known duration.
+                if (currentTime > duration * 1.05 + 1) {
+                    logWarn('PlaybackController', `🛡️ Save blocked: implausible time (${formatTime(currentTime)} > ${formatTime(duration)}) for ${videoId}`);
+                    return { success: false, reason: 'implausible_time' };
+                }
+
+                // Guard against element resets: the element can report 0 while a
+                // much larger progress is already known (e.g. livestream element
+                // unloaded). Persisting 0 would clobber real progress.
+                if (!options.isManual && currentTime < 1) {
+                    const knownProgress = Math.max(
+                        parseFloat(videoEl.dataset.lastSavedTime || '0') || 0,
+                        Number(session?.savedData?.watchProgress) || 0,
+                        Number(options.cachedSavedData?.watchProgress) || 0
+                    );
+                    if (knownProgress > THRESHOLDS.PERSISTENCE_RESCUE_MIN_SEEK_S) {
+                        // Not a reset: the element never moved because playback never
+                        // began (paused before start, nothing loaded yet). Reporting it
+                        // as a blocked save only produced a toast every N ticks.
+                        if (isAwaitingFirstPlayback(videoEl, session)) {
+                            logInfo('saveStatus', `⏸️ ${videoId} is still at 0s awaiting first playback; keeping known progress ${formatTime(knownProgress)}`);
+                            return { success: false, reason: 'awaiting_first_playback' };
+                        }
+                        // Not a reset either: the video reached its end and YouTube
+                        // dropped the clock back to 0 (ended screen, unloaded media,
+                        // completed record resumed at the end). The known progress is
+                        // already at the completion zone, so there is nothing left to
+                        // persist and the rescue must not seek back to the end.
+                        const knownDuration = Number(session?.videoInfo?.lengthSeconds) ||
+                            Number(videoEl.duration) ||
+                            Number(session?.knownDuration) ||
+                            Number(session?.savedData?.lengthSeconds) ||
+                            Number(options.cachedSavedData?.lengthSeconds) ||
+                            0;
+                        // `naturalEnd` covers the end that no tick witnessed (the tab
+                        // was throttled while the video finished), where the last save
+                        // can sit well below the completion percentage.
+                        const playerEnded = isPlayerReportingEnd(player);
+                        if (playerEnded && session) session.naturalEnd = true;
+                        const isCompletionReset = videoEl.ended === true ||
+                            playerEnded ||
+                            session?.naturalEnd === true ||
+                            session?.savedData?.isCompleted === true ||
+                            isProgressInCompletionZone(knownProgress, knownDuration);
+                        if (isCompletionReset) {
+                            if (session && !session.completionResetLogged) {
+                                session.completionResetLogged = true;
+                                logInfo('saveStatus', `🔚 ${videoId} finished; keeping the known progress ${formatTime(knownProgress)} (no reset save)`);
+                            }
+                            return { success: false, reason: 'playback_completed_reset' };
+                        }
+                        logWarn('PlaybackController', `🛡️ Save blocked: element reset to 0 with known progress ${formatTime(knownProgress)} for ${videoId}`);
+                        return { success: false, reason: 'element_reset_unconfirmed' };
+                    }
                 }
 
                 // Save throttling by time change: Don't save if time didn't move significantly
@@ -14589,9 +19663,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         if (!isNaN(targetTime)) {
                             logLog('saveStatus', `🔄 Re-applying seek to ${targetTime}s due to forced YouTube reset... (Attempt ${retryCount + 1}/3)`);
                             try {
-                                if (session) session._scriptSeekPending = true;
-                                if (typeof player?.seekTo === 'function') player.seekTo(targetTime, true);
-                                else videoEl.currentTime = targetTime;
+                                applySeek(player, videoEl, targetTime, session, saveApi);
                                 videoEl.dataset.resumeRetries = (retryCount + 1).toString();
                                 // Slightly extend the protection window when retrying
                                 videoEl.dataset.lastResumeTimestamp = Date.now().toString();
@@ -14628,7 +19700,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (needsRefresh && (cooldownElapsed || options.isManual)) {
                     logInfo('saveStatus', `🔄 Refreshing metadata for ${videoId} (cooldown bypass/missing data)`);
                     videoEl.dataset.lastMetaFetch = Date.now().toString();
-                    const freshInfo = await getCascadedVideoInfo(player, videoId, videoEl, type);
+                    const freshInfo = await getCascadedVideoInfo(player, videoId, type);
+                    if (expectedSession && (expectedSession.isFinalized || activeProcessingSessions.get(videoEl) !== expectedSession)) {
+                        restoreThrottleMarker();
+                        return { success: false, reason: 'stale_session' };
+                    }
                     if (videoInfo && freshInfo) {
                         Object.assign(videoInfo, freshInfo);
                     } else {
@@ -14640,6 +19716,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // abort to avoid TypeError in the next step (finalType).
                 if (!videoInfo) {
                     logWarn('saveStatus', `⚠️ videoInfo is null after refresh attempt for ${videoId}. Aborting save.`);
+                    restoreThrottleMarker();
                     return { success: false, reason: 'missing_video_metadata', videoInfo };
                 }
 
@@ -14663,6 +19740,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // If auto save and type is disabled, exit.
                 // If manual (options.isManual), allow save regardless of type.
                 if (!options.isManual && !isEnabledForAutoSave) {
+                    restoreThrottleMarker();
                     return { success: false, reason: 'disabled_by_settings' };
                 }
 
@@ -14679,7 +19757,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (finalType === 'preview') {
                     logInfo('PlaybackController', `saveStatus call: videoId=${videoId}, cur=${currentTime}, dur=${duration}`);
                 }
-                const saveOptions = { isManual: !!options.isManual, cachedSavedData: session?.savedData };
+                if (expectedSession && (expectedSession.isFinalized || activeProcessingSessions.get(videoEl) !== expectedSession)) {
+                    restoreThrottleMarker();
+                    return { success: false, reason: 'stale_session' };
+                }
+                const saveOptions = {
+                    isManual: !!options.isManual,
+                    cachedSavedData: session?.savedData,
+                    // Fast-path already confirmed absence: skip the re-read.
+                    savedDataKnownAbsent: !!session?.savedDataResolved && !session?.savedData,
+                    expectedSession,
+                    destructiveEpoch: storageDestructiveEpoch
+                };
 
                 // Harmonize with FreeTube format (Integer): Update only if there's a real change in rounded seconds.
                 const roundedDuration = Math.round(duration);
@@ -14708,6 +19797,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 } else {
                     const logContext = TYPE_CONFIG[finalType]?.logLabel || 'saveStatus/watch';
                     result = await internalSaveVideoGeneric(player, currentTime, videoInfo, videoEl, finalType, logContext, saveOptions);
+                }
+                if (expectedSession && (expectedSession.isFinalized || activeProcessingSessions.get(videoEl) !== expectedSession)) {
+                    restoreThrottleMarker();
+                    return { success: false, reason: 'stale_session' };
                 }
 
                 // Show an alert if storage is full
@@ -14782,32 +19875,63 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
 
     /**
+     * Resolves the page-world InnerTube config when it is exposed through
+     * window/unsafeWindow rather than as a bare sandbox global.
+     * @returns {{get: (key: string) => any}|null} InnerTube config accessor.
+     */
+    function getInnerTubeConfig() {
+        const pageWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+        if (typeof pageWindow?.ytcfg?.get === 'function') return pageWindow.ytcfg;
+        if (typeof window?.ytcfg?.get === 'function') return window.ytcfg;
+        if (typeof globalThis?.ytcfg?.get === 'function') return globalThis.ytcfg;
+        return null;
+    }
+
+    /**
+     * Performs a bounded InnerTube JSON request.
+     * @param {'player'|'next'} endpoint - InnerTube endpoint.
+     * @param {Object} payload - Request body.
+     * @param {string} moduleName - Logging module name.
+     * @returns {Promise<Object|null>} Parsed response, or null on recoverable failure.
+     */
+    async function fetchInnerTubeJson(endpoint, payload, moduleName) {
+        const config = getInnerTubeConfig();
+        if (!config) return null;
+        const apiKey = config.get('INNERTUBE_API_KEY');
+        const context = config.get('INNERTUBE_CONTEXT');
+        if (!apiKey || !context) return null;
+
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 8000);
+        try {
+            const response = await fetch(`https://www.youtube.com/youtubei/v1/${endpoint}?key=${encodeURIComponent(apiKey)}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ context, ...payload }),
+                signal: controller.signal
+            });
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            logWarn('InnerTube', `InnerTube ${endpoint} request failed for ${moduleName}: ${error?.message || error}`, error);
+            return null;
+        } finally {
+            clearTimeout(timeout);
+        }
+    }
+
+    /**
      * Gets Shorts views via fetch to YouTube's internal API.
      * Hoisted outside getCascadedVideoInfo to avoid recreation on each call.
      * @param {string} vid - Video ID
      * @returns {Promise<string|null>}
      */
     async function fetchShortsViews(vid) {
-        if (typeof ytcfg === 'undefined') return null;
         if (!vid) return null;
-        try {
-            const res = await fetch(
-                "https://www.youtube.com/youtubei/v1/player?key=" + ytcfg.get("INNERTUBE_API_KEY"),
-                {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                        context: ytcfg.get("INNERTUBE_CONTEXT"),
-                        videoId: vid
-                    })
-                }
-            );
-            const data = await res.json();
-            return data.videoDetails?.viewCount;
-        } catch (_) {
-            logWarn('fetchShortsViews', `Failed to get views for ${vid}`);
-            return null;
-        }
+        const data = await fetchInnerTubeJson('player', { videoId: vid }, 'fetchShortsViews');
+        return data?.videoDetails?.viewCount ?? null;
     }
 
     /**
@@ -14818,34 +19942,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {Promise<string|null>}
      */
     async function fetchPlaylistTitle(vid, playlistId) {
-        if (typeof ytcfg === 'undefined') return null;
-        if (!playlistId) return null;
-        try {
-            const res = await fetch(
-                'https://www.youtube.com/youtubei/v1/next?key=' + ytcfg.get('INNERTUBE_API_KEY'),
-                {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        context: ytcfg.get('INNERTUBE_CONTEXT'),
-                        videoId: vid,
-                        playlistId
-                    })
-                }
-            );
-            const data = await res.json();
-            return (
-                data?.contents?.twoColumnWatchNextResults?.playlist?.playlist?.titleText?.runs?.[0]?.text ??
-                data?.playerOverlays?.playerOverlayRenderer?.autoplay?.playerOverlayAutoplayRenderer?.playlistTitle?.simpleText ??
-                null
-            );
-        } catch (_) {
-            logWarn('fetchPlaylistTitle', `Failed to get playlist title for ${vid}`);
-            return null;
-        }
+        if (!vid || !playlistId) return null;
+        const data = await fetchInnerTubeJson('next', { videoId: vid, playlistId }, 'fetchPlaylistTitle');
+        return (
+            data?.contents?.twoColumnWatchNextResults?.playlist?.playlist?.titleText?.runs?.[0]?.text ??
+            data?.playerOverlays?.playerOverlayRenderer?.autoplay?.playerOverlayAutoplayRenderer?.playlistTitle?.simpleText ??
+            null
+        );
     }
 
-    async function getCascadedVideoInfo(initialPlayer, videoId, videoEl, type) {
+    async function getCascadedVideoInfo(initialPlayer, videoId, type) {
         const now = Date.now();
         let info = {
             videoId: videoId,
@@ -14870,23 +19976,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Clone to avoid mutating the cache object directly during cascade
                 info = { ...cached.info };
 
-                // If we already have playlistTitle or no playlist detected in cache,
-                // and we are not in a context that can provide more info (like watch with new URL),
-                // we can return early.
-                const hasPlaylistInfo = !!info.playlistTitle;
-                // Guard: a cached playlist association is only valid if the CURRENT URL
-                // still matches it. Otherwise a standalone viewing within the TTL would
-                // inherit the playlist from an unrelated previous visit.
-                const currentPlaylistId = typeof extractYouTubePlaylistIdFromUrl === 'function'
-                    ? extractYouTubePlaylistIdFromUrl(window.location.href)
-                    : null;
-                const playlistStillValid = hasPlaylistInfo &&
-                    (!info.lastViewedPlaylistId || !currentPlaylistId || info.lastViewedPlaylistId === currentPlaylistId);
-                if (playlistStillValid || (!info.lastViewedPlaylistId && type === 'shorts')) {
+                // A cached playlist association is valid only when the current URL
+                // explicitly confirms the same playlist. Absence of `list` means a
+                // standalone visit and must not inherit a previous association.
+                const hasCachedPlaylist = !!info.lastViewedPlaylistId || !!info.playlistTitle;
+                const currentPlaylistId = extractYouTubePlaylistIdFromUrl(window.location.href);
+                if (!hasCachedPlaylist && type === 'shorts') {
                     return { ...info };
                 }
-                // Stale playlist data: drop it and continue the cascade for fresh metadata
-                info.playlistTitle = null;
+                const playlistContextMatches = hasCachedPlaylist && currentPlaylistId &&
+                    info.lastViewedPlaylistId === currentPlaylistId;
+                if (playlistContextMatches && info.playlistTitle) {
+                    return { ...info };
+                }
+                if (hasCachedPlaylist && !playlistContextMatches) {
+                    info.lastViewedPlaylistId = null;
+                    info.playlistTitle = null;
+                }
             }
         }
 
@@ -14905,7 +20011,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 logWarn('getCascadedVideoInfo', `Returning with ${warnings.length} warning(s)`, warnings);
             }
 
-            if (res.title && res.author && (res.viewCount !== null || res.isLive)) {
+            const hasRequiredMetadata = !!res.title &&
+                !!res.author &&
+                (res.isLive || (Number.isFinite(Number(res.lengthSeconds)) && Number(res.lengthSeconds) > 0));
+            if (hasRequiredMetadata) {
                 _videoMetadataCache.set(videoId, { info: { ...res }, ts: Date.now() });
             }
             return res;
@@ -14918,18 +20027,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // getPlayerResponse().videoDetails
         // getPlayerResponse().microformat.playerMicroformatRenderer
         // getVideoData()
+        // Route API calls through getPlayerApi(): page expandos can be
+        // invisible to isolated worlds (Xray) on some players.
+        const cascadeApi = getPlayerApi(player);
         try {
             // A: getPlayerResponse
-            const playerResponse = player?.getPlayerResponse?.();
+            const playerResponse = cascadeApi?.getPlayerResponse?.();
             const details = playerResponse?.videoDetails;
             // logLog('getCascadedVideoInfo', 'PlayerResponse.videoDetails:', details);
             if (details?.videoId === videoId) {
-                // info.videoId: videoId (already from function parameter and verified to reach this point)
                 info.title = details.title ?? info.title;
                 info.author = details.author ?? info.author;
                 info.authorId = details.channelId ?? info.authorId;
                 info.isLive = details.isLive ?? info.isLive;  // .isLiveContent can give false positives on VODs and .isLive only appears if currently live
-                // info.published: null (not obtainable via this method)
                 info.description = details.shortDescription ?? info.description;
                 info.viewCount = !isNaN(parseInt(details.viewCount, 10))
                     ? parseInt(details.viewCount, 10)
@@ -14937,10 +20047,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 info.lengthSeconds = !isNaN(parseInt(details.lengthSeconds, 10))
                     ? Math.round(Number(details.lengthSeconds))
                     : info.lengthSeconds;
-                // info.lastViewedPlaylistId: null (not obtainable via this method)
-                // info.playlistTitle: null (not obtainable via this method)
-                // info.lastViewedPlaylistType: '' (Not assigned)
-                // info.lastViewedPlaylistItemId: null (Not assigned)
 
                 // logInfo('getCascadedVideoInfo', 'info after getPlayerResponse:', { ...info });
             } else if (details) {
@@ -14953,27 +20059,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             // B: getVideoData
-            const internalData = player?.getVideoData?.();
+            const internalData = cascadeApi?.getVideoData?.();
             // logLog('getCascadedVideoInfo', 'InternalData:', internalData);
             if (internalData?.video_id === videoId) {
-                // info.videoId: videoId (already from function parameter and verified to reach this point)
                 info.title = info.title ?? internalData.title;
                 info.author = info.author ?? internalData.author;
-                // info.authorId = null (not obtainable via this method)
                 info.isLive = info.isLive ?? internalData.isLive;
-                // info.published = null (not obtainable via this method)
-                // info.description = null (not obtainable via this method)
-                // info.viewCount = null (not obtainable via this method)
-                // info.lengthSeconds = null (not obtainable via this method)
                 if (internalData?.list !== null) {
                     // internalData.list does not exist if video is not in a playlist
                     // it may also not be ready when getVideoData runs
                     // so check if it exists before assigning
                     info.lastViewedPlaylistId ??= internalData.list;
                 }
-                // info.playlistTitle: null (not obtainable via this method)
-                // info.lastViewedPlaylistType: '' (Not assigned)
-                // info.lastViewedPlaylistItemId: null (Not assigned)
 
                 // logInfo('getCascadedVideoInfo', 'info after getVideoData:', { ...info });
             } else if (internalData) {
@@ -14986,11 +20083,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             const microformat = playerResponse?.microformat?.playerMicroformatRenderer;
             // logLog('getCascadedVideoInfo', 'Microformat:', microformat);
             if (microformat?.externalVideoId === videoId) {
-                // info.videoId: videoId (already from function parameter and verified to reach this point)
                 info.title = microformat.title?.simpleText ?? info.title;
                 info.author = microformat.ownerChannelName ?? info.author;
                 info.authorId = microformat.externalChannelId ?? info.authorId;
-                // info.isLive = null (not obtainable via this method)
                 info.published = microformat.publishDate
                     ? new Date(microformat.publishDate).getTime()
                     : info.published;
@@ -15001,10 +20096,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 info.lengthSeconds = !isNaN(parseInt(microformat.lengthSeconds, 10))
                     ? Math.round(Number(microformat.lengthSeconds))
                     : info.lengthSeconds;
-                // info.lastViewedPlaylistId: null (Not obtainable via this method)
-                // info.playlistTitle: null (Not obtainable via this method)
-                // info.lastViewedPlaylistType: '' (Not assigned)
-                // info.lastViewedPlaylistItemId: null (Not assigned)
 
                 // logInfo('getCascadedVideoInfo', 'info after microformat:', { ...info });
             } else if (microformat) {
@@ -15017,10 +20108,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             level1Warnings.push(`Error in Level 1: ${e.message}`);
         }
 
-        // 🔵 Level 2: YouTube Helper API
+        // 🔵 Level 2: YouTube Helper API (optional, no longer a dependency)
         try {
-            if (YTHelper?.video?.id === videoId) {
-                // info.videoId: videoId (already comes from function parameters and was already checked to reach this point)
+            if (YTHelper && YTHelper.video?.id === videoId) {
                 info.title = info.title ?? YTHelper.video.title;
                 info.author = info.author ?? YTHelper.video.channel;
                 info.authorId = info.authorId ?? YTHelper.video.channelId;
@@ -15030,9 +20120,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 info.viewCount = info.viewCount ?? (parseInt(YTHelper.video.viewCount, 10) || null);
                 info.lengthSeconds = info.lengthSeconds ?? (YTHelper.video.lengthSeconds ? Math.round(YTHelper.video.lengthSeconds) : null);
                 info.lastViewedPlaylistId = (info.lastViewedPlaylistId ?? YTHelper.video.playlistId) || null; // Harden: avoid undefined
-                // info.playlistTitle: null (Not obtainable through this method)
-                // info.lastViewedPlaylistType: '' (Not assigned)
-                // info.lastViewedPlaylistItemId: null (Not assigned)
 
             }
         } catch (e) {
@@ -15048,9 +20135,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (metapanel) {
                     if (info.title === null) {
                         const titleEl =
-                            metapanel.querySelector(SELECTORS.ELEMENTS.SHORTS_VIDEO_TITLE_VIEW_MODEL) ||
-                            metapanel.querySelector('yt-shorts-video-title-view-model') ||
-                            metapanel.querySelector('h2') ||
+                            queryFirst(metapanel, [SELECTORS.ELEMENTS.SHORTS_VIDEO_TITLE_VIEW_MODEL, 'yt-shorts-video-title-view-model', 'h2']) ||
                             // From sidebar
                             document.querySelector('ytd-video-description-header-renderer #title');
 
@@ -15061,10 +20146,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
 
                     if (info.author === null || info.author === t('unknown')) {
-                        const authorEl =
-                            metapanel.querySelector(SELECTORS.ELEMENTS.REEL_CHANNEL_BAR_VIEW_MODEL + ' a') ||
-                            metapanel.querySelector('#channel-name a') ||
-                            metapanel.querySelector('a[href*="/@"]');
+                        const authorEl = queryFirst(metapanel, [
+                            SELECTORS.ELEMENTS.REEL_CHANNEL_BAR_VIEW_MODEL + ' a',
+                            '#channel-name a',
+                            'a[href*="/@"]'
+                        ]);
 
                         const extractedAuthor = authorEl?.textContent?.trim();
                         if (extractedAuthor) {
@@ -15126,17 +20212,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (info.title === null) {
                 let titleEl = null;
                 if (type === 'watch' && (currentPageType === 'watch' || currentPageType === 'live')) {
-                    titleEl = DOMHelpers.get(`video:titleWatch:${videoId}`, () =>
-                        document.querySelector('h1.ytd-video-primary-info-renderer') ||
-                        document.querySelector('yt-formatted-string.ytd-video-description-header-renderer'), 250);
+                    titleEl = DOMHelpers.get(`video:titleWatch:${videoId}`, () => queryFirst(document, [
+                        'h1.ytd-video-primary-info-renderer',
+                        'yt-formatted-string.ytd-video-description-header-renderer'
+                    ]), 250);
                 } else if (type === 'miniplayer') {
-                    titleEl = DOMHelpers.get(`video:titleMini:${videoId}`, () =>
-                        document.querySelector('ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span') ||
-                        document.querySelector('ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span[role="text"]'), 250);
+                    titleEl = DOMHelpers.get(`video:titleMini:${videoId}`, () => queryFirst(document, [
+                        'ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span',
+                        'ytd-miniplayer-info-bar h1.ytdMiniplayerInfoBarTitle span[role="text"]'
+                    ]), 250);
                 } else if (type === 'preview') {
-                    titleEl = DOMHelpers.get(`video:titlePreview:${videoId}`, () =>
-                        document.querySelector(`${SELECTORS.inlinePreview.player} .ytp-title-text`) ||
-                        document.querySelector(`${SELECTORS.inlinePreview.player} .ytp-title-link`), 250);
+                    titleEl = DOMHelpers.get(`video:titlePreview:${videoId}`, () => queryFirst(document, [
+                        `${SELECTORS.inlinePreview.player} .ytp-title-text`,
+                        `${SELECTORS.inlinePreview.player} .ytp-title-link`
+                    ]), 250);
                 }
                 info.title = titleEl?.textContent?.trim() ?? info.title;
             }
@@ -15161,8 +20250,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             if (info.lastViewedPlaylistId === null) {
                 // Try getting from the Player object
-                if (typeof player?.getPlaylistId === 'function') {
-                    const playerPlaylistId = player.getPlaylistId();
+                const cascadePlayerApi = getPlayerApi(player);
+                if (typeof cascadePlayerApi?.getPlaylistId === 'function') {
+                    const playerPlaylistId = cascadePlayerApi.getPlaylistId();
                     if (playerPlaylistId) {
                         info.lastViewedPlaylistId = playerPlaylistId;
                         logLog('getCascadedVideoInfo', `Playlist id obtained using getPlaylistId(): [${info.lastViewedPlaylistId}]`);
@@ -15302,11 +20392,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {string} config.initialValue - Initially selected value.
      * @param {Array<{value: string, label: string, icon?: string, isGroup?: boolean}>} config.options - List of options or group labels.
      * @param {(value: string) => void} config.onChange - Callback when the selection changes.
+     * @param {DisposableStore} [config.store] - Lifetime store for the outside-click listener.
+     * Must be passed whenever the dropdown is rebuilt (e.g. per modal open); omitting it
+     * falls back to GlobalDisposables and leaks the dropdown plus a document-level
+     * listener for the whole page session.
      * @returns {HTMLElement} Dropdown wrapper element.
      */
     function createCustomDropdown({ id, wrapperClass = '', initialValue, options, onChange, store = null }) {
         let currentValue = initialValue;
         let isOpen = false;
+        const outsideListenerStore = new DisposableStore();
+        (store ?? GlobalDisposables).add(outsideListenerStore);
 
         const wrapper = createElement('div', { className: `ypp-custom-dropdown ${wrapperClass}`.trim() });
         if (id) wrapper.id = id;
@@ -15398,7 +20494,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             // Persistent listener (no {once:true}): a single click inside the wrapper
             // used to disarm the outside-click closer and leave the list stuck open.
             requestAnimationFrame(() => {
-                if (isOpen) document.addEventListener('click', onOutsideClick);
+                if (isOpen && wrapper.isConnected) {
+                    outsideListenerStore.clear();
+                    addDisposableListener(document, 'click', onOutsideClick, {}, outsideListenerStore);
+                }
             });
         };
 
@@ -15407,7 +20506,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             list.classList.add('hidden');
             trigger.setAttribute('aria-expanded', 'false');
             triggerChevron.classList.remove('open');
-            document.removeEventListener('click', onOutsideClick);
+            outsideListenerStore.clear();
         };
 
         const onOutsideClick = (e) => {
@@ -15537,6 +20636,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {number} minVal - Current minimum value.
      * @param {number} maxVal - Current maximum value.
      * @param {(min: number, max: number) => void} onChange - Callback on change.
+     * @param {DisposableStore} store - Lifetime store for the preset dropdown listeners.
      * @returns {HTMLElement}
      */
     function createRangeFilter(type, minVal, maxVal, onChange, store) {
@@ -15556,16 +20656,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return SVG_ICONS.progressZero;
         };
 
-        const getIconForRange = (min, max) => {
-            if (type === 'views') return SVG_ICONS.people;
-            return getProgressIcon(min);
-        };
-
         const labelKey = type === 'views' ? 'views' : (type === 'percent' ? 'percentWatched' : '');
         const iconFor = type === 'views' ? SVG_ICONS.people : SVG_ICONS.progressOneHundred;
 
         // Compact chip-label with dynamic icon
-        const chipIcon = createElement('span', { className: 'ypp-filter-chip-icon', html: getIconForRange(minVal, maxVal) });
+        const chipIcon = createElement('span', {
+            className: 'ypp-filter-chip-icon',
+            html: type === 'views' ? SVG_ICONS.people : getProgressIcon(minVal)
+        });
         const chipLabel = createElement('span', {
             className: 'ypp-filter-chip-label',
             html: `${iconFor} ${t(labelKey)}`
@@ -15640,6 +20738,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             id: `range-preset-${type}`,
             initialValue: initialPresetValue,
             options: dropdownOptions,
+            store,
             onChange: (val) => {
                 if (val === 'custom') return;
                 try {
@@ -15719,6 +20818,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             onChange(min, max);
         };
         const debouncedUpdate = debounce(updateFromInputs, 400);
+        store?.add?.(() => debouncedUpdate.cancel());
         // Limit validation and sync
         applyNumericClamping(inputMin, { min: 0, max: type === 'percent' ? 100 : undefined, store });
         applyNumericClamping(inputMax, { min: 0, max: type === 'percent' ? 100 : undefined, store });
@@ -15761,6 +20861,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Apply debounce to avoid processing each keystroke immediately
         const debouncedOnChange = debounce((value) => onChange(value), 300);
+        store?.add?.(() => debouncedOnChange.cancel());
         addDisposableListener(input, 'input', () => debouncedOnChange(input.value.trim()), {}, store);
 
         wrapper.appendChild(input);
@@ -15771,6 +20872,53 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
     // MARK: 📂 Video List UI
     // ============================================================================================================
+
+    /** @type {number} Monotonic token for the currently opening settings modal. */
+    let settingsModalGeneration = 0;
+    /** @type {(() => void)|null} Cleanup callback for the active settings modal. */
+    let settingsModalCleanup = null;
+    /** @type {number} Monotonic token for the currently opening saved-videos modal. */
+    let savedVideosModalGeneration = 0;
+    /** @type {number} Monotonic token for the current video-list render. */
+    let savedVideosRenderGeneration = 0;
+    /** @type {HTMLElement|null} Element focused before the saved-videos modal opened. */
+    let savedVideosModalPreviousFocus = null;
+    /** @type {string|null} Unique owner token for the current saved-videos scroll lock. */
+    let savedVideosBodyOverflowOwner = null;
+
+    const SETTINGS_BODY_OVERFLOW_OWNER = 'settings-modal';
+    const SAVED_VIDEOS_BODY_OVERFLOW_OWNER = 'saved-videos-modal';
+    /** @type {Set<string>} Modal owners currently holding the body scroll lock. */
+    const bodyOverflowOwners = new Set();
+    /** @type {string} Body overflow value before the first modal acquired the lock. */
+    let bodyOverflowBeforeModals = '';
+
+    /**
+     * Acquires the shared body scroll lock for a modal owner.
+     * @param {string} owner - Stable owner identifier.
+     * @returns {void}
+     */
+    function acquireBodyOverflow(owner) {
+        if (!owner || bodyOverflowOwners.has(owner)) return;
+        if (bodyOverflowOwners.size === 0) {
+            bodyOverflowBeforeModals = document.body?.style?.overflow || '';
+        }
+        bodyOverflowOwners.add(owner);
+        if (document.body) document.body.style.overflow = 'hidden';
+    }
+
+    /**
+     * Releases a modal's body scroll lock without disturbing other modal owners.
+     * @param {string} owner - Stable owner identifier.
+     * @returns {void}
+     */
+    function releaseBodyOverflow(owner) {
+        if (!owner || !bodyOverflowOwners.delete(owner)) return;
+        if (bodyOverflowOwners.size === 0 && document.body) {
+            document.body.style.overflow = bodyOverflowBeforeModals;
+            bodyOverflowBeforeModals = '';
+        }
+    }
 
     /** @type {HTMLElement|null} Main video list overlay (black background) */
     let videosOverlay = null;
@@ -15797,8 +20945,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let virtualScroller = null;
     /** @type {ResizeObserver|null} Observer for VirtualScroller resizing */
     let virtualScrollerResizeObserver = null;
+    /** @type {number|null} Pending grid resize debounce timer. */
+    let virtualScrollerResizeDebounceTimer = null;
     /** @type {Array} Cache of the currently filtered and sorted items */
     let cachedFilteredItems = [];
+    /** @type {Set<string>} Expanded grid video IDs shared across rerenders. */
+    const expandedGridVideoIds = new Set();
     /** @type {number|null} Storage usage update interval ID */
     let storageUsageRefreshIntervalId = null;
     /** @type {number|null} Cache of the script storage size in bytes */
@@ -15809,10 +20961,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     let lastRecalculateClick = null;
     /** @type {Map<string, string>} Global title cache by ID for use in createVideoEntry */
     let modalVideoTitleById = new Map();
-    /** @type {HTMLElement|null} Reference to the playlist area for cleanup */
-    let playlistAreaElement = null;
-    /** @type {Function|null} Reference to the playlist handler for cleanup */
-    let playlistRefreshHandler = null;
 
     /** @type {typeof CONFIG.defaultSavedVideosModalSettings|null} Video modal UI (dedicated storage key) */
     let cachedSavedVideosModalSettings = null;
@@ -15822,6 +20970,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     /** @type {((ev: Event) => void)|null} */
     let savedVideoOverflowDocHandler = null;
+    /** @type {DisposableStore|null} Listener store owned by the open overflow menu. */
+    let savedVideoOverflowDisposables = null;
 
     /**
      * Gets all real video elements from virtualScroller.items,
@@ -15854,18 +21004,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Loads video data from Storage in parallel batches for better performance.
      * @param {string[]} keys - Keys to load
      * @param {number} [batchSize=50] - Batch size
+     * @param {{strict?: boolean}} [options] - Whether failed reads reject the batch.
      * @returns {Promise<Map<string, any>>}
      */
-    async function batchLoadStorageData(keys, batchSize = 50) {
+    async function batchLoadStorageData(keys, batchSize = 50, { strict = false } = {}) {
         if (isBatchStorageCacheValid && cachedBatchStorageData) {
             return cachedBatchStorageData;
         }
 
         const results = new Map();
+        const startingRevision = storageCacheRevision;
         for (let i = 0; i < keys.length; i += batchSize) {
             const batch = keys.slice(i, i + batchSize);
             const promises = batch.map(async key => {
-                const data = await Storage.get(key);
+                const data = await Storage.get(key, { throwOnError: strict });
                 return [key, data];
             });
 
@@ -15876,9 +21028,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 .forEach(([key, data]) => {
                     if (data) results.set(key, data);
                 });
-            settledResults
-                .filter(r => r.status === 'rejected')
-                .forEach(r => logWarn('batchLoad', 'Failed to load key in batch', r.reason));
+            const rejectedResults = settledResults.filter(r => r.status === 'rejected');
+            rejectedResults.forEach(r => logWarn('batchLoad', 'Failed to load key in batch', r.reason));
+            if (strict && rejectedResults.length > 0) {
+                throw rejectedResults[0].reason;
+            }
 
             // Yield to the event loop each batch to avoid blocking the UI
             if (i + batchSize < keys.length) {
@@ -15886,8 +21040,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
         }
 
-        cachedBatchStorageData = results;
-        isBatchStorageCacheValid = true;
+        if (startingRevision === storageCacheRevision) {
+            cachedBatchStorageData = results;
+            isBatchStorageCacheValid = true;
+        }
         return results;
     }
 
@@ -15924,13 +21080,29 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
-     * Manages the skeleton loading overlay for the video list.
+     * Shows the skeleton loading overlay for the video list.
+     * The skeleton is ALWAYS an absolute overlay: while loading, the container
+     * height comes from the `.ypp-list-loading` class, never from the placeholder.
+     * A skeleton in normal flow would make the modal height depend on the
+     * placeholder, producing a collapse/re-expand pulse once the real list lands.
      * @param {HTMLElement} container - listContainer
      * @returns {HTMLElement} loadingIndicator element
      */
     function showLoadingState(container) {
-        const scrollerElCheck = document.getElementById('ypp-virtual-scroller-container');
+        const scrollerElCheck = DOMHelpers.get('vsc:container', () => document.getElementById('ypp-virtual-scroller-container') ?? null, 0);
         let loadingIndicator = container.querySelector('.ypp-skeleton-container');
+
+        // A scroller whose element is gone from the DOM cannot be updated nor
+        // reused: drop it so initVirtualScroller builds a fresh one.
+        if (virtualScroller && !scrollerElCheck) {
+            virtualScroller.destroy?.();
+            virtualScroller = null;
+        }
+
+        // Without a scroller the container may still hold an empty/error state.
+        if (!scrollerElCheck) {
+            setInnerHTML(container, '');
+        }
 
         if (!loadingIndicator) {
             loadingIndicator = createElement('div', {
@@ -15953,35 +21125,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             });
         }
 
-        if (!virtualScroller || !scrollerElCheck) {
-            if (virtualScroller) {
-                virtualScroller.destroy?.();
-                virtualScroller = null;
-            }
-            setInnerHTML(container, '');
-            const dummyStats = createElement('div', {
-                className: 'ypp-virtual-stats',
-                id: 'ypp-virtual-stats',
-                styles: { display: 'none' },
-                html: `${SVG_ICONS.spinner} ${t('loading')}...`
-            });
-            container.appendChild(dummyStats);
-            container.appendChild(loadingIndicator);
-        } else {
-            loadingIndicator.style.cssText = `
-                position: absolute;
-                top: 35px; left: 0; right: 0; bottom: 0;
-                background: var(--ypp-bg);
-                z-index: 5;
-                overflow: hidden;
-            `;
-            if (!loadingIndicator.parentElement) container.appendChild(loadingIndicator);
-            loadingIndicator.style.display = 'flex';
-            const statsEl = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
-            if (statsEl) {
-                statsEl.style.display = 'flex';
-                setInnerHTML(statsEl, `${SVG_ICONS.spinner} ${t('loading')}...`);
-            }
+        container.classList.add('ypp-list-loading');
+        loadingIndicator.style.cssText = `
+            position: absolute;
+            top: 35px; left: 0; right: 0; bottom: 0;
+            background: var(--ypp-bg);
+            z-index: 5;
+            overflow: hidden;
+        `;
+        if (!loadingIndicator.parentElement) container.appendChild(loadingIndicator);
+        loadingIndicator.style.display = 'flex';
+
+        if (!container.querySelector('#ypp-virtual-stats')) {
+            container.appendChild(createElement('div', { className: 'ypp-virtual-stats', id: 'ypp-virtual-stats' }));
+        }
+        const statsEl = DOMHelpers.get('list:virtualStats', () => document.querySelector('#ypp-virtual-stats'), 200);
+        if (statsEl) {
+            statsEl.style.display = 'flex';
+            setInnerHTML(statsEl, `${SVG_ICONS.spinner} ${t('loading')}...`);
         }
         return loadingIndicator;
     }
@@ -15991,8 +21152,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {Promise<Array>}
      */
     async function loadVideoItems() {
-        const keys = await Storage.keys();
-        const allData = await batchLoadStorageData(keys);
+        const keys = await Storage.keys({ throwOnError: true, requireComplete: true });
+        const allData = await batchLoadStorageData(keys, 50, { strict: true });
         const items = [];
         for (const [key, data] of allData) {
             if (!data) continue;
@@ -16087,16 +21248,19 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     /**
      * Builds virtual items array with grid row chunking and playlist headers.
      * @param {Array} filteredItems
+     * @param {number|null} [gridColsOverride] - Column count supplied by a resize rebuild.
      * @returns {Array} virtualItems
      */
-    function buildVirtualItems(filteredItems) {
+    function buildVirtualItems(filteredItems, gridColsOverride = null) {
         cachedFilteredItems = filteredItems;
         const virtualItems = [];
         let lastPlaylistKey = null;
         const isGridMode = cachedSavedVideosModalSettings?.displayOptions?.viewMode === 'grid';
-        let gridCols = 3;
-        if (window.innerWidth < 600) gridCols = 2;
-        else if (window.innerWidth >= 1200) gridCols = 4;
+        let gridCols = gridColsOverride;
+        if (!Number.isInteger(gridCols) || gridCols < 1) gridCols = GRID_BREAKPOINTS.baseCols;
+        if (gridColsOverride === null) {
+            gridCols = resolveGridCols(window.innerWidth);
+        }
 
         let currentRowChunk = [];
         const flushRowChunk = () => {
@@ -16107,7 +21271,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     items: currentRowChunk,
                     expandedItemIds: alwaysExpanded
                         ? new Set(currentRowChunk.map(i => i.info.videoId || i.videoId))
-                        : new Set(),
+                        : new Set(currentRowChunk
+                            .map(i => i.info.videoId || i.videoId)
+                            .filter(id => expandedGridVideoIds.has(id))),
                     gridCols
                 });
                 currentRowChunk = [];
@@ -16150,6 +21316,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     function showEmptyState(container) {
         const loadingIndicator = container.querySelector('.ypp-skeleton-container');
+        container.classList.remove('ypp-list-loading');
         const scrollerEl = DOMHelpers.get('vsc:container', () => document.getElementById('ypp-virtual-scroller-container'), 5000);
         if (loadingIndicator) loadingIndicator.style.display = 'none';
         if (scrollerEl) scrollerEl.style.display = 'none';
@@ -16175,6 +21342,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     }
 
     /**
+     * Shows a non-destructive error state when a complete storage listing
+     * cannot be obtained. Rendering a partial list would be misleading.
+     * @param {HTMLElement} container - listContainer
+     * @returns {void}
+     */
+    function showListLoadErrorState(container) {
+        destroyVirtualScroller('listLoadError');
+        container.classList.remove('ypp-list-loading');
+        DOMHelpers.removeExact('vsc:container');
+        // Point at the repair entry when unreadable records are the cause, so
+        // the user is not left with an unexplained empty list.
+        const quarantined = Storage.getQuarantinedRecords();
+        const detail = quarantined.length > 0
+            ? `<p>${sanitizeHTML(t('storageCorruptRecords', { count: quarantined.length }))}</p>`
+            : '';
+        setInnerHTML(container, `<div class="ypp-empty-state-composed">${SVG_ICONS.error}<h3>${sanitizeHTML(t('unknownError'))}</h3>${detail}</div>`);
+    }
+
+    /**
      * Updates an existing VirtualScroller with new items and restores scroll.
      * @param {import('./virtual-scroller.js').VirtualScroller} scroller
      * @param {Array} virtualItems
@@ -16192,9 +21378,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }
         const loadingIndicator = DOMHelpers.get('list:skeletonContainer', () => document.querySelector('.ypp-skeleton-container'), 200);
         if (loadingIndicator) loadingIndicator.style.display = 'none';
+        scroller.container?.closest('#video-list-container')?.classList.remove('ypp-list-loading');
         scroller.itemGap = itemGap;
         scroller.updateItems(virtualItems);
         requestAnimationFrame(() => {
+            if (virtualScroller !== scroller || !scroller.container?.isConnected) return;
             const el = DOMHelpers.get('vsc:container', () => document.getElementById('ypp-virtual-scroller-container'), 5000);
             if (el) el.scrollTop = scrollTop;
         });
@@ -16207,23 +21395,35 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {Array} virtualItems
      * @param {number} count - filtered item count
      * @param {number} itemGap - gap between items
+     * @param {() => boolean} [isCurrent] - Optional render validity callback.
      * @returns {Promise<{scroller: import('./virtual-scroller.js').VirtualScroller, scrollerContainer: HTMLElement}>}
      */
-    async function initVirtualScroller(container, virtualItems, count, itemGap) {
+    async function initVirtualScroller(container, virtualItems, count, itemGap, isCurrent = () => true) {
+        // The skeleton overlay and the reserved container height must survive the
+        // await below: clearing them first would collapse the modal for the whole
+        // duration of the storage-usage lookup.
         const loadingIndicator = container.querySelector('.ypp-skeleton-container');
-        if (loadingIndicator) loadingIndicator.remove();
-        setInnerHTML(container, '');
-
-        const statsBar = createElement('div', {
-            className: 'ypp-virtual-stats',
-            id: 'ypp-virtual-stats',
-            html: `<span>${count} ${t('videos')}</span><span id="ypp-storage-usage" class="ypp-storage-usage"></span>`
-        });
-        container.appendChild(statsBar);
+        const statsHtml = `<span>${count} ${t('videos')}</span><span id="ypp-storage-usage" class="ypp-storage-usage"></span>`;
+        const existingStatsBar = container.querySelector('#ypp-virtual-stats');
+        if (existingStatsBar) {
+            existingStatsBar.style.display = 'flex';
+            setInnerHTML(existingStatsBar, statsHtml);
+        } else {
+            container.appendChild(createElement('div', {
+                className: 'ypp-virtual-stats',
+                id: 'ypp-virtual-stats',
+                html: statsHtml
+            }));
+        }
 
         DOMHelpers.removeExact('ui:storageUsage');
         try { await updateStorageUsageIndicator(); } catch (_) { logWarn('StorageUI', 'Error on createVirtualScroller updateStorageUsageIndicator', _); }
-        if (!listContainer) return null;
+        if (!isCurrent() || listContainer !== container || !container.isConnected) return null;
+
+        // A destroyed scroller leaves its container element behind: drop it so the
+        // new scroller is the only #ypp-virtual-scroller-container in the DOM.
+        container.querySelector('#ypp-virtual-scroller-container')?.remove();
+        DOMHelpers.removeExact('vsc:container');
 
         const scrollerContainer = createElement('div', {
             id: 'ypp-virtual-scroller-container',
@@ -16257,15 +21457,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             renderItem: async (item) => {
                 if (item.type === 'playlist-header') {
                     const header = createElement('div', { className: 'ypp-playlist-header' });
-                    let playlistUrl = getSafeUrl(`https://www.youtube.com/playlist?list=${item.playlistKey}`);
-                    if (item.playlistKey.startsWith('RD') && item.firstVideoId) {
-                        playlistUrl = getSafeUrl(`https://www.youtube.com/watch?v=${item.firstVideoId}&list=${item.playlistKey}`);
-                    }
-                    setInnerHTML(header, `<a href="${playlistUrl}" target="_blank" rel="noopener noreferrer">${SVG_ICONS.playlist} ${sanitizeHTML(item.playlistTitle)}</a>`);
+                    const playlistKey = /^[A-Za-z0-9_-]+$/.test(String(item.playlistKey || '')) ? item.playlistKey : '';
+                    const firstVideoId = /^[A-Za-z0-9_-]{11}$/.test(String(item.firstVideoId || '')) ? item.firstVideoId : '';
+                    const playlistUrl = playlistKey.startsWith('RD') && firstVideoId
+                        ? getSafeUrl(`https://www.youtube.com/watch?v=${firstVideoId}&list=${encodeURIComponent(playlistKey)}`)
+                        : getSafeUrl(`https://www.youtube.com/playlist?list=${encodeURIComponent(playlistKey)}`);
+                    const link = createElement('a', {
+                        attributes: { href: playlistUrl, target: '_blank', rel: 'noopener noreferrer' },
+                        html: `${SVG_ICONS.playlist} ${sanitizeHTML(item.playlistTitle)}`
+                    });
+                    header.appendChild(link);
                     return header;
                 }
                 if (item.type === 'grid-row') return await createVideoGridRow(item);
                 return await createVideoEntry(item);
+            },
+            onItemDispose: (element) => {
+                element._yppDisposables?.dispose?.();
             },
             onRender: () => {
                 if (virtualScroller) {
@@ -16281,7 +21489,72 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             }
         });
+
+        // The scroller now owns the container height: the loading placeholder and
+        // the reserved height can be released without collapsing the modal.
+        if (loadingIndicator) loadingIndicator.style.display = 'none';
+        container.classList.remove('ypp-list-loading');
+
         return { scroller, scrollerContainer };
+    }
+
+    /**
+     * Grid-column breakpoints for the saved-videos grid (single source of truth;
+     * previously duplicated as literals in buildVirtualItems/connectResizeObserver).
+     * @type {{narrowWidth: number, wideWidth: number, narrowCols: number, baseCols: number, wideCols: number}}
+     */
+    const GRID_BREAKPOINTS = { narrowWidth: 600, wideWidth: 1200, narrowCols: 2, baseCols: 3, wideCols: 4 };
+
+    /** Debounce for grid ResizeObserver recalculation. @type {number} */
+    const GRID_RESIZE_DEBOUNCE_MS = 120;
+
+    /** Minimum visible animation time for the storage recalculate icon. @type {number} */
+    const RECALC_MIN_ANIMATION_MS = 500;
+
+    /** Size from which playlist cooldowns prune expired entries. @type {number} */
+    const PLAYLIST_COOLDOWN_SWEEP_THRESHOLD = 200;
+
+    /**
+     * Resolves grid column count from a container width.
+     * @param {number} width - Container width in px.
+     * @returns {number} Column count.
+     */
+    function resolveGridCols(width) {
+        if (width < GRID_BREAKPOINTS.narrowWidth) return GRID_BREAKPOINTS.narrowCols;
+        if (width >= GRID_BREAKPOINTS.wideWidth) return GRID_BREAKPOINTS.wideCols;
+        return GRID_BREAKPOINTS.baseCols;
+    }
+
+    /**
+     * Destroys the active VirtualScroller (if any) and disconnects its grid
+     * ResizeObserver, so no scroll listener, rendered item or observed
+     * detached container survives the transition.
+     * @param {string} reason - Teardown context for diagnostics.
+     * @returns {void}
+     */
+    function destroyVirtualScroller(reason) {
+        if (virtualScroller) {
+            try { virtualScroller.destroy(); } catch (e) { logWarn('destroyVirtualScroller', `Error destroying scroller (${reason})`, e); }
+            virtualScroller = null;
+        }
+        try { disconnectVirtualScrollerObserver(); } catch (e) { logWarn('destroyVirtualScroller', `Error disconnecting observer (${reason})`, e); }
+    }
+
+    /**
+     * Disconnects the grid-layout ResizeObserver and cancels its pending debounce.
+     * Must be called whenever the observed container leaves the DOM, otherwise the
+     * observer keeps a detached element (and its closure) reachable.
+     * @returns {void}
+     */
+    function disconnectVirtualScrollerObserver() {
+        if (virtualScrollerResizeObserver) {
+            virtualScrollerResizeObserver.disconnect();
+            virtualScrollerResizeObserver = null;
+        }
+        if (virtualScrollerResizeDebounceTimer !== null) {
+            clearTimeout(virtualScrollerResizeDebounceTimer);
+            virtualScrollerResizeDebounceTimer = null;
+        }
     }
 
     /**
@@ -16289,76 +21562,29 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {HTMLElement} scrollerContainer
      */
     function connectResizeObserver(scrollerContainer) {
-        if (virtualScrollerResizeObserver) {
-            virtualScrollerResizeObserver.disconnect();
-            virtualScrollerResizeObserver = null;
-        }
+        disconnectVirtualScrollerObserver();
         if (typeof ResizeObserver !== 'undefined') {
-            let resizeDebounceTimer = null;
             virtualScrollerResizeObserver = new ResizeObserver(() => {
                 if (!virtualScroller) return;
-                clearTimeout(resizeDebounceTimer);
-                resizeDebounceTimer = setTimeout(() => {
+                if (virtualScrollerResizeDebounceTimer !== null) clearTimeout(virtualScrollerResizeDebounceTimer);
+                virtualScrollerResizeDebounceTimer = setTimeout(() => {
+                    virtualScrollerResizeDebounceTimer = null;
                     const isGridMode = cachedSavedVideosModalSettings?.displayOptions?.viewMode === 'grid';
                     if (isGridMode && cachedFilteredItems && cachedFilteredItems.length > 0) {
                         const containerWidth = scrollerContainer.clientWidth || window.innerWidth;
-                        let newGridCols = 3;
-                        if (containerWidth < 600) newGridCols = 2;
-                        else if (containerWidth >= 1200) newGridCols = 4;
+                        const newGridCols = resolveGridCols(containerWidth);
 
                         const firstGridRow = virtualScroller.items.find(item => item.type === 'grid-row');
-                        const currentGridCols = firstGridRow ? (firstGridRow.gridCols || 3) : 3;
+                        const currentGridCols = firstGridRow ? (firstGridRow.gridCols || GRID_BREAKPOINTS.baseCols) : GRID_BREAKPOINTS.baseCols;
 
                         if (newGridCols !== currentGridCols) {
-                            const newVirtualItems = [];
-                            let lastPlaylistKey = null;
-                            let currentRowChunk = [];
-
-                            const expandedIds = new Set();
-                            virtualScroller.items.forEach(item => {
-                                if (item.type === 'grid-row' && item.expandedItemIds) {
-                                    for (const id of item.expandedItemIds) expandedIds.add(id);
-                                }
-                            });
-
-                            const flushRowChunk = () => {
-                                if (currentRowChunk.length > 0) {
-                                    const alwaysExpanded = cachedSavedVideosModalSettings?.displayOptions?.gridAlwaysExpanded;
-                                    const rowVideoIds = currentRowChunk.map(i => i.info.videoId || i.videoId);
-                                    const rowExpandedIds = alwaysExpanded
-                                        ? new Set(rowVideoIds)
-                                        : new Set(rowVideoIds.filter(id => expandedIds.has(id)));
-
-                                    newVirtualItems.push({
-                                        type: 'grid-row',
-                                        items: currentRowChunk,
-                                        expandedItemIds: rowExpandedIds,
-                                        gridCols: newGridCols
-                                    });
-                                    currentRowChunk = [];
-                                }
-                            };
-
-                            for (const item of cachedFilteredItems) {
-                                if (item.type === 'playlist-video' && item.playlistKey && item.playlistKey !== lastPlaylistKey) {
-                                    flushRowChunk();
-                                    lastPlaylistKey = item.playlistKey;
-                                } else if (item.type !== 'playlist-video') {
-                                    if (lastPlaylistKey !== null) flushRowChunk();
-                                    lastPlaylistKey = null;
-                                }
-                                currentRowChunk.push(item);
-                                if (currentRowChunk.length >= newGridCols) flushRowChunk();
-                            }
-                            flushRowChunk();
-
-                            virtualScroller.updateItems(newVirtualItems);
+                            virtualScroller.updateItems(buildVirtualItems(cachedFilteredItems, newGridCols));
                             return;
                         }
                     }
 
                     if (virtualScroller) virtualScroller.updateHeights(true);
-                }, 120);
+                }, GRID_RESIZE_DEBOUNCE_MS);
             });
             virtualScrollerResizeObserver.observe(scrollerContainer);
         }
@@ -16369,13 +21595,29 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Only renders items visible in the viewport, ideal for thousands of videos.
      */
     async function updateVideoList() {
-        if (!listContainer) return;
+        const modalGeneration = savedVideosModalGeneration;
+        const renderGeneration = ++savedVideosRenderGeneration;
+        const targetContainer = listContainer;
+        if (!targetContainer) return;
+        const isCurrentRender = () =>
+            renderGeneration === savedVideosRenderGeneration &&
+            modalGeneration === savedVideosModalGeneration &&
+            listContainer === targetContainer &&
+            targetContainer.isConnected;
 
-        showLoadingState(listContainer);
+        showLoadingState(targetContainer);
         const currentScrollTop = virtualScroller?.container?.scrollTop ?? 0;
 
-        const allItems = await loadVideoItems();
-        if (!listContainer) return;
+        let allItems;
+        try {
+            allItems = await loadVideoItems();
+        } catch (error) {
+            if (!isCurrentRender()) return;
+            logError('updateVideoList', 'Could not obtain a complete saved-videos listing', error);
+            showListLoadErrorState(targetContainer);
+            return;
+        }
+        if (!isCurrentRender()) return;
 
         resolvePlaylistTitles(allItems);
         let filteredItems = filterItems(allItems);
@@ -16396,11 +21638,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const virtualItemGap = isGridMode ? 12 : 0;
 
         if (filteredItems.length === 0) {
-            showEmptyState(listContainer);
+            // Release the previous scroller before showing the empty state:
+            // otherwise its scroll listener and rendered items survive behind
+            // the empty message until the next non-empty render overwrites the
+            // variable (or forever, if the list stays empty).
+            destroyVirtualScroller('emptyList');
+            showEmptyState(targetContainer);
             return;
         }
 
-        const emptyMsg = listContainer.querySelector('.ypp-empty-state-composed');
+        const emptyMsg = targetContainer.querySelector('.ypp-empty-state-composed');
         if (emptyMsg) emptyMsg.style.display = 'none';
         if (scrollerEl) scrollerEl.style.display = 'block';
 
@@ -16409,41 +21656,75 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return;
         }
 
-        const result = await initVirtualScroller(listContainer, virtualItems, filteredItems.length, virtualItemGap);
-        if (!result) return;
+        // The container is gone but a scroller from a previous render survives:
+        // destroy it first so initVirtualScroller() cannot overwrite the
+        // variable and orphan the old scroll listener + rendered items.
+        if (virtualScroller && !scrollerEl) {
+            destroyVirtualScroller('orphanedContainer');
+        }
+
+        const result = await initVirtualScroller(
+            targetContainer,
+            virtualItems,
+            filteredItems.length,
+            virtualItemGap,
+            isCurrentRender
+        );
+        if (!result || !isCurrentRender()) {
+            result?.scroller?.destroy?.();
+            return;
+        }
         virtualScroller = result.scroller;
         connectResizeObserver(result.scrollerContainer);
 
         logLog('updateVideoList', `✅ VirtualScroller initialized with ${filteredItems.length} items`);
     }
 
-    function closeModalVideos() {
+    /**
+     * Requests a non-blocking list refresh and reports failures instead of
+     * creating an unhandled rejection from a click handler.
+     * @returns {void}
+     */
+    function requestVideoListUpdate() {
+        void updateVideoList().catch(error => {
+            logWarn('updateVideoList', 'Error refreshing saved-videos list', error);
+        });
+    }
+
+    /**
+     * Closes and disposes the saved-videos modal.
+     * @param {{invalidatePending?: boolean, expectedGeneration?: number|null, event?: Event|null}} [options] - Close guards and pending-render policy.
+     * @returns {void}
+     */
+    function closeModalVideos({ invalidatePending = true, expectedGeneration = null, event = null } = {}) {
+        if (expectedGeneration !== null && expectedGeneration !== savedVideosModalGeneration) return;
+        const eventTarget = event?.currentTarget;
+        if (
+            eventTarget instanceof Node &&
+            videosContainer &&
+            eventTarget !== videosOverlay &&
+            !videosContainer.contains(eventTarget)
+        ) return;
+        if (invalidatePending) savedVideosModalGeneration += 1;
+        savedVideosRenderGeneration += 1;
         closeSavedVideoOverflowMenu();
 
         // Destroy VirtualScroller to release resources
-        if (virtualScroller) {
-            virtualScroller.destroy();
-            virtualScroller = null;
-        }
-
-        // Destroy grid scroller ResizeObserver
-        if (virtualScrollerResizeObserver) {
-            virtualScrollerResizeObserver.disconnect();
-            virtualScrollerResizeObserver = null;
-        }
+        destroyVirtualScroller('modalClose');
 
         // Clean modal resources (listeners, etc.)
+        videosContainer?.querySelector('.ypp-saved-videos-toolbar-wrap')?._yppDisposables?.dispose?.();
+        // Drop the footer reference so a later rebuild starts from a clean store
+        // instead of disposing an already-cleared one.
+        const footerRoot = document.querySelector('.ypp-footer');
+        if (footerRoot) footerRoot._yppFooterDisposables = null;
+        storageDamageNoticeDisposables?.dispose?.();
+        storageDamageNoticeDisposables = null;
         ModalDisposables.clear();
 
         // Clear debounce
+        debouncedUpdateVideoList?.cancel?.();
         debouncedUpdateVideoList = null;
-
-        // Clean playlist listener to prevent memory leaks
-        if (playlistAreaElement && playlistRefreshHandler) {
-            playlistAreaElement.removeEventListener('ypp-selection-changed', playlistRefreshHandler);
-            playlistAreaElement = null;
-            playlistRefreshHandler = null;
-        }
 
         if (videosOverlay) {
             videosOverlay.remove();
@@ -16471,7 +21752,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         isPlaylistCreationMode = false;
         isManagementMode = false;
         selectedVideos.clear();
-        document.body.style.overflow = '';
+        cachedFilteredItems = [];
+        modalVideoTitleById.clear();
+        expandedGridVideoIds.clear();
+        modalVideosFooterSecondRow = null;
+        cachedMgmtButtons = null;
+        if (savedVideosBodyOverflowOwner) {
+            releaseBodyOverflow(savedVideosBodyOverflowOwner);
+            savedVideosBodyOverflowOwner = null;
+        }
+        if (savedVideosModalPreviousFocus?.isConnected) savedVideosModalPreviousFocus.focus();
+        savedVideosModalPreviousFocus = null;
     }
 
     /**
@@ -16496,50 +21787,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     };
 
     /**
-     * Calculates the storage size used specifically by the script.
-     * Uses a hybrid strategy to optimize performance:
-     * 1. Priority 1: storageCache (sync, already populated during initialization)
-     * 2. Priority 2: size of exported JSON (fast, one serialization)
-     * 3. Priority 3: iteration with Storage.get() (slow, fallback only)
-     *
+     * Calculates the storage size used specifically by the script from one
+     * complete durable snapshot. The bounded LRU is never used as an inventory.
      * @async
      * @function calculateScriptStorageUsage
      * @returns {Promise<number>} Size in bytes of the script's stored data.
      */
     const calculateScriptStorageUsage = async () => {
         try {
-            // Priority 1: Use storageCache (synchronous)
-            if (storageCache && storageCache.size > 0) {
-                let totalBytes = 0;
-                for (const [key, serialized] of storageCache.entries()) {
-                    if (!isNonVideoStorageKey(key)) {
-                        totalBytes += serialized.length * 2; // UTF-16: 2 bytes per character
-                    }
-                }
-                return totalBytes;
-            }
-
-            // Priority 2: Use exported JSON size
-            const exportData = await getSyncData('export', null);
-            if (exportData) {
-                const jsonString = JSON.stringify(exportData);
-                return jsonString.length * 2; // UTF-16
-            }
-
-            // Priority 3: Iterate with Storage.get() (slow fallback)
-            const keys = await Storage.keys();
-            const videoKeys = keys.filter(k => !isNonVideoStorageKey(k));
+            const records = await Storage.getCompleteVideoSnapshot();
             let totalBytes = 0;
-            for (const key of videoKeys) {
-                const data = await Storage.get(key);
-                if (data) {
-                    totalBytes += JSON.stringify(data).length * 2;
-                }
+            for (const record of records.values()) {
+                totalBytes += JSON.stringify(record).length * 2; // UTF-16 estimate
             }
             return totalBytes;
         } catch (error) {
             logError('calculateScriptStorageUsage', 'Error al calcular uso de almacenamiento:', error);
-            return 0;
+            throw error;
         }
     };
 
@@ -16570,7 +21834,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 scriptStorageUsageCache = scriptUsage;
             } catch (error) {
                 logError('updateStorageUsageIndicator', 'Error al calcular uso del script:', error);
-                scriptUsage = 0;
+                scriptUsage = null;
             } finally {
                 isCalculatingStorageUsage = false;
             }
@@ -16578,8 +21842,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Get total IndexedDB usage
         const estimateFn = navigator?.storage?.estimate;
-        let totalUsage = 0;
-        let quota = 0;
+        let totalUsage = null;
+        let quota = null;
 
         if (typeof estimateFn === 'function') {
             try {
@@ -16593,10 +21857,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
         }
 
-        // Formatear valores
-        const scriptUsageFormatted = formatBytes(scriptUsage);
-        const totalUsageFormatted = formatBytes(totalUsage);
-        const quotaFormatted = formatBytes(quota);
+        // Formatear valores; null means the exact script inventory is unknown.
+        const scriptUsageFormatted = scriptUsage === null ? t('unknownError') : formatBytes(scriptUsage);
+        const totalUsageFormatted = totalUsage === null ? t('unknownError') : formatBytes(totalUsage);
+        const quotaFormatted = quota === null ? t('unknownError') : formatBytes(quota);
 
         // Create HTML with tooltips and recalculate button
         const refreshIcon = SVG_ICONS.restart || '↻';
@@ -16611,10 +21875,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         setInnerHTML(el, html);
 
+        // The damaged-rows notice lives next to the storage usage line.
+        try {
+            renderStorageDamageNotice();
+        } catch (error) {
+            logWarn('StorageUI', 'Could not render the damaged-rows notice', error);
+        }
+
         // Add listener to recalculate button
+        // Registered via addDisposableListener against ModalDisposables so the
+        // handler is released on modal close even though setInnerHTML() above
+        // replaces the button node on every refresh.
         const recalcBtn = el.querySelector('.ypp-recalculate-storage-btn');
         if (recalcBtn) {
-            recalcBtn.onclick = async (e) => {
+            addDisposableListener(recalcBtn, 'click', async (e) => {
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -16653,7 +21927,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     // Wait for both promises to ensure at least 500ms of visible animation
                     const [newUsage] = await Promise.all([
                         calculateScriptStorageUsage(),
-                        delay(500)
+                        delay(RECALC_MIN_ANIMATION_MS)
                     ]);
 
                     scriptStorageUsageCache = newUsage;
@@ -16666,13 +21940,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                 } catch (error) {
                     logError('recalculateStorage', 'Error al recalcular almacenamiento:', error);
+                    const usageElement = DOMHelpers.get('ui:storageUsage', () => document.querySelector('#ypp-storage-usage'), 500);
+                    const usageSpans = usageElement?.querySelectorAll('span');
+                    if (usageSpans?.[0]) {
+                        usageSpans[0].textContent = t('storageUsageVideos', { usage: t('unknownError') });
+                    }
                 } finally {
                     isCalculatingStorageUsage = false;
                     if (animation) {
                         animation.cancel();
                     }
                 }
-            };
+            }, ModalDisposables);
         }
     };
 
@@ -16682,6 +21961,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     const createFloatingButton = async () => {
         const settings = cachedSettings || await getSettings();
+        assertActiveInstance();
 
         if (!settings.showFloatingButtons) return;
 
@@ -16709,13 +21989,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
 
     async function showSavedVideosList() {
-        // Always close existing modal to ensure clean state
-        closeModalVideos();
+        const generation = ++savedVideosModalGeneration;
+        // Always close the current DOM before loading data, but do not invalidate
+        // the token that represents this specific open request.
+        closeModalVideos({ invalidatePending: false });
+        const bodyOverflowOwner = `${SAVED_VIDEOS_BODY_OVERFLOW_OWNER}:${generation}`;
+        savedVideosBodyOverflowOwner = bodyOverflowOwner;
 
-        // Load saved filters to ensure sync
-        const savedFilters = await getFilters();
+        const [savedFilters, loadedModalSettings] = await Promise.all([
+            getFilters(),
+            getSavedVideosModalSettings()
+        ]);
+        if (generation !== savedVideosModalGeneration) return;
+        assertActiveInstance();
 
-        // Use passed filters or saved ones
+        savedVideosModalPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+        // Use saved filters as the canonical state for this modal instance.
         currentOrderBy = savedFilters.orderBy ?? CONFIG.defaultFilters.orderBy;
         currentFilterBy = savedFilters.filterBy ?? CONFIG.defaultFilters.filterBy;
         currentSearchQuery = savedFilters.searchQuery ?? CONFIG.defaultFilters.searchQuery;
@@ -16726,7 +22016,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
         // Create modal elements
         videosOverlay = createElement('div', { className: 'ypp-modalOverlay' });
-        videosContainer = createElement('div', { className: 'ypp-videosContainer' });
+        videosContainer = createElement('div', {
+            className: 'ypp-videosContainer',
+            attributes: { role: 'dialog', 'aria-modal': 'true', 'aria-label': t('savedVideos'), tabindex: '-1' }
+        });
 
         listContainer = createElement('div', { id: 'video-list-container' });
         setupModalEventDelegation(listContainer);
@@ -16739,8 +22032,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const closeBtn = createElement('button', {
             className: 'ypp-btn ypp-btn-circle ypp-btn-outline-danger',
             html: SVG_ICONS.close,
-            attributes: { 'aria-label': t('close') },
-            onClickEvent: closeModalVideos
+            attributes: { type: 'button', 'aria-label': t('close'), title: t('close') },
+            onClickEvent: (event) => closeModalVideos({ expectedGeneration: generation, event }),
+            store: ModalDisposables
         });
 
         header.appendChild(title);
@@ -16774,7 +22068,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         topRow.appendChild(searchContainer);
         videosContainer.appendChild(topRow);
 
-        cachedSavedVideosModalSettings = await getSavedVideosModalSettings();
+        cachedSavedVideosModalSettings = loadedModalSettings;
 
 
         // Collapsible Advanced Section
@@ -16782,7 +22076,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const filtersGrid = createElement('div', { className: 'ypp-filters-grid' });
 
         // Initialize debounce for this modal
-        debouncedUpdateVideoList = debounce(updateVideoList, 150);
+        debouncedUpdateVideoList = debounce(requestVideoListUpdate, 150);
 
         filtersGrid.appendChild(createSortSelector(currentOrderBy, async (selected) => {
             currentOrderBy = selected;
@@ -16899,7 +22193,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             className: 'ypp-btn ypp-btn-secondary',
             html: `${SVG_ICONS.close} ${t('close')}`,
             attributes: { 'aria-label': t('close') },
-            onClickEvent: closeModalVideos,
+            onClickEvent: (event) => closeModalVideos({ expectedGeneration: generation, event }),
             store: ModalDisposables
         });
 
@@ -16913,14 +22207,42 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         videosContainer.appendChild(footer);
 
         const handleOverlayClick = (e) => {
-            if (e.target === videosOverlay) closeModalVideos();
+            if (e.target === videosOverlay) closeModalVideos({ expectedGeneration: generation, event: e });
+        };
+
+        /**
+         * Handles Escape and keyboard focus containment for the history dialog.
+         * @param {KeyboardEvent} event - Browser keyboard event.
+         * @returns {void}
+         */
+        const onSavedVideosKeyDown = (event) => {
+            if (settingsModalCleanup) return;
+            if (event.key === 'Escape' && savedVideoOverflowMenuEl) {
+                event.preventDefault();
+                closeSavedVideoOverflowMenu();
+                return;
+            }
+            if (event.key === 'Escape') {
+                event.preventDefault();
+                closeModalVideos({ expectedGeneration: generation });
+                return;
+            }
+            const focusScopes = [videosContainer];
+            if (savedVideoOverflowMenuEl?.isConnected) focusScopes.push(savedVideoOverflowMenuEl);
+            trapTabFocus(event, focusScopes);
         };
         addDisposableListener(videosOverlay, 'click', handleOverlayClick, {}, ModalDisposables);
+        addDisposableListener(document, 'keydown', onSavedVideosKeyDown, {}, ModalDisposables);
         document.body.appendChild(videosOverlay);
         document.body.appendChild(videosContainer);
+        acquireBodyOverflow(bodyOverflowOwner);
+        requestAnimationFrame(() => {
+            if (generation === savedVideosModalGeneration && videosContainer?.isConnected) videosContainer.focus();
+        });
 
         // Update video list with current filters
         await updateVideoList();
+        if (generation !== savedVideosModalGeneration) return;
     }
 
     // ============================================================================================================
@@ -16928,21 +22250,21 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // ============================================================================================================
 
     /**
-     * Generates a playlist background color based on string hash
-     * Uses CSS button system variables that guarantee AAA contrast.
+     * Picks a stable palette variant for a playlist key.
+     * The palette is shared by background and border so both stay in sync.
      * @param {string} str - String used to generate the color
-     * @returns {string} CSS variable with opacity for a soft background
+     * @returns {string|null} CSS variable, or null for an empty key
      */
-    function generatePlaylistColor(str) {
-        if (!str) return 'var(--ypp-bg-secondary)';
+    function pickPlaylistVariant(str) {
+        if (!str) return null;
 
         let hash = 0;
         for (let i = 0; i < str.length; i++) {
             hash = str.charCodeAt(i) + ((hash << 5) - hash);
         }
 
-        // Use system palette colors that meet AAA contrast
-        // Don't use --ypp-success to avoid clashing with .ypp-protected-item and don't use --ypp-danger
+        // System palette colors that meet AAA contrast. --ypp-success is skipped
+        // to avoid clashing with .ypp-protected-item, and --ypp-danger is skipped too.
         const variants = [
             'var(--ypp-primary)',
             'var(--ypp-secondary)',
@@ -16951,9 +22273,20 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             'var(--ypp-alert)',
             'var(--ypp-violet)',
         ];
-        const index = Math.abs(hash) % variants.length;
-        // Version with opacity for soft background (15%)
-        return `color-mix(in srgb, ${variants[index]}, transparent 85%)`;
+        return variants[Math.abs(hash) % variants.length];
+    }
+
+    /**
+     * Generates a playlist background color based on string hash
+     * Uses CSS button system variables that guarantee AAA contrast.
+     * @param {string} str - String used to generate the color
+     * @returns {string} CSS variable with opacity for a soft background
+     */
+    function generatePlaylistColor(str) {
+        const variant = pickPlaylistVariant(str);
+        return variant
+            ? `color-mix(in srgb, ${variant}, transparent 85%)`
+            : 'var(--ypp-bg-secondary)';
     }
 
     /**
@@ -16963,33 +22296,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {string} CSS variable for the border
      */
     function generatePlaylistBorderColor(str) {
-        if (!str) return 'var(--ypp-border)';
-
-        let hash = 0;
-        for (let i = 0; i < str.length; i++) {
-            hash = str.charCodeAt(i) + ((hash << 5) - hash);
-        }
-
-        // Use the same palette as background for consistency
-        // Don't use --ypp-success to avoid clashing with .ypp-protected-item and don't use --ypp-danger
-        const variants = [
-            'var(--ypp-primary)',
-            'var(--ypp-secondary)',
-            'var(--ypp-warning)',
-            'var(--ypp-info)',
-            'var(--ypp-alert)',
-            'var(--ypp-violet)',
-        ];
-        const index = Math.abs(hash) % variants.length;
-        return variants[index]; // Full color for visible border
+        return pickPlaylistVariant(str) ?? 'var(--ypp-border)';
     }
 
     async function handleForceTimeAction(videoId) {
         try {
-            const info = await Storage.get(videoId);
+            let info = await Storage.get(videoId, { throwOnError: true });
 
-            if (!info) {
-                logWarn('handleForceTimeAction', `No information found for video ${videoId}`);
+            if (!info || typeof info !== 'object') {
+                logWarn('handleForceTimeAction', `No valid information found for video ${videoId}`);
                 return;
             }
 
@@ -17012,91 +22327,142 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 return;
             }
 
-            if (timeSec > 0) {
-                info.forceResumeTime = timeSec;
-                showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds(timeSec))}`);
-            } else {
-                delete info.forceResumeTime;
-                showFloatingToast(`${SVG_ICONS.check} ${t('fixedTimeRemoved')}`);
+            // The prompt can stay open while playback/storage changes. Refresh
+            // before applying the field so unrelated newer progress is retained.
+            const latestInfo = await Storage.get(videoId, { throwOnError: true });
+            if (!latestInfo || typeof latestInfo !== 'object') return;
+            info = latestInfo;
+            const latestDuration = normalizeSeconds(info.lengthSeconds) || duration;
+            if (timeSec > 0 && latestDuration > 0 && timeSec >= latestDuration) {
+                showFloatingToast(`${SVG_ICONS.warning} ${t('invalidFormat')}`);
+                return;
             }
 
-            await Storage.set(videoId, info);
+            if (timeSec > 0) {
+                info.forceResumeTime = timeSec;
+            } else {
+                delete info.forceResumeTime;
+            }
+
+            const storageResult = await Storage.set(videoId, info);
+            if (!storageResult?.success) {
+                throw storageResult?.error || new Error(storageResult?.reason || 'storage_error');
+            }
+
+            if (timeSec > 0) {
+                showFloatingToast(`${SVG_ICONS.check} ${t('startTimeSet')} ${formatTime(normalizeSeconds(timeSec))}`);
+            } else {
+                showFloatingToast(`${SVG_ICONS.check} ${t('fixedTimeRemoved')}`);
+            }
 
             PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: !!info.forceResumeTime, timeValue: info.forceResumeTime || 0 });
 
             await updateVideoList();
         } catch (err) {
             logError('handleForceTimeAction', 'Error on handleForceTimeAction', err);
+            showFloatingToast(`${SVG_ICONS.error} ${t('errorSaving')}`);
+            return false;
         }
     }
 
     async function handleUnlinkPlaylistAction(videoId) {
         try {
             if (!confirm(t('confirmRemoveFromPlaylist'))) return;
-            const data = await Storage.get(videoId);
-            if (data) {
+            const data = await Storage.get(videoId, { throwOnError: true });
+            if (data && typeof data === 'object') {
                 data.lastViewedPlaylistId = null;
                 data.lastViewedPlaylistType = '';
                 data.lastViewedPlaylistItemId = null;
-                await Storage.set(videoId, data);
+                const storageResult = await Storage.set(videoId, data);
+                if (!storageResult?.success) {
+                    throw storageResult?.error || new Error(storageResult?.reason || 'storage_error');
+                }
                 showFloatingToast(`${SVG_ICONS.check} ${t('playlistAssociationRemoved')}`);
                 await updateVideoList();
             }
         } catch (err) {
             logError('handleUnlinkPlaylistAction', 'Error on handleUnlinkPlaylistAction', err);
+            showFloatingToast(`${SVG_ICONS.error} ${t('errorSaving')}`);
+            return false;
         }
     }
 
     async function handleDeleteEntryAction(videoId, titleCache) {
         try {
+            if (!isInstanceActive()) return false;
             const title = sanitizeHTML(titleCache);
 
-            const itemInfo = await Storage.get(videoId);
+            const itemInfo = await Storage.get(videoId, { throwOnError: true });
 
-            if (itemInfo?.isProtected) {
+            if (!itemInfo || typeof itemInfo !== 'object') {
+                showFloatingToast(`${SVG_ICONS.warning} ${t('errorSaving')}`);
+                return;
+            }
+
+            if (itemInfo.isProtected) {
                 showFloatingToast(`${SVG_ICONS.warning} ${t('protectedVideoWarning')}`);
                 return;
             }
 
-            const deleteFromStorage = async () => {
-                await Storage.del(videoId);
+            const latest = await Storage.get(videoId, { throwOnError: true });
+            if (!isInstanceActive()) return false;
+            if (latest?.isProtected === true || Number(latest?.timeWatched || 0) > Number(itemInfo.timeWatched || 0)) {
+                logWarn('handleDeleteEntryAction', `Skipped deletion of newer/protected record "${videoId}"`);
+                return;
+            }
+
+            const deleteResult = await Storage.del(videoId, {
+                commitGuard: () => isInstanceActive(),
+                expectedTimeWatched: itemInfo.timeWatched
+            });
+            if (!deleteResult?.success && !deleteResult?.durableDeleted) {
+                throw deleteResult?.error || new Error(deleteResult?.reason || 'storage_error');
+            }
+            if (!isInstanceActive()) return false;
+
+            const undoDelete = async () => {
+                const restoreOutcome = await restoreDeletedRecordIfUnchanged(videoId, itemInfo, () => isInstanceActive());
+                if (restoreOutcome.skipped) return true;
+                await updateVideoList();
+                PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: !!itemInfo.forceResumeTime, timeValue: itemInfo.forceResumeTime || 0 });
+                PlaybackDisplayManager.syncSavedState({ videoId, isSaved: true });
                 return true;
             };
 
-            const undoDelete = async () => {
-                if (!itemInfo) return;
-                await Storage.set(videoId, itemInfo);
-                await updateVideoList();
-                PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: !!itemInfo.forceResumeTime, timeValue: itemInfo.forceResumeTime || 0 });
-            };
-
-            await deleteFromStorage();
-            PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: false, timeValue: 0 });
-            PlaybackDisplayManager.syncSavedState({ videoId, isSaved: false });
+            if (deleteResult.success) {
+                PlaybackDisplayManager.syncFixedTime({ videoId, isFixedTime: false, timeValue: 0 });
+                PlaybackDisplayManager.syncSavedState({ videoId, isSaved: false });
+            }
             await updateVideoList();
 
             showFloatingToast(`${SVG_ICONS.trash} "${title}" ${t('deleted')}`, 10000, {
                 action: {
                     label: t('undo'),
-                    callback: undoDelete
+                    callback: undoDelete,
+                    keepOpenOnFailure: true
                 }
             });
         } catch (err) {
             logError('handleDeleteEntryAction', 'Error on handleDeleteEntryAction', err);
+            showFloatingToast(`${SVG_ICONS.error} ${t('errorSaving')}`);
+            return false;
         }
     }
 
     async function handleToggleProtectionAction(videoId) {
         try {
-            const info = await Storage.get(videoId);
+            const info = await Storage.get(videoId, { throwOnError: true });
 
-            if (!info) {
-                logWarn('handleToggleProtectionAction', `No information was found for video ${videoId}`);
+            if (!info || typeof info !== 'object') {
+                logWarn('handleToggleProtectionAction', `No valid information was found for video ${videoId}`);
                 return;
             }
 
             info.isProtected = !info.isProtected;
-            await Storage.set(videoId, info);
+            const storageResult = await Storage.set(videoId, info);
+            if (!storageResult?.success) {
+                throw storageResult?.error || new Error(storageResult?.reason || 'storage_error');
+            }
 
             // Sync active sessions to prevent stale cachedSavedData
             // from overwriting isProtected=false on the next auto save.
@@ -17114,6 +22480,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             await updateVideoList();
         } catch (err) {
             logError('handleToggleProtectionAction', 'Error on handleToggleProtectionAction', err);
+            showFloatingToast(`${SVG_ICONS.error} ${t('errorSaving')}`);
+            return false;
         }
     }
 
@@ -17177,6 +22545,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Closes the video modal action overflow menu (if open).
      */
     const closeSavedVideoOverflowMenu = () => {
+        savedVideoOverflowDisposables?.dispose?.();
+        savedVideoOverflowDisposables = null;
         if (savedVideoOverflowDocHandler) {
             document.removeEventListener('click', savedVideoOverflowDocHandler, true);
             savedVideoOverflowDocHandler = null;
@@ -17229,6 +22599,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const openSavedVideosRowActionMenu = (triggerBtn, videoId, itemEl) => {
         closeSavedVideoOverflowMenu();
+        const menuDisposables = new DisposableStore();
+        savedVideoOverflowDisposables = menuDisposables;
         const ctx = rowElToSavedVideoActionContext(itemEl, videoId);
         const menu = createElement('div', {
             className: 'ypp-saved-video-overflow-menu',
@@ -17249,7 +22621,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 ev.stopPropagation();
                 closeSavedVideoOverflowMenu();
                 await def.run({ ...ctx, videoId, button: opt, event: ev });
-            }, {}, ModalDisposables);
+            }, {}, menuDisposables);
             menu.appendChild(opt);
         }
 
@@ -17258,12 +22630,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const rect = triggerBtn.getBoundingClientRect();
         menu.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 228))}px`;
         menu.style.top = `${rect.bottom + 6}px`;
+        requestAnimationFrame(() => {
+            if (savedVideoOverflowMenuEl === menu && menu.isConnected) menu.querySelector('button')?.focus();
+        });
 
         savedVideoOverflowDocHandler = (ev) => {
             if (menu.contains(ev.target) || triggerBtn.contains(ev.target)) return;
             closeSavedVideoOverflowMenu();
         };
-        setTimeout(() => document.addEventListener('click', savedVideoOverflowDocHandler, true), 0);
+        const attachTimer = setTimeout(() => {
+            addDisposableListener(document, 'click', savedVideoOverflowDocHandler, true, menuDisposables);
+        }, 0);
+        menuDisposables.add(() => clearTimeout(attachTimer));
     };
 
     /**
@@ -17282,6 +22660,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const map = { alwaysVisible: 'alwaysVisible', dimUntilHover: 'dimUntilHover', hiddenUntilHover: 'hiddenUntilHover', hidden: 'hidden' };
         container.setAttribute('data-entry-action-opacity', map[mode] || 'alwaysVisible');
         container.setAttribute('data-ypp-overflow-menu', settings.showOverflowMenu !== false ? 'on' : 'off');
+        // Collapse per-row buttons containers when nothing in them can be
+        // visible (no enabled actions, or hidden entry buttons, and no ⋯):
+        // otherwise an empty reserved strip remains in every row.
+        const hasVisibleAction = ids.some((id) => settings.actionVisibility[id] !== false);
+        const entryButtonsShown = (settings.entryButtonVisibility || 'alwaysVisible') !== 'hidden';
+        const overflowShown = settings.showOverflowMenu !== false;
+        container.setAttribute('data-ypp-no-actions', (hasVisibleAction && entryButtonsShown) || overflowShown ? 'false' : 'true');
         // Legacy migration for labels
         if (settings.colouredLabelsStyle === undefined) {
             settings.colouredLabelsStyle = 'color';
@@ -17593,7 +22978,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const spotifyWeb = getSafeUrl(`https://open.spotify.com/search/${query}`);
                 const opened = window.open(spotifyApp, '_blank', 'noopener,noreferrer');
                 setTimeout(() => {
-                    if (!opened || opened.closed || opened.location.href === 'about:blank') {
+                    if (!opened || opened.closed) {
                         window.open(spotifyWeb, '_blank', 'noopener,noreferrer');
                     }
                 }, 500);
@@ -17744,8 +23129,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {() => string} options.getCurrent - Returns current mode key
      * @param {(key:string) => void} options.onSelect - Called when user clicks a mode button
      * @param {string} options.dataAttr - data attribute name (without 'data-')
+     * @param {DisposableStore} [options.store] - Listener lifecycle store.
      */
-    function createModeSelector({ container, modes, getCurrent, onSelect, dataAttr }) {
+    function createModeSelector({ container, modes, getCurrent, onSelect, dataAttr, store = ModalDisposables }) {
         const sync = () => {
             const cur = getCurrent();
             container.querySelectorAll(`button[data-${dataAttr}]`).forEach(b => {
@@ -17764,7 +23150,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 ev.stopPropagation();
                 onSelect(key);
                 sync();
-            }, {}, ModalDisposables);
+            }, {}, store);
             container.appendChild(b);
         }
         sync();
@@ -17775,9 +23161,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Creates a view-mode toggle row (list/grid) with grid-only options (always-expand, expansion mode).
      * @param {HTMLElement} container - videosContainer (for dataset attr propagation)
      * @param {Object} settings - cachedSavedVideosModalSettings
+     * @param {DisposableStore} [store] - Listener lifecycle store.
      * @returns {HTMLElement}
      */
-    function createViewModeSelector(container, settings) {
+    function createViewModeSelector(container, settings, store = ModalDisposables) {
         const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
         row.appendChild(createElement('span', {
             className: 'ypp-saved-videos-toolbar-row-label',
@@ -17834,8 +23221,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             syncGridOptionsVisibility();
             applySavedVideoActionDatasetToVideosContainer(container);
             void setSavedVideosModalSettings(settings);
-            void updateVideoList();
-        }, {}, ModalDisposables);
+            requestVideoListUpdate();
+        }, {}, store);
 
         addDisposableListener(gridViewBtn, 'click', (ev) => {
             ev.stopPropagation();
@@ -17845,15 +23232,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             syncGridOptionsVisibility();
             applySavedVideoActionDatasetToVideosContainer(container);
             void setSavedVideosModalSettings(settings);
-            void updateVideoList();
-        }, {}, ModalDisposables);
+            requestVideoListUpdate();
+        }, {}, store);
 
         chips.appendChild(listViewBtn);
         chips.appendChild(gridViewBtn);
         syncGridOptionsVisibility();
 
         // Always Expand Toggle
-        gridOptionsGroup.appendChild(makeDisplayToggle(container, settings, 'gridAlwaysExpanded', SVG_ICONS.foldDown, 'gridAlwaysExpanded'));
+        gridOptionsGroup.appendChild(makeDisplayToggle(container, settings, 'gridAlwaysExpanded', SVG_ICONS.foldDown, 'gridAlwaysExpanded', false, store));
 
         // Expansion Mode Toggle (Single vs Row)
         const expModeToggle = createElement('button', {
@@ -17876,8 +23263,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             settings.displayOptions.gridExpansionMode = current === 'single' ? 'row' : 'single';
             syncExpModeBtn();
             void setSavedVideosModalSettings(settings);
-            void updateVideoList();
-        }, {}, ModalDisposables);
+            requestVideoListUpdate();
+        }, {}, store);
 
         gridOptionsGroup.appendChild(expModeToggle);
         chips.appendChild(gridOptionsGroup);
@@ -17889,9 +23276,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * Creates the overflow (⋯) toggle button row for the saved-videos toolbar.
      * @param {HTMLElement} container - videosContainer (for dataset attr propagation)
      * @param {Object} settings - cachedSavedVideosModalSettings
+     * @param {DisposableStore} [store] - Listener lifecycle store.
      * @returns {HTMLElement}
      */
-    function createOverflowToggle(container, settings) {
+    function createOverflowToggle(container, settings, store = ModalDisposables) {
         const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
         row.appendChild(createElement('span', {
             className: 'ypp-saved-videos-toolbar-row-label',
@@ -17918,7 +23306,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             btn.setAttribute('aria-pressed', on ? 'true' : 'false');
             applySavedVideoActionDatasetToVideosContainer(container);
             void setSavedVideosModalSettings(settings);
-        }, {}, ModalDisposables);
+        }, {}, store);
         chips.appendChild(btn);
         row.appendChild(chips);
         return row;
@@ -17949,9 +23337,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @param {string} icon - SVG icon string
      * @param {string} labelKey - translation key
      * @param {boolean} [showText=false] - whether to show text alongside the icon
+     * @param {DisposableStore} [store] - Listener lifecycle store.
      * @returns {HTMLElement}
      */
-    function makeDisplayToggle(container, settings, key, icon, labelKey, showText = false) {
+    function makeDisplayToggle(container, settings, key, icon, labelKey, showText = false, store = ModalDisposables) {
         const on = settings.displayOptions[key] !== false;
         const btn = createElement('button', {
             className: `ypp-btn ypp-shadow-md ypp-saved-videos-toolbar-toggle ${on ? 'ypp-btn-primary is-active' : 'ypp-btn-outline-primary is-inactive'}`,
@@ -17974,8 +23363,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             btn.setAttribute('aria-pressed', nextOn ? 'true' : 'false');
             applySavedVideoActionDatasetToVideosContainer(container);
             void setSavedVideosModalSettings(settings);
-            void updateVideoList();
-        }, {}, ModalDisposables);
+            requestVideoListUpdate();
+        }, {}, store);
         return btn;
     }
 
@@ -17990,6 +23379,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (!settings) return createElement('div', { className: 'ypp-saved-videos-toolbar-wrap' });
 
         const wrap = createElement('div', { className: 'ypp-saved-videos-toolbar-wrap' });
+        const toolbarDisposables = new DisposableStore();
+        wrap._yppDisposables = toolbarDisposables;
 
         const sectionToggle = createElement('button', {
             className: 'ypp-saved-videos-toolbar-section-toggle',
@@ -18018,7 +23409,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             cachedSavedVideosModalSettings.toolbarSectionExpanded = !cachedSavedVideosModalSettings.toolbarSectionExpanded;
             syncSectionExpanded();
             void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-        }, {}, ModalDisposables);
+        }, {}, toolbarDisposables);
 
         const makeToggleRow = (labelKey, ids, groupKey) => {
             const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
@@ -18036,13 +23427,18 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 ev.preventDefault();
                 chips.classList.add('drag-over');
                 ev.dataTransfer.dropEffect = 'move';
-            }, {}, ModalDisposables);
-            addDisposableListener(chips, 'dragleave', () => chips.classList.remove('drag-over'), {}, ModalDisposables);
+            }, {}, toolbarDisposables);
+            addDisposableListener(chips, 'dragleave', () => chips.classList.remove('drag-over'), {}, toolbarDisposables);
             addDisposableListener(chips, 'drop', (ev) => {
                 ev.preventDefault();
                 chips.classList.remove('drag-over');
-                const actionId = ev.dataTransfer.getData('text/plain');
-                if (!actionId) return;
+                const actionId = ev.dataTransfer.getData('application/x-ypp-action') ||
+                    ev.dataTransfer.getData('text/plain');
+                const actionDefinition = SAVED_VIDEO_ACTIONS_BY_ID[actionId];
+                const sourceGroup = ev.dataTransfer.getData('application/x-ypp-group') ||
+                    actionDefinition?.group;
+                if (!actionId || !actionDefinition) return;
+                if (sourceGroup !== 'quickAccess' && sourceGroup !== 'actions') return;
 
                 // Find insertion index
                 const children = [...chips.children];
@@ -18059,9 +23455,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const oldQA = cachedSavedVideosModalSettings.quickAccess || [];
                 const oldAct = cachedSavedVideosModalSettings.actions || [];
 
-                // Remove from everywhere to be sure
+                const sourceArray = sourceGroup === 'quickAccess' ? oldQA : oldAct;
+                const sourceIndex = sourceArray.indexOf(actionId);
+                if (sourceIndex < 0) return;
+
+                // Remove from everywhere to be sure.
                 cachedSavedVideosModalSettings.quickAccess = oldQA.filter(id => id !== actionId);
                 cachedSavedVideosModalSettings.actions = oldAct.filter(id => id !== actionId);
+
+                // The target index was calculated with the source button still in
+                // the same row, so moving right within one group needs -1.
+                if (sourceGroup === groupKey && sourceIndex < insertIndex) insertIndex--;
 
                 // Insert into target group
                 if (groupKey === 'quickAccess') {
@@ -18070,14 +23474,16 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     cachedSavedVideosModalSettings.actions.splice(insertIndex, 0, actionId);
                 }
 
-                // Persist and refresh UI
+                // Persist and refresh UI. The old toolbar owns a separate
+                // listener store, so dispose it before replacing the DOM.
                 void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                wrap._yppDisposables?.dispose?.();
                 const newToolbar = mountSavedVideosModalActionsToolbar(container);
                 wrap.replaceWith(newToolbar);
 
                 // Refresh video list to reflect new order
-                void updateVideoList();
-            }, {}, ModalDisposables);
+                requestVideoListUpdate();
+            }, {}, toolbarDisposables);
 
             for (const id of ids) {
                 const def = SAVED_VIDEO_ACTIONS_BY_ID[id];
@@ -18097,11 +23503,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
                 addDisposableListener(btn, 'dragstart', (ev) => {
                     ev.dataTransfer.setData('text/plain', id);
+                    ev.dataTransfer.setData('application/x-ypp-action', id);
+                    ev.dataTransfer.setData('application/x-ypp-group', groupKey);
                     ev.dataTransfer.effectAllowed = 'move';
                     // Delay adding class to avoid ghost image being affected
-                    setTimeout(() => btn.classList.add('dragging'), 0);
-                }, {}, ModalDisposables);
-                addDisposableListener(btn, 'dragend', () => btn.classList.remove('dragging'), {}, ModalDisposables);
+                    const timer = setTimeout(() => btn.classList.add('dragging'), 0);
+                    toolbarDisposables.add(() => clearTimeout(timer));
+                }, {}, toolbarDisposables);
+                addDisposableListener(btn, 'dragend', () => btn.classList.remove('dragging'), {}, toolbarDisposables);
 
                 addDisposableListener(btn, 'click', (ev) => {
                     ev.stopPropagation();
@@ -18121,16 +23530,54 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
 
                     // Refresh video list to reflect new order/visibility
-                    void updateVideoList();
-                }, {}, ModalDisposables);
+                    requestVideoListUpdate();
+                }, {}, toolbarDisposables);
                 chips.appendChild(btn);
             }
             row.appendChild(chips);
             return row;
         };
 
+        /** Shared modes for entry-button and label visibility. */
+        const visibilityModes = [
+            { key: 'alwaysVisible', label: t('AlwaysVisible') },
+            { key: 'dimUntilHover', label: t('DimUntilHover') },
+            { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
+            { key: 'hidden', label: t('Hidden') }
+        ];
+
+        /**
+         * Builds a toolbar row with a label and a mode selector.
+         * @param {Object} options - Row options.
+         * @param {string} options.labelKey - Translation key for the row label.
+         * @param {Array<{key: string, label: string}>} options.modes - Selector modes.
+         * @param {() => string} options.getCurrent - Reads the active mode.
+         * @param {(key: string) => void} options.onSelect - Persists the chosen mode.
+         * @param {string} options.dataAttr - Dataset attribute written on the buttons.
+         * @param {string} [options.rowClassName='ypp-saved-videos-toolbar-row'] - Row class.
+         * @returns {HTMLElement} Row element.
+         */
+        const makeModeRow = ({ labelKey, modes, getCurrent, onSelect, dataAttr, rowClassName = 'ypp-saved-videos-toolbar-row' }) => {
+            const row = createElement('div', { className: rowClassName });
+            row.appendChild(createElement('span', {
+                className: 'ypp-saved-videos-toolbar-row-label',
+                text: t(labelKey)
+            }));
+            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
+            createModeSelector({
+                container: btns,
+                modes,
+                getCurrent,
+                onSelect,
+                dataAttr,
+                store: toolbarDisposables
+            });
+            row.appendChild(btns);
+            return row;
+        };
+
         const generalGroup = makeToolbarGroup('savedVideosToolbarGeneralGroup', 'ypp-saved-videos-toolbar-action-group');
-        generalGroup.appendChild(createViewModeSelector(container, cachedSavedVideosModalSettings));
+        generalGroup.appendChild(createViewModeSelector(container, cachedSavedVideosModalSettings, toolbarDisposables));
 
         const generalRow = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
         generalRow.appendChild(createElement('span', {
@@ -18138,62 +23585,42 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             text: t('savedVideosToolbarLinkBehavior')
         }));
         const generalChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles' });
-        generalChips.appendChild(makeDisplayToggle(container, settings, 'openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab', true));
+        generalChips.appendChild(makeDisplayToggle(container, settings, 'openInNewTab', SVG_ICONS.linkExternal, 'openInNewTab', true, toolbarDisposables));
         generalRow.appendChild(generalChips);
         generalGroup.appendChild(generalRow);
 
         // Scrollbar Visibility
-        {
-            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-            row.appendChild(createElement('span', {
-                className: 'ypp-saved-videos-toolbar-row-label',
-                text: t('scrollbarVisibility')
-            }));
-            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-            createModeSelector({
-                container: btns,
-                modes: [
-                    { key: 'alwaysVisible', label: t('AlwaysVisible') },
-                    { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
-                    { key: 'hidden', label: t('Hidden') }
-                ],
-                getCurrent: () => cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility || 'alwaysVisible',
-                onSelect: (key) => {
-                    cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility = key;
-                    applySavedVideoActionDatasetToVideosContainer(container);
-                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                },
-                dataAttr: 'mode'
-            });
-            row.appendChild(btns);
-            generalGroup.appendChild(row);
-        }
+        generalGroup.appendChild(makeModeRow({
+            labelKey: 'scrollbarVisibility',
+            modes: [
+                { key: 'alwaysVisible', label: t('AlwaysVisible') },
+                { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
+                { key: 'hidden', label: t('Hidden') }
+            ],
+            getCurrent: () => cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility || 'alwaysVisible',
+            onSelect: (key) => {
+                cachedSavedVideosModalSettings.displayOptions.scrollbarVisibility = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+            },
+            dataAttr: 'mode'
+        }));
 
         // Scrollbar Thickness
-        {
-            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-            row.appendChild(createElement('span', {
-                className: 'ypp-saved-videos-toolbar-row-label',
-                text: t('scrollbarThickness')
-            }));
-            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-            createModeSelector({
-                container: btns,
-                modes: [
-                    { key: 'normal', label: t('scrollbarThicknessNormal') },
-                    { key: 'thin', label: t('scrollbarThicknessThin') }
-                ],
-                getCurrent: () => cachedSavedVideosModalSettings.displayOptions.scrollbarThickness || 'normal',
-                onSelect: (key) => {
-                    cachedSavedVideosModalSettings.displayOptions.scrollbarThickness = key;
-                    applySavedVideoActionDatasetToVideosContainer(container);
-                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                },
-                dataAttr: 'mode'
-            });
-            row.appendChild(btns);
-            generalGroup.appendChild(row);
-        }
+        generalGroup.appendChild(makeModeRow({
+            labelKey: 'scrollbarThickness',
+            modes: [
+                { key: 'normal', label: t('scrollbarThicknessNormal') },
+                { key: 'thin', label: t('scrollbarThicknessThin') }
+            ],
+            getCurrent: () => cachedSavedVideosModalSettings.displayOptions.scrollbarThickness || 'normal',
+            onSelect: (key) => {
+                cachedSavedVideosModalSettings.displayOptions.scrollbarThickness = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+            },
+            dataAttr: 'mode'
+        }));
         inner.appendChild(generalGroup);
 
         const itemDisplayGroup = makeToolbarGroup('savedVideosToolbarItemDisplayGroup');
@@ -18205,8 +23632,8 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         }));
         const displayChips = createElement('div', { className: 'ypp-saved-videos-toolbar-toggles ypp-display-options-toggles' });
 
-        displayChips.appendChild(makeDisplayToggle(container, settings, 'showThumbnails', SVG_ICONS.image, 'showThumbnails'));
-        displayChips.appendChild(makeDisplayToggle(container, settings, 'showViews', SVG_ICONS.people, 'showViews'));
+        displayChips.appendChild(makeDisplayToggle(container, settings, 'showThumbnails', SVG_ICONS.image, 'showThumbnails', false, toolbarDisposables));
+        displayChips.appendChild(makeDisplayToggle(container, settings, 'showViews', SVG_ICONS.people, 'showViews', false, toolbarDisposables));
         /* displayChips.appendChild(makeDisplayToggle('showStats', SVG_ICONS.graph, 'showStats'));
         displayChips.appendChild(makeDisplayToggle('showButtons', SVG_ICONS.settings, 'showButtons')); */
         displayRow.appendChild(displayChips);
@@ -18217,94 +23644,55 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         rowActionsGroup.appendChild(makeToggleRow('savedVideosToolbarQuickAccess', settings.quickAccess, 'quickAccess'));
         rowActionsGroup.appendChild(makeToggleRow('savedVideosToolbarActions', settings.actions, 'actions'));
 
-        const opacityRow = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-row' });
-        opacityRow.appendChild(createElement('span', {
-            className: 'ypp-saved-videos-toolbar-row-label',
-            text: t('savedVideosToolbarEntryVisibility')
+        rowActionsGroup.appendChild(makeModeRow({
+            labelKey: 'savedVideosToolbarEntryVisibility',
+            modes: visibilityModes,
+            getCurrent: () => cachedSavedVideosModalSettings.entryButtonVisibility || 'alwaysVisible',
+            onSelect: (key) => {
+                cachedSavedVideosModalSettings.entryButtonVisibility = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+            },
+            dataAttr: 'opacity-mode',
+            rowClassName: 'ypp-saved-videos-toolbar-opacity-row'
         }));
-        {
-            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-            createModeSelector({
-                container: btns,
-                modes: [
-                    { key: 'alwaysVisible', label: t('AlwaysVisible') },
-                    { key: 'dimUntilHover', label: t('DimUntilHover') },
-                    { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
-                    { key: 'hidden', label: t('Hidden') }
-                ],
-                getCurrent: () => cachedSavedVideosModalSettings.entryButtonVisibility || 'alwaysVisible',
-                onSelect: (key) => {
-                    cachedSavedVideosModalSettings.entryButtonVisibility = key;
-                    applySavedVideoActionDatasetToVideosContainer(container);
-                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                },
-                dataAttr: 'opacity-mode'
-            });
-            opacityRow.appendChild(btns);
-        }
-        rowActionsGroup.appendChild(opacityRow);
 
-        rowActionsGroup.appendChild(createOverflowToggle(container, cachedSavedVideosModalSettings));
+        rowActionsGroup.appendChild(createOverflowToggle(container, cachedSavedVideosModalSettings, toolbarDisposables));
         inner.appendChild(rowActionsGroup);
 
         const labelsGroup = makeToolbarGroup('savedVideosToolbarLabelsGroup');
 
-        {
-            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-            row.appendChild(createElement('span', {
-                className: 'ypp-saved-videos-toolbar-row-label',
-                text: t('colouredLabelsStyle')
-            }));
-            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-            createModeSelector({
-                container: btns,
-                modes: [
-                    { key: 'color', label: t('colouredLabelsStyleColor') },
-                    { key: 'colorOnHover', label: t('colouredLabelsStyleColorOnHover') },
-                    { key: 'grayscaleOnHover', label: t('colouredLabelsStyleGrayscaleOnHover') },
-                    { key: 'grayscale', label: t('colouredLabelsStyleGrayscale') }
-                ],
-                getCurrent: () => cachedSavedVideosModalSettings.colouredLabelsStyle || 'color',
-                onSelect: (key) => {
-                    cachedSavedVideosModalSettings.colouredLabelsStyle = key;
-                    applySavedVideoActionDatasetToVideosContainer(container);
-                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                    void updateVideoList();
-                },
-                dataAttr: 'style-mode'
-            });
-            row.appendChild(btns);
-            labelsGroup.appendChild(row);
-        }
+        labelsGroup.appendChild(makeModeRow({
+            labelKey: 'colouredLabelsStyle',
+            modes: [
+                { key: 'color', label: t('colouredLabelsStyleColor') },
+                { key: 'colorOnHover', label: t('colouredLabelsStyleColorOnHover') },
+                { key: 'grayscaleOnHover', label: t('colouredLabelsStyleGrayscaleOnHover') },
+                { key: 'grayscale', label: t('colouredLabelsStyleGrayscale') }
+            ],
+            getCurrent: () => cachedSavedVideosModalSettings.colouredLabelsStyle || 'color',
+            onSelect: (key) => {
+                cachedSavedVideosModalSettings.colouredLabelsStyle = key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                requestVideoListUpdate();
+            },
+            dataAttr: 'style-mode'
+        }));
 
-        {
-            const row = createElement('div', { className: 'ypp-saved-videos-toolbar-row' });
-            row.appendChild(createElement('span', {
-                className: 'ypp-saved-videos-toolbar-row-label',
-                text: t('colouredLabelsVisibility')
-            }));
-            const btns = createElement('div', { className: 'ypp-saved-videos-toolbar-opacity-btns' });
-            createModeSelector({
-                container: btns,
-                modes: [
-                    { key: 'alwaysVisible', label: t('AlwaysVisible') },
-                    { key: 'dimUntilHover', label: t('DimUntilHover') },
-                    { key: 'hiddenUntilHover', label: t('HiddenUntilHover') },
-                    { key: 'hidden', label: t('Hidden') }
-                ],
-                getCurrent: () => cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible',
-                onSelect: (key) => {
-                    const currentMode = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible';
-                    cachedSavedVideosModalSettings.colouredLabelsVisibility = currentMode === key ? 'alwaysVisible' : key;
-                    applySavedVideoActionDatasetToVideosContainer(container);
-                    void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
-                    void updateVideoList();
-                },
-                dataAttr: 'vis-mode'
-            });
-            row.appendChild(btns);
-            labelsGroup.appendChild(row);
-        }
+        labelsGroup.appendChild(makeModeRow({
+            labelKey: 'colouredLabelsVisibility',
+            modes: visibilityModes,
+            getCurrent: () => cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible',
+            onSelect: (key) => {
+                const currentMode = cachedSavedVideosModalSettings.colouredLabelsVisibility || 'alwaysVisible';
+                cachedSavedVideosModalSettings.colouredLabelsVisibility = currentMode === key ? 'alwaysVisible' : key;
+                applySavedVideoActionDatasetToVideosContainer(container);
+                void setSavedVideosModalSettings(cachedSavedVideosModalSettings);
+                requestVideoListUpdate();
+            },
+            dataAttr: 'vis-mode'
+        }));
         inner.appendChild(labelsGroup);
 
         body.appendChild(inner);
@@ -18366,45 +23754,85 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     const thumbUrlCache = new SimpleLRUCache(500);
 
     /**
-          * Asynchronously validates the best available thumbnail for a video.
-          * YouTube returns a 120px image instead of 404 for non-existent files.
-          * @param {string} videoId - Video ID.
-          * @returns {Promise<string>} - URL of the best validated thumbnail.
-          */
-    async function getValidatedThumbnail(videoId) {
-        if (!videoId) return '';
-        const cached = thumbUrlCache.get(videoId);
-        if (cached) return cached;
+     * Loads a thumbnail into the visible image, using that same image as the
+     * existence probe. This avoids the previous hidden Image + visible Image
+     * double request and skips network work when thumbnails are disabled.
+     * @param {HTMLImageElement} imageElement - Visible thumbnail image.
+     * @param {string} videoId - YouTube video ID.
+     * @param {HTMLElement} skeletonElement - Loading placeholder.
+     * @param {DisposableStore} store - Row-owned listener store.
+     * @returns {void}
+     */
+    function applyThumbnailToImage(imageElement, videoId, skeletonElement, store) {
+        if (!videoId || cachedSavedVideosModalSettings?.displayOptions?.showThumbnails === false) {
+            if (skeletonElement !== imageElement) skeletonElement.remove();
+            return;
+        }
 
         const maxResWebp = `https://i.ytimg.com/vi_webp/${videoId}/maxresdefault.webp`;
         const hqDefault = `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`;
-
-        return new Promise((resolve) => {
-            const img = new Image();
-            img.onload = () => {
-                // If naturalWidth > 120, maxresdefault exists
-                const url = img.naturalWidth > 120 ? maxResWebp : hqDefault;
-                thumbUrlCache.set(videoId, url);
-                resolve(url);
-            };
-            img.onerror = () => {
-                thumbUrlCache.set(videoId, hqDefault);
-                resolve(hqDefault);
-            };
-            img.src = maxResWebp;
-            // Safety timeout
-            setTimeout(() => {
-                if (!img.complete) {
-                    img.src = '';
-                    thumbUrlCache.set(videoId, hqDefault);
-                    resolve(hqDefault);
-                }
-            }, 1500);
+        const cached = thumbUrlCache.get(videoId);
+        let removeLoadListener = () => {};
+        let removeErrorListener = () => {};
+        let fallbackTimer = null;
+        store.add(() => {
+            if (fallbackTimer !== null) clearTimeout(fallbackTimer);
         });
+
+        const finish = () => {
+            if (fallbackTimer !== null) clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+            imageElement.style.opacity = '1';
+            const removeTimer = setTimeout(() => {
+                if (skeletonElement !== imageElement) skeletonElement.remove();
+            }, 300);
+            store.add(() => clearTimeout(removeTimer));
+        };
+
+        /**
+         * Assigns one candidate URL and handles the one known fallback.
+         * @param {string} url - Candidate thumbnail URL.
+         * @returns {void}
+         */
+        const loadCandidate = (url) => {
+            if (fallbackTimer !== null) clearTimeout(fallbackTimer);
+            fallbackTimer = null;
+            removeLoadListener();
+            removeErrorListener();
+            removeLoadListener = addDisposableListener(imageElement, 'load', () => {
+                if (url === maxResWebp && imageElement.naturalWidth <= 120) {
+                    thumbUrlCache.set(videoId, hqDefault);
+                    loadCandidate(hqDefault);
+                    return;
+                }
+                thumbUrlCache.set(videoId, url);
+                finish();
+            }, { once: true }, store);
+            removeErrorListener = addDisposableListener(imageElement, 'error', () => {
+                if (url !== hqDefault) {
+                    thumbUrlCache.set(videoId, hqDefault);
+                    loadCandidate(hqDefault);
+                    return;
+                }
+                finish();
+            }, { once: true }, store);
+            imageElement.src = url;
+            if (url === maxResWebp) {
+                fallbackTimer = setTimeout(() => {
+                    fallbackTimer = null;
+                    if (!imageElement.complete) loadCandidate(hqDefault);
+                }, 1500);
+            }
+            if (imageElement.complete) imageElement.dispatchEvent(new Event('load'));
+        };
+
+        loadCandidate(cached || maxResWebp);
     }
 
     async function createVideoGridRow(rowItem) {
         const rowEl = createElement('div', { className: 'ypp-grid-row' });
+        const rowDisposables = new DisposableStore();
+        rowEl._yppDisposables = rowDisposables;
         // Correctly set CSS variable (styles object in createElement doesn't support variables)
         rowEl.style.setProperty('--row-cols', String(rowItem.gridCols || 3));
 
@@ -18443,21 +23871,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
             gridItem.appendChild(thumbWrapper);
 
-            getValidatedThumbnail(videoId).then(url => {
-                imgEl.onload = () => {
-                    imgEl.style.opacity = '1';
-                    setTimeout(() => skeletonEl.remove(), 300);
-                };
-                imgEl.onerror = () => {
-                    imgEl.style.opacity = '1';
-                    skeletonEl.remove();
-                };
-                imgEl.src = url;
-                if (imgEl.complete) imgEl.onload();
-            }).catch(() => {
-                imgEl.style.opacity = '1';
-                skeletonEl.remove();
-            });
+            applyThumbnailToImage(imgEl, videoId, skeletonEl, rowDisposables);
 
             // Dropdown chevron trigger
             const chevron = createElement('div', {
@@ -18478,6 +23892,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
             // Toggle expansion
             let heightUpdateTimer = null;
+            rowDisposables.add(() => {
+                if (heightUpdateTimer !== null) clearTimeout(heightUpdateTimer);
+            });
             const scheduleHeightUpdate = () => {
                 if (virtualScroller) {
                     clearTimeout(heightUpdateTimer);
@@ -18493,7 +23910,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     heightUpdateTimer = null;
                     if (virtualScroller) virtualScroller.updateHeights();
                 }
-            }, {}, ModalDisposables);
+            }, {}, rowDisposables);
 
             addDisposableListener(gridItem, 'click', (e) => {
                 if (e.target.closest('.ypp-video-checkbox, a, button, .ypp-saved-video-entry-action')) return;
@@ -18502,16 +23919,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (expMode === 'row') {
                     const allInRow = rowItem.items.map(i => i.info.videoId || i.videoId);
                     const anyExpanded = allInRow.some(id => rowItem.expandedItemIds.has(id));
-                    if (anyExpanded) {
-                        allInRow.forEach(id => rowItem.expandedItemIds.delete(id));
-                    } else {
-                        allInRow.forEach(id => rowItem.expandedItemIds.add(id));
+                    for (const id of allInRow) {
+                        rowItem.expandedItemIds.delete(id);
+                        expandedGridVideoIds.delete(id);
+                    }
+                    if (!anyExpanded) {
+                        for (const id of allInRow) {
+                            rowItem.expandedItemIds.add(id);
+                            expandedGridVideoIds.add(id);
+                        }
                     }
                 } else {
-                    if (rowItem.expandedItemIds.has(videoId)) {
-                        rowItem.expandedItemIds.delete(videoId);
-                    } else {
+                    const wasExpanded = rowItem.expandedItemIds.has(videoId);
+                    for (const id of rowItem.items.map(i => i.info.videoId || i.videoId)) {
+                        rowItem.expandedItemIds.delete(id);
+                        expandedGridVideoIds.delete(id);
+                    }
+                    if (!wasExpanded) {
                         rowItem.expandedItemIds.add(videoId);
+                        expandedGridVideoIds.add(videoId);
                     }
                 }
 
@@ -18522,7 +23948,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 });
 
                 scheduleHeightUpdate();
-            }, {}, ModalDisposables);
+            }, {}, rowDisposables);
 
             rowEl.appendChild(gridItem);
         }
@@ -18538,18 +23964,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             title,
             author,
             authorId,
-            published,
-            description,
             watchProgress,
             lengthSeconds,
-            timeWatched,
             type,
             viewCount,
             isLive,
             isCompleted,
             lastViewedPlaylistId,
-            lastViewedPlaylistType,
-            lastViewedPlaylistItemId,
             forceResumeTime
         } = info;
 
@@ -18837,23 +24258,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         if (wrapperStyle) el.style.cssText = wrapperStyle;
 
         if (!isDropdown && imgEl) {
-            getValidatedThumbnail(videoId).then(url => {
-                if (!imgEl) return;
-                imgEl.onload = () => {
-                    imgEl.style.opacity = '1';
-                    setTimeout(() => { if (skeletonEl) skeletonEl.remove(); }, 300);
-                };
-                imgEl.onerror = () => {
-                    imgEl.style.opacity = '1';
-                    if (skeletonEl) skeletonEl.remove();
-                };
-                imgEl.src = url;
-                // Hack to ensure onload fires if cached
-                if (imgEl.complete) imgEl.onload();
-            }).catch(() => {
-                if (imgEl) imgEl.style.opacity = '1';
-                if (skeletonEl) skeletonEl.remove();
-            });
+            const entryDisposables = new DisposableStore();
+            el._yppDisposables = entryDisposables;
+            applyThumbnailToImage(imgEl, videoId, skeletonEl || imgEl, entryDisposables);
         }
 
         return el;
@@ -18863,10 +24270,92 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     // MARK: 🗑️ Clear All Data
     // ============================================================================================================
     let clearedData = null; // To store deleted data for undo
+    let undoClearHasFailures = false;
+    let clearAllInFlight = false;
+    let undoInFlight = false;
+    let autoCleanupInFlight = false;
+    let selectedDeleteInFlight = false;
+    /** Monotonic epoch invalidated when a destructive operation begins. */
+    let storageDestructiveEpoch = 0;
 
+    /**
+     * Restores a deleted snapshot only when no newer local record has appeared.
+     * This is a local conflict guard, not a distributed compare-and-swap.
+     * @param {string} key - Video storage key.
+     * @param {Object} snapshot - Record captured before deletion.
+     * @param {(() => boolean)|null} [commitGuard] - Last-moment ownership guard.
+     * @returns {Promise<{skipped: boolean, result?: Object}>} Restore outcome.
+     */
+    async function restoreDeletedRecordIfUnchanged(key, snapshot, commitGuard = null) {
+        const canCommit = () => isInstanceActive() && (!commitGuard || commitGuard());
+        if (!canCommit()) return { skipped: true };
+        const current = await Storage.get(key, { throwOnError: true });
+        if (!canCommit()) return { skipped: true };
+        if (current && typeof current === 'object') {
+            if (current.isProtected === true) return { skipped: true };
+            const currentTime = Number(current.timeWatched);
+            const snapshotTime = Number(snapshot?.timeWatched);
+            if (!Number.isFinite(snapshotTime) || snapshotTime <= 0 || !Number.isFinite(currentTime) || currentTime >= snapshotTime) {
+                return { skipped: true };
+            }
+        }
+        if (!canCommit()) return { skipped: true };
+        const result = await Storage.set(key, snapshot, {
+            commitGuard: canCommit,
+            expectedTimeWatched: snapshot?.timeWatched
+        });
+        if (!canCommit()) return { skipped: true };
+        if (!result?.success) {
+            throw result?.error || new Error(result?.reason || 'storage_error');
+        }
+        return { skipped: false, result };
+    }
+
+    /**
+     * Serializes destructive clear-all operations so a double click cannot
+     * create two competing undo snapshots.
+     * @returns {Promise<boolean>} True when the operation completed.
+     */
     async function clearAllData() {
+        if (!isInstanceActive()) return false;
+        if (clearAllInFlight || autoCleanupInFlight || undoInFlight) {
+            showFloatingToast(`${SVG_ICONS.warning} ${t('loading')}`);
+            return false;
+        }
+        if (clearedData && Object.keys(clearedData).length > 0) {
+            showFloatingToast(
+                `${SVG_ICONS.warning} There is already an undo pending. Use "Undo" to restore or close the previous toast.`,
+                5000
+            );
+            return false;
+        }
+
+        const clearEpoch = ++storageDestructiveEpoch;
+        const clearCommitGuard = () =>
+            isInstanceActive() &&
+            storageDestructiveEpoch === clearEpoch &&
+            !autoCleanupInFlight &&
+            !selectedDeleteInFlight &&
+            !undoInFlight;
+        clearAllInFlight = true;
+        try {
+            await performClearAllData(clearCommitGuard);
+            return true;
+        } catch (error) {
+            if (error?.name === 'AbortError') return false;
+            logError('clearAllData', 'Clear all operation failed', error);
+            showFloatingToast(`${SVG_ICONS.error} ${t('errorSaving')}`);
+            return false;
+        } finally {
+            clearAllInFlight = false;
+        }
+    }
+
+    async function performClearAllData(commitGuard) {
         // Check if there is relevant data before asking for confirmation
-        const videoKeys = await Storage.keys();
+        if (!commitGuard()) return;
+        const videoKeys = await Storage.keys({ throwOnError: true, requireComplete: true });
+        if (!commitGuard()) return;
         if (videoKeys.length === 0) {
             showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
             return;
@@ -18890,7 +24379,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Reuse the FIRST listing: taking a second snapshot after the confirm() gap
         // created a TOCTOU window where a video auto-saved in between would be
         // deleted without being part of the undo snapshot (unrecoverable loss).
-        const allKeys = await Storage.keys();
+        const allKeys = [...videoKeys];
         if (allKeys.length === 0) {
             showFloatingToast(`${SVG_ICONS.warning} ${t('noSavedVideos')}`);
             return;
@@ -18898,14 +24387,24 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         clearedData = {};
         let skippedProtected = 0;
         let skippedNull = 0;
+        let readErrors = 0;
 
         for (const k of allKeys) {
-            const data = await Storage.get(k);
+            let data;
+            try {
+                data = await Storage.get(k, { throwOnError: true });
+                if (!commitGuard()) return;
+            } catch (error) {
+                if (error?.name === 'AbortError') return;
+                readErrors++;
+                logError('clearAllData', `Failed to read "${k}" before clearing`, error);
+                continue;
+            }
 
-            // Skip null/undefined entries (corrupted data)
-            if (!data) {
+            // Skip null/undefined or primitive entries (corrupted data).
+            if (!data || typeof data !== 'object') {
                 skippedNull++;
-                logWarn('clearAllData', `⚠️ Key "${k}" returned null/undefined, skipping from undo backup`);
+                logWarn('clearAllData', `⚠️ Key "${k}" returned an invalid record, skipping from undo backup`);
                 continue;
             }
 
@@ -18930,17 +24429,69 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             return;
         }
 
-        // Delete all data (except protected)
-        for (const k of Object.keys(clearedData)) {
-            await Storage.del(k);
-            PlaybackDisplayManager.syncSavedState({ videoId: k, isSaved: false, isFixedTime: false });
+        // Delete all data (except protected), retaining undo data only for
+        // records whose durable deletion was confirmed.
+        const pendingDeletion = { ...clearedData };
+        clearedData = {};
+        let failedDeletes = 0;
+        let skippedConflicts = 0;
+        for (const [key, value] of Object.entries(pendingDeletion)) {
+            // Declared outside the re-read block: it guards the delete call
+            // below, which happens after that try/catch.
+            let snapshotTime = Number(value?.timeWatched || 0);
+            try {
+                const latest = await Storage.get(key, { throwOnError: true });
+                if (!commitGuard()) return;
+                const latestTime = Number(latest?.timeWatched || 0);
+                if (latest?.isProtected === true || latestTime > snapshotTime) {
+                    skippedConflicts++;
+                    logWarn('clearAllData', `Skipped deletion of newer/protected record "${key}"`);
+                    continue;
+                }
+            } catch (error) {
+                if (error?.name === 'AbortError') return;
+                failedDeletes++;
+                logError('clearAllData', `Could not re-read "${key}" before deletion`, error);
+                continue;
+            }
+
+            let deleteResult;
+            try {
+                deleteResult = await Storage.del(key, {
+                    commitGuard,
+                    expectedTimeWatched: snapshotTime
+                });
+            } catch (error) {
+                if (error?.name === 'AbortError') return;
+                failedDeletes++;
+                logError('clearAllData', `Failed to delete "${key}"`, error);
+                continue;
+            }
+            if (!deleteResult?.success && !deleteResult?.durableDeleted) {
+                failedDeletes++;
+                logError('clearAllData', `Failed to delete "${key}"`, deleteResult?.error);
+                continue;
+            }
+            // Keep the snapshot even when only the primary backend was
+            // deleted and fallback cleanup failed; Undo can then restore the
+            // complete record instead of losing the only recovery copy.
+            clearedData[key] = value;
+            if (deleteResult.success) {
+                PlaybackDisplayManager.syncSavedState({ videoId: key, isSaved: false, isFixedTime: false });
+            } else {
+                failedDeletes++;
+                undoClearHasFailures = true;
+                logError('clearAllData', `Partially deleted "${key}"; retained undo snapshot`, deleteResult?.error);
+            }
+        }
+
+        if (Object.keys(clearedData).length === 0) {
+            showFloatingToast(`${SVG_ICONS.error} ${t('errorSaving')}`);
+            return;
         }
 
         // Build informative message
-        const deletedCount = Object.keys(clearedData).length;
-        const skippedParts = [];
-        if (skippedProtected > 0) skippedParts.push(t('protectedItemsSkipped', { count: skippedProtected }));
-        if (skippedNull > 0) skippedParts.push(`${skippedNull} corrupted entries skipped`);
+        const skippedParts = buildSkipParts({ skippedProtected, skippedNull, readErrors, skippedConflicts, failedDeletes });
         const skippedMsg = skippedParts.length > 0 ? ` (${skippedParts.join(', ')})` : '';
 
         // Show toast with onDismiss that clears clearedData
@@ -18950,16 +24501,23 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             keep: true,
             action: {
                 label: t('undo'),
-                callback: undoClearAll  // undoClearAll cleans clearedData internally
+                callback: undoClearAll,
+                keepOpenOnFailure: true
             },
             onDismiss: () => {
                 // Runs when the toast is dismissed for ANY reason:
                 // - User closed with X (without Undo)
                 // - User pressed Undo (after the callback executed)
                 // - Toast dismissed programmatically
-                if (clearedData) {
+                if (clearedData && !undoInFlight) {
+                    if (undoClearHasFailures) {
+                        logWarn('clearAllData', 'Undo snapshot retained after dismissal because some records were not restored');
+                        showFloatingToast(`${SVG_ICONS.warning} ${t('errorSaving')}`, 5000);
+                        return;
+                    }
                     logLog('clearAllData', '🧹 Toast of undo closed, clearing clearedData');
                     clearedData = null;
+                    undoClearHasFailures = false;
                 }
             }
         });
@@ -18968,28 +24526,64 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         await updateVideoList();
     }
 
+    /**
+     * Restores the pending clear-all snapshot and reports whether it is complete.
+     * @returns {Promise<boolean>} True when no restore operation failed.
+     */
+    /**
+     * Serializes Undo callbacks so a double click cannot restore two
+     * different snapshots concurrently.
+     * @returns {Promise<boolean>} True when no restore operation failed.
+     */
     async function undoClearAll() {
+        if (!isInstanceActive() || undoInFlight || clearAllInFlight || autoCleanupInFlight) return false;
+        const undoEpoch = ++storageDestructiveEpoch;
+        const undoCommitGuard = () =>
+            isInstanceActive() &&
+            storageDestructiveEpoch === undoEpoch &&
+            !clearAllInFlight &&
+            !autoCleanupInFlight;
+        undoInFlight = true;
+        try {
+            return await performUndoClearAll(undoCommitGuard);
+        } finally {
+            undoInFlight = false;
+        }
+    }
+
+    async function performUndoClearAll(commitGuard) {
+        if (!commitGuard()) return false;
         if (!clearedData || Object.keys(clearedData).length === 0) {
             showFloatingToast(`${SVG_ICONS.trash} ${t('noDataToRestore')}`);
             clearedData = null;
-            return;
+            return false;
         }
 
-        logLog('undoClearAll', '⏪ Restoring data:', clearedData);
+        const undoSnapshot = { ...clearedData };
+        logLog('undoClearAll', '⏪ Restoring data:', undoSnapshot);
 
         let restoredCount = 0;
+        let skippedNewer = 0;
         let failedCount = 0;
+        const failedKeys = new Set();
+        undoClearHasFailures = false;
 
         // Defensive check + try/catch per entry
-        for (const [key, value] of Object.entries(clearedData)) {
+        for (const [key, value] of Object.entries(undoSnapshot)) {
+            if (!commitGuard()) return false;
             if (!value || typeof value !== 'object') {
                 logWarn('undoClearAll', `⚠️ Invalid entry for "${key}", skipping`);
                 failedCount++;
+                failedKeys.add(key);
                 continue;
             }
 
             try {
-                await Storage.set(key, value);
+                const restoreOutcome = await restoreDeletedRecordIfUnchanged(key, value, commitGuard);
+                if (restoreOutcome.skipped) {
+                    skippedNewer++;
+                    continue;
+                }
                 PlaybackDisplayManager.syncSavedState({
                     videoId: key,
                     isSaved: true,
@@ -18999,48 +24593,84 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             } catch (err) {
                 logError('undoClearAll', `❌ Error restoring "${key}":`, err);
                 failedCount++;
+                failedKeys.add(key);
             }
         }
 
-        // Clear reference IMMEDIATELY after restoring
-        // This allows a new "Clear All" to work correctly
-        clearedData = null;
+        undoClearHasFailures = failedCount > 0;
+        // Keep only failed entries available for a retry. Already restored
+        // records must not be written again from an old snapshot.
+        clearedData = failedCount > 0
+            ? Object.fromEntries(failedKeys.map(key => [key, undoSnapshot[key]]))
+            : null;
 
         // User feedback
-        if (restoredCount > 0) {
+        if (restoredCount > 0 || skippedNewer > 0) {
             const failedMsg = failedCount > 0 ? ` (${failedCount} failed)` : '';
-            showFloatingToast(`${SVG_ICONS.check} ${t('itemsRestored', { count: restoredCount })}${failedMsg}`, 3000);
+            const skippedMsg = skippedNewer > 0 ? ` (${skippedNewer} newer kept)` : '';
+            showFloatingToast(`${SVG_ICONS.check} ${t('itemsRestored', { count: restoredCount })}${failedMsg}${skippedMsg}`, 3000);
         } else {
             showFloatingToast(`${SVG_ICONS.error} Could not restore any video`, 3000);
         }
 
         // Update UI
         await updateVideoList();
+        return failedCount === 0;
     }
 
     // ============================================================================================================
     // MARK: ⚙️ Menu Commands
     // ============================================================================================================
 
+    /**
+     * Registers one menu command and records its manager-owned ID.
+     * @param {string} label - Menu label.
+     * @param {Function} callback - Click callback.
+     * @returns {void}
+     */
+    function registerOwnedMenuCommand(label, callback) {
+        const commandId = GM_registerMenuCommand(label, callback);
+        if (commandId !== undefined && commandId !== null) menuCommandIds.push(commandId);
+    }
+
+    /**
+     * Removes menu commands registered by this runtime when supported by the
+     * userscript manager. The grant is optional for older managers.
+     * @returns {void}
+     */
+    function unregisterOwnedMenuCommands() {
+        if (typeof GM_unregisterMenuCommand !== 'function') return;
+        while (menuCommandIds.length > 0) {
+            const commandId = menuCommandIds.pop();
+            try {
+                GM_unregisterMenuCommand(commandId);
+            } catch (error) {
+                logWarn('MenuCommands', 'Could not unregister menu command', error);
+            }
+        }
+    }
+
     // Function to register menu commands with translations
     function registerMenuCommands() {
-        GM_registerMenuCommand(`⚙️ ${t('settings')}`, async () => {
+        registerOwnedMenuCommand(`⚙️ ${t('settings')}`, async () => {
             try {
                 if (!document || !document.body) {
-                    setTimeout(() => { try { showSettingsUI(); } catch (_) { logWarn('MenuCommands', 'Error on showSettingsUI delayed', _); } }, 0);
+                    setTimeout(() => {
+                        if (window.__YPP__?.instanceId !== INSTANCE_ID) return;
+                        try { showSettingsUI(); } catch (_) { logWarn('MenuCommands', 'Error on showSettingsUI delayed', _); }
+                    }, 0);
                 } else {
                     await showSettingsUI();
                 }
             } catch (e) { logError('registerMenuCommands', 'Error opening Settings UI:', e); }
         });
-        /* GM_registerMenuCommand(`📋 ${t('savedVideos')}`, () => { try { showSavedVideosList(); } catch (_) { } }); */
-        GM_registerMenuCommand(`📚 ${t('viewAllHistory')}`, async () => {
+        registerOwnedMenuCommand(`📚 ${t('viewAllHistory')}`, async () => {
             // Save filters and wait for completion
             await setFilters({ filterBy: 'all', searchQuery: '' });
             // Await the async call: a bare try/catch cannot catch promise rejections
             try { await showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error opening history list:', e); }
         });
-        GM_registerMenuCommand(`✅ ${t('viewCompletedVideos')}`, async () => {
+        registerOwnedMenuCommand(`✅ ${t('viewCompletedVideos')}`, async () => {
             await setFilters({ filterBy: 'completed' });
             try { await showSavedVideosList(); } catch (e) { logError('registerMenuCommands', 'Error opening completed list:', e); }
         });
@@ -19083,40 +24713,42 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         const MIGRATION_KEY = CONFIG.STORAGE_KEYS.migration;
 
         try {
+            assertActiveInstance();
             // --- 0. Deep GM_setValue cleanup ---
             // Delete legacy flags and unify them
             if (typeof GM_getValue === 'function' && typeof GM_setValue === 'function') {
-                const legacyGMFlag = await GM_getValue('ypp_migration_freetube_format_version');
+                const legacyGMFlag = await gmGetValue('ypp_migration_freetube_format_version');
                 if (legacyGMFlag !== undefined && legacyGMFlag !== null) {
-                    const currentMigration = await GM_getValue(MIGRATION_KEY, 0);
-                    await GM_setValue(MIGRATION_KEY, Math.max(currentMigration, parseInt(legacyGMFlag, 10) || 0));
+                    const currentMigration = await gmGetValue(MIGRATION_KEY, 0);
+                    await gmSetValue(MIGRATION_KEY, Math.max(currentMigration, parseInt(legacyGMFlag, 10) || 0));
                     if (typeof GM_deleteValue === 'function') {
-                        try { await GM_deleteValue('ypp_migration_freetube_format_version'); } catch (_) { logWarn('Cleanup', 'Error deleting ypp_migration_freetube_format_version', _); }
+                        try { await gmDeleteValue('ypp_migration_freetube_format_version'); } catch (_) { logWarn('Cleanup', 'Error deleting ypp_migration_freetube_format_version', _); }
                     } else {
-                        await GM_setValue('ypp_migration_freetube_format_version', null);
+                        await gmSetValue('ypp_migration_freetube_format_version', null);
                     }
                     logInfo('cleanupNonVideoData', `🚚 Migrated legacy GM flag: ypp_migration_freetube_format_version`);
                 }
 
                 // Rescue orphaned settings and safe purges
                 if (typeof GM_listValues === 'function' && typeof GM_deleteValue === 'function') {
-                    try { await GM_deleteValue('YT_PLAYBACK_PLOX_idb_migrated'); } catch (_) { logWarn('Cleanup', 'Error deleting YT_PLAYBACK_PLOX_idb_migrated', _); }
-                    try { await GM_deleteValue('YT_PLAYBACK_PLOX_translations_cache_v1'); } catch (_) { logWarn('Cleanup', 'Error deleting YT_PLAYBACK_PLOX_translations_cache_v1', _); }
+                    try { await gmDeleteValue('YT_PLAYBACK_PLOX_idb_migrated'); } catch (_) { logWarn('Cleanup', 'Error deleting YT_PLAYBACK_PLOX_idb_migrated', _); }
+                    try { await gmDeleteValue('YT_PLAYBACK_PLOX_translations_cache_v1'); } catch (_) { logWarn('Cleanup', 'Error deleting YT_PLAYBACK_PLOX_translations_cache_v1', _); }
 
-                    const gmKeys = await GM_listValues();
+                    const gmKeys = await gmListValues();
                     const videoKeysGM = (Array.isArray(gmKeys) ? gmKeys : []).filter(k =>
                         typeof k === 'string' && k.startsWith('ypp_')
                     );
 
                     for (const gk of videoKeysGM) {
-                        try { await GM_deleteValue(gk); } catch (_) { logWarn('Cleanup', `Error deleting GM key ${gk}`, _); }
+                        try { await gmDeleteValue(gk); } catch (_) { logWarn('Cleanup', `Error deleting GM key ${gk}`, _); }
                         logInfo('cleanupNonVideoData', `🧹 GM legacy key purged: ${gk}`);
                     }
                 }
             }
 
             // --- 1. IndexedDB metadata cleanup ---
-            const allIDBKeys = await StorageAsync.keys();
+            const allIDBKeys = await StorageAsync.rawKeys();
+            assertActiveInstance();
             const nonVideoIDBKeys = allIDBKeys.filter(k => isNonVideoStorageKey(k));
 
             if (nonVideoIDBKeys.length > 0) {
@@ -19127,11 +24759,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         continue;
                     }
                     const data = await StorageAsync.get(key);
+                    assertActiveInstance();
                     if (data !== null) {
                         // Rescue the IDB flag directly into the consolidated flag
                         if (key === 'ypp_migration_freetube_format_version') {
-                            const currentMigration = await GM_getValue(MIGRATION_KEY, 0);
-                            await GM_setValue(MIGRATION_KEY, Math.max(currentMigration, parseInt(data, 10) || 0));
+                            const currentMigration = await gmGetValue(MIGRATION_KEY, 0);
+                            await gmSetValue(MIGRATION_KEY, Math.max(currentMigration, parseInt(data, 10) || 0));
                         } else if (key === 'idb_migrated' || key === 'idb_migrated_v1' || key === 'YT_PLAYBACK_PLOX_idb_migrated') {
                             // Purge it silently; it is already obsolete
                         } else {
@@ -19140,9 +24773,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             if (typeof data === 'string') {
                                 try { dataToSave = JSON.parse(data); } catch (e) { logError('cleanupNonVideoData', 'Error parsing IDB metadata:', e); }
                             }
-                            await GM_setValue(gmKey, dataToSave);
+                            await gmSetValue(gmKey, dataToSave);
                         }
-                        await StorageAsync.del(key);
+                        await StorageAsync.del(key, { cleanupFallback: false });
                         logInfo('cleanupNonVideoData', `🚚 IDB metadata migrated to GM: ${key}`);
                     }
                 }
@@ -19152,6 +24785,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (typeof localStorage !== 'undefined') {
                 const lsKeys = Object.keys(localStorage);
                 for (const key of lsKeys) {
+                    assertActiveInstance();
                     // Detect any key that belongs to the script (old prefix or legacy ypp_)
                     if (hasPrefix(key) || key.startsWith('ypp_')) {
                         const normalized = stripPrefix(key);
@@ -19159,14 +24793,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         logInfo('cleanupNonVideoData', `🧹 LS legacy key purged: ${key}`);
                         if (normalized === 'idb_migrated' || normalized === 'idb_migrated_v1') {
                             localStorage.removeItem(key);
-                            try { await GM_deleteValue('YT_PLAYBACK_PLOX_idb_migrated'); } catch (_) { logWarn('Cleanup', 'Error deleting YT_PLAYBACK_PLOX_idb_migrated (LS branch)', _); }
+                            try { await gmDeleteValue('YT_PLAYBACK_PLOX_idb_migrated'); } catch (_) { logWarn('Cleanup', 'Error deleting YT_PLAYBACK_PLOX_idb_migrated (LS branch)', _); }
                             continue;
                         }
 
                         if (normalized === 'migration_freetube_format_version') {
                             const val = localStorage.getItem(key);
-                            const currentMigration = await GM_getValue(MIGRATION_KEY, 0);
-                            await GM_setValue(MIGRATION_KEY, Math.max(currentMigration, parseInt(val, 10) || 0));
+                            const currentMigration = await gmGetValue(MIGRATION_KEY, 0);
+                            await gmSetValue(MIGRATION_KEY, Math.max(currentMigration, parseInt(val, 10) || 0));
                             localStorage.removeItem(key);
                             continue;
                         }
@@ -19181,7 +24815,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                             if (raw) {
                                 const gmKey = prefixKey(key);                                let dataToSave = raw;
                                 try { dataToSave = JSON.parse(raw); } catch (e) { logError('cleanupNonVideoData', 'Error parsing config LS:', e); }
-                                await GM_setValue(gmKey, dataToSave);
+                                await gmSetValue(gmKey, dataToSave);
                                 localStorage.removeItem(key);
                                 logInfo('cleanupNonVideoData', `🚚 Cache/Config LS migrated: ${key}`);
                             }
@@ -19206,8 +24840,14 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             }
 
             // --- 3. IndexedDB Structural Normalization ---
-            const lastMigrationVersion = await GM_getValue(MIGRATION_KEY, 0);
-            if (lastMigrationVersion < MIGRATION_VERSION && allIDBKeys.length > 0) {
+            if (typeof GM_getValue !== 'function' || typeof GM_setValue !== 'function') {
+                logWarn('cleanupNonVideoData', 'GM read/write APIs are incomplete; skipping migration version bump');
+                return;
+            }
+            const lastMigrationVersion = await gmGetValue(MIGRATION_KEY, 0);
+            const videoKeys = allIDBKeys.filter(k => !isNonVideoStorageKey(k));
+            assertActiveInstance();
+            if (lastMigrationVersion < MIGRATION_VERSION && videoKeys.length > 0) {
                 logInfo('cleanupNonVideoData', `🔄 Starting IDB structural normalization to v${MIGRATION_VERSION}...`);
 
                 let doBackup = true;
@@ -19220,20 +24860,28 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (doBackup) {
                     try {
                         logInfo('cleanupNonVideoData', `📥 Initiating pre-migration export...`);
-                        await exportDataToFile(null, 'PRE-MIGRATION');
+                        const backupStatus = await exportDataToFile(null, 'PRE-MIGRATION');
+                        const persistedBackupStatuses = ['shared', 'saved', 'downloaded', 'copied'];
+                        if (!persistedBackupStatuses.includes(backupStatus)) {
+                            throw new Error('Pre-migration backup was not persisted');
+                        }
                         await delay(800);
+                        assertActiveInstance();
                     } catch (e) {
                         logError('cleanupNonVideoData', '❌ Failed during pre-migration backup:', e);
+                        showFloatingToast(`${SVG_ICONS.error} ${t('errorSaving')}`, 10000);
+                        return;
                     }
                 }
                 let migrated = 0;
                 let batchCount = 0;
                 let failedKeys = 0;
 
-                const videoKeys = allIDBKeys.filter(k => !isNonVideoStorageKey(k));
                 for (const key of videoKeys) {
+                    assertActiveInstance();
                     try {
                         const data = await StorageAsync.get(key);
+                        assertActiveInstance();
                         if (!data) continue;
 
                         // Case A: Unnest legacy playlist
@@ -19276,6 +24924,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                 }
 
+                assertActiveInstance();
                 // Only mark the migration as complete when every key was normalized.
                 // Bumping the version despite failures would permanently skip the
                 // failed keys (the version guard prevents any retry on next startup),
@@ -19284,7 +24933,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     logWarn('cleanupNonVideoData', `⚠️ Migration finished with ${failedKeys} failed key(s); version NOT bumped so they are retried next startup.`);
                     showFloatingToast(`${SVG_ICONS.warning} ${t('migrationComplete', { migrated: migrated })} (${failedKeys} failed, will retry)`, 10000);
                 } else {
-                    await GM_setValue(MIGRATION_KEY, MIGRATION_VERSION);
+                    await gmSetValue(MIGRATION_KEY, MIGRATION_VERSION);
                     logInfo('cleanupNonVideoData', `✅ Normalization completed: ${migrated} videos updated`);
                     if (migrated > 0) {
                         showFloatingToast(`${SVG_ICONS.check} ${t('migrationComplete', { migrated: migrated })}`, 10000);
@@ -19292,11 +24941,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 }
             } else if (lastMigrationVersion < MIGRATION_VERSION) {
                 // No keys in IDB, still update migration version to avoid future unnecessary checks
-                await GM_setValue(MIGRATION_KEY, MIGRATION_VERSION);
+                await gmSetValue(MIGRATION_KEY, MIGRATION_VERSION);
             }
 
             logInfo('cleanupNonVideoData', '✅ Global cleanup completed.');
         } catch (err) {
+            if (err?.name === 'AbortError') throw err;
             logError('cleanupNonVideoData', '❌ Error during global cleanup:', err);
         }
     }
@@ -19307,7 +24957,11 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {Promise<void>}
      */
     async function runAutoCleanup() {
-        if (!cachedSettings?.autoCleanupEnabled) return;
+        if (!isInstanceActive() || !cachedSettings?.autoCleanupEnabled) return;
+        if (clearAllInFlight || undoInFlight) {
+            logWarn('runAutoCleanup', 'Skipping cleanup while another destructive operation is active');
+            return;
+        }
 
         const daysThreshold = parseInt(cachedSettings.autoCleanupDays, 10) || 30;
         if (daysThreshold <= 0) return;
@@ -19321,8 +24975,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         // Inform the user that cleanup has started
         showFloatingToast(`${SVG_ICONS.spinner} ${t('autoCleanupStarted')}`, 2000);
 
+        const cleanupEpoch = ++storageDestructiveEpoch;
+        const cleanupCommitGuard = () =>
+            isInstanceActive() &&
+            storageDestructiveEpoch === cleanupEpoch &&
+            !clearAllInFlight &&
+            !undoInFlight;
+        autoCleanupInFlight = true;
         try {
-            const allKeys = await StorageAsync.keys();
+            assertActiveInstance();
+            const allKeys = await StorageAsync.keys({ requireComplete: true });
+            if (!cleanupCommitGuard()) return;
             let deletedCount = 0;
             let protectedCount = 0;
 
@@ -19335,6 +24998,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     type: "auto-cleanup-backup"
                 }
             };
+            let cleanupUndoInFlight = false;
 
             for (let i = 0; i < videoKeys.length; i += CHUNK_SIZE) {
                 const chunk = videoKeys.slice(i, i + CHUNK_SIZE);
@@ -19343,6 +25007,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 const settledItems = await Promise.allSettled(
                     chunk.map(key => StorageAsync.get(key).then(data => ({ key, data })))
                 );
+                if (!cleanupCommitGuard()) return;
                 const itemsData = settledItems
                     .filter(r => r.status === 'fulfilled')
                     .map(r => r.value);
@@ -19370,12 +25035,43 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     }
                 }
 
-                // Delete in parallel within this batch
-                if (keysToDelete.length > 0) {
-                    await Promise.all(keysToDelete.map(({ key }) => StorageAsync.del(key)));
-                    for (const { key, title, lastWatched, data } of keysToDelete) {
+                // Re-read immediately before deletion so a protection/update
+                // from another tab is not overwritten by this cleanup decision.
+                const verifiedKeysToDelete = [];
+                for (const candidate of keysToDelete) {
+                    try {
+                        const latest = await StorageAsync.get(candidate.key);
+                        if (!cleanupCommitGuard()) return;
+                        if (!latest || latest.isProtected) continue;
+                        const latestTime = Number(latest.timeWatched || latest.lastUpdated || 0);
+                        const candidateTime = Number(candidate.lastWatched || 0);
+                        if (latestTime > candidateTime) continue;
+                        verifiedKeysToDelete.push(candidate);
+                    } catch (error) {
+                        logWarn('runAutoCleanup', `Could not verify ${candidate.key} before deletion`, error);
+                    }
+                }
 
-                        // Validate data before adding it
+                // Delete in parallel within this batch
+                if (verifiedKeysToDelete.length > 0) {
+                    const deletionResults = await Promise.allSettled(
+                        verifiedKeysToDelete.map(({ key, lastWatched }) => StorageAsync.del(key, {
+                            commitGuard: cleanupCommitGuard,
+                            expectedTimeWatched: lastWatched
+                        }))
+                    );
+                    if (!cleanupCommitGuard()) return;
+                    deletionResults.forEach((result, index) => {
+                        const candidate = verifiedKeysToDelete[index];
+                        if (result.status === 'rejected') {
+                            const partialDelete = result.reason?.durableDeleted === true;
+                            if (!partialDelete) {
+                                logError('runAutoCleanup', `Failed to delete aged video: ${candidate.key}`, result.reason);
+                                return;
+                            }
+                            logWarn('runAutoCleanup', `Primary delete confirmed but GM cleanup failed for ${candidate.key}; retaining undo snapshot`, result.reason);
+                        }
+                        const { key, title, lastWatched, data } = candidate;
                         if (key !== '__metadata__' && data && typeof data === 'object' && data.videoId) {
                             exportedDeletedData[key] = data;
                         } else if (key !== '__metadata__') {
@@ -19383,27 +25079,31 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         }
                         deletedCount++;
                         logLog('runAutoCleanup', `🗑️ Video deleted for age: ${key} (${title}) - Last seen: ${new Date(lastWatched).toLocaleString()}`);
-                    }
+                    });
                 }
 
                 // Brief breather for the main thread between batches if there's a lot of data
                 if (videoKeys.length > CHUNK_SIZE) {
                     await new Promise(r => setTimeout(r, 0));
+                    if (!cleanupCommitGuard()) return;
                 }
             }
 
             if (deletedCount > 0) {
                 logInfo('runAutoCleanup', `✅ Cleanup completed: ${deletedCount} videos deleted, ${protectedCount} protected skipped.`);
 
+                const cleanupSnapshot = { ...exportedDeletedData };
                 const actions = [
                     {
                         label: t('downloadBackup'),
                         callback: async () => {
+                            if (!cleanupCommitGuard()) return false;
                             try {
-                                const jsonString = JSON.stringify(exportedDeletedData, null, 2);
+                                const jsonString = JSON.stringify(cleanupSnapshot, null, 2);
                                 const blob = new Blob([jsonString], { type: 'application/json' });
                                 const timestamp = new Date().toISOString().split('T')[0];
                                 const status = await downloadBlobMobileSafe(blob, `youtube-playback-plox-v${SCRIPT_VERSION}-auto-cleanup-${timestamp}.json`);
+                                if (!cleanupCommitGuard()) return false;
                                 if (status === 'copied') {
                                     showFloatingToast(`${SVG_ICONS.upload} ${t('backupCopiedToClipboard')}`);
                                 } else if (status === 'opened') {
@@ -19418,23 +25118,52 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                     {
                         label: t('undo'),
                         callback: async () => {
+                            if (!cleanupCommitGuard() || cleanupUndoInFlight) return false;
+                            cleanupUndoInFlight = true;
                             try {
-                                const restoreKeys = Object.keys(exportedDeletedData).filter(k => k !== '__metadata__');
-                                await Promise.all(restoreKeys.map(key => StorageAsync.set(key, exportedDeletedData[key])));
-                                showFloatingToast(`${SVG_ICONS.check} ${t('itemsRestored', { count: restoreKeys.length })}`, 3000);
-                            } catch (e) {
-                                logError('runAutoCleanup', 'Error restoring cleanup:', e);
+                                if (!cleanupSnapshot) return false;
+                                const restoreKeys = Object.keys(cleanupSnapshot).filter(k => k !== '__metadata__');
+                                let restoredCount = 0;
+                                let skippedNewer = 0;
+                                let failedCount = 0;
+                                for (const key of restoreKeys) {
+                                    try {
+                                        const restoreOutcome = await restoreDeletedRecordIfUnchanged(key, cleanupSnapshot[key], cleanupCommitGuard);
+                                        if (restoreOutcome.skipped) {
+                                            skippedNewer++;
+                                        } else {
+                                            restoredCount++;
+                                        }
+                                    } catch (error) {
+                                        failedCount++;
+                                        logError('runAutoCleanup', `Error restoring cleanup key ${key}`, error);
+                                    }
+                                }
+                                if (!cleanupCommitGuard()) return false;
+                                if (failedCount > 0) {
+                                    showFloatingToast(`${SVG_ICONS.error} ${t('errorSaving')} (${failedCount})`, 5000);
+                                    return false;
+                                }
+                                const skippedMsg = skippedNewer > 0 ? ` (${skippedNewer} newer kept)` : '';
+                                showFloatingToast(`${SVG_ICONS.check} ${t('itemsRestored', { count: restoredCount })}${skippedMsg}`, 3000);
+                                return true;
+                            } finally {
+                                cleanupUndoInFlight = false;
                             }
-                        }
+                        },
+                        keepOpenOnFailure: true
                     }
                 ];
 
                 showFloatingToast(`${SVG_ICONS.trash} ${t('autoCleanupFinished', { count: deletedCount })}`, 15000, {
                     actions,
                     onDismiss: () => {
-                        // Release backup memory when the toast closes
-                        exportedDeletedData = null;
-                        logLog('runAutoCleanup', '🧹 Cleanup toast closed, releasing backup from memory');
+                        // Action callbacks use an immutable snapshot; never
+                        // release it while an undo/download is still running.
+                        if (!cleanupUndoInFlight) {
+                            exportedDeletedData = null;
+                            logLog('runAutoCleanup', '🧹 Cleanup toast closed, releasing backup from memory');
+                        }
                     }
                 });
             } else {
@@ -19442,7 +25171,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 showFloatingToast(`${SVG_ICONS.info} ${t('autoCleanupNoVideosFound', { days: daysThreshold })}`, 5000);
             }
         } catch (err) {
+            if (err?.name === 'AbortError') throw err;
             logError('runAutoCleanup', '❌ Error during automatic cleanup:', err);
+        } finally {
+            autoCleanupInFlight = false;
         }
     }
 
@@ -19453,9 +25185,12 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
 
     // Initialization control variables
     let initializationPromise = null;
+    let initialBootTimerId = null;
+    let backupStartTimerId = null;
     let backupIntervalId = null;
     let isInitializationComplete = false;
     let navigationBootstrapTimer = null;
+    let navigationDebounce = null;
 
     // Global initialization (only once)
     const initializeGlobal = async () => {
@@ -19469,7 +25204,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let hadLanguageInStorage = false;
             let loadedSettings = null;
             let loadedSettingsMeta = null;
-            let externalTranslations = null;
+            // Declared before the translations handler below: that handler can run
+            // on an early microtask and must never read it in its TDZ.
+            let startupLanguageApplied = false;
 
             // --- Configure navigation and API events ---
             /**
@@ -19600,135 +25337,196 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (typeof VideoObserverManager?.init === 'function') VideoObserverManager.init(shouldForceBootstrap, preserveMiniplayer, skipCleanup);
             };
 
-            const debouncedNavigation = debounce(handleNavigation, 100);
+            navigationDebounce = debounce(handleNavigation, 100);
 
             // 1. Listen for standard YouTube events
-            addDisposableListener(window, 'yt-navigate-finish', debouncedNavigation);
-            addDisposableListener(document, 'yt-page-data-updated', debouncedNavigation);
+            addDisposableListener(window, 'yt-navigate-finish', navigationDebounce);
+            addDisposableListener(document, 'yt-page-data-updated', navigationDebounce);
+            // 1b. Mobile web (`m.youtube.com`) navigates its SPA with `state-change`
+            // instead of the desktop events above (verified live: watch→watch
+            // fires `state-change` twice, neither desktop event). The debounced
+            // handler is idempotent, so this is a no-op when already in sync.
+            addDisposableListener(window, 'state-change', navigationDebounce);
+            addDisposableListener(document, 'state-change', navigationDebounce);
 
-            // 2. Initialize YouTube Helper API and listen for its "silent" updates
+            // 2. Optional YouTube Helper API support.
+            // The library is no longer a dependency (@require removed: its
+            // trackPlaybackProgress() throws an uncaught TypeError when the
+            // player has no video element). It is still honoured if another
+            // script injects it into the page, purely as an extra metadata
+            // source; nothing here depends on it.
             try {
                 const targetWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : (globalThis ?? window);
 
                 if (typeof youtubeHelperApi !== 'undefined') {
                     YTHelper = youtubeHelperApi;
-                    logInfo('YTHelper', '✅ Reference to YouTube Helper API obtained youtubeHelperApi');
+                    logInfo('YTHelper', 'Optional YouTube Helper API detected (youtubeHelperApi)');
                 } else if (typeof targetWindow.youtubeHelperApi !== 'undefined') {
                     YTHelper = targetWindow.youtubeHelperApi;
-                    logInfo('YTHelper', '✅ Reference to YouTube Helper API obtained targetWindow.youtubeHelperApi');
+                    logInfo('YTHelper', 'Optional YouTube Helper API detected (unsafeWindow.youtubeHelperApi)');
                 } else if (targetWindow.youtubeHelperRegistry?.instances?.size > 0) {
                     YTHelper = Array.from(targetWindow.youtubeHelperRegistry.instances.values())[0];
-                    logInfo('YTHelper', '✅ Reference to YouTube Helper API obtained targetWindow.youtubeHelperRegistry');
+                    logInfo('YTHelper', 'Optional YouTube Helper API detected (youtubeHelperRegistry)');
                 }
 
                 if (YTHelper) {
                     // Register persistent listener that now shares the same debounced flow
                     addDisposableListener(YTHelper.eventTarget, 'yt-helper-api-ready', () => {
                         logInfo('YTHelper', '🆕 Notification of Video Ready/Updated received');
-                        debouncedNavigation();
+                        navigationDebounce?.();
                     });
-
-                    // YTHelper.debug.enabled = true;
-                    // YTHelper.debug.level = 3;
 
                     logInfo('YTHelper', 'Registered persistent listener for yt-helper-api-ready');
                 } else {
-                    logError('YTHelper', 'Reference to YouTube Helper API not obtained');
+                    logLog('YTHelper', 'YouTube Helper API not present; using the player API and DOM metadata sources');
                 }
             } catch (error) {
-                logError('YTHelper', 'Error during YouTube Helper API initialization: ' + error);
+                logWarn('YTHelper', 'Optional YouTube Helper API integration skipped', error);
             }
 
             // 3. Clean up resources when page closes to prevent memory leaks
             addDisposableListener(window, 'unload', () => {
+                if (backupIntervalId) { clearInterval(backupIntervalId); backupIntervalId = null; }
+                if (backupStartTimerId) { clearTimeout(backupStartTimerId); backupStartTimerId = null; }
                 cleanupGlobalListeners();
                 cleanupThemeObserver();
                 logLog('initializeGlobal', '🧹 Cleanup of resources when page closes');
             });
 
-            // --- Load translations ---
+            // --- Load translations (never blocks init) ---
+            // The remote payload is an enhancement, not a precondition. Awaiting it
+            // stalled init for up to 10 s (2 URLs x 5 s timeout) with no observers, no
+            // tracking and no UI whenever the network was slow or unreachable, and it
+            // downloaded 1.25 MB with every language to render a page that already
+            // ships the embedded fallback. Init now starts with the fallback and
+            // swaps in the remote strings as soon as they arrive.
+            const remoteTranslations = loadTranslations().catch((err) => {
+                logError('initializeGlobal', '❌ Error loading translations:', err);
+                return null;
+            });
+            remoteTranslations.then((payload) => {
+                if (!isInstanceActive()) return;
+                // loadTranslations() resolves with the embedded LOCAL_FALLBACK when
+                // the network fails, so a payload alone does NOT mean the remote
+                // catalog arrived. Identity against FALLBACK_TRANSLATIONS is the
+                // cheapest reliable signal: without the remote catalog a language
+                // missing from both sources proves nothing and the user's stored
+                // choice must survive (and not be overwritten with the default).
+                const hasRemoteCatalog = !!payload
+                    && Object.keys(payload).length > 0
+                    && payload.TRANSLATIONS !== FALLBACK_TRANSLATIONS;
+                if (hasRemoteCatalog) {
+                    remoteTranslationsApplied = true;
+                    LANGUAGE_FLAGS = {
+                        ...FALLBACK_FLAGS,
+                        ...(payload.LANGUAGE_FLAGS || payload.flags || {})
+                    };
+                    TRANSLATIONS = payload.TRANSLATIONS || payload.translations || {};
+                    logInfo('initializeGlobal', 'Translations loaded successfully');
+                } else {
+                    logWarn('initializeGlobal', 'External translations unavailable, keeping the embedded fallback');
+                }
+                // Re-validate the language now that the catalog is known.
+                // Startup had to trust the stored language (and the browser
+                // detection only sees the embedded fallback), so a stale language
+                // or a non-English browser may need correcting here.
+                const expected = resolveStartupLanguage(cachedSettings, hadLanguageInStorage);
+                if (expected !== currentLanguage) {
+                    logInfo('initializeGlobal', `Language corrected once translations loaded: ${currentLanguage} -> ${expected}`);
+                    if (cachedSettings) cachedSettings.language = expected;
+                    setLanguage(expected, { persist: false }).catch(err => logWarn('initializeGlobal', 'setLanguage failed', err));
+                    // Persist the correction unless the startup block still owes its
+                    // own save (it compares against the same value and will win).
+                    if (startupLanguageApplied && loadedSettings?.language !== expected) {
+                        setSettings(cachedSettings).catch(err => logWarn('initializeGlobal', 'setSettings failed', err));
+                    }
+                }
+            });
+
+            // --- Load settings (local backend, fast) ---
             try {
-                [externalTranslations, loadedSettingsMeta] = await Promise.all([
-                    loadTranslations().catch((err) => {
-                        logError('initializeGlobal', '❌ Error loading translations:', err);
-                        return null;
-                    }),
-                    getSettingsWithMeta().catch((err) => {
-                        logError('initializeGlobal', '❌ Error loading settings:', err);
-                        return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
-                    })
-                ]);
+                loadedSettingsMeta = await getSettingsWithMeta().catch((err) => {
+                    logError('initializeGlobal', '❌ Error loading settings:', err);
+                    return { settings: { ...CONFIG.defaultSettings }, hadLanguageInStorage: false };
+                });
 
                 loadedSettings = loadedSettingsMeta?.settings || { ...CONFIG.defaultSettings };
                 hadLanguageInStorage = !!loadedSettingsMeta?.hadLanguageInStorage;
+                assertActiveInstance();
 
-                if (externalTranslations && Object.keys(externalTranslations).length > 0) {
-                    logInfo('initializeGlobal', 'Translations loaded successfully');
-                    LANGUAGE_FLAGS = {
-                        ...FALLBACK_FLAGS,
-                        ...(externalTranslations.LANGUAGE_FLAGS || externalTranslations.flags || {})
-                    };
-                    TRANSLATIONS = externalTranslations.TRANSLATIONS || externalTranslations.translations || {};
-                } else {
-                    logWarn('initializeGlobal', 'External translations incomplete, using fallback as base');
-                    LANGUAGE_FLAGS = FALLBACK_FLAGS;
-                    TRANSLATIONS = {}; // Will use FALLBACK_TRANSLATIONS via cascade in t()
-                }
+                // First paint uses the embedded fallback (t() cascades to
+                // FALLBACK_TRANSLATIONS); the promise above replaces it if it resolves.
+                LANGUAGE_FLAGS = FALLBACK_FLAGS;
+                TRANSLATIONS = {};
                 cachedSettings = { ...CONFIG.defaultSettings, ...(loadedSettings || {}) };
                 logInfo('initializeGlobal', 'Settings loaded:', cachedSettings);
 
             } catch (error) {
-                logError('initializeGlobal', 'Error preparing translations/settings:', error);
+                if (error?.name === 'AbortError') throw error;
+                logError('initializeGlobal', 'Error preparing settings:', error);
                 LANGUAGE_FLAGS = FALLBACK_FLAGS;
                 TRANSLATIONS = FALLBACK_TRANSLATIONS;
                 cachedSettings = { ...CONFIG.defaultSettings };
             }
 
             // --- Load settings and set language ---
+            // The stored language is trusted here: the full catalog is not known
+            // until the remote payload lands (only en-US ships embedded), and the
+            // value was validated when the user chose it. The translations handler
+            // above re-validates it once the whole catalog is available.
             try {
-                let langToUse;
+                const langToUse = resolveStartupLanguage(cachedSettings, hadLanguageInStorage);
 
-                if (hadLanguageInStorage && cachedSettings?.language && TRANSLATIONS[cachedSettings.language]) {
-                    // User-saved and valid language
-                    langToUse = cachedSettings.language;
-                    logInfo('initializeGlobal', `Saved language valid: ${langToUse}`);
+                if (hadLanguageInStorage && cachedSettings?.language) {
+                    logInfo('initializeGlobal', `Using saved language: ${langToUse}`);
                 } else {
-                    // First load or language not configured, use browser language if available
-                    const browserLang = detectBrowserLanguage();
-                    langToUse = TRANSLATIONS[browserLang] ? browserLang : DEFAULT_LANGUAGE;
                     logInfo('initializeGlobal', `Detected or fallback language: ${langToUse}`);
                 }
 
                 await setLanguage(langToUse, { persist: false });
+                assertActiveInstance();
                 logInfo('initializeGlobal', `Language configured: ${langToUse}`);
 
-                // Always update cachedSettings.language with the detected/selected language
-                cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
-                cachedSettings.language = langToUse;
+                // Skip the assignment/save if the translations handler already
+                // corrected the language: it applies the same rule with the full
+                // catalog and must not be overwritten by the optimistic value.
+                if (!startupLanguageApplied) {
+                    // Always update cachedSettings.language with the detected/selected language
+                    cachedSettings = cachedSettings || { ...CONFIG.defaultSettings };
+                    cachedSettings.language = langToUse;
 
-                // Save preference if it was the first load or if the language changed
-                if (!hadLanguageInStorage || (loadedSettings?.language !== langToUse)) {
-                    await setSettings(cachedSettings);
-                    logInfo('initializeGlobal', `Language saved/updated in settings: ${langToUse}`);
+                    // Save preference if it was the first load or if the language changed
+                    if (!hadLanguageInStorage || (loadedSettings?.language !== langToUse)) {
+                        await setSettings(cachedSettings);
+                        assertActiveInstance();
+                        logInfo('initializeGlobal', `Language saved/updated in settings: ${langToUse}`);
+                    }
                 }
             } catch (error) {
+                if (error?.name === 'AbortError') throw error;
                 logError('initializeGlobal', '❌ Error setting language:', error);
             }
+            startupLanguageApplied = true;
 
             // --- Initialize StorageAsync (migration to IndexedDB) ---
             try {
                 await StorageAsync.initialize();
+                assertActiveInstance();
                 logInfo('initializeGlobal', '✅ StorageAsync initialized');
             } catch (err) {
+                if (err?.name === 'AbortError') throw err;
                 logError('initializeGlobal', '❌ Error initializing StorageAsync:', err);
             }
 
             // --- Clean metadata in IndexedDB (migration to GM_setValue and legacy purge) ---
             try {
                 await cleanupNonVideoData();
+                assertActiveInstance();
                 // Run automatic cleanup after cleanup
                 await runAutoCleanup();
+                assertActiveInstance();
             } catch (err) {
+                if (err?.name === 'AbortError') throw err;
                 logError('initializeGlobal', '❌ Error during cleanup/autoCleanup:', err);
             }
 
@@ -19750,14 +25548,17 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 // Create floating button if enabled in settings
                 if (typeof createFloatingButton === 'function') {
                     await createFloatingButton();
+                    assertActiveInstance();
                 }
             } catch (error) {
+                if (error?.name === 'AbortError') throw error;
                 logError('initializeGlobal', '❌ Error registering menu or injecting styles:', error);
             }
 
             // --- Initialize video observers ---
             try {
                 // Mark initialization completed to allow navigation events
+                assertActiveInstance();
                 isInitializationComplete = true;
 
                 // initializeGlobal calls init() again, causing cleanup()
@@ -19772,6 +25573,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                      * before scheduling unnecessary intervals.
                      */
                     const githubSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+                    assertActiveInstance();
                     const hasGistBackup = githubSettings?.gist?.autoBackup && githubSettings?.gist?.token;
                     const hasRepoBackup = githubSettings?.repo?.autoBackup && githubSettings?.repo?.token;
 
@@ -19788,20 +25590,25 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         const jitterMs = Math.floor(Math.random() * 60 * 1000); // 0-60s jitter
                         logLog('initializeGlobal', `Scheduling first backup check in ${Math.round(jitterMs / 1000)}s`);
 
-                        setTimeout(() => {
-                            checkGitHubBackup();
+                        backupStartTimerId = setTimeout(() => {
+                            backupStartTimerId = null;
+                            if (window.__YPP__?.instanceId !== INSTANCE_ID) return;
+                            void checkGitHubBackup();
                             backupIntervalId = setInterval(checkGitHubBackup, 5 * 60 * 1000);
                         }, jitterMs);
                     }
 
                     logInfo('initializeGlobal', '✅ VideoObserverManager and observers initialized');
                 } catch (error) {
+                    if (error?.name === 'AbortError') throw error;
                     logError('initializeGlobal', '❌ Error checking GitHub backup:', error);
                 }
             } catch (error) {
+                if (error?.name === 'AbortError') throw error;
                 logError('initializeGlobal', '❌ Error initializing VideoObserverManager:', error);
             }
 
+            assertActiveInstance();
             // Mark the global instance as fully initialized ONLY after observers,
             // commands, styles, theme and backup scheduling have been set up.
             // Until this point a re-injection will correctly re-initialize instead of
@@ -19823,13 +25630,15 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             await initializeGlobal();
             logInfo('init', '✨ Script completely initialized');
         } catch (error) {
-            logError('init', '❌ Error initializing:', error);
+            if (error?.name !== 'AbortError') logError('init', '❌ Error initializing:', error);
         }
     };
 
     // Start with protection against synchronous errors
-    setTimeout(() => {
+    initialBootTimerId = setTimeout(() => {
+        initialBootTimerId = null;
+        if (window.__YPP__?.instanceId !== INSTANCE_ID) return;
         init().catch((error) => {
-            logError('init', '❌ Fatal error in init():', error);
+            if (error?.name !== 'AbortError') logError('init', '❌ Fatal error in init():', error);
         });
     }, 0);

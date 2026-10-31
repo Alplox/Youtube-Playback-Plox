@@ -1,13 +1,23 @@
 {
   "name": "youtube-playback-plox",
-  "version": "0.0.12-7",
+  "version": "0.0.13",
   "private": true,
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=22.13",
+    "pnpm": ">=11"
+  },
   "description": "Dev tooling for the YouTube Playback Plox userscript. The distributable is the single-file youtube-playback-plox.user.js; these scripts only lint/validate/generate docs.",
   "scripts": {
     "lint": "node scripts/audit-lint.mjs",
     "lint:syntax": "node --check youtube-playback-plox.user.js",
+    "lint:scope": "node scripts/scope-check.mjs",
     "structure": "node scripts/generate-structure.mjs",
     "validate:translations": "node scripts/validate-translations.mjs",
-    "audit": "npm run lint:syntax && npm run lint && npm run validate:translations"
+    "audit": "pnpm run lint:syntax && pnpm run lint && pnpm run lint:scope && pnpm run validate:translations"
+  },
+  "devDependencies": {
+    "acorn": "8.14.0",
+    "eslint-scope": "8.2.0"
   }
 }

@@ -42,9 +42,9 @@ for (const line of lines) {
     }
     if (!currentMark) continue;
     const fnMatch = line.match(
-        /^(?:async\s+)?function\s+(\w+)|^\s*(?:const|let)\s+(\w+)\s*=\s*(?:async\s+)?\(|^\s*(?:const|let)\s+(\w+)\s*=\s*\(\s*\)\s*=>/
+        /^\s*(?:async\s+)?function\s+(\w+)|^\s*(?:const|let)\s+(\w+)\s*=\s*(?:async\s+)?\(|^\s*(?:const|let)\s+(\w+)\s*=\s*\(\s*\)\s*=>/
     );
-    const classMatch = line.match(/^class\s+(\w+)/);
+    const classMatch = line.match(/^\s*class\s+(\w+)/);
     const arrowObjMatch = line.match(/^\s*(?:const|let)\s+(\w+)\s*=\s*Object\.freeze\(|^\s*(?:const|let)\s+(\w+)\s*=\s*\(\(\)\s*=>/);
     if (fnMatch) {
         const name = fnMatch[1] || fnMatch[2] || fnMatch[3];

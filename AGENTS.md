@@ -30,10 +30,6 @@ Look before creating. Reuse what already exists:
 | Category            | Real name in code                                                             |
 | ------------------- | ----------------------------------------------------------------------------- |
 | Compiled selectors  | `SELECTORS.IDS`, `SELECTORS.CLASSES`, `SELECTORS.ELEMENTS`, `SELECTORS.ATTRS` |
-| ID constants        | `IDs` (object)                                                                |
-| Class constants     | `CLASSES` (object)                                                            |
-| Attribute constants | `ATTRIBUTES` (object)                                                         |
-| Element constants   | `ELEMENTS` (object)                                                           |
 | DOM cache with TTL  | `DOMHelpers.get(key, getter, ttlMs)`                                          |
 | Playback controller | `PlaybackController`                                                          |
 | Async storage       | `StorageAsync` / `Storage`                                                    |
@@ -107,7 +103,7 @@ youtube-playback-plox.user.js
 │     └── isContextLocked(videoEl, expectedContext)  ← Final validation
 │
 │   Session safety pipeline:
-├── EventPreFilter              ← Discards invalid events before processing
+├── shouldDropVideoEvent()      ← Discards invalid events before processing
 ├── FailSafeManager             ← Detects loops/errors and activates safe mode
 ├── SessionTelemetry            ← Structured logging of routing decisions
 ├── SessionFallbackManager      ← Watchdog for sessions that don't start
@@ -116,6 +112,8 @@ youtube-playback-plox.user.js
 │     NOTE: Intentionally a Map (not WeakMap) - requires
 │     iteration in stopAllSessions(), FailSafeManager, and navigation.
 │     Explicit cleanup via SessionOrchestrator.finalizeSession().
+│
+├── isSessionStale()            ← Single check for replaced/finalized sessions
 │
 ├── SessionOrchestrator         ← Session state machine
 │     │   States: idle→starting→active→inAd/transitioning→stopping→finalized
@@ -182,7 +180,7 @@ SELECTORS.ATTRS.MINIPLAYER_ACTIVE     → '[miniplayer-is-active]'
 ```
 VideoObserverManager detects <video> with src
         ↓
-EventPreFilter.shouldDrop() - discards if invalid
+shouldDropVideoEvent() - discards if invalid
         ↓
 RouteContextResolver.canProcessContext() - validates context
         ↓
@@ -190,7 +188,7 @@ AdDetector.isNodeWithinAdContainer() - discards if ad
         ↓
 enqueueVideo(videoEl, type)
         ↓
-processBatch() → process[Watch|Shorts|Miniplayer|Preview]Video()
+processBatch() → processMediaVideo(videoEl, type)
         ↓
 SessionOrchestrator.startSession() - creates session with unique token
         ↓
@@ -231,7 +229,7 @@ FORBIDDEN: `var`
 - `DisposableStore` for clean, grouped lifecycle tracking. Use:
   - `.clear()` to flush and execute registered disposables while keeping the store active (ideal for view resets/transitions).
   - `.dispose()` to flush disposables and permanently deactivate the store (ideal for final cleanups).
-- `cleanupAll()` / `closeModalVideos()` when navigating (cleans listeners)
+- `closeModalVideos()` / per-view `DisposableStore.clear()` when navigating (cleans listeners)
 
 **Safe HTML:** always `setInnerHTML(element, html)` - never `.innerHTML =`
 
@@ -248,10 +246,9 @@ FORBIDDEN: `var`
 
 When `startProcessingSession` does an `await` internally (e.g. `getCascadedVideoInfo`), the state can change during the wait. Always verify after any await:
 
-1. `activeProcessingSessions.get(videoEl) === sessionRef` - confirms the session was not replaced by a more recent one.
-2. `!sessionRef.isFinalized` - confirms it was not explicitly terminated (e.g. by navigation cleanup).
-3. Register `sessionRef.intervalId` immediately upon creating the interval, not at the end of setup, so `finalizeSession` can always clean it.
-4. Always use the session checks above. Navigation guards based on counters (`navIdAtStart !== globalNavigationId`) are not reliable - these variables were eliminated in favor of direct session reference checks.
+1. `!isSessionStale(videoEl, sessionRef)` - confirms the session was not replaced by a more recent one and was not explicitly terminated (e.g. by navigation cleanup).
+2. Register `sessionRef.intervalId` immediately upon creating the interval, not at the end of setup, so `finalizeSession` can always clean it.
+3. Always use `isSessionStale()` (or the raw checks it wraps) - navigation guards based on counters (`navIdAtStart !== globalNavigationId`) are not reliable; those variables were eliminated in favor of direct session reference checks.
 
 ---
 
@@ -345,6 +342,7 @@ maintain `docs/estado_tarea.md` to allow handoff between AI agents:
 | Get Inline Preview player        | `DOMHelpers.getInlinePreviewPlayer()`             |
 | Get Inline Preview video         | `DOMHelpers.getInlinePreviewPlayerVideo()`        |
 | Re-queue video in observer       | `VideoObserverManager.enqueueWithResolver()`      |
+| Check if a session is stale      | `isSessionStale(videoEl, session)`                |
 | Finalize session manually        | `SessionOrchestrator.finalizeSession()`           |
 | Show toast to user               | `showFloatingToast(message, duration?, options?)` |
 | Create DOM element               | `createElement(tag, options)`                     |
@@ -359,5 +357,5 @@ maintain `docs/estado_tarea.md` to allow handoff between AI agents:
 | Create disposable store          | `new DisposableStore()`                           |
 | Debounce a function              | `debounce(fn, delayMs)`                           |
 | Async delay                      | `delay(ms)`                                       |
-| Threshold constants              | `THRESHOLDS.MIN_SAVE_INTERVAL_MS` etc.            |
+| Threshold constants              | `THRESHOLDS` and `CONFIG.minSecondsBetweenSaves`    |
 | SVG icons                        | `SVG_ICONS.{name}`                                |

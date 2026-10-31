@@ -17,10 +17,12 @@ jobs:
         with:
           version: 11.20.0
 
+      # pnpm 11 requires Node >= 22.13 (it loads the built-in `node:sqlite`),
+      # so the runner must use Node 22+ for `pnpm store path` in setup-node's cache step.
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '24'
           cache: 'pnpm'
 
       - name: Install (pnpm)

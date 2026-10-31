@@ -52,6 +52,7 @@
 - **Playlist Cancel no longer clips on mobile**: action rows wrap and dismiss controls pin to the trailing corner (RTL-safe).
 - **YouTube-Helper-API.js is no longer a dependency**: (v1.1.1) it threw on every tick once the player had no video element (ads, Miniplayer teardown) and its internals are not patchable from here. Still used as an optional metadata source if another script injects it.
 - **Dev tooling migrated from npm to pnpm** (`package.json` version synced to `0.0.13`).
+- **CI runs on Node 24**: the Audit workflow asked for Node 20 while `packageManager` pins `pnpm@11.20.0`, which needs Node >= 22.13 (`node:sqlite`), so the pnpm cache step aborted with `ERR_UNKNOWN_BUILTIN_MODULE`. The workflow now uses Node 24 and `engines` requires `node >=22.13` / `pnpm >=11`, so the CI Node matches local development.
 - **Selector fallback chains use `queryFirst(root, selectors)`**: watch time-wrapper, playlist title/browse lookups and cascade title/author lookups keep identical match order with less code.
 - **Visibility checks share one result per frame**: `isVisiblyDisplayed` caches per element (250ms, `WeakMap`) so tick/score/ad-scan callers pay a single reflow+style recalc.
 - **Ticks skip the storage re-read when absence is already known**: the session fast-path marks `savedDataResolved`; invalidation resets it. Kills 1-2 IDB miss-reads per new video.

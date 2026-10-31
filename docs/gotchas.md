@@ -562,7 +562,8 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 - **Single package manager**: commands are `pnpm install`, `pnpm run <script>` (`lint`, `lint:syntax`, `validate:translations`, `structure`, `audit`). Do not use `npm install`/`npm run`; mixing managers desyncs lockfiles.
 - **`pnpm-lock.yaml` is versioned, `node_modules/` is not**: CI runs `pnpm install --frozen-lockfile`, so any `package.json` change without a regenerated lockfile fails the build by design.
 - **Zero-dependency lockfile is expected**: the repo ships no npm dependencies (only `node scripts/*.mjs`), so `pnpm-lock.yaml` contains just `lockfileVersion` + an empty importer. Do not delete it as "empty".
-- **Pinned toolchain**: `packageManager: pnpm@11.20.0` + `engines: node>=20` + `.npmrc` `engine-strict=true`. With Corepack enabled (`corepack enable`), the correct pnpm activates automatically.
+- **Pinned toolchain**: `packageManager: pnpm@11.20.0` + `engines: node>=22.13` + `.npmrc` `engine-strict=true`. With Corepack enabled (`corepack enable`), the correct pnpm activates automatically.
+- **Node must be 22.13+ (CI uses 24)**: pnpm 11 loads the built-in `node:sqlite`, so on Node 20 every pnpm command dies with `ERR_UNKNOWN_BUILTIN_MODULE` — including the `pnpm store path` that `actions/setup-node`'s `cache: pnpm` runs. A workflow asking for `node-version: '20'` while pinning `pnpm@11.x` fails at the Node setup step, before `pnpm install`. Keep the workflow Node >= 22.13 (24 recommended, matches local dev) whenever the pinned pnpm is 11+.
 
 ## Mobile support: m.youtube.com (v0.0.13)
 

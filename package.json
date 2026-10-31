@@ -4,8 +4,8 @@
   "private": true,
   "packageManager": "pnpm@11.20.0",
   "engines": {
-    "node": ">=20",
-    "pnpm": ">=9"
+    "node": ">=22.13",
+    "pnpm": ">=11"
   },
   "description": "Dev tooling for the YouTube Playback Plox userscript. The distributable is the single-file youtube-playback-plox.user.js; these scripts only lint/validate/generate docs.",
   "scripts": {

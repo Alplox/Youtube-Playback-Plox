@@ -1,5 +1,5 @@
 # Userscript Structure
-> Auto-generated on 2026-10-30 · version 0.0.13
+> Auto-generated on 2026-10-31 · version 0.0.13
 > **DO NOT EDIT MANUALLY** - regenerate with `node ./scripts/generate-structure.mjs`
 
 ---
@@ -32,57 +32,57 @@
 24. [⚙️ DOM Cache System](#dom-cache-system) - [line 2387](../youtube-playback-plox.user.js#L2387)
 25. [🌐 Translation Functions](#translation-functions) - [line 2763](../youtube-playback-plox.user.js#L2763)
 26. [🎨 Styles](#styles) - [line 2974](../youtube-playback-plox.user.js#L2974)
-27. [🎨 Theme](#theme) - [line 5697](../youtube-playback-plox.user.js#L5697)
-28. [🎨 SVG Icons](#svg-icons) - [line 5775](../youtube-playback-plox.user.js#L5775)
-29. [🎨 Progress Bar Style](#progress-bar-style) - [line 5937](../youtube-playback-plox.user.js#L5937)
-30. [💾 Storage + Settings](#storage-settings) - [line 6485](../youtube-playback-plox.user.js#L6485)
-31. [📢 Ad Caches](#ad-caches) - [line 9484](../youtube-playback-plox.user.js#L9484)
-32. [📢 Ad Detector](#ad-detector) - [line 9510](../youtube-playback-plox.user.js#L9510)
-33. [🎯 VirtualScroller](#virtualscroller) - [line 9703](../youtube-playback-plox.user.js#L9703)
-34. [📤 Import/Export JSON](#importexport-json) - [line 10209](../youtube-playback-plox.user.js#L10209)
-35. [☁️ GitHub Backup](#github-backup) - [line 10827](../youtube-playback-plox.user.js#L10827)
-36. [📤 Import/Export FreeTube options](#importexport-freetube-options) - [line 11364](../youtube-playback-plox.user.js#L11364)
-37. [🔄 Normalize Video Data](#normalize-video-data) - [line 11546](../youtube-playback-plox.user.js#L11546)
-38. [🔄 Convert To FreeTube](#convert-to-freetube) - [line 11648](../youtube-playback-plox.user.js#L11648)
-39. [Parse FreeTube DB](#parse-freetube-db) - [line 11739](../youtube-playback-plox.user.js#L11739)
-40. [🔄 Convert From FreeTube](#convert-from-freetube) - [line 11832](../youtube-playback-plox.user.js#L11832)
-41. [⬆ Export To FreeTube](#export-to-freetube) - [line 11862](../youtube-playback-plox.user.js#L11862)
-42. [⬇ Import From FreeTube](#import-from-freetube) - [line 11906](../youtube-playback-plox.user.js#L11906)
-43. [🔄 Insert Completion Event](#insert-completion-event) - [line 11972](../youtube-playback-plox.user.js#L11972)
-44. [💾 Save Video Generic](#save-video-generic) - [line 12019](../youtube-playback-plox.user.js#L12019)
-45. [📺 Helpers](#helpers) - [line 12285](../youtube-playback-plox.user.js#L12285)
-46. [📺 Gets saved video data](#gets-saved-video-data) - [line 12288](../youtube-playback-plox.user.js#L12288)
-47. [📺 Get Player Video ID](#get-player-video-id) - [line 12345](../youtube-playback-plox.user.js#L12345)
-48. [📺 Get YouTube Page Type](#get-youtube-page-type) - [line 12435](../youtube-playback-plox.user.js#L12435)
-49. [YouTube Resource URL Parser](#youtube-resource-url-parser) - [line 12640](../youtube-playback-plox.user.js#L12640)
-50. [📺 Get YouTube Video ID from URL](#get-youtube-video-id-from-url) - [line 12857](../youtube-playback-plox.user.js#L12857)
-51. [📺 Get YouTube Video Context from URL](#get-youtube-video-context-from-url) - [line 12879](../youtube-playback-plox.user.js#L12879)
-52. [📺 Get YouTube Playlist ID from URL](#get-youtube-playlist-id-from-url) - [line 12907](../youtube-playback-plox.user.js#L12907)
-53. [📺 get Playlist Name](#get-playlist-name) - [line 12952](../youtube-playback-plox.user.js#L12952)
-54. [🕒 Time Display](#time-display) - [line 13252](../youtube-playback-plox.user.js#L13252)
-55. [🖼️ Display Button Helpers](#display-button-helpers) - [line 13298](../youtube-playback-plox.user.js#L13298)
-56. [🍞 Toasts](#toasts) - [line 14222](../youtube-playback-plox.user.js#L14222)
-57. [⚙️ Settings UI Rendering Helpers](#settings-ui-rendering-helpers) - [line 14537](../youtube-playback-plox.user.js#L14537)
-58. [🗂️ Settings Schema - Data-Driven UI](#settings-schema---data-driven-ui) - [line 14584](../youtube-playback-plox.user.js#L14584)
-59. [⚙️ Settings UI](#settings-ui) - [line 14902](../youtube-playback-plox.user.js#L14902)
-60. [📢 Notify Seek or Progress](#notify-seek-or-progress) - [line 15413](../youtube-playback-plox.user.js#L15413)
-61. [🎵 Video Selection](#video-selection) - [line 15471](../youtube-playback-plox.user.js#L15471)
-62. [📺 Video Observer & Processing Manager](#video-observer-processing-manager) - [line 16463](../youtube-playback-plox.user.js#L16463)
-63. [📡 Video Observer Manager](#video-observer-manager) - [line 16767](../youtube-playback-plox.user.js#L16767)
-64. [Processing Functions](#processing-functions) - [line 17646](../youtube-playback-plox.user.js#L17646)
-65. [PlaybackController](#playbackcontroller) - [line 19119](../youtube-playback-plox.user.js#L19119)
-66. [📋 Get Cascaded Video Info](#get-cascaded-video-info) - [line 19813](../youtube-playback-plox.user.js#L19813)
-67. [📂 Sort UI](#sort-ui) - [line 20351](../youtube-playback-plox.user.js#L20351)
-68. [📂 Filters UI](#filters-ui) - [line 20553](../youtube-playback-plox.user.js#L20553)
-69. [📂 Video List UI](#video-list-ui) - [line 20841](../youtube-playback-plox.user.js#L20841)
-70. [📁 Update Video List](#update-video-list) - [line 21019](../youtube-playback-plox.user.js#L21019)
-71. [🔘 Floating Button](#floating-button) - [line 21927](../youtube-playback-plox.user.js#L21927)
-72. [📂 Show Saved Videos List](#show-saved-videos-list) - [line 21956](../youtube-playback-plox.user.js#L21956)
-73. [📂 Video Entry](#video-entry) - [line 22217](../youtube-playback-plox.user.js#L22217)
-74. [🗑️ Clear All Data](#clear-all-data) - [line 24238](../youtube-playback-plox.user.js#L24238)
-75. [⚙️ Menu Commands](#menu-commands) - [line 24590](../youtube-playback-plox.user.js#L24590)
-76. [🔄 Data Migration](#data-migration) - [line 24648](../youtube-playback-plox.user.js#L24648)
-77. [🚀 Init](#init) - [line 25151](../youtube-playback-plox.user.js#L25151)
+27. [🎨 Theme](#theme) - [line 5727](../youtube-playback-plox.user.js#L5727)
+28. [🎨 SVG Icons](#svg-icons) - [line 5805](../youtube-playback-plox.user.js#L5805)
+29. [🎨 Progress Bar Style](#progress-bar-style) - [line 5967](../youtube-playback-plox.user.js#L5967)
+30. [💾 Storage + Settings](#storage-settings) - [line 6515](../youtube-playback-plox.user.js#L6515)
+31. [📢 Ad Caches](#ad-caches) - [line 9514](../youtube-playback-plox.user.js#L9514)
+32. [📢 Ad Detector](#ad-detector) - [line 9540](../youtube-playback-plox.user.js#L9540)
+33. [🎯 VirtualScroller](#virtualscroller) - [line 9733](../youtube-playback-plox.user.js#L9733)
+34. [📤 Import/Export JSON](#importexport-json) - [line 10239](../youtube-playback-plox.user.js#L10239)
+35. [☁️ GitHub Backup](#github-backup) - [line 10857](../youtube-playback-plox.user.js#L10857)
+36. [📤 Import/Export FreeTube options](#importexport-freetube-options) - [line 11394](../youtube-playback-plox.user.js#L11394)
+37. [🔄 Normalize Video Data](#normalize-video-data) - [line 11576](../youtube-playback-plox.user.js#L11576)
+38. [🔄 Convert To FreeTube](#convert-to-freetube) - [line 11678](../youtube-playback-plox.user.js#L11678)
+39. [Parse FreeTube DB](#parse-freetube-db) - [line 11769](../youtube-playback-plox.user.js#L11769)
+40. [🔄 Convert From FreeTube](#convert-from-freetube) - [line 11862](../youtube-playback-plox.user.js#L11862)
+41. [⬆ Export To FreeTube](#export-to-freetube) - [line 11892](../youtube-playback-plox.user.js#L11892)
+42. [⬇ Import From FreeTube](#import-from-freetube) - [line 11936](../youtube-playback-plox.user.js#L11936)
+43. [🔄 Insert Completion Event](#insert-completion-event) - [line 12002](../youtube-playback-plox.user.js#L12002)
+44. [💾 Save Video Generic](#save-video-generic) - [line 12049](../youtube-playback-plox.user.js#L12049)
+45. [📺 Helpers](#helpers) - [line 12315](../youtube-playback-plox.user.js#L12315)
+46. [📺 Gets saved video data](#gets-saved-video-data) - [line 12318](../youtube-playback-plox.user.js#L12318)
+47. [📺 Get Player Video ID](#get-player-video-id) - [line 12375](../youtube-playback-plox.user.js#L12375)
+48. [📺 Get YouTube Page Type](#get-youtube-page-type) - [line 12465](../youtube-playback-plox.user.js#L12465)
+49. [YouTube Resource URL Parser](#youtube-resource-url-parser) - [line 12670](../youtube-playback-plox.user.js#L12670)
+50. [📺 Get YouTube Video ID from URL](#get-youtube-video-id-from-url) - [line 12887](../youtube-playback-plox.user.js#L12887)
+51. [📺 Get YouTube Video Context from URL](#get-youtube-video-context-from-url) - [line 12909](../youtube-playback-plox.user.js#L12909)
+52. [📺 Get YouTube Playlist ID from URL](#get-youtube-playlist-id-from-url) - [line 12937](../youtube-playback-plox.user.js#L12937)
+53. [📺 get Playlist Name](#get-playlist-name) - [line 12982](../youtube-playback-plox.user.js#L12982)
+54. [🕒 Time Display](#time-display) - [line 13282](../youtube-playback-plox.user.js#L13282)
+55. [🖼️ Display Button Helpers](#display-button-helpers) - [line 13328](../youtube-playback-plox.user.js#L13328)
+56. [🍞 Toasts](#toasts) - [line 14252](../youtube-playback-plox.user.js#L14252)
+57. [⚙️ Settings UI Rendering Helpers](#settings-ui-rendering-helpers) - [line 14569](../youtube-playback-plox.user.js#L14569)
+58. [🗂️ Settings Schema - Data-Driven UI](#settings-schema---data-driven-ui) - [line 14616](../youtube-playback-plox.user.js#L14616)
+59. [⚙️ Settings UI](#settings-ui) - [line 14934](../youtube-playback-plox.user.js#L14934)
+60. [📢 Notify Seek or Progress](#notify-seek-or-progress) - [line 15445](../youtube-playback-plox.user.js#L15445)
+61. [🎵 Video Selection](#video-selection) - [line 15503](../youtube-playback-plox.user.js#L15503)
+62. [📺 Video Observer & Processing Manager](#video-observer-processing-manager) - [line 16495](../youtube-playback-plox.user.js#L16495)
+63. [📡 Video Observer Manager](#video-observer-manager) - [line 16799](../youtube-playback-plox.user.js#L16799)
+64. [Processing Functions](#processing-functions) - [line 17678](../youtube-playback-plox.user.js#L17678)
+65. [PlaybackController](#playbackcontroller) - [line 19151](../youtube-playback-plox.user.js#L19151)
+66. [📋 Get Cascaded Video Info](#get-cascaded-video-info) - [line 19845](../youtube-playback-plox.user.js#L19845)
+67. [📂 Sort UI](#sort-ui) - [line 20383](../youtube-playback-plox.user.js#L20383)
+68. [📂 Filters UI](#filters-ui) - [line 20585](../youtube-playback-plox.user.js#L20585)
+69. [📂 Video List UI](#video-list-ui) - [line 20873](../youtube-playback-plox.user.js#L20873)
+70. [📁 Update Video List](#update-video-list) - [line 21051](../youtube-playback-plox.user.js#L21051)
+71. [🔘 Floating Button](#floating-button) - [line 21959](../youtube-playback-plox.user.js#L21959)
+72. [📂 Show Saved Videos List](#show-saved-videos-list) - [line 21988](../youtube-playback-plox.user.js#L21988)
+73. [📂 Video Entry](#video-entry) - [line 22249](../youtube-playback-plox.user.js#L22249)
+74. [🗑️ Clear All Data](#clear-all-data) - [line 24270](../youtube-playback-plox.user.js#L24270)
+75. [⚙️ Menu Commands](#menu-commands) - [line 24622](../youtube-playback-plox.user.js#L24622)
+76. [🔄 Data Migration](#data-migration) - [line 24680](../youtube-playback-plox.user.js#L24680)
+77. [🚀 Init](#init) - [line 25183](../youtube-playback-plox.user.js#L25183)
 
 ---
 
@@ -299,805 +299,805 @@ _No relevant functions or constants detected._
 
 _No relevant functions or constants detected._
 
-## [🎨 Theme](../youtube-playback-plox.user.js#L5697)
-> [Line 5697](../youtube-playback-plox.user.js#L5697)
+## [🎨 Theme](../youtube-playback-plox.user.js#L5727)
+> [Line 5727](../youtube-playback-plox.user.js#L5727)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`isYouTubeDarkTheme`](../youtube-playback-plox.user.js#L5704) | [5704](../youtube-playback-plox.user.js#L5704) |
-| `fn` | [`applyTheme`](../youtube-playback-plox.user.js#L5722) | [5722](../youtube-playback-plox.user.js#L5722) |
-| `fn` | [`observeThemeChanges`](../youtube-playback-plox.user.js#L5735) | [5735](../youtube-playback-plox.user.js#L5735) |
-| `fn` | [`cleanupThemeObserver`](../youtube-playback-plox.user.js#L5758) | [5758](../youtube-playback-plox.user.js#L5758) |
-| `fn` | [`cleanupGlobalListeners`](../youtube-playback-plox.user.js#L5769) | [5769](../youtube-playback-plox.user.js#L5769) |
+| `fn` | [`isYouTubeDarkTheme`](../youtube-playback-plox.user.js#L5734) | [5734](../youtube-playback-plox.user.js#L5734) |
+| `fn` | [`applyTheme`](../youtube-playback-plox.user.js#L5752) | [5752](../youtube-playback-plox.user.js#L5752) |
+| `fn` | [`observeThemeChanges`](../youtube-playback-plox.user.js#L5765) | [5765](../youtube-playback-plox.user.js#L5765) |
+| `fn` | [`cleanupThemeObserver`](../youtube-playback-plox.user.js#L5788) | [5788](../youtube-playback-plox.user.js#L5788) |
+| `fn` | [`cleanupGlobalListeners`](../youtube-playback-plox.user.js#L5799) | [5799](../youtube-playback-plox.user.js#L5799) |
 
-## [🎨 SVG Icons](../youtube-playback-plox.user.js#L5775)
-> [Line 5775](../youtube-playback-plox.user.js#L5775)
+## [🎨 SVG Icons](../youtube-playback-plox.user.js#L5805)
+> [Line 5805](../youtube-playback-plox.user.js#L5805)
 
 _No relevant functions or constants detected._
 
-## [🎨 Progress Bar Style](../youtube-playback-plox.user.js#L5937)
-> [Line 5937](../youtube-playback-plox.user.js#L5937)
+## [🎨 Progress Bar Style](../youtube-playback-plox.user.js#L5967)
+> [Line 5967](../youtube-playback-plox.user.js#L5967)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`clearAllProgressGradientState`](../youtube-playback-plox.user.js#L5949) | [5949](../youtube-playback-plox.user.js#L5949) |
-| `fn` | [`syncProgressGradientStateForContainer`](../youtube-playback-plox.user.js#L5965) | [5965](../youtube-playback-plox.user.js#L5965) |
-| `fn` | [`resolvePlayerRootForGradient`](../youtube-playback-plox.user.js#L5988) | [5988](../youtube-playback-plox.user.js#L5988) |
-| `fn` | [`clearProgressColorFromPlayerRoot`](../youtube-playback-plox.user.js#L5999) | [5999](../youtube-playback-plox.user.js#L5999) |
-| `fn` | [`applyProgressColorToPlayerRoot`](../youtube-playback-plox.user.js#L6019) | [6019](../youtube-playback-plox.user.js#L6019) |
-| `fn` | [`applyProgressColorToShortsSurfaces`](../youtube-playback-plox.user.js#L6043) | [6043](../youtube-playback-plox.user.js#L6043) |
-| `fn` | [`repaintWatchProgressBarFromActivePlayer`](../youtube-playback-plox.user.js#L6063) | [6063](../youtube-playback-plox.user.js#L6063) |
-| `fn` | [`scheduleProgressBarGradientRepaint`](../youtube-playback-plox.user.js#L6085) | [6085](../youtube-playback-plox.user.js#L6085) |
-| `fn` | [`isCurrentSession`](../youtube-playback-plox.user.js#L6087) | [6087](../youtube-playback-plox.user.js#L6087) |
-| `fn` | [`paint`](../youtube-playback-plox.user.js#L6094) | [6094](../youtube-playback-plox.user.js#L6094) |
-| `fn` | [`isLivePlaybackForGradient`](../youtube-playback-plox.user.js#L6127) | [6127](../youtube-playback-plox.user.js#L6127) |
-| `fn` | [`updateProgressBarGradient`](../youtube-playback-plox.user.js#L6164) | [6164](../youtube-playback-plox.user.js#L6164) |
-| `fn` | [`refreshProgressBarGradientForSession`](../youtube-playback-plox.user.js#L6249) | [6249](../youtube-playback-plox.user.js#L6249) |
-| `fn` | [`resetProgressBarGradient`](../youtube-playback-plox.user.js#L6272) | [6272](../youtube-playback-plox.user.js#L6272) |
-| `fn` | [`injectProgressBarCSS`](../youtube-playback-plox.user.js#L6304) | [6304](../youtube-playback-plox.user.js#L6304) |
-| `fn` | [`getProgressColor`](../youtube-playback-plox.user.js#L6434) | [6434](../youtube-playback-plox.user.js#L6434) |
-| `fn` | [`ratio`](../youtube-playback-plox.user.js#L6462) | [6462](../youtube-playback-plox.user.js#L6462) |
-| `fn` | [`getProgressColorForText`](../youtube-playback-plox.user.js#L6471) | [6471](../youtube-playback-plox.user.js#L6471) |
+| `fn` | [`clearAllProgressGradientState`](../youtube-playback-plox.user.js#L5979) | [5979](../youtube-playback-plox.user.js#L5979) |
+| `fn` | [`syncProgressGradientStateForContainer`](../youtube-playback-plox.user.js#L5995) | [5995](../youtube-playback-plox.user.js#L5995) |
+| `fn` | [`resolvePlayerRootForGradient`](../youtube-playback-plox.user.js#L6018) | [6018](../youtube-playback-plox.user.js#L6018) |
+| `fn` | [`clearProgressColorFromPlayerRoot`](../youtube-playback-plox.user.js#L6029) | [6029](../youtube-playback-plox.user.js#L6029) |
+| `fn` | [`applyProgressColorToPlayerRoot`](../youtube-playback-plox.user.js#L6049) | [6049](../youtube-playback-plox.user.js#L6049) |
+| `fn` | [`applyProgressColorToShortsSurfaces`](../youtube-playback-plox.user.js#L6073) | [6073](../youtube-playback-plox.user.js#L6073) |
+| `fn` | [`repaintWatchProgressBarFromActivePlayer`](../youtube-playback-plox.user.js#L6093) | [6093](../youtube-playback-plox.user.js#L6093) |
+| `fn` | [`scheduleProgressBarGradientRepaint`](../youtube-playback-plox.user.js#L6115) | [6115](../youtube-playback-plox.user.js#L6115) |
+| `fn` | [`isCurrentSession`](../youtube-playback-plox.user.js#L6117) | [6117](../youtube-playback-plox.user.js#L6117) |
+| `fn` | [`paint`](../youtube-playback-plox.user.js#L6124) | [6124](../youtube-playback-plox.user.js#L6124) |
+| `fn` | [`isLivePlaybackForGradient`](../youtube-playback-plox.user.js#L6157) | [6157](../youtube-playback-plox.user.js#L6157) |
+| `fn` | [`updateProgressBarGradient`](../youtube-playback-plox.user.js#L6194) | [6194](../youtube-playback-plox.user.js#L6194) |
+| `fn` | [`refreshProgressBarGradientForSession`](../youtube-playback-plox.user.js#L6279) | [6279](../youtube-playback-plox.user.js#L6279) |
+| `fn` | [`resetProgressBarGradient`](../youtube-playback-plox.user.js#L6302) | [6302](../youtube-playback-plox.user.js#L6302) |
+| `fn` | [`injectProgressBarCSS`](../youtube-playback-plox.user.js#L6334) | [6334](../youtube-playback-plox.user.js#L6334) |
+| `fn` | [`getProgressColor`](../youtube-playback-plox.user.js#L6464) | [6464](../youtube-playback-plox.user.js#L6464) |
+| `fn` | [`ratio`](../youtube-playback-plox.user.js#L6492) | [6492](../youtube-playback-plox.user.js#L6492) |
+| `fn` | [`getProgressColorForText`](../youtube-playback-plox.user.js#L6501) | [6501](../youtube-playback-plox.user.js#L6501) |
 
-## [💾 Storage + Settings](../youtube-playback-plox.user.js#L6485)
-> [Line 6485](../youtube-playback-plox.user.js#L6485)
+## [💾 Storage + Settings](../youtube-playback-plox.user.js#L6515)
+> [Line 6515](../youtube-playback-plox.user.js#L6515)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`boundedSetAdd`](../youtube-playback-plox.user.js#L6526) | [6526](../youtube-playback-plox.user.js#L6526) |
-| `fn` | [`markLocalDeletion`](../youtube-playback-plox.user.js#L6539) | [6539](../youtube-playback-plox.user.js#L6539) |
-| `fn` | [`rememberGMFallbackKey`](../youtube-playback-plox.user.js#L6550) | [6550](../youtube-playback-plox.user.js#L6550) |
-| `fn` | [`rememberGMTombstone`](../youtube-playback-plox.user.js#L6561) | [6561](../youtube-playback-plox.user.js#L6561) |
-| `fn` | [`bumpStorageKeyRevision`](../youtube-playback-plox.user.js#L6576) | [6576](../youtube-playback-plox.user.js#L6576) |
-| `fn` | [`getStorageRevisionSnapshot`](../youtube-playback-plox.user.js#L6589) | [6589](../youtube-playback-plox.user.js#L6589) |
-| `fn` | [`storageRevisionChanged`](../youtube-playback-plox.user.js#L6602) | [6602](../youtube-playback-plox.user.js#L6602) |
-| `fn` | [`storageRevisionRetryNeeded`](../youtube-playback-plox.user.js#L6617) | [6617](../youtube-playback-plox.user.js#L6617) |
-| `fn` | [`invalidateSessionSavedData`](../youtube-playback-plox.user.js#L6697) | [6697](../youtube-playback-plox.user.js#L6697) |
-| `fn` | [`broadcastStorageChange`](../youtube-playback-plox.user.js#L6717) | [6717](../youtube-playback-plox.user.js#L6717) |
-| `fn` | [`StorageAsync`](../youtube-playback-plox.user.js#L6740) | [6740](../youtube-playback-plox.user.js#L6740) |
-| `module` | [`StorageAsync`](../youtube-playback-plox.user.js#L6740) | [6740](../youtube-playback-plox.user.js#L6740) |
-| `fn` | [`enqueueDurableOperation`](../youtube-playback-plox.user.js#L6770) | [6770](../youtube-playback-plox.user.js#L6770) |
-| `fn` | [`hasDurableGMStorage`](../youtube-playback-plox.user.js#L6783) | [6783](../youtube-playback-plox.user.js#L6783) |
-| `fn` | [`hasAnyGMStorageApi`](../youtube-playback-plox.user.js#L6793) | [6793](../youtube-playback-plox.user.js#L6793) |
-| `fn` | [`waitForDurableMutations`](../youtube-playback-plox.user.js#L6806) | [6806](../youtube-playback-plox.user.js#L6806) |
-| `fn` | [`canUseIDB`](../youtube-playback-plox.user.js#L6811) | [6811](../youtube-playback-plox.user.js#L6811) |
-| `fn` | [`isStorageRecordError`](../youtube-playback-plox.user.js#L6818) | [6818](../youtube-playback-plox.user.js#L6818) |
-| `fn` | [`isStorageProviderError`](../youtube-playback-plox.user.js#L6828) | [6828](../youtube-playback-plox.user.js#L6828) |
-| `fn` | [`scheduleQuarantineNotice`](../youtube-playback-plox.user.js#L6838) | [6838](../youtube-playback-plox.user.js#L6838) |
-| `fn` | [`registerQuarantinedRecord`](../youtube-playback-plox.user.js#L6876) | [6876](../youtube-playback-plox.user.js#L6876) |
-| `fn` | [`quarantineRecordError`](../youtube-playback-plox.user.js#L6898) | [6898](../youtube-playback-plox.user.js#L6898) |
-| `fn` | [`getQuarantinedRecords`](../youtube-playback-plox.user.js#L6907) | [6907](../youtube-playback-plox.user.js#L6907) |
-| `fn` | [`persistRepairedRows`](../youtube-playback-plox.user.js#L6918) | [6918](../youtube-playback-plox.user.js#L6918) |
-| `fn` | [`buildStorageDamageReport`](../youtube-playback-plox.user.js#L6946) | [6946](../youtube-playback-plox.user.js#L6946) |
-| `fn` | [`markIDBUnavailable`](../youtube-playback-plox.user.js#L6972) | [6972](../youtube-playback-plox.user.js#L6972) |
-| `fn` | [`markIDBAvailable`](../youtube-playback-plox.user.js#L6977) | [6977](../youtube-playback-plox.user.js#L6977) |
-| `fn` | [`pickNewerDurableRecord`](../youtube-playback-plox.user.js#L6988) | [6988](../youtube-playback-plox.user.js#L6988) |
-| `fn` | [`getGMFallback`](../youtube-playback-plox.user.js#L7002) | [7002](../youtube-playback-plox.user.js#L7002) |
-| `fn` | [`parseStoredRecord`](../youtube-playback-plox.user.js#L7031) | [7031](../youtube-playback-plox.user.js#L7031) |
-| `fn` | [`setGMFallback`](../youtube-playback-plox.user.js#L7058) | [7058](../youtube-playback-plox.user.js#L7058) |
-| `fn` | [`setGMFallbackNewestWins`](../youtube-playback-plox.user.js#L7072) | [7072](../youtube-playback-plox.user.js#L7072) |
-| `fn` | [`deleteGMFallback`](../youtube-playback-plox.user.js#L7095) | [7095](../youtube-playback-plox.user.js#L7095) |
-| `fn` | [`reconcileGMFallbackAfterIDB`](../youtube-playback-plox.user.js#L7132) | [7132](../youtube-playback-plox.user.js#L7132) |
-| `fn` | [`reconcileGMFallbacksAfterIDB`](../youtube-playback-plox.user.js#L7223) | [7223](../youtube-playback-plox.user.js#L7223) |
-| `fn` | [`initialize`](../youtube-playback-plox.user.js#L7307) | [7307](../youtube-playback-plox.user.js#L7307) |
-| `fn` | [`get`](../youtube-playback-plox.user.js#L7372) | [7372](../youtube-playback-plox.user.js#L7372) |
-| `fn` | [`set`](../youtube-playback-plox.user.js#L7577) | [7577](../youtube-playback-plox.user.js#L7577) |
-| `fn` | [`assertCommitAllowed`](../youtube-playback-plox.user.js#L7581) | [7581](../youtube-playback-plox.user.js#L7581) |
-| `fn` | [`setMany`](../youtube-playback-plox.user.js#L7674) | [7674](../youtube-playback-plox.user.js#L7674) |
-| `fn` | [`assertCommitAllowed`](../youtube-playback-plox.user.js#L7685) | [7685](../youtube-playback-plox.user.js#L7685) |
-| `fn` | [`deleteGMFallbackIfUnchanged`](../youtube-playback-plox.user.js#L7848) | [7848](../youtube-playback-plox.user.js#L7848) |
-| `fn` | [`del`](../youtube-playback-plox.user.js#L7871) | [7871](../youtube-playback-plox.user.js#L7871) |
-| `fn` | [`assertCommitAllowed`](../youtube-playback-plox.user.js#L7874) | [7874](../youtube-playback-plox.user.js#L7874) |
-| `fn` | [`repairQuarantinedRecords`](../youtube-playback-plox.user.js#L8016) | [8016](../youtube-playback-plox.user.js#L8016) |
-| `fn` | [`purgeQuarantinedRecords`](../youtube-playback-plox.user.js#L8069) | [8069](../youtube-playback-plox.user.js#L8069) |
-| `fn` | [`keys`](../youtube-playback-plox.user.js#L8139) | [8139](../youtube-playback-plox.user.js#L8139) |
-| `fn` | [`rawKeys`](../youtube-playback-plox.user.js#L8203) | [8203](../youtube-playback-plox.user.js#L8203) |
-| `fn` | [`getCompleteVideoSnapshot`](../youtube-playback-plox.user.js#L8269) | [8269](../youtube-playback-plox.user.js#L8269) |
-| `fn` | [`getBackendInfo`](../youtube-playback-plox.user.js#L8446) | [8446](../youtube-playback-plox.user.js#L8446) |
-| `fn` | [`IndexedDBAdapter`](../youtube-playback-plox.user.js#L8475) | [8475](../youtube-playback-plox.user.js#L8475) |
-| `module` | [`IndexedDBAdapter`](../youtube-playback-plox.user.js#L8475) | [8475](../youtube-playback-plox.user.js#L8475) |
-| `fn` | [`openDatabase`](../youtube-playback-plox.user.js#L8483) | [8483](../youtube-playback-plox.user.js#L8483) |
-| `fn` | [`failOpen`](../youtube-playback-plox.user.js#L8489) | [8489](../youtube-playback-plox.user.js#L8489) |
-| `fn` | [`runInStore`](../youtube-playback-plox.user.js#L8549) | [8549](../youtube-playback-plox.user.js#L8549) |
-| `fn` | [`enqueue`](../youtube-playback-plox.user.js#L8574) | [8574](../youtube-playback-plox.user.js#L8574) |
-| `fn` | [`describeStoredValueType`](../youtube-playback-plox.user.js#L8590) | [8590](../youtube-playback-plox.user.js#L8590) |
-| `fn` | [`isEmptyStoredValue`](../youtube-playback-plox.user.js#L8604) | [8604](../youtube-playback-plox.user.js#L8604) |
-| `fn` | [`sanitizeToJsonSafe`](../youtube-playback-plox.user.js#L8625) | [8625](../youtube-playback-plox.user.js#L8625) |
-| `fn` | [`attemptStoredValueRepair`](../youtube-playback-plox.user.js#L8672) | [8672](../youtube-playback-plox.user.js#L8672) |
-| `fn` | [`sanitizeEntries`](../youtube-playback-plox.user.js#L8741) | [8741](../youtube-playback-plox.user.js#L8741) |
-| `fn` | [`pushEntry`](../youtube-playback-plox.user.js#L8754) | [8754](../youtube-playback-plox.user.js#L8754) |
-| `fn` | [`getAllEntries`](../youtube-playback-plox.user.js#L8859) | [8859](../youtube-playback-plox.user.js#L8859) |
-| `fn` | [`repairEntries`](../youtube-playback-plox.user.js#L8871) | [8871](../youtube-playback-plox.user.js#L8871) |
-| `fn` | [`putEntry`](../youtube-playback-plox.user.js#L8905) | [8905](../youtube-playback-plox.user.js#L8905) |
-| `fn` | [`deleteEntry`](../youtube-playback-plox.user.js#L8909) | [8909](../youtube-playback-plox.user.js#L8909) |
-| `fn` | [`bulkDelete`](../youtube-playback-plox.user.js#L8918) | [8918](../youtube-playback-plox.user.js#L8918) |
-| `fn` | [`bulkPut`](../youtube-playback-plox.user.js#L8937) | [8937](../youtube-playback-plox.user.js#L8937) |
-| `fn` | [`bootstrap`](../youtube-playback-plox.user.js#L8964) | [8964](../youtube-playback-plox.user.js#L8964) |
-| `fn` | [`diagnose`](../youtube-playback-plox.user.js#L8987) | [8987](../youtube-playback-plox.user.js#L8987) |
-| `fn` | [`isNonVideoStorageKey`](../youtube-playback-plox.user.js#L9043) | [9043](../youtube-playback-plox.user.js#L9043) |
-| `fn` | [`prefixKey`](../youtube-playback-plox.user.js#L9052) | [9052](../youtube-playback-plox.user.js#L9052) |
-| `fn` | [`stripPrefix`](../youtube-playback-plox.user.js#L9053) | [9053](../youtube-playback-plox.user.js#L9053) |
-| `fn` | [`hasPrefix`](../youtube-playback-plox.user.js#L9054) | [9054](../youtube-playback-plox.user.js#L9054) |
-| `fn` | [`parseStoredObject`](../youtube-playback-plox.user.js#L9308) | [9308](../youtube-playback-plox.user.js#L9308) |
-| `fn` | [`getSettings`](../youtube-playback-plox.user.js#L9318) | [9318](../youtube-playback-plox.user.js#L9318) |
-| `fn` | [`getSettingsWithMeta`](../youtube-playback-plox.user.js#L9328) | [9328](../youtube-playback-plox.user.js#L9328) |
-| `fn` | [`setSettings`](../youtube-playback-plox.user.js#L9346) | [9346](../youtube-playback-plox.user.js#L9346) |
-| `fn` | [`normalizeSavedVideosModalSettings`](../youtube-playback-plox.user.js#L9362) | [9362](../youtube-playback-plox.user.js#L9362) |
-| `fn` | [`getSavedVideosModalSettings`](../youtube-playback-plox.user.js#L9425) | [9425](../youtube-playback-plox.user.js#L9425) |
-| `fn` | [`setSavedVideosModalSettings`](../youtube-playback-plox.user.js#L9443) | [9443](../youtube-playback-plox.user.js#L9443) |
-| `fn` | [`getFilters`](../youtube-playback-plox.user.js#L9451) | [9451](../youtube-playback-plox.user.js#L9451) |
-| `fn` | [`setFilters`](../youtube-playback-plox.user.js#L9468) | [9468](../youtube-playback-plox.user.js#L9468) |
+| `fn` | [`boundedSetAdd`](../youtube-playback-plox.user.js#L6556) | [6556](../youtube-playback-plox.user.js#L6556) |
+| `fn` | [`markLocalDeletion`](../youtube-playback-plox.user.js#L6569) | [6569](../youtube-playback-plox.user.js#L6569) |
+| `fn` | [`rememberGMFallbackKey`](../youtube-playback-plox.user.js#L6580) | [6580](../youtube-playback-plox.user.js#L6580) |
+| `fn` | [`rememberGMTombstone`](../youtube-playback-plox.user.js#L6591) | [6591](../youtube-playback-plox.user.js#L6591) |
+| `fn` | [`bumpStorageKeyRevision`](../youtube-playback-plox.user.js#L6606) | [6606](../youtube-playback-plox.user.js#L6606) |
+| `fn` | [`getStorageRevisionSnapshot`](../youtube-playback-plox.user.js#L6619) | [6619](../youtube-playback-plox.user.js#L6619) |
+| `fn` | [`storageRevisionChanged`](../youtube-playback-plox.user.js#L6632) | [6632](../youtube-playback-plox.user.js#L6632) |
+| `fn` | [`storageRevisionRetryNeeded`](../youtube-playback-plox.user.js#L6647) | [6647](../youtube-playback-plox.user.js#L6647) |
+| `fn` | [`invalidateSessionSavedData`](../youtube-playback-plox.user.js#L6727) | [6727](../youtube-playback-plox.user.js#L6727) |
+| `fn` | [`broadcastStorageChange`](../youtube-playback-plox.user.js#L6747) | [6747](../youtube-playback-plox.user.js#L6747) |
+| `fn` | [`StorageAsync`](../youtube-playback-plox.user.js#L6770) | [6770](../youtube-playback-plox.user.js#L6770) |
+| `module` | [`StorageAsync`](../youtube-playback-plox.user.js#L6770) | [6770](../youtube-playback-plox.user.js#L6770) |
+| `fn` | [`enqueueDurableOperation`](../youtube-playback-plox.user.js#L6800) | [6800](../youtube-playback-plox.user.js#L6800) |
+| `fn` | [`hasDurableGMStorage`](../youtube-playback-plox.user.js#L6813) | [6813](../youtube-playback-plox.user.js#L6813) |
+| `fn` | [`hasAnyGMStorageApi`](../youtube-playback-plox.user.js#L6823) | [6823](../youtube-playback-plox.user.js#L6823) |
+| `fn` | [`waitForDurableMutations`](../youtube-playback-plox.user.js#L6836) | [6836](../youtube-playback-plox.user.js#L6836) |
+| `fn` | [`canUseIDB`](../youtube-playback-plox.user.js#L6841) | [6841](../youtube-playback-plox.user.js#L6841) |
+| `fn` | [`isStorageRecordError`](../youtube-playback-plox.user.js#L6848) | [6848](../youtube-playback-plox.user.js#L6848) |
+| `fn` | [`isStorageProviderError`](../youtube-playback-plox.user.js#L6858) | [6858](../youtube-playback-plox.user.js#L6858) |
+| `fn` | [`scheduleQuarantineNotice`](../youtube-playback-plox.user.js#L6868) | [6868](../youtube-playback-plox.user.js#L6868) |
+| `fn` | [`registerQuarantinedRecord`](../youtube-playback-plox.user.js#L6906) | [6906](../youtube-playback-plox.user.js#L6906) |
+| `fn` | [`quarantineRecordError`](../youtube-playback-plox.user.js#L6928) | [6928](../youtube-playback-plox.user.js#L6928) |
+| `fn` | [`getQuarantinedRecords`](../youtube-playback-plox.user.js#L6937) | [6937](../youtube-playback-plox.user.js#L6937) |
+| `fn` | [`persistRepairedRows`](../youtube-playback-plox.user.js#L6948) | [6948](../youtube-playback-plox.user.js#L6948) |
+| `fn` | [`buildStorageDamageReport`](../youtube-playback-plox.user.js#L6976) | [6976](../youtube-playback-plox.user.js#L6976) |
+| `fn` | [`markIDBUnavailable`](../youtube-playback-plox.user.js#L7002) | [7002](../youtube-playback-plox.user.js#L7002) |
+| `fn` | [`markIDBAvailable`](../youtube-playback-plox.user.js#L7007) | [7007](../youtube-playback-plox.user.js#L7007) |
+| `fn` | [`pickNewerDurableRecord`](../youtube-playback-plox.user.js#L7018) | [7018](../youtube-playback-plox.user.js#L7018) |
+| `fn` | [`getGMFallback`](../youtube-playback-plox.user.js#L7032) | [7032](../youtube-playback-plox.user.js#L7032) |
+| `fn` | [`parseStoredRecord`](../youtube-playback-plox.user.js#L7061) | [7061](../youtube-playback-plox.user.js#L7061) |
+| `fn` | [`setGMFallback`](../youtube-playback-plox.user.js#L7088) | [7088](../youtube-playback-plox.user.js#L7088) |
+| `fn` | [`setGMFallbackNewestWins`](../youtube-playback-plox.user.js#L7102) | [7102](../youtube-playback-plox.user.js#L7102) |
+| `fn` | [`deleteGMFallback`](../youtube-playback-plox.user.js#L7125) | [7125](../youtube-playback-plox.user.js#L7125) |
+| `fn` | [`reconcileGMFallbackAfterIDB`](../youtube-playback-plox.user.js#L7162) | [7162](../youtube-playback-plox.user.js#L7162) |
+| `fn` | [`reconcileGMFallbacksAfterIDB`](../youtube-playback-plox.user.js#L7253) | [7253](../youtube-playback-plox.user.js#L7253) |
+| `fn` | [`initialize`](../youtube-playback-plox.user.js#L7337) | [7337](../youtube-playback-plox.user.js#L7337) |
+| `fn` | [`get`](../youtube-playback-plox.user.js#L7402) | [7402](../youtube-playback-plox.user.js#L7402) |
+| `fn` | [`set`](../youtube-playback-plox.user.js#L7607) | [7607](../youtube-playback-plox.user.js#L7607) |
+| `fn` | [`assertCommitAllowed`](../youtube-playback-plox.user.js#L7611) | [7611](../youtube-playback-plox.user.js#L7611) |
+| `fn` | [`setMany`](../youtube-playback-plox.user.js#L7704) | [7704](../youtube-playback-plox.user.js#L7704) |
+| `fn` | [`assertCommitAllowed`](../youtube-playback-plox.user.js#L7715) | [7715](../youtube-playback-plox.user.js#L7715) |
+| `fn` | [`deleteGMFallbackIfUnchanged`](../youtube-playback-plox.user.js#L7878) | [7878](../youtube-playback-plox.user.js#L7878) |
+| `fn` | [`del`](../youtube-playback-plox.user.js#L7901) | [7901](../youtube-playback-plox.user.js#L7901) |
+| `fn` | [`assertCommitAllowed`](../youtube-playback-plox.user.js#L7904) | [7904](../youtube-playback-plox.user.js#L7904) |
+| `fn` | [`repairQuarantinedRecords`](../youtube-playback-plox.user.js#L8046) | [8046](../youtube-playback-plox.user.js#L8046) |
+| `fn` | [`purgeQuarantinedRecords`](../youtube-playback-plox.user.js#L8099) | [8099](../youtube-playback-plox.user.js#L8099) |
+| `fn` | [`keys`](../youtube-playback-plox.user.js#L8169) | [8169](../youtube-playback-plox.user.js#L8169) |
+| `fn` | [`rawKeys`](../youtube-playback-plox.user.js#L8233) | [8233](../youtube-playback-plox.user.js#L8233) |
+| `fn` | [`getCompleteVideoSnapshot`](../youtube-playback-plox.user.js#L8299) | [8299](../youtube-playback-plox.user.js#L8299) |
+| `fn` | [`getBackendInfo`](../youtube-playback-plox.user.js#L8476) | [8476](../youtube-playback-plox.user.js#L8476) |
+| `fn` | [`IndexedDBAdapter`](../youtube-playback-plox.user.js#L8505) | [8505](../youtube-playback-plox.user.js#L8505) |
+| `module` | [`IndexedDBAdapter`](../youtube-playback-plox.user.js#L8505) | [8505](../youtube-playback-plox.user.js#L8505) |
+| `fn` | [`openDatabase`](../youtube-playback-plox.user.js#L8513) | [8513](../youtube-playback-plox.user.js#L8513) |
+| `fn` | [`failOpen`](../youtube-playback-plox.user.js#L8519) | [8519](../youtube-playback-plox.user.js#L8519) |
+| `fn` | [`runInStore`](../youtube-playback-plox.user.js#L8579) | [8579](../youtube-playback-plox.user.js#L8579) |
+| `fn` | [`enqueue`](../youtube-playback-plox.user.js#L8604) | [8604](../youtube-playback-plox.user.js#L8604) |
+| `fn` | [`describeStoredValueType`](../youtube-playback-plox.user.js#L8620) | [8620](../youtube-playback-plox.user.js#L8620) |
+| `fn` | [`isEmptyStoredValue`](../youtube-playback-plox.user.js#L8634) | [8634](../youtube-playback-plox.user.js#L8634) |
+| `fn` | [`sanitizeToJsonSafe`](../youtube-playback-plox.user.js#L8655) | [8655](../youtube-playback-plox.user.js#L8655) |
+| `fn` | [`attemptStoredValueRepair`](../youtube-playback-plox.user.js#L8702) | [8702](../youtube-playback-plox.user.js#L8702) |
+| `fn` | [`sanitizeEntries`](../youtube-playback-plox.user.js#L8771) | [8771](../youtube-playback-plox.user.js#L8771) |
+| `fn` | [`pushEntry`](../youtube-playback-plox.user.js#L8784) | [8784](../youtube-playback-plox.user.js#L8784) |
+| `fn` | [`getAllEntries`](../youtube-playback-plox.user.js#L8889) | [8889](../youtube-playback-plox.user.js#L8889) |
+| `fn` | [`repairEntries`](../youtube-playback-plox.user.js#L8901) | [8901](../youtube-playback-plox.user.js#L8901) |
+| `fn` | [`putEntry`](../youtube-playback-plox.user.js#L8935) | [8935](../youtube-playback-plox.user.js#L8935) |
+| `fn` | [`deleteEntry`](../youtube-playback-plox.user.js#L8939) | [8939](../youtube-playback-plox.user.js#L8939) |
+| `fn` | [`bulkDelete`](../youtube-playback-plox.user.js#L8948) | [8948](../youtube-playback-plox.user.js#L8948) |
+| `fn` | [`bulkPut`](../youtube-playback-plox.user.js#L8967) | [8967](../youtube-playback-plox.user.js#L8967) |
+| `fn` | [`bootstrap`](../youtube-playback-plox.user.js#L8994) | [8994](../youtube-playback-plox.user.js#L8994) |
+| `fn` | [`diagnose`](../youtube-playback-plox.user.js#L9017) | [9017](../youtube-playback-plox.user.js#L9017) |
+| `fn` | [`isNonVideoStorageKey`](../youtube-playback-plox.user.js#L9073) | [9073](../youtube-playback-plox.user.js#L9073) |
+| `fn` | [`prefixKey`](../youtube-playback-plox.user.js#L9082) | [9082](../youtube-playback-plox.user.js#L9082) |
+| `fn` | [`stripPrefix`](../youtube-playback-plox.user.js#L9083) | [9083](../youtube-playback-plox.user.js#L9083) |
+| `fn` | [`hasPrefix`](../youtube-playback-plox.user.js#L9084) | [9084](../youtube-playback-plox.user.js#L9084) |
+| `fn` | [`parseStoredObject`](../youtube-playback-plox.user.js#L9338) | [9338](../youtube-playback-plox.user.js#L9338) |
+| `fn` | [`getSettings`](../youtube-playback-plox.user.js#L9348) | [9348](../youtube-playback-plox.user.js#L9348) |
+| `fn` | [`getSettingsWithMeta`](../youtube-playback-plox.user.js#L9358) | [9358](../youtube-playback-plox.user.js#L9358) |
+| `fn` | [`setSettings`](../youtube-playback-plox.user.js#L9376) | [9376](../youtube-playback-plox.user.js#L9376) |
+| `fn` | [`normalizeSavedVideosModalSettings`](../youtube-playback-plox.user.js#L9392) | [9392](../youtube-playback-plox.user.js#L9392) |
+| `fn` | [`getSavedVideosModalSettings`](../youtube-playback-plox.user.js#L9455) | [9455](../youtube-playback-plox.user.js#L9455) |
+| `fn` | [`setSavedVideosModalSettings`](../youtube-playback-plox.user.js#L9473) | [9473](../youtube-playback-plox.user.js#L9473) |
+| `fn` | [`getFilters`](../youtube-playback-plox.user.js#L9481) | [9481](../youtube-playback-plox.user.js#L9481) |
+| `fn` | [`setFilters`](../youtube-playback-plox.user.js#L9498) | [9498](../youtube-playback-plox.user.js#L9498) |
 
-## [📢 Ad Caches](../youtube-playback-plox.user.js#L9484)
-> [Line 9484](../youtube-playback-plox.user.js#L9484)
+## [📢 Ad Caches](../youtube-playback-plox.user.js#L9514)
+> [Line 9514](../youtube-playback-plox.user.js#L9514)
 
 _No relevant functions or constants detected._
 
-## [📢 Ad Detector](../youtube-playback-plox.user.js#L9510)
-> [Line 9510](../youtube-playback-plox.user.js#L9510)
+## [📢 Ad Detector](../youtube-playback-plox.user.js#L9540)
+> [Line 9540](../youtube-playback-plox.user.js#L9540)
 
 | Type | Name | Line |
 |---|---|---|
-| `module` | [`AdDetector`](../youtube-playback-plox.user.js#L9512) | [9512](../youtube-playback-plox.user.js#L9512) |
-| `fn` | [`check`](../youtube-playback-plox.user.js#L9563) | [9563](../youtube-playback-plox.user.js#L9563) |
+| `module` | [`AdDetector`](../youtube-playback-plox.user.js#L9542) | [9542](../youtube-playback-plox.user.js#L9542) |
+| `fn` | [`check`](../youtube-playback-plox.user.js#L9593) | [9593](../youtube-playback-plox.user.js#L9593) |
 
-## [🎯 VirtualScroller](../youtube-playback-plox.user.js#L9703)
-> [Line 9703](../youtube-playback-plox.user.js#L9703)
-
-| Type | Name | Line |
-|---|---|---|
-| `class` | [`VirtualScroller`](../youtube-playback-plox.user.js#L9720) | [9720](../youtube-playback-plox.user.js#L9720) |
-
-## [📤 Import/Export JSON](../youtube-playback-plox.user.js#L10209)
-> [Line 10209](../youtube-playback-plox.user.js#L10209)
+## [🎯 VirtualScroller](../youtube-playback-plox.user.js#L9733)
+> [Line 9733](../youtube-playback-plox.user.js#L9733)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`getSyncData`](../youtube-playback-plox.user.js#L10218) | [10218](../youtube-playback-plox.user.js#L10218) |
-| `fn` | [`exportDataToFile`](../youtube-playback-plox.user.js#L10249) | [10249](../youtube-playback-plox.user.js#L10249) |
-| `fn` | [`exportStorageDamageReport`](../youtube-playback-plox.user.js#L10302) | [10302](../youtube-playback-plox.user.js#L10302) |
-| `fn` | [`runStorageRepairFlow`](../youtube-playback-plox.user.js#L10341) | [10341](../youtube-playback-plox.user.js#L10341) |
-| `fn` | [`renderStorageDamageNotice`](../youtube-playback-plox.user.js#L10408) | [10408](../youtube-playback-plox.user.js#L10408) |
-| `fn` | [`copyExportDataToClipboard`](../youtube-playback-plox.user.js#L10469) | [10469](../youtube-playback-plox.user.js#L10469) |
-| `fn` | [`mergeImportedVideoData`](../youtube-playback-plox.user.js#L10524) | [10524](../youtube-playback-plox.user.js#L10524) |
-| `fn` | [`detectImportFormat`](../youtube-playback-plox.user.js#L10585) | [10585](../youtube-playback-plox.user.js#L10585) |
-| `fn` | [`hasImportableRecords`](../youtube-playback-plox.user.js#L10599) | [10599](../youtube-playback-plox.user.js#L10599) |
-| `fn` | [`looksLikeFreeTubeExport`](../youtube-playback-plox.user.js#L10616) | [10616](../youtube-playback-plox.user.js#L10616) |
-| `fn` | [`parseImportPayload`](../youtube-playback-plox.user.js#L10629) | [10629](../youtube-playback-plox.user.js#L10629) |
-| `fn` | [`createImportCommitGuard`](../youtube-playback-plox.user.js#L10668) | [10668](../youtube-playback-plox.user.js#L10668) |
-| `fn` | [`commitImportedEntries`](../youtube-playback-plox.user.js#L10686) | [10686](../youtube-playback-plox.user.js#L10686) |
-| `fn` | [`importDataFromFile`](../youtube-playback-plox.user.js#L10733) | [10733](../youtube-playback-plox.user.js#L10733) |
+| `class` | [`VirtualScroller`](../youtube-playback-plox.user.js#L9750) | [9750](../youtube-playback-plox.user.js#L9750) |
 
-## [☁️ GitHub Backup](../youtube-playback-plox.user.js#L10827)
-> [Line 10827](../youtube-playback-plox.user.js#L10827)
+## [📤 Import/Export JSON](../youtube-playback-plox.user.js#L10239)
+> [Line 10239](../youtube-playback-plox.user.js#L10239)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`getGitHubErrorMsg`](../youtube-playback-plox.user.js#L10830) | [10830](../youtube-playback-plox.user.js#L10830) |
-| `fn` | [`backupToGitHubGist`](../youtube-playback-plox.user.js#L10842) | [10842](../youtube-playback-plox.user.js#L10842) |
-| `fn` | [`gistId`](../youtube-playback-plox.user.js#L10872) | [10872](../youtube-playback-plox.user.js#L10872) |
-| `fn` | [`cleanToken`](../youtube-playback-plox.user.js#L10873) | [10873](../youtube-playback-plox.user.js#L10873) |
-| `fn` | [`sendGistRequest`](../youtube-playback-plox.user.js#L10895) | [10895](../youtube-playback-plox.user.js#L10895) |
-| `fn` | [`backupToGithubRepository`](../youtube-playback-plox.user.js#L10991) | [10991](../youtube-playback-plox.user.js#L10991) |
-| `fn` | [`finish`](../youtube-playback-plox.user.js#L11001) | [11001](../youtube-playback-plox.user.js#L11001) |
-| `fn` | [`cleanToken`](../youtube-playback-plox.user.js#L11015) | [11015](../youtube-playback-plox.user.js#L11015) |
-| `fn` | [`performRemoteBackup`](../youtube-playback-plox.user.js#L11201) | [11201](../youtube-playback-plox.user.js#L11201) |
-| `fn` | [`cleanToken`](../youtube-playback-plox.user.js#L11222) | [11222](../youtube-playback-plox.user.js#L11222) |
-| `fn` | [`checkGitHubBackup`](../youtube-playback-plox.user.js#L11301) | [11301](../youtube-playback-plox.user.js#L11301) |
-| `fn` | [`intervalMs`](../youtube-playback-plox.user.js#L11331) | [11331](../youtube-playback-plox.user.js#L11331) |
+| `fn` | [`getSyncData`](../youtube-playback-plox.user.js#L10248) | [10248](../youtube-playback-plox.user.js#L10248) |
+| `fn` | [`exportDataToFile`](../youtube-playback-plox.user.js#L10279) | [10279](../youtube-playback-plox.user.js#L10279) |
+| `fn` | [`exportStorageDamageReport`](../youtube-playback-plox.user.js#L10332) | [10332](../youtube-playback-plox.user.js#L10332) |
+| `fn` | [`runStorageRepairFlow`](../youtube-playback-plox.user.js#L10371) | [10371](../youtube-playback-plox.user.js#L10371) |
+| `fn` | [`renderStorageDamageNotice`](../youtube-playback-plox.user.js#L10438) | [10438](../youtube-playback-plox.user.js#L10438) |
+| `fn` | [`copyExportDataToClipboard`](../youtube-playback-plox.user.js#L10499) | [10499](../youtube-playback-plox.user.js#L10499) |
+| `fn` | [`mergeImportedVideoData`](../youtube-playback-plox.user.js#L10554) | [10554](../youtube-playback-plox.user.js#L10554) |
+| `fn` | [`detectImportFormat`](../youtube-playback-plox.user.js#L10615) | [10615](../youtube-playback-plox.user.js#L10615) |
+| `fn` | [`hasImportableRecords`](../youtube-playback-plox.user.js#L10629) | [10629](../youtube-playback-plox.user.js#L10629) |
+| `fn` | [`looksLikeFreeTubeExport`](../youtube-playback-plox.user.js#L10646) | [10646](../youtube-playback-plox.user.js#L10646) |
+| `fn` | [`parseImportPayload`](../youtube-playback-plox.user.js#L10659) | [10659](../youtube-playback-plox.user.js#L10659) |
+| `fn` | [`createImportCommitGuard`](../youtube-playback-plox.user.js#L10698) | [10698](../youtube-playback-plox.user.js#L10698) |
+| `fn` | [`commitImportedEntries`](../youtube-playback-plox.user.js#L10716) | [10716](../youtube-playback-plox.user.js#L10716) |
+| `fn` | [`importDataFromFile`](../youtube-playback-plox.user.js#L10763) | [10763](../youtube-playback-plox.user.js#L10763) |
 
-## [📤 Import/Export FreeTube options](../youtube-playback-plox.user.js#L11364)
-> [Line 11364](../youtube-playback-plox.user.js#L11364)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`exportToFreeTube`](../youtube-playback-plox.user.js#L11365) | [11365](../youtube-playback-plox.user.js#L11365) |
-| `fn` | [`importFromFreeTube`](../youtube-playback-plox.user.js#L11404) | [11404](../youtube-playback-plox.user.js#L11404) |
-
-## [🔄 Normalize Video Data](../youtube-playback-plox.user.js#L11546)
-> [Line 11546](../youtube-playback-plox.user.js#L11546)
+## [☁️ GitHub Backup](../youtube-playback-plox.user.js#L10857)
+> [Line 10857](../youtube-playback-plox.user.js#L10857)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`normalizeCompletionHistory`](../youtube-playback-plox.user.js#L11554) | [11554](../youtube-playback-plox.user.js#L11554) |
-| `fn` | [`normalizeVideoData`](../youtube-playback-plox.user.js#L11582) | [11582](../youtube-playback-plox.user.js#L11582) |
-| `fn` | [`safeText`](../youtube-playback-plox.user.js#L11585) | [11585](../youtube-playback-plox.user.js#L11585) |
-| `fn` | [`safeNumber`](../youtube-playback-plox.user.js#L11590) | [11590](../youtube-playback-plox.user.js#L11590) |
-| `fn` | [`safeNullableText`](../youtube-playback-plox.user.js#L11594) | [11594](../youtube-playback-plox.user.js#L11594) |
+| `fn` | [`getGitHubErrorMsg`](../youtube-playback-plox.user.js#L10860) | [10860](../youtube-playback-plox.user.js#L10860) |
+| `fn` | [`backupToGitHubGist`](../youtube-playback-plox.user.js#L10872) | [10872](../youtube-playback-plox.user.js#L10872) |
+| `fn` | [`gistId`](../youtube-playback-plox.user.js#L10902) | [10902](../youtube-playback-plox.user.js#L10902) |
+| `fn` | [`cleanToken`](../youtube-playback-plox.user.js#L10903) | [10903](../youtube-playback-plox.user.js#L10903) |
+| `fn` | [`sendGistRequest`](../youtube-playback-plox.user.js#L10925) | [10925](../youtube-playback-plox.user.js#L10925) |
+| `fn` | [`backupToGithubRepository`](../youtube-playback-plox.user.js#L11021) | [11021](../youtube-playback-plox.user.js#L11021) |
+| `fn` | [`finish`](../youtube-playback-plox.user.js#L11031) | [11031](../youtube-playback-plox.user.js#L11031) |
+| `fn` | [`cleanToken`](../youtube-playback-plox.user.js#L11045) | [11045](../youtube-playback-plox.user.js#L11045) |
+| `fn` | [`performRemoteBackup`](../youtube-playback-plox.user.js#L11231) | [11231](../youtube-playback-plox.user.js#L11231) |
+| `fn` | [`cleanToken`](../youtube-playback-plox.user.js#L11252) | [11252](../youtube-playback-plox.user.js#L11252) |
+| `fn` | [`checkGitHubBackup`](../youtube-playback-plox.user.js#L11331) | [11331](../youtube-playback-plox.user.js#L11331) |
+| `fn` | [`intervalMs`](../youtube-playback-plox.user.js#L11361) | [11361](../youtube-playback-plox.user.js#L11361) |
 
-## [🔄 Convert To FreeTube](../youtube-playback-plox.user.js#L11648)
-> [Line 11648](../youtube-playback-plox.user.js#L11648)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`toFreeTubeFormat`](../youtube-playback-plox.user.js#L11654) | [11654](../youtube-playback-plox.user.js#L11654) |
-
-## [Parse FreeTube DB](../youtube-playback-plox.user.js#L11739)
-> [Line 11739](../youtube-playback-plox.user.js#L11739)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`parseFreeTubeDB`](../youtube-playback-plox.user.js#L11745) | [11745](../youtube-playback-plox.user.js#L11745) |
-
-## [🔄 Convert From FreeTube](../youtube-playback-plox.user.js#L11832)
-> [Line 11832](../youtube-playback-plox.user.js#L11832)
+## [📤 Import/Export FreeTube options](../youtube-playback-plox.user.js#L11394)
+> [Line 11394](../youtube-playback-plox.user.js#L11394)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`fromFreeTubeFormat`](../youtube-playback-plox.user.js#L11838) | [11838](../youtube-playback-plox.user.js#L11838) |
-| `fn` | [`progressPercent`](../youtube-playback-plox.user.js#L11847) | [11847](../youtube-playback-plox.user.js#L11847) |
+| `fn` | [`exportToFreeTube`](../youtube-playback-plox.user.js#L11395) | [11395](../youtube-playback-plox.user.js#L11395) |
+| `fn` | [`importFromFreeTube`](../youtube-playback-plox.user.js#L11434) | [11434](../youtube-playback-plox.user.js#L11434) |
 
-## [⬆ Export To FreeTube](../youtube-playback-plox.user.js#L11862)
+## [🔄 Normalize Video Data](../youtube-playback-plox.user.js#L11576)
+> [Line 11576](../youtube-playback-plox.user.js#L11576)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`normalizeCompletionHistory`](../youtube-playback-plox.user.js#L11584) | [11584](../youtube-playback-plox.user.js#L11584) |
+| `fn` | [`normalizeVideoData`](../youtube-playback-plox.user.js#L11612) | [11612](../youtube-playback-plox.user.js#L11612) |
+| `fn` | [`safeText`](../youtube-playback-plox.user.js#L11615) | [11615](../youtube-playback-plox.user.js#L11615) |
+| `fn` | [`safeNumber`](../youtube-playback-plox.user.js#L11620) | [11620](../youtube-playback-plox.user.js#L11620) |
+| `fn` | [`safeNullableText`](../youtube-playback-plox.user.js#L11624) | [11624](../youtube-playback-plox.user.js#L11624) |
+
+## [🔄 Convert To FreeTube](../youtube-playback-plox.user.js#L11678)
+> [Line 11678](../youtube-playback-plox.user.js#L11678)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`toFreeTubeFormat`](../youtube-playback-plox.user.js#L11684) | [11684](../youtube-playback-plox.user.js#L11684) |
+
+## [Parse FreeTube DB](../youtube-playback-plox.user.js#L11769)
+> [Line 11769](../youtube-playback-plox.user.js#L11769)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`parseFreeTubeDB`](../youtube-playback-plox.user.js#L11775) | [11775](../youtube-playback-plox.user.js#L11775) |
+
+## [🔄 Convert From FreeTube](../youtube-playback-plox.user.js#L11862)
 > [Line 11862](../youtube-playback-plox.user.js#L11862)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`exportToFreeTubeFormat`](../youtube-playback-plox.user.js#L11867) | [11867](../youtube-playback-plox.user.js#L11867) |
+| `fn` | [`fromFreeTubeFormat`](../youtube-playback-plox.user.js#L11868) | [11868](../youtube-playback-plox.user.js#L11868) |
+| `fn` | [`progressPercent`](../youtube-playback-plox.user.js#L11877) | [11877](../youtube-playback-plox.user.js#L11877) |
 
-## [⬇ Import From FreeTube](../youtube-playback-plox.user.js#L11906)
-> [Line 11906](../youtube-playback-plox.user.js#L11906)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`importFromFreeTubeFormat`](../youtube-playback-plox.user.js#L11912) | [11912](../youtube-playback-plox.user.js#L11912) |
-
-## [🔄 Insert Completion Event](../youtube-playback-plox.user.js#L11972)
-> [Line 11972](../youtube-playback-plox.user.js#L11972)
+## [⬆ Export To FreeTube](../youtube-playback-plox.user.js#L11892)
+> [Line 11892](../youtube-playback-plox.user.js#L11892)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`insertCompletionEvent`](../youtube-playback-plox.user.js#L11980) | [11980](../youtube-playback-plox.user.js#L11980) |
-| `fn` | [`pickVideoInfoFields`](../youtube-playback-plox.user.js#L12008) | [12008](../youtube-playback-plox.user.js#L12008) |
+| `fn` | [`exportToFreeTubeFormat`](../youtube-playback-plox.user.js#L11897) | [11897](../youtube-playback-plox.user.js#L11897) |
 
-## [💾 Save Video Generic](../youtube-playback-plox.user.js#L12019)
-> [Line 12019](../youtube-playback-plox.user.js#L12019)
+## [⬇ Import From FreeTube](../youtube-playback-plox.user.js#L11936)
+> [Line 11936](../youtube-playback-plox.user.js#L11936)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`resetCompletionOnLoop`](../youtube-playback-plox.user.js#L12029) | [12029](../youtube-playback-plox.user.js#L12029) |
-| `fn` | [`internalSaveVideoGeneric`](../youtube-playback-plox.user.js#L12047) | [12047](../youtube-playback-plox.user.js#L12047) |
-| `fn` | [`isExpectedSessionCurrent`](../youtube-playback-plox.user.js#L12057) | [12057](../youtube-playback-plox.user.js#L12057) |
-| `fn` | [`isDestructiveEpochCurrent`](../youtube-playback-plox.user.js#L12063) | [12063](../youtube-playback-plox.user.js#L12063) |
-| `fn` | [`commitGuard`](../youtube-playback-plox.user.js#L12066) | [12066](../youtube-playback-plox.user.js#L12066) |
-| `fn` | [`defaultPercent`](../youtube-playback-plox.user.js#L12154) | [12154](../youtube-playback-plox.user.js#L12154) |
+| `fn` | [`importFromFreeTubeFormat`](../youtube-playback-plox.user.js#L11942) | [11942](../youtube-playback-plox.user.js#L11942) |
 
-## [📺 Helpers](../youtube-playback-plox.user.js#L12285)
-> [Line 12285](../youtube-playback-plox.user.js#L12285)
+## [🔄 Insert Completion Event](../youtube-playback-plox.user.js#L12002)
+> [Line 12002](../youtube-playback-plox.user.js#L12002)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`insertCompletionEvent`](../youtube-playback-plox.user.js#L12010) | [12010](../youtube-playback-plox.user.js#L12010) |
+| `fn` | [`pickVideoInfoFields`](../youtube-playback-plox.user.js#L12038) | [12038](../youtube-playback-plox.user.js#L12038) |
+
+## [💾 Save Video Generic](../youtube-playback-plox.user.js#L12049)
+> [Line 12049](../youtube-playback-plox.user.js#L12049)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`resetCompletionOnLoop`](../youtube-playback-plox.user.js#L12059) | [12059](../youtube-playback-plox.user.js#L12059) |
+| `fn` | [`internalSaveVideoGeneric`](../youtube-playback-plox.user.js#L12077) | [12077](../youtube-playback-plox.user.js#L12077) |
+| `fn` | [`isExpectedSessionCurrent`](../youtube-playback-plox.user.js#L12087) | [12087](../youtube-playback-plox.user.js#L12087) |
+| `fn` | [`isDestructiveEpochCurrent`](../youtube-playback-plox.user.js#L12093) | [12093](../youtube-playback-plox.user.js#L12093) |
+| `fn` | [`commitGuard`](../youtube-playback-plox.user.js#L12096) | [12096](../youtube-playback-plox.user.js#L12096) |
+| `fn` | [`defaultPercent`](../youtube-playback-plox.user.js#L12184) | [12184](../youtube-playback-plox.user.js#L12184) |
+
+## [📺 Helpers](../youtube-playback-plox.user.js#L12315)
+> [Line 12315](../youtube-playback-plox.user.js#L12315)
 
 _No relevant functions or constants detected._
 
-## [📺 Gets saved video data](../youtube-playback-plox.user.js#L12288)
-> [Line 12288](../youtube-playback-plox.user.js#L12288)
+## [📺 Gets saved video data](../youtube-playback-plox.user.js#L12318)
+> [Line 12318](../youtube-playback-plox.user.js#L12318)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`getSavedVideoData`](../youtube-playback-plox.user.js#L12297) | [12297](../youtube-playback-plox.user.js#L12297) |
+| `fn` | [`getSavedVideoData`](../youtube-playback-plox.user.js#L12327) | [12327](../youtube-playback-plox.user.js#L12327) |
 
-## [📺 Get Player Video ID](../youtube-playback-plox.user.js#L12345)
-> [Line 12345](../youtube-playback-plox.user.js#L12345)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`getPlayerVideoId`](../youtube-playback-plox.user.js#L12381) | [12381](../youtube-playback-plox.user.js#L12381) |
-| `fn` | [`invalidatePlayerVideoIdCache`](../youtube-playback-plox.user.js#L12431) | [12431](../youtube-playback-plox.user.js#L12431) |
-
-## [📺 Get YouTube Page Type](../youtube-playback-plox.user.js#L12435)
-> [Line 12435](../youtube-playback-plox.user.js#L12435)
+## [📺 Get Player Video ID](../youtube-playback-plox.user.js#L12375)
+> [Line 12375](../youtube-playback-plox.user.js#L12375)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`getTypeFromPageManager`](../youtube-playback-plox.user.js#L12458) | [12458](../youtube-playback-plox.user.js#L12458) |
-| `fn` | [`getTypeFromYtApp`](../youtube-playback-plox.user.js#L12498) | [12498](../youtube-playback-plox.user.js#L12498) |
-| `fn` | [`detectFromURL`](../youtube-playback-plox.user.js#L12524) | [12524](../youtube-playback-plox.user.js#L12524) |
-| `fn` | [`cachePageType`](../youtube-playback-plox.user.js#L12596) | [12596](../youtube-playback-plox.user.js#L12596) |
-| `fn` | [`getYouTubePageType`](../youtube-playback-plox.user.js#L12615) | [12615](../youtube-playback-plox.user.js#L12615) |
+| `fn` | [`getPlayerVideoId`](../youtube-playback-plox.user.js#L12411) | [12411](../youtube-playback-plox.user.js#L12411) |
+| `fn` | [`invalidatePlayerVideoIdCache`](../youtube-playback-plox.user.js#L12461) | [12461](../youtube-playback-plox.user.js#L12461) |
 
-## [YouTube Resource URL Parser](../youtube-playback-plox.user.js#L12640)
-> [Line 12640](../youtube-playback-plox.user.js#L12640)
+## [📺 Get YouTube Page Type](../youtube-playback-plox.user.js#L12465)
+> [Line 12465](../youtube-playback-plox.user.js#L12465)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`_parseYouTubeResourceImpl`](../youtube-playback-plox.user.js#L12700) | [12700](../youtube-playback-plox.user.js#L12700) |
-| `fn` | [`buildContext`](../youtube-playback-plox.user.js#L12736) | [12736](../youtube-playback-plox.user.js#L12736) |
-| `fn` | [`parseYouTubeResource`](../youtube-playback-plox.user.js#L12847) | [12847](../youtube-playback-plox.user.js#L12847) |
+| `fn` | [`getTypeFromPageManager`](../youtube-playback-plox.user.js#L12488) | [12488](../youtube-playback-plox.user.js#L12488) |
+| `fn` | [`getTypeFromYtApp`](../youtube-playback-plox.user.js#L12528) | [12528](../youtube-playback-plox.user.js#L12528) |
+| `fn` | [`detectFromURL`](../youtube-playback-plox.user.js#L12554) | [12554](../youtube-playback-plox.user.js#L12554) |
+| `fn` | [`cachePageType`](../youtube-playback-plox.user.js#L12626) | [12626](../youtube-playback-plox.user.js#L12626) |
+| `fn` | [`getYouTubePageType`](../youtube-playback-plox.user.js#L12645) | [12645](../youtube-playback-plox.user.js#L12645) |
 
-## [📺 Get YouTube Video ID from URL](../youtube-playback-plox.user.js#L12857)
-> [Line 12857](../youtube-playback-plox.user.js#L12857)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`extractYouTubeVideoIdFromUrl`](../youtube-playback-plox.user.js#L12867) | [12867](../youtube-playback-plox.user.js#L12867) |
-
-## [📺 Get YouTube Video Context from URL](../youtube-playback-plox.user.js#L12879)
-> [Line 12879](../youtube-playback-plox.user.js#L12879)
+## [YouTube Resource URL Parser](../youtube-playback-plox.user.js#L12670)
+> [Line 12670](../youtube-playback-plox.user.js#L12670)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`getYouTubeVideoContextFromUrl`](../youtube-playback-plox.user.js#L12891) | [12891](../youtube-playback-plox.user.js#L12891) |
+| `fn` | [`_parseYouTubeResourceImpl`](../youtube-playback-plox.user.js#L12730) | [12730](../youtube-playback-plox.user.js#L12730) |
+| `fn` | [`buildContext`](../youtube-playback-plox.user.js#L12766) | [12766](../youtube-playback-plox.user.js#L12766) |
+| `fn` | [`parseYouTubeResource`](../youtube-playback-plox.user.js#L12877) | [12877](../youtube-playback-plox.user.js#L12877) |
 
-## [📺 Get YouTube Playlist ID from URL](../youtube-playback-plox.user.js#L12907)
-> [Line 12907](../youtube-playback-plox.user.js#L12907)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`extractYouTubePlaylistIdFromUrl`](../youtube-playback-plox.user.js#L12915) | [12915](../youtube-playback-plox.user.js#L12915) |
-| `fn` | [`classifyPlaylist`](../youtube-playback-plox.user.js#L12939) | [12939](../youtube-playback-plox.user.js#L12939) |
-
-## [📺 get Playlist Name](../youtube-playback-plox.user.js#L12952)
-> [Line 12952](../youtube-playback-plox.user.js#L12952)
+## [📺 Get YouTube Video ID from URL](../youtube-playback-plox.user.js#L12887)
+> [Line 12887](../youtube-playback-plox.user.js#L12887)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`shouldThrottlePlaylistNameFetch`](../youtube-playback-plox.user.js#L12973) | [12973](../youtube-playback-plox.user.js#L12973) |
-| `fn` | [`extractYtInitialData`](../youtube-playback-plox.user.js#L13010) | [13010](../youtube-playback-plox.user.js#L13010) |
-| `fn` | [`getPlaylistName`](../youtube-playback-plox.user.js#L13116) | [13116](../youtube-playback-plox.user.js#L13116) |
-| `fn` | [`requestPromise`](../youtube-playback-plox.user.js#L13132) | [13132](../youtube-playback-plox.user.js#L13132) |
-| `fn` | [`resolved`](../youtube-playback-plox.user.js#L13225) | [13225](../youtube-playback-plox.user.js#L13225) |
+| `fn` | [`extractYouTubeVideoIdFromUrl`](../youtube-playback-plox.user.js#L12897) | [12897](../youtube-playback-plox.user.js#L12897) |
 
-## [🕒 Time Display](../youtube-playback-plox.user.js#L13252)
-> [Line 13252](../youtube-playback-plox.user.js#L13252)
+## [📺 Get YouTube Video Context from URL](../youtube-playback-plox.user.js#L12909)
+> [Line 12909](../youtube-playback-plox.user.js#L12909)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`cancelPendingDisplayClear`](../youtube-playback-plox.user.js#L13276) | [13276](../youtube-playback-plox.user.js#L13276) |
-| `fn` | [`scheduleDisplayClear`](../youtube-playback-plox.user.js#L13289) | [13289](../youtube-playback-plox.user.js#L13289) |
+| `fn` | [`getYouTubeVideoContextFromUrl`](../youtube-playback-plox.user.js#L12921) | [12921](../youtube-playback-plox.user.js#L12921) |
 
-## [🖼️ Display Button Helpers](../youtube-playback-plox.user.js#L13298)
-> [Line 13298](../youtube-playback-plox.user.js#L13298)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`getTimeDisplayMessage`](../youtube-playback-plox.user.js#L13306) | [13306](../youtube-playback-plox.user.js#L13306) |
-| `fn` | [`hasTimeDisplayMessage`](../youtube-playback-plox.user.js#L13315) | [13315](../youtube-playback-plox.user.js#L13315) |
-| `fn` | [`showDisplayMessage`](../youtube-playback-plox.user.js#L13325) | [13325](../youtube-playback-plox.user.js#L13325) |
-| `fn` | [`restoreDisplayButtons`](../youtube-playback-plox.user.js#L13343) | [13343](../youtube-playback-plox.user.js#L13343) |
-| `fn` | [`createSplitButtonGroup`](../youtube-playback-plox.user.js#L13374) | [13374](../youtube-playback-plox.user.js#L13374) |
-| `fn` | [`getDisplayContextVideo`](../youtube-playback-plox.user.js#L13399) | [13399](../youtube-playback-plox.user.js#L13399) |
-| `fn` | [`getDisplayContextPlayer`](../youtube-playback-plox.user.js#L13414) | [13414](../youtube-playback-plox.user.js#L13414) |
-| `fn` | [`getPlaybackNotificationKind`](../youtube-playback-plox.user.js#L13429) | [13429](../youtube-playback-plox.user.js#L13429) |
-| `fn` | [`buildPlaybackNotificationMessage`](../youtube-playback-plox.user.js#L13446) | [13446](../youtube-playback-plox.user.js#L13446) |
-| `fn` | [`setupManualSaveButton`](../youtube-playback-plox.user.js#L13484) | [13484](../youtube-playback-plox.user.js#L13484) |
-| `fn` | [`getActiveShortsControlsContainer`](../youtube-playback-plox.user.js#L13544) | [13544](../youtube-playback-plox.user.js#L13544) |
-| `fn` | [`PlaybackDisplayManager`](../youtube-playback-plox.user.js#L13589) | [13589](../youtube-playback-plox.user.js#L13589) |
-| `module` | [`PlaybackDisplayManager`](../youtube-playback-plox.user.js#L13589) | [13589](../youtube-playback-plox.user.js#L13589) |
-| `fn` | [`getDisplayDisposables`](../youtube-playback-plox.user.js#L13611) | [13611](../youtube-playback-plox.user.js#L13611) |
-| `fn` | [`disposeDisplayNode`](../youtube-playback-plox.user.js#L13624) | [13624](../youtube-playback-plox.user.js#L13624) |
-| `fn` | [`getDisplay`](../youtube-playback-plox.user.js#L13631) | [13631](../youtube-playback-plox.user.js#L13631) |
-| `fn` | [`matchesIdentity`](../youtube-playback-plox.user.js#L13641) | [13641](../youtube-playback-plox.user.js#L13641) |
-| `fn` | [`getContextFromVideo`](../youtube-playback-plox.user.js#L13649) | [13649](../youtube-playback-plox.user.js#L13649) |
-| `fn` | [`getFixedTimeMessage`](../youtube-playback-plox.user.js#L13657) | [13657](../youtube-playback-plox.user.js#L13657) |
-| `fn` | [`releasePlayListener`](../youtube-playback-plox.user.js#L13680) | [13680](../youtube-playback-plox.user.js#L13680) |
-| `fn` | [`addPlayClearListener`](../youtube-playback-plox.user.js#L13692) | [13692](../youtube-playback-plox.user.js#L13692) |
-| `fn` | [`handlePlay`](../youtube-playback-plox.user.js#L13695) | [13695](../youtube-playback-plox.user.js#L13695) |
-| `fn` | [`clearMessageContent`](../youtube-playback-plox.user.js#L13705) | [13705](../youtube-playback-plox.user.js#L13705) |
-| `fn` | [`applySavedStateToDisplay`](../youtube-playback-plox.user.js#L13710) | [13710](../youtube-playback-plox.user.js#L13710) |
-| `fn` | [`applyFixedStateToDisplay`](../youtube-playback-plox.user.js#L13733) | [13733](../youtube-playback-plox.user.js#L13733) |
-| `fn` | [`scheduleShortsFrame`](../youtube-playback-plox.user.js#L13753) | [13753](../youtube-playback-plox.user.js#L13753) |
-| `fn` | [`reanchorShortsDisplay`](../youtube-playback-plox.user.js#L13762) | [13762](../youtube-playback-plox.user.js#L13762) |
-| `fn` | [`reattach`](../youtube-playback-plox.user.js#L13771) | [13771](../youtube-playback-plox.user.js#L13771) |
-| `fn` | [`isMobileWatchDisplayFallback`](../youtube-playback-plox.user.js#L13819) | [13819](../youtube-playback-plox.user.js#L13819) |
-| `fn` | [`ensure`](../youtube-playback-plox.user.js#L13833) | [13833](../youtube-playback-plox.user.js#L13833) |
-| `fn` | [`target`](../youtube-playback-plox.user.js#L13941) | [13941](../youtube-playback-plox.user.js#L13941) |
-| `fn` | [`show`](../youtube-playback-plox.user.js#L13997) | [13997](../youtube-playback-plox.user.js#L13997) |
-| `fn` | [`clear`](../youtube-playback-plox.user.js#L14068) | [14068](../youtube-playback-plox.user.js#L14068) |
-| `fn` | [`destroy`](../youtube-playback-plox.user.js#L14090) | [14090](../youtube-playback-plox.user.js#L14090) |
-| `fn` | [`bind`](../youtube-playback-plox.user.js#L14104) | [14104](../youtube-playback-plox.user.js#L14104) |
-| `fn` | [`release`](../youtube-playback-plox.user.js#L14108) | [14108](../youtube-playback-plox.user.js#L14108) |
-| `fn` | [`syncFixedTime`](../youtube-playback-plox.user.js#L14115) | [14115](../youtube-playback-plox.user.js#L14115) |
-| `fn` | [`syncSavedState`](../youtube-playback-plox.user.js#L14133) | [14133](../youtube-playback-plox.user.js#L14133) |
-| `fn` | [`startShortsPanelObserver`](../youtube-playback-plox.user.js#L14147) | [14147](../youtube-playback-plox.user.js#L14147) |
-| `fn` | [`stopShortsPanelObserver`](../youtube-playback-plox.user.js#L14195) | [14195](../youtube-playback-plox.user.js#L14195) |
-
-## [🍞 Toasts](../youtube-playback-plox.user.js#L14222)
-> [Line 14222](../youtube-playback-plox.user.js#L14222)
+## [📺 Get YouTube Playlist ID from URL](../youtube-playback-plox.user.js#L12937)
+> [Line 12937](../youtube-playback-plox.user.js#L12937)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`disposeToastRuntime`](../youtube-playback-plox.user.js#L14234) | [14234](../youtube-playback-plox.user.js#L14234) |
-| `fn` | [`registerToastRuntime`](../youtube-playback-plox.user.js#L14262) | [14262](../youtube-playback-plox.user.js#L14262) |
-| `fn` | [`cleanup`](../youtube-playback-plox.user.js#L14263) | [14263](../youtube-playback-plox.user.js#L14263) |
-| `fn` | [`createToastContainer`](../youtube-playback-plox.user.js#L14279) | [14279](../youtube-playback-plox.user.js#L14279) |
-| `fn` | [`fadeAndRemoveToast`](../youtube-playback-plox.user.js#L14312) | [14312](../youtube-playback-plox.user.js#L14312) |
-| `fn` | [`onTransitionEnd`](../youtube-playback-plox.user.js#L14333) | [14333](../youtube-playback-plox.user.js#L14333) |
-| `fn` | [`cleanup`](../youtube-playback-plox.user.js#L14357) | [14357](../youtube-playback-plox.user.js#L14357) |
-| `fn` | [`showFloatingToast`](../youtube-playback-plox.user.js#L14381) | [14381](../youtube-playback-plox.user.js#L14381) |
+| `fn` | [`extractYouTubePlaylistIdFromUrl`](../youtube-playback-plox.user.js#L12945) | [12945](../youtube-playback-plox.user.js#L12945) |
+| `fn` | [`classifyPlaylist`](../youtube-playback-plox.user.js#L12969) | [12969](../youtube-playback-plox.user.js#L12969) |
 
-## [⚙️ Settings UI Rendering Helpers](../youtube-playback-plox.user.js#L14537)
-> [Line 14537](../youtube-playback-plox.user.js#L14537)
+## [📺 get Playlist Name](../youtube-playback-plox.user.js#L12982)
+> [Line 12982](../youtube-playback-plox.user.js#L12982)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`renderLanguageSection`](../youtube-playback-plox.user.js#L14540) | [14540](../youtube-playback-plox.user.js#L14540) |
+| `fn` | [`shouldThrottlePlaylistNameFetch`](../youtube-playback-plox.user.js#L13003) | [13003](../youtube-playback-plox.user.js#L13003) |
+| `fn` | [`extractYtInitialData`](../youtube-playback-plox.user.js#L13040) | [13040](../youtube-playback-plox.user.js#L13040) |
+| `fn` | [`getPlaylistName`](../youtube-playback-plox.user.js#L13146) | [13146](../youtube-playback-plox.user.js#L13146) |
+| `fn` | [`requestPromise`](../youtube-playback-plox.user.js#L13162) | [13162](../youtube-playback-plox.user.js#L13162) |
+| `fn` | [`resolved`](../youtube-playback-plox.user.js#L13255) | [13255](../youtube-playback-plox.user.js#L13255) |
 
-## [🗂️ Settings Schema - Data-Driven UI](../youtube-playback-plox.user.js#L14584)
-> [Line 14584](../youtube-playback-plox.user.js#L14584)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`getSchemaField`](../youtube-playback-plox.user.js#L14624) | [14624](../youtube-playback-plox.user.js#L14624) |
-| `fn` | [`getSchemaFieldsBySection`](../youtube-playback-plox.user.js#L14630) | [14630](../youtube-playback-plox.user.js#L14630) |
-| `fn` | [`createFormField`](../youtube-playback-plox.user.js#L14638) | [14638](../youtube-playback-plox.user.js#L14638) |
-| `fn` | [`renderFields`](../youtube-playback-plox.user.js#L14684) | [14684](../youtube-playback-plox.user.js#L14684) |
-| `fn` | [`renderGeneralSettingSection`](../youtube-playback-plox.user.js#L14688) | [14688](../youtube-playback-plox.user.js#L14688) |
-| `fn` | [`renderManualSavingOptionsSection`](../youtube-playback-plox.user.js#L14691) | [14691](../youtube-playback-plox.user.js#L14691) |
-| `fn` | [`renderAutomaticSavingOptionsSection`](../youtube-playback-plox.user.js#L14707) | [14707](../youtube-playback-plox.user.js#L14707) |
-| `fn` | [`renderNotificationSettingsSection`](../youtube-playback-plox.user.js#L14716) | [14716](../youtube-playback-plox.user.js#L14716) |
-| `fn` | [`renderAutoCleanupSection`](../youtube-playback-plox.user.js#L14746) | [14746](../youtube-playback-plox.user.js#L14746) |
-| `fn` | [`renderGitHubBackupSection`](../youtube-playback-plox.user.js#L14760) | [14760](../youtube-playback-plox.user.js#L14760) |
-| `fn` | [`renderTabContent`](../youtube-playback-plox.user.js#L14764) | [14764](../youtube-playback-plox.user.js#L14764) |
-
-## [⚙️ Settings UI](../youtube-playback-plox.user.js#L14902)
-> [Line 14902](../youtube-playback-plox.user.js#L14902)
+## [🕒 Time Display](../youtube-playback-plox.user.js#L13282)
+> [Line 13282](../youtube-playback-plox.user.js#L13282)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`showSettingsUI`](../youtube-playback-plox.user.js#L14905) | [14905](../youtube-playback-plox.user.js#L14905) |
-| `fn` | [`closeModal`](../youtube-playback-plox.user.js#L14936) | [14936](../youtube-playback-plox.user.js#L14936) |
-| `fn` | [`onSettingsKeyDown`](../youtube-playback-plox.user.js#L14958) | [14958](../youtube-playback-plox.user.js#L14958) |
-| `fn` | [`updateAlertPreview`](../youtube-playback-plox.user.js#L15041) | [15041](../youtube-playback-plox.user.js#L15041) |
-| `fn` | [`getVal`](../youtube-playback-plox.user.js#L15128) | [15128](../youtube-playback-plox.user.js#L15128) |
-| `fn` | [`isChecked`](../youtube-playback-plox.user.js#L15129) | [15129](../youtube-playback-plox.user.js#L15129) |
-| `fn` | [`getVal`](../youtube-playback-plox.user.js#L15218) | [15218](../youtube-playback-plox.user.js#L15218) |
-| `fn` | [`isChecked`](../youtube-playback-plox.user.js#L15219) | [15219](../youtube-playback-plox.user.js#L15219) |
-| `fn` | [`getInnerTubeClientVersion`](../youtube-playback-plox.user.js#L15251) | [15251](../youtube-playback-plox.user.js#L15251) |
-| `fn` | [`idbDiag`](../youtube-playback-plox.user.js#L15280) | [15280](../youtube-playback-plox.user.js#L15280) |
-| `fn` | [`safeModeActive`](../youtube-playback-plox.user.js#L15298) | [15298](../youtube-playback-plox.user.js#L15298) |
-| `fn` | [`activeSessions`](../youtube-playback-plox.user.js#L15299) | [15299](../youtube-playback-plox.user.js#L15299) |
+| `fn` | [`cancelPendingDisplayClear`](../youtube-playback-plox.user.js#L13306) | [13306](../youtube-playback-plox.user.js#L13306) |
+| `fn` | [`scheduleDisplayClear`](../youtube-playback-plox.user.js#L13319) | [13319](../youtube-playback-plox.user.js#L13319) |
 
-## [📢 Notify Seek or Progress](../youtube-playback-plox.user.js#L15413)
-> [Line 15413](../youtube-playback-plox.user.js#L15413)
+## [🖼️ Display Button Helpers](../youtube-playback-plox.user.js#L13328)
+> [Line 13328](../youtube-playback-plox.user.js#L13328)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`notifySeekOrProgress`](../youtube-playback-plox.user.js#L15415) | [15415](../youtube-playback-plox.user.js#L15415) |
+| `fn` | [`getTimeDisplayMessage`](../youtube-playback-plox.user.js#L13336) | [13336](../youtube-playback-plox.user.js#L13336) |
+| `fn` | [`hasTimeDisplayMessage`](../youtube-playback-plox.user.js#L13345) | [13345](../youtube-playback-plox.user.js#L13345) |
+| `fn` | [`showDisplayMessage`](../youtube-playback-plox.user.js#L13355) | [13355](../youtube-playback-plox.user.js#L13355) |
+| `fn` | [`restoreDisplayButtons`](../youtube-playback-plox.user.js#L13373) | [13373](../youtube-playback-plox.user.js#L13373) |
+| `fn` | [`createSplitButtonGroup`](../youtube-playback-plox.user.js#L13404) | [13404](../youtube-playback-plox.user.js#L13404) |
+| `fn` | [`getDisplayContextVideo`](../youtube-playback-plox.user.js#L13429) | [13429](../youtube-playback-plox.user.js#L13429) |
+| `fn` | [`getDisplayContextPlayer`](../youtube-playback-plox.user.js#L13444) | [13444](../youtube-playback-plox.user.js#L13444) |
+| `fn` | [`getPlaybackNotificationKind`](../youtube-playback-plox.user.js#L13459) | [13459](../youtube-playback-plox.user.js#L13459) |
+| `fn` | [`buildPlaybackNotificationMessage`](../youtube-playback-plox.user.js#L13476) | [13476](../youtube-playback-plox.user.js#L13476) |
+| `fn` | [`setupManualSaveButton`](../youtube-playback-plox.user.js#L13514) | [13514](../youtube-playback-plox.user.js#L13514) |
+| `fn` | [`getActiveShortsControlsContainer`](../youtube-playback-plox.user.js#L13574) | [13574](../youtube-playback-plox.user.js#L13574) |
+| `fn` | [`PlaybackDisplayManager`](../youtube-playback-plox.user.js#L13619) | [13619](../youtube-playback-plox.user.js#L13619) |
+| `module` | [`PlaybackDisplayManager`](../youtube-playback-plox.user.js#L13619) | [13619](../youtube-playback-plox.user.js#L13619) |
+| `fn` | [`getDisplayDisposables`](../youtube-playback-plox.user.js#L13641) | [13641](../youtube-playback-plox.user.js#L13641) |
+| `fn` | [`disposeDisplayNode`](../youtube-playback-plox.user.js#L13654) | [13654](../youtube-playback-plox.user.js#L13654) |
+| `fn` | [`getDisplay`](../youtube-playback-plox.user.js#L13661) | [13661](../youtube-playback-plox.user.js#L13661) |
+| `fn` | [`matchesIdentity`](../youtube-playback-plox.user.js#L13671) | [13671](../youtube-playback-plox.user.js#L13671) |
+| `fn` | [`getContextFromVideo`](../youtube-playback-plox.user.js#L13679) | [13679](../youtube-playback-plox.user.js#L13679) |
+| `fn` | [`getFixedTimeMessage`](../youtube-playback-plox.user.js#L13687) | [13687](../youtube-playback-plox.user.js#L13687) |
+| `fn` | [`releasePlayListener`](../youtube-playback-plox.user.js#L13710) | [13710](../youtube-playback-plox.user.js#L13710) |
+| `fn` | [`addPlayClearListener`](../youtube-playback-plox.user.js#L13722) | [13722](../youtube-playback-plox.user.js#L13722) |
+| `fn` | [`handlePlay`](../youtube-playback-plox.user.js#L13725) | [13725](../youtube-playback-plox.user.js#L13725) |
+| `fn` | [`clearMessageContent`](../youtube-playback-plox.user.js#L13735) | [13735](../youtube-playback-plox.user.js#L13735) |
+| `fn` | [`applySavedStateToDisplay`](../youtube-playback-plox.user.js#L13740) | [13740](../youtube-playback-plox.user.js#L13740) |
+| `fn` | [`applyFixedStateToDisplay`](../youtube-playback-plox.user.js#L13763) | [13763](../youtube-playback-plox.user.js#L13763) |
+| `fn` | [`scheduleShortsFrame`](../youtube-playback-plox.user.js#L13783) | [13783](../youtube-playback-plox.user.js#L13783) |
+| `fn` | [`reanchorShortsDisplay`](../youtube-playback-plox.user.js#L13792) | [13792](../youtube-playback-plox.user.js#L13792) |
+| `fn` | [`reattach`](../youtube-playback-plox.user.js#L13801) | [13801](../youtube-playback-plox.user.js#L13801) |
+| `fn` | [`isMobileWatchDisplayFallback`](../youtube-playback-plox.user.js#L13849) | [13849](../youtube-playback-plox.user.js#L13849) |
+| `fn` | [`ensure`](../youtube-playback-plox.user.js#L13863) | [13863](../youtube-playback-plox.user.js#L13863) |
+| `fn` | [`target`](../youtube-playback-plox.user.js#L13971) | [13971](../youtube-playback-plox.user.js#L13971) |
+| `fn` | [`show`](../youtube-playback-plox.user.js#L14027) | [14027](../youtube-playback-plox.user.js#L14027) |
+| `fn` | [`clear`](../youtube-playback-plox.user.js#L14098) | [14098](../youtube-playback-plox.user.js#L14098) |
+| `fn` | [`destroy`](../youtube-playback-plox.user.js#L14120) | [14120](../youtube-playback-plox.user.js#L14120) |
+| `fn` | [`bind`](../youtube-playback-plox.user.js#L14134) | [14134](../youtube-playback-plox.user.js#L14134) |
+| `fn` | [`release`](../youtube-playback-plox.user.js#L14138) | [14138](../youtube-playback-plox.user.js#L14138) |
+| `fn` | [`syncFixedTime`](../youtube-playback-plox.user.js#L14145) | [14145](../youtube-playback-plox.user.js#L14145) |
+| `fn` | [`syncSavedState`](../youtube-playback-plox.user.js#L14163) | [14163](../youtube-playback-plox.user.js#L14163) |
+| `fn` | [`startShortsPanelObserver`](../youtube-playback-plox.user.js#L14177) | [14177](../youtube-playback-plox.user.js#L14177) |
+| `fn` | [`stopShortsPanelObserver`](../youtube-playback-plox.user.js#L14225) | [14225](../youtube-playback-plox.user.js#L14225) |
 
-## [🎵 Video Selection](../youtube-playback-plox.user.js#L15471)
-> [Line 15471](../youtube-playback-plox.user.js#L15471)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`toggleManagementMode`](../youtube-playback-plox.user.js#L15486) | [15486](../youtube-playback-plox.user.js#L15486) |
-| `fn` | [`buildSkipParts`](../youtube-playback-plox.user.js#L15505) | [15505](../youtube-playback-plox.user.js#L15505) |
-| `fn` | [`updateFooterButtons`](../youtube-playback-plox.user.js#L15519) | [15519](../youtube-playback-plox.user.js#L15519) |
-| `fn` | [`getCurrentlyOpenFooterMenu`](../youtube-playback-plox.user.js#L15596) | [15596](../youtube-playback-plox.user.js#L15596) |
-| `fn` | [`setCurrentlyOpenFooterMenu`](../youtube-playback-plox.user.js#L15603) | [15603](../youtube-playback-plox.user.js#L15603) |
-| `fn` | [`createFooterActionMenu`](../youtube-playback-plox.user.js#L15645) | [15645](../youtube-playback-plox.user.js#L15645) |
-| `fn` | [`onOutsideClick`](../youtube-playback-plox.user.js#L15675) | [15675](../youtube-playback-plox.user.js#L15675) |
-| `fn` | [`closeMenu`](../youtube-playback-plox.user.js#L15679) | [15679](../youtube-playback-plox.user.js#L15679) |
-| `fn` | [`openMenu`](../youtube-playback-plox.user.js#L15688) | [15688](../youtube-playback-plox.user.js#L15688) |
-| `fn` | [`closeImportMenu`](../youtube-playback-plox.user.js#L15784) | [15784](../youtube-playback-plox.user.js#L15784) |
-| `fn` | [`onImportOutsideClick`](../youtube-playback-plox.user.js#L15793) | [15793](../youtube-playback-plox.user.js#L15793) |
-| `fn` | [`refreshPlaylistState`](../youtube-playback-plox.user.js#L16195) | [16195](../youtube-playback-plox.user.js#L16195) |
-| `fn` | [`updateManagementFooterState`](../youtube-playback-plox.user.js#L16257) | [16257](../youtube-playback-plox.user.js#L16257) |
-| `fn` | [`togglePlaylistCreationMode`](../youtube-playback-plox.user.js#L16287) | [16287](../youtube-playback-plox.user.js#L16287) |
-| `fn` | [`copyToClipboard`](../youtube-playback-plox.user.js#L16306) | [16306](../youtube-playback-plox.user.js#L16306) |
-| `fn` | [`showSuccess`](../youtube-playback-plox.user.js#L16319) | [16319](../youtube-playback-plox.user.js#L16319) |
-| `fn` | [`syncSelectionCheckboxes`](../youtube-playback-plox.user.js#L16400) | [16400](../youtube-playback-plox.user.js#L16400) |
-| `fn` | [`createClearSelectionButton`](../youtube-playback-plox.user.js#L16413) | [16413](../youtube-playback-plox.user.js#L16413) |
-| `fn` | [`toggleVideoSelection`](../youtube-playback-plox.user.js#L16431) | [16431](../youtube-playback-plox.user.js#L16431) |
-
-## [📺 Video Observer & Processing Manager](../youtube-playback-plox.user.js#L16463)
-> [Line 16463](../youtube-playback-plox.user.js#L16463)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`RouteContextResolver`](../youtube-playback-plox.user.js#L16469) | [16469](../youtube-playback-plox.user.js#L16469) |
-| `module` | [`RouteContextResolver`](../youtube-playback-plox.user.js#L16469) | [16469](../youtube-playback-plox.user.js#L16469) |
-| `fn` | [`isMiniplayerBlockingPreview`](../youtube-playback-plox.user.js#L16470) | [16470](../youtube-playback-plox.user.js#L16470) |
-| `module` | [`CONTEXTS`](../youtube-playback-plox.user.js#L16479) | [16479](../youtube-playback-plox.user.js#L16479) |
-| `fn` | [`getContextRoot`](../youtube-playback-plox.user.js#L16492) | [16492](../youtube-playback-plox.user.js#L16492) |
-| `fn` | [`computeContextScore`](../youtube-playback-plox.user.js#L16503) | [16503](../youtube-playback-plox.user.js#L16503) |
-| `fn` | [`resolveContext`](../youtube-playback-plox.user.js#L16520) | [16520](../youtube-playback-plox.user.js#L16520) |
-| `fn` | [`getIneligibilityReason`](../youtube-playback-plox.user.js#L16554) | [16554](../youtube-playback-plox.user.js#L16554) |
-| `fn` | [`canProcessContext`](../youtube-playback-plox.user.js#L16579) | [16579](../youtube-playback-plox.user.js#L16579) |
-| `fn` | [`isContextLocked`](../youtube-playback-plox.user.js#L16581) | [16581](../youtube-playback-plox.user.js#L16581) |
-| `fn` | [`SessionTelemetry`](../youtube-playback-plox.user.js#L16600) | [16600](../youtube-playback-plox.user.js#L16600) |
-| `module` | [`SessionTelemetry`](../youtube-playback-plox.user.js#L16600) | [16600](../youtube-playback-plox.user.js#L16600) |
-| `fn` | [`emit`](../youtube-playback-plox.user.js#L16602) | [16602](../youtube-playback-plox.user.js#L16602) |
-| `fn` | [`logRoutingDecision`](../youtube-playback-plox.user.js#L16626) | [16626](../youtube-playback-plox.user.js#L16626) |
-| `fn` | [`shouldDropVideoEvent`](../youtube-playback-plox.user.js#L16635) | [16635](../youtube-playback-plox.user.js#L16635) |
-| `fn` | [`FailSafeManager`](../youtube-playback-plox.user.js#L16644) | [16644](../youtube-playback-plox.user.js#L16644) |
-| `module` | [`FailSafeManager`](../youtube-playback-plox.user.js#L16644) | [16644](../youtube-playback-plox.user.js#L16644) |
-| `fn` | [`prune`](../youtube-playback-plox.user.js#L16655) | [16655](../youtube-playback-plox.user.js#L16655) |
-| `fn` | [`getTotal`](../youtube-playback-plox.user.js#L16660) | [16660](../youtube-playback-plox.user.js#L16660) |
-| `fn` | [`track`](../youtube-playback-plox.user.js#L16665) | [16665](../youtube-playback-plox.user.js#L16665) |
-| `fn` | [`note`](../youtube-playback-plox.user.js#L16685) | [16685](../youtube-playback-plox.user.js#L16685) |
-| `fn` | [`maybeExit`](../youtube-playback-plox.user.js#L16689) | [16689](../youtube-playback-plox.user.js#L16689) |
-| `fn` | [`SessionFallbackManager`](../youtube-playback-plox.user.js#L16707) | [16707](../youtube-playback-plox.user.js#L16707) |
-| `module` | [`SessionFallbackManager`](../youtube-playback-plox.user.js#L16707) | [16707](../youtube-playback-plox.user.js#L16707) |
-| `fn` | [`clear`](../youtube-playback-plox.user.js#L16709) | [16709](../youtube-playback-plox.user.js#L16709) |
-| `fn` | [`ensureForSession`](../youtube-playback-plox.user.js#L16717) | [16717](../youtube-playback-plox.user.js#L16717) |
-
-## [📡 Video Observer Manager](../youtube-playback-plox.user.js#L16767)
-> [Line 16767](../youtube-playback-plox.user.js#L16767)
+## [🍞 Toasts](../youtube-playback-plox.user.js#L14252)
+> [Line 14252](../youtube-playback-plox.user.js#L14252)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`VideoObserverManager`](../youtube-playback-plox.user.js#L16780) | [16780](../youtube-playback-plox.user.js#L16780) |
-| `module` | [`VideoObserverManager`](../youtube-playback-plox.user.js#L16780) | [16780](../youtube-playback-plox.user.js#L16780) |
-| `fn` | [`resetSessionAndEnqueue`](../youtube-playback-plox.user.js#L16802) | [16802](../youtube-playback-plox.user.js#L16802) |
-| `fn` | [`processMutationsForVideo`](../youtube-playback-plox.user.js#L16822) | [16822](../youtube-playback-plox.user.js#L16822) |
-| `fn` | [`processBatch`](../youtube-playback-plox.user.js#L16848) | [16848](../youtube-playback-plox.user.js#L16848) |
-| `fn` | [`ensurePreviewWatchdog`](../youtube-playback-plox.user.js#L16895) | [16895](../youtube-playback-plox.user.js#L16895) |
-| `fn` | [`clearWatchPlayerWait`](../youtube-playback-plox.user.js#L16925) | [16925](../youtube-playback-plox.user.js#L16925) |
-| `fn` | [`waitForWatchPlayerReactive`](../youtube-playback-plox.user.js#L16947) | [16947](../youtube-playback-plox.user.js#L16947) |
-| `fn` | [`tryProcess`](../youtube-playback-plox.user.js#L16967) | [16967](../youtube-playback-plox.user.js#L16967) |
-| `fn` | [`bootstrap`](../youtube-playback-plox.user.js#L17023) | [17023](../youtube-playback-plox.user.js#L17023) |
-| `fn` | [`scheduleAdRecovery`](../youtube-playback-plox.user.js#L17091) | [17091](../youtube-playback-plox.user.js#L17091) |
-| `fn` | [`cleanup`](../youtube-playback-plox.user.js#L17101) | [17101](../youtube-playback-plox.user.js#L17101) |
-| `fn` | [`onAdWait`](../youtube-playback-plox.user.js#L17112) | [17112](../youtube-playback-plox.user.js#L17112) |
-| `fn` | [`enqueueVideo`](../youtube-playback-plox.user.js#L17144) | [17144](../youtube-playback-plox.user.js#L17144) |
-| `fn` | [`enqueueWithResolver`](../youtube-playback-plox.user.js#L17192) | [17192](../youtube-playback-plox.user.js#L17192) |
-| `fn` | [`requeueMiniplayer`](../youtube-playback-plox.user.js#L17203) | [17203](../youtube-playback-plox.user.js#L17203) |
-| `fn` | [`initObservers`](../youtube-playback-plox.user.js#L17227) | [17227](../youtube-playback-plox.user.js#L17227) |
-| `fn` | [`clearPlayerCache`](../youtube-playback-plox.user.js#L17353) | [17353](../youtube-playback-plox.user.js#L17353) |
-| `fn` | [`cleanup`](../youtube-playback-plox.user.js#L17575) | [17575](../youtube-playback-plox.user.js#L17575) |
-| `fn` | [`clearCache`](../youtube-playback-plox.user.js#L17616) | [17616](../youtube-playback-plox.user.js#L17616) |
+| `fn` | [`disposeToastRuntime`](../youtube-playback-plox.user.js#L14264) | [14264](../youtube-playback-plox.user.js#L14264) |
+| `fn` | [`registerToastRuntime`](../youtube-playback-plox.user.js#L14292) | [14292](../youtube-playback-plox.user.js#L14292) |
+| `fn` | [`cleanup`](../youtube-playback-plox.user.js#L14293) | [14293](../youtube-playback-plox.user.js#L14293) |
+| `fn` | [`createToastContainer`](../youtube-playback-plox.user.js#L14309) | [14309](../youtube-playback-plox.user.js#L14309) |
+| `fn` | [`fadeAndRemoveToast`](../youtube-playback-plox.user.js#L14342) | [14342](../youtube-playback-plox.user.js#L14342) |
+| `fn` | [`onTransitionEnd`](../youtube-playback-plox.user.js#L14363) | [14363](../youtube-playback-plox.user.js#L14363) |
+| `fn` | [`cleanup`](../youtube-playback-plox.user.js#L14387) | [14387](../youtube-playback-plox.user.js#L14387) |
+| `fn` | [`showFloatingToast`](../youtube-playback-plox.user.js#L14411) | [14411](../youtube-playback-plox.user.js#L14411) |
 
-## [Processing Functions](../youtube-playback-plox.user.js#L17646)
-> [Line 17646](../youtube-playback-plox.user.js#L17646)
+## [⚙️ Settings UI Rendering Helpers](../youtube-playback-plox.user.js#L14569)
+> [Line 14569](../youtube-playback-plox.user.js#L14569)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`isSessionStale`](../youtube-playback-plox.user.js#L17663) | [17663](../youtube-playback-plox.user.js#L17663) |
-| `fn` | [`scheduleIdMismatchRetry`](../youtube-playback-plox.user.js#L17689) | [17689](../youtube-playback-plox.user.js#L17689) |
-| `fn` | [`createSessionTimeout`](../youtube-playback-plox.user.js#L17733) | [17733](../youtube-playback-plox.user.js#L17733) |
-| `fn` | [`clearSessionTimeouts`](../youtube-playback-plox.user.js#L17760) | [17760](../youtube-playback-plox.user.js#L17760) |
-| `fn` | [`SessionOrchestrator`](../youtube-playback-plox.user.js#L17770) | [17770](../youtube-playback-plox.user.js#L17770) |
-| `module` | [`SessionOrchestrator`](../youtube-playback-plox.user.js#L17770) | [17770](../youtube-playback-plox.user.js#L17770) |
-| `fn` | [`clearPendingRecovery`](../youtube-playback-plox.user.js#L17790) | [17790](../youtube-playback-plox.user.js#L17790) |
-| `fn` | [`buildSessionId`](../youtube-playback-plox.user.js#L17795) | [17795](../youtube-playback-plox.user.js#L17795) |
-| `fn` | [`buildIdentityKey`](../youtube-playback-plox.user.js#L17800) | [17800](../youtube-playback-plox.user.js#L17800) |
-| `fn` | [`canTransition`](../youtube-playback-plox.user.js#L17807) | [17807](../youtube-playback-plox.user.js#L17807) |
-| `fn` | [`transitionState`](../youtube-playback-plox.user.js#L17813) | [17813](../youtube-playback-plox.user.js#L17813) |
-| `fn` | [`startSession`](../youtube-playback-plox.user.js#L17831) | [17831](../youtube-playback-plox.user.js#L17831) |
-| `fn` | [`finalizeSession`](../youtube-playback-plox.user.js#L17929) | [17929](../youtube-playback-plox.user.js#L17929) |
-| `fn` | [`handoffSession`](../youtube-playback-plox.user.js#L17993) | [17993](../youtube-playback-plox.user.js#L17993) |
-| `fn` | [`shouldSkipResumeForActivePlayback`](../youtube-playback-plox.user.js#L18039) | [18039](../youtube-playback-plox.user.js#L18039) |
-| `fn` | [`isAwaitingFirstPlayback`](../youtube-playback-plox.user.js#L18071) | [18071](../youtube-playback-plox.user.js#L18071) |
-| `fn` | [`isProgressInCompletionZone`](../youtube-playback-plox.user.js#L18090) | [18090](../youtube-playback-plox.user.js#L18090) |
-| `fn` | [`finishPercent`](../youtube-playback-plox.user.js#L18094) | [18094](../youtube-playback-plox.user.js#L18094) |
-| `fn` | [`isPlayerReportingEnd`](../youtube-playback-plox.user.js#L18107) | [18107](../youtube-playback-plox.user.js#L18107) |
-| `fn` | [`isResumeAtCompletionZone`](../youtube-playback-plox.user.js#L18124) | [18124](../youtube-playback-plox.user.js#L18124) |
-| `fn` | [`finishPercent`](../youtube-playback-plox.user.js#L18135) | [18135](../youtube-playback-plox.user.js#L18135) |
-| `fn` | [`stopAllSessions`](../youtube-playback-plox.user.js#L18147) | [18147](../youtube-playback-plox.user.js#L18147) |
-| `fn` | [`absorbSaveResult`](../youtube-playback-plox.user.js#L18180) | [18180](../youtube-playback-plox.user.js#L18180) |
-| `fn` | [`startProcessingSession`](../youtube-playback-plox.user.js#L18194) | [18194](../youtube-playback-plox.user.js#L18194) |
-| `fn` | [`fastPlaylistId`](../youtube-playback-plox.user.js#L18269) | [18269](../youtube-playback-plox.user.js#L18269) |
-| `fn` | [`handleNaturalEnd`](../youtube-playback-plox.user.js#L18294) | [18294](../youtube-playback-plox.user.js#L18294) |
-| `fn` | [`persistCompletion`](../youtube-playback-plox.user.js#L18303) | [18303](../youtube-playback-plox.user.js#L18303) |
-| `fn` | [`handleSeekingForGradient`](../youtube-playback-plox.user.js#L18334) | [18334](../youtube-playback-plox.user.js#L18334) |
-| `fn` | [`handleSeekedForGradient`](../youtube-playback-plox.user.js#L18344) | [18344](../youtube-playback-plox.user.js#L18344) |
-| `fn` | [`canValidateStandalone`](../youtube-playback-plox.user.js#L18483) | [18483](../youtube-playback-plox.user.js#L18483) |
-| `fn` | [`sessionTick`](../youtube-playback-plox.user.js#L18508) | [18508](../youtube-playback-plox.user.js#L18508) |
-| `fn` | [`isHiddenGhost`](../youtube-playback-plox.user.js#L18637) | [18637](../youtube-playback-plox.user.js#L18637) |
-| `module` | [`PROCESS_MEDIA_VIDEO_CONFIG`](../youtube-playback-plox.user.js#L18836) | [18836](../youtube-playback-plox.user.js#L18836) |
-| `fn` | [`helperVideoId`](../youtube-playback-plox.user.js#L18949) | [18949](../youtube-playback-plox.user.js#L18949) |
-| `fn` | [`processMediaVideo`](../youtube-playback-plox.user.js#L19064) | [19064](../youtube-playback-plox.user.js#L19064) |
+| `fn` | [`renderLanguageSection`](../youtube-playback-plox.user.js#L14572) | [14572](../youtube-playback-plox.user.js#L14572) |
 
-## [PlaybackController](../youtube-playback-plox.user.js#L19119)
-> [Line 19119](../youtube-playback-plox.user.js#L19119)
+## [🗂️ Settings Schema - Data-Driven UI](../youtube-playback-plox.user.js#L14616)
+> [Line 14616](../youtube-playback-plox.user.js#L14616)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`mapLiveAbsoluteToWindow`](../youtube-playback-plox.user.js#L19134) | [19134](../youtube-playback-plox.user.js#L19134) |
-| `fn` | [`applySeek`](../youtube-playback-plox.user.js#L19160) | [19160](../youtube-playback-plox.user.js#L19160) |
-| `fn` | [`getExpectedDuration`](../youtube-playback-plox.user.js#L19215) | [19215](../youtube-playback-plox.user.js#L19215) |
-| `fn` | [`isReady`](../youtube-playback-plox.user.js#L19232) | [19232](../youtube-playback-plox.user.js#L19232) |
-| `fn` | [`removeMetadataListener`](../youtube-playback-plox.user.js#L19256) | [19256](../youtube-playback-plox.user.js#L19256) |
-| `fn` | [`removeCanPlayListener`](../youtube-playback-plox.user.js#L19257) | [19257](../youtube-playback-plox.user.js#L19257) |
-| `fn` | [`removeAbortListener`](../youtube-playback-plox.user.js#L19258) | [19258](../youtube-playback-plox.user.js#L19258) |
-| `fn` | [`cleanup`](../youtube-playback-plox.user.js#L19259) | [19259](../youtube-playback-plox.user.js#L19259) |
-| `fn` | [`rejectAsStale`](../youtube-playback-plox.user.js#L19265) | [19265](../youtube-playback-plox.user.js#L19265) |
-| `fn` | [`onReady`](../youtube-playback-plox.user.js#L19269) | [19269](../youtube-playback-plox.user.js#L19269) |
-| `fn` | [`onAbort`](../youtube-playback-plox.user.js#L19278) | [19278](../youtube-playback-plox.user.js#L19278) |
-| `fn` | [`restoreThrottleMarker`](../youtube-playback-plox.user.js#L19495) | [19495](../youtube-playback-plox.user.js#L19495) |
-| `fn` | [`readApiNumber`](../youtube-playback-plox.user.js#L19510) | [19510](../youtube-playback-plox.user.js#L19510) |
-| `fn` | [`cooldownElapsed`](../youtube-playback-plox.user.js#L19665) | [19665](../youtube-playback-plox.user.js#L19665) |
+| `fn` | [`getSchemaField`](../youtube-playback-plox.user.js#L14656) | [14656](../youtube-playback-plox.user.js#L14656) |
+| `fn` | [`getSchemaFieldsBySection`](../youtube-playback-plox.user.js#L14662) | [14662](../youtube-playback-plox.user.js#L14662) |
+| `fn` | [`createFormField`](../youtube-playback-plox.user.js#L14670) | [14670](../youtube-playback-plox.user.js#L14670) |
+| `fn` | [`renderFields`](../youtube-playback-plox.user.js#L14716) | [14716](../youtube-playback-plox.user.js#L14716) |
+| `fn` | [`renderGeneralSettingSection`](../youtube-playback-plox.user.js#L14720) | [14720](../youtube-playback-plox.user.js#L14720) |
+| `fn` | [`renderManualSavingOptionsSection`](../youtube-playback-plox.user.js#L14723) | [14723](../youtube-playback-plox.user.js#L14723) |
+| `fn` | [`renderAutomaticSavingOptionsSection`](../youtube-playback-plox.user.js#L14739) | [14739](../youtube-playback-plox.user.js#L14739) |
+| `fn` | [`renderNotificationSettingsSection`](../youtube-playback-plox.user.js#L14748) | [14748](../youtube-playback-plox.user.js#L14748) |
+| `fn` | [`renderAutoCleanupSection`](../youtube-playback-plox.user.js#L14778) | [14778](../youtube-playback-plox.user.js#L14778) |
+| `fn` | [`renderGitHubBackupSection`](../youtube-playback-plox.user.js#L14792) | [14792](../youtube-playback-plox.user.js#L14792) |
+| `fn` | [`renderTabContent`](../youtube-playback-plox.user.js#L14796) | [14796](../youtube-playback-plox.user.js#L14796) |
 
-## [📋 Get Cascaded Video Info](../youtube-playback-plox.user.js#L19813)
-> [Line 19813](../youtube-playback-plox.user.js#L19813)
+## [⚙️ Settings UI](../youtube-playback-plox.user.js#L14934)
+> [Line 14934](../youtube-playback-plox.user.js#L14934)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`getInnerTubeConfig`](../youtube-playback-plox.user.js#L19850) | [19850](../youtube-playback-plox.user.js#L19850) |
-| `fn` | [`fetchInnerTubeJson`](../youtube-playback-plox.user.js#L19865) | [19865](../youtube-playback-plox.user.js#L19865) |
-| `fn` | [`fetchShortsViews`](../youtube-playback-plox.user.js#L19899) | [19899](../youtube-playback-plox.user.js#L19899) |
-| `fn` | [`fetchPlaylistTitle`](../youtube-playback-plox.user.js#L19912) | [19912](../youtube-playback-plox.user.js#L19912) |
-| `fn` | [`getCascadedVideoInfo`](../youtube-playback-plox.user.js#L19922) | [19922](../youtube-playback-plox.user.js#L19922) |
-| `fn` | [`finalizeInfo`](../youtube-playback-plox.user.js#L19967) | [19967](../youtube-playback-plox.user.js#L19967) |
+| `fn` | [`showSettingsUI`](../youtube-playback-plox.user.js#L14937) | [14937](../youtube-playback-plox.user.js#L14937) |
+| `fn` | [`closeModal`](../youtube-playback-plox.user.js#L14968) | [14968](../youtube-playback-plox.user.js#L14968) |
+| `fn` | [`onSettingsKeyDown`](../youtube-playback-plox.user.js#L14990) | [14990](../youtube-playback-plox.user.js#L14990) |
+| `fn` | [`updateAlertPreview`](../youtube-playback-plox.user.js#L15073) | [15073](../youtube-playback-plox.user.js#L15073) |
+| `fn` | [`getVal`](../youtube-playback-plox.user.js#L15160) | [15160](../youtube-playback-plox.user.js#L15160) |
+| `fn` | [`isChecked`](../youtube-playback-plox.user.js#L15161) | [15161](../youtube-playback-plox.user.js#L15161) |
+| `fn` | [`getVal`](../youtube-playback-plox.user.js#L15250) | [15250](../youtube-playback-plox.user.js#L15250) |
+| `fn` | [`isChecked`](../youtube-playback-plox.user.js#L15251) | [15251](../youtube-playback-plox.user.js#L15251) |
+| `fn` | [`getInnerTubeClientVersion`](../youtube-playback-plox.user.js#L15283) | [15283](../youtube-playback-plox.user.js#L15283) |
+| `fn` | [`idbDiag`](../youtube-playback-plox.user.js#L15312) | [15312](../youtube-playback-plox.user.js#L15312) |
+| `fn` | [`safeModeActive`](../youtube-playback-plox.user.js#L15330) | [15330](../youtube-playback-plox.user.js#L15330) |
+| `fn` | [`activeSessions`](../youtube-playback-plox.user.js#L15331) | [15331](../youtube-playback-plox.user.js#L15331) |
 
-## [📂 Sort UI](../youtube-playback-plox.user.js#L20351)
-> [Line 20351](../youtube-playback-plox.user.js#L20351)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`createCustomDropdown`](../youtube-playback-plox.user.js#L20369) | [20369](../youtube-playback-plox.user.js#L20369) |
-| `fn` | [`findOption`](../youtube-playback-plox.user.js#L20380) | [20380](../youtube-playback-plox.user.js#L20380) |
-| `fn` | [`openList`](../youtube-playback-plox.user.js#L20456) | [20456](../youtube-playback-plox.user.js#L20456) |
-| `fn` | [`closeList`](../youtube-playback-plox.user.js#L20472) | [20472](../youtube-playback-plox.user.js#L20472) |
-| `fn` | [`onOutsideClick`](../youtube-playback-plox.user.js#L20480) | [20480](../youtube-playback-plox.user.js#L20480) |
-| `fn` | [`createSortSelector`](../youtube-playback-plox.user.js#L20497) | [20497](../youtube-playback-plox.user.js#L20497) |
-| `fn` | [`updateActive`](../youtube-playback-plox.user.js#L20500) | [20500](../youtube-playback-plox.user.js#L20500) |
-
-## [📂 Filters UI](../youtube-playback-plox.user.js#L20553)
-> [Line 20553](../youtube-playback-plox.user.js#L20553)
+## [📢 Notify Seek or Progress](../youtube-playback-plox.user.js#L15445)
+> [Line 15445](../youtube-playback-plox.user.js#L15445)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`createFilterSelector`](../youtube-playback-plox.user.js#L20562) | [20562](../youtube-playback-plox.user.js#L20562) |
-| `fn` | [`updateActive`](../youtube-playback-plox.user.js#L20565) | [20565](../youtube-playback-plox.user.js#L20565) |
-| `fn` | [`createRangeFilter`](../youtube-playback-plox.user.js#L20610) | [20610](../youtube-playback-plox.user.js#L20610) |
-| `fn` | [`isDefault`](../youtube-playback-plox.user.js#L20613) | [20613](../youtube-playback-plox.user.js#L20613) |
-| `fn` | [`getProgressIcon`](../youtube-playback-plox.user.js#L20619) | [20619](../youtube-playback-plox.user.js#L20619) |
-| `fn` | [`updateActive`](../youtube-playback-plox.user.js#L20640) | [20640](../youtube-playback-plox.user.js#L20640) |
-| `fn` | [`updateFromInputs`](../youtube-playback-plox.user.js#L20761) | [20761](../youtube-playback-plox.user.js#L20761) |
-| `fn` | [`createSearchInput`](../youtube-playback-plox.user.js#L20816) | [20816](../youtube-playback-plox.user.js#L20816) |
+| `fn` | [`notifySeekOrProgress`](../youtube-playback-plox.user.js#L15447) | [15447](../youtube-playback-plox.user.js#L15447) |
 
-## [📂 Video List UI](../youtube-playback-plox.user.js#L20841)
-> [Line 20841](../youtube-playback-plox.user.js#L20841)
+## [🎵 Video Selection](../youtube-playback-plox.user.js#L15503)
+> [Line 15503](../youtube-playback-plox.user.js#L15503)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`acquireBodyOverflow`](../youtube-playback-plox.user.js#L20869) | [20869](../youtube-playback-plox.user.js#L20869) |
-| `fn` | [`releaseBodyOverflow`](../youtube-playback-plox.user.js#L20883) | [20883](../youtube-playback-plox.user.js#L20883) |
-| `fn` | [`getVirtualScrollerVideoItems`](../youtube-playback-plox.user.js#L20949) | [20949](../youtube-playback-plox.user.js#L20949) |
-| `fn` | [`batchLoadStorageData`](../youtube-playback-plox.user.js#L20978) | [20978](../youtube-playback-plox.user.js#L20978) |
+| `fn` | [`toggleManagementMode`](../youtube-playback-plox.user.js#L15518) | [15518](../youtube-playback-plox.user.js#L15518) |
+| `fn` | [`buildSkipParts`](../youtube-playback-plox.user.js#L15537) | [15537](../youtube-playback-plox.user.js#L15537) |
+| `fn` | [`updateFooterButtons`](../youtube-playback-plox.user.js#L15551) | [15551](../youtube-playback-plox.user.js#L15551) |
+| `fn` | [`getCurrentlyOpenFooterMenu`](../youtube-playback-plox.user.js#L15628) | [15628](../youtube-playback-plox.user.js#L15628) |
+| `fn` | [`setCurrentlyOpenFooterMenu`](../youtube-playback-plox.user.js#L15635) | [15635](../youtube-playback-plox.user.js#L15635) |
+| `fn` | [`createFooterActionMenu`](../youtube-playback-plox.user.js#L15677) | [15677](../youtube-playback-plox.user.js#L15677) |
+| `fn` | [`onOutsideClick`](../youtube-playback-plox.user.js#L15707) | [15707](../youtube-playback-plox.user.js#L15707) |
+| `fn` | [`closeMenu`](../youtube-playback-plox.user.js#L15711) | [15711](../youtube-playback-plox.user.js#L15711) |
+| `fn` | [`openMenu`](../youtube-playback-plox.user.js#L15720) | [15720](../youtube-playback-plox.user.js#L15720) |
+| `fn` | [`closeImportMenu`](../youtube-playback-plox.user.js#L15816) | [15816](../youtube-playback-plox.user.js#L15816) |
+| `fn` | [`onImportOutsideClick`](../youtube-playback-plox.user.js#L15825) | [15825](../youtube-playback-plox.user.js#L15825) |
+| `fn` | [`refreshPlaylistState`](../youtube-playback-plox.user.js#L16227) | [16227](../youtube-playback-plox.user.js#L16227) |
+| `fn` | [`updateManagementFooterState`](../youtube-playback-plox.user.js#L16289) | [16289](../youtube-playback-plox.user.js#L16289) |
+| `fn` | [`togglePlaylistCreationMode`](../youtube-playback-plox.user.js#L16319) | [16319](../youtube-playback-plox.user.js#L16319) |
+| `fn` | [`copyToClipboard`](../youtube-playback-plox.user.js#L16338) | [16338](../youtube-playback-plox.user.js#L16338) |
+| `fn` | [`showSuccess`](../youtube-playback-plox.user.js#L16351) | [16351](../youtube-playback-plox.user.js#L16351) |
+| `fn` | [`syncSelectionCheckboxes`](../youtube-playback-plox.user.js#L16432) | [16432](../youtube-playback-plox.user.js#L16432) |
+| `fn` | [`createClearSelectionButton`](../youtube-playback-plox.user.js#L16445) | [16445](../youtube-playback-plox.user.js#L16445) |
+| `fn` | [`toggleVideoSelection`](../youtube-playback-plox.user.js#L16463) | [16463](../youtube-playback-plox.user.js#L16463) |
 
-## [📁 Update Video List](../youtube-playback-plox.user.js#L21019)
-> [Line 21019](../youtube-playback-plox.user.js#L21019)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`getSortValue`](../youtube-playback-plox.user.js#L21026) | [21026](../youtube-playback-plox.user.js#L21026) |
-| `fn` | [`prog`](../youtube-playback-plox.user.js#L21038) | [21038](../youtube-playback-plox.user.js#L21038) |
-| `fn` | [`prog`](../youtube-playback-plox.user.js#L21042) | [21042](../youtube-playback-plox.user.js#L21042) |
-| `fn` | [`showLoadingState`](../youtube-playback-plox.user.js#L21059) | [21059](../youtube-playback-plox.user.js#L21059) |
-| `fn` | [`loadVideoItems`](../youtube-playback-plox.user.js#L21122) | [21122](../youtube-playback-plox.user.js#L21122) |
-| `fn` | [`resolvePlaylistTitles`](../youtube-playback-plox.user.js#L21146) | [21146](../youtube-playback-plox.user.js#L21146) |
-| `fn` | [`filterItems`](../youtube-playback-plox.user.js#L21178) | [21178](../youtube-playback-plox.user.js#L21178) |
-| `fn` | [`buildVirtualItems`](../youtube-playback-plox.user.js#L21222) | [21222](../youtube-playback-plox.user.js#L21222) |
-| `fn` | [`flushRowChunk`](../youtube-playback-plox.user.js#L21234) | [21234](../youtube-playback-plox.user.js#L21234) |
-| `fn` | [`headerTitle`](../youtube-playback-plox.user.js#L21255) | [21255](../youtube-playback-plox.user.js#L21255) |
-| `fn` | [`showEmptyState`](../youtube-playback-plox.user.js#L21285) | [21285](../youtube-playback-plox.user.js#L21285) |
-| `fn` | [`showListLoadErrorState`](../youtube-playback-plox.user.js#L21318) | [21318](../youtube-playback-plox.user.js#L21318) |
-| `fn` | [`updateVirtualScroller`](../youtube-playback-plox.user.js#L21339) | [21339](../youtube-playback-plox.user.js#L21339) |
-| `fn` | [`initVirtualScroller`](../youtube-playback-plox.user.js#L21369) | [21369](../youtube-playback-plox.user.js#L21369) |
-| `fn` | [`itemWidth`](../youtube-playback-plox.user.js#L21415) | [21415](../youtube-playback-plox.user.js#L21415) |
-| `fn` | [`resolveGridCols`](../youtube-playback-plox.user.js#L21490) | [21490](../youtube-playback-plox.user.js#L21490) |
-| `fn` | [`destroyVirtualScroller`](../youtube-playback-plox.user.js#L21503) | [21503](../youtube-playback-plox.user.js#L21503) |
-| `fn` | [`disconnectVirtualScrollerObserver`](../youtube-playback-plox.user.js#L21517) | [21517](../youtube-playback-plox.user.js#L21517) |
-| `fn` | [`connectResizeObserver`](../youtube-playback-plox.user.js#L21532) | [21532](../youtube-playback-plox.user.js#L21532) |
-| `fn` | [`updateVideoList`](../youtube-playback-plox.user.js#L21565) | [21565](../youtube-playback-plox.user.js#L21565) |
-| `fn` | [`isCurrentRender`](../youtube-playback-plox.user.js#L21570) | [21570](../youtube-playback-plox.user.js#L21570) |
-| `fn` | [`requestVideoListUpdate`](../youtube-playback-plox.user.js#L21656) | [21656](../youtube-playback-plox.user.js#L21656) |
-| `fn` | [`closeModalVideos`](../youtube-playback-plox.user.js#L21667) | [21667](../youtube-playback-plox.user.js#L21667) |
-| `fn` | [`formatBytes`](../youtube-playback-plox.user.js#L21747) | [21747](../youtube-playback-plox.user.js#L21747) |
-| `fn` | [`calculateScriptStorageUsage`](../youtube-playback-plox.user.js#L21764) | [21764](../youtube-playback-plox.user.js#L21764) |
-| `fn` | [`updateStorageUsageIndicator`](../youtube-playback-plox.user.js#L21792) | [21792](../youtube-playback-plox.user.js#L21792) |
-
-## [🔘 Floating Button](../youtube-playback-plox.user.js#L21927)
-> [Line 21927](../youtube-playback-plox.user.js#L21927)
+## [📺 Video Observer & Processing Manager](../youtube-playback-plox.user.js#L16495)
+> [Line 16495](../youtube-playback-plox.user.js#L16495)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`createFloatingButton`](../youtube-playback-plox.user.js#L21930) | [21930](../youtube-playback-plox.user.js#L21930) |
-| `fn` | [`updateVisibility`](../youtube-playback-plox.user.js#L21945) | [21945](../youtube-playback-plox.user.js#L21945) |
+| `fn` | [`RouteContextResolver`](../youtube-playback-plox.user.js#L16501) | [16501](../youtube-playback-plox.user.js#L16501) |
+| `module` | [`RouteContextResolver`](../youtube-playback-plox.user.js#L16501) | [16501](../youtube-playback-plox.user.js#L16501) |
+| `fn` | [`isMiniplayerBlockingPreview`](../youtube-playback-plox.user.js#L16502) | [16502](../youtube-playback-plox.user.js#L16502) |
+| `module` | [`CONTEXTS`](../youtube-playback-plox.user.js#L16511) | [16511](../youtube-playback-plox.user.js#L16511) |
+| `fn` | [`getContextRoot`](../youtube-playback-plox.user.js#L16524) | [16524](../youtube-playback-plox.user.js#L16524) |
+| `fn` | [`computeContextScore`](../youtube-playback-plox.user.js#L16535) | [16535](../youtube-playback-plox.user.js#L16535) |
+| `fn` | [`resolveContext`](../youtube-playback-plox.user.js#L16552) | [16552](../youtube-playback-plox.user.js#L16552) |
+| `fn` | [`getIneligibilityReason`](../youtube-playback-plox.user.js#L16586) | [16586](../youtube-playback-plox.user.js#L16586) |
+| `fn` | [`canProcessContext`](../youtube-playback-plox.user.js#L16611) | [16611](../youtube-playback-plox.user.js#L16611) |
+| `fn` | [`isContextLocked`](../youtube-playback-plox.user.js#L16613) | [16613](../youtube-playback-plox.user.js#L16613) |
+| `fn` | [`SessionTelemetry`](../youtube-playback-plox.user.js#L16632) | [16632](../youtube-playback-plox.user.js#L16632) |
+| `module` | [`SessionTelemetry`](../youtube-playback-plox.user.js#L16632) | [16632](../youtube-playback-plox.user.js#L16632) |
+| `fn` | [`emit`](../youtube-playback-plox.user.js#L16634) | [16634](../youtube-playback-plox.user.js#L16634) |
+| `fn` | [`logRoutingDecision`](../youtube-playback-plox.user.js#L16658) | [16658](../youtube-playback-plox.user.js#L16658) |
+| `fn` | [`shouldDropVideoEvent`](../youtube-playback-plox.user.js#L16667) | [16667](../youtube-playback-plox.user.js#L16667) |
+| `fn` | [`FailSafeManager`](../youtube-playback-plox.user.js#L16676) | [16676](../youtube-playback-plox.user.js#L16676) |
+| `module` | [`FailSafeManager`](../youtube-playback-plox.user.js#L16676) | [16676](../youtube-playback-plox.user.js#L16676) |
+| `fn` | [`prune`](../youtube-playback-plox.user.js#L16687) | [16687](../youtube-playback-plox.user.js#L16687) |
+| `fn` | [`getTotal`](../youtube-playback-plox.user.js#L16692) | [16692](../youtube-playback-plox.user.js#L16692) |
+| `fn` | [`track`](../youtube-playback-plox.user.js#L16697) | [16697](../youtube-playback-plox.user.js#L16697) |
+| `fn` | [`note`](../youtube-playback-plox.user.js#L16717) | [16717](../youtube-playback-plox.user.js#L16717) |
+| `fn` | [`maybeExit`](../youtube-playback-plox.user.js#L16721) | [16721](../youtube-playback-plox.user.js#L16721) |
+| `fn` | [`SessionFallbackManager`](../youtube-playback-plox.user.js#L16739) | [16739](../youtube-playback-plox.user.js#L16739) |
+| `module` | [`SessionFallbackManager`](../youtube-playback-plox.user.js#L16739) | [16739](../youtube-playback-plox.user.js#L16739) |
+| `fn` | [`clear`](../youtube-playback-plox.user.js#L16741) | [16741](../youtube-playback-plox.user.js#L16741) |
+| `fn` | [`ensureForSession`](../youtube-playback-plox.user.js#L16749) | [16749](../youtube-playback-plox.user.js#L16749) |
 
-## [📂 Show Saved Videos List](../youtube-playback-plox.user.js#L21956)
-> [Line 21956](../youtube-playback-plox.user.js#L21956)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`showSavedVideosList`](../youtube-playback-plox.user.js#L21959) | [21959](../youtube-playback-plox.user.js#L21959) |
-| `fn` | [`toggleAdvanced`](../youtube-playback-plox.user.js#L22097) | [22097](../youtube-playback-plox.user.js#L22097) |
-| `fn` | [`updateActiveFilterBadge`](../youtube-playback-plox.user.js#L22107) | [22107](../youtube-playback-plox.user.js#L22107) |
-| `fn` | [`handleOverlayClick`](../youtube-playback-plox.user.js#L22177) | [22177](../youtube-playback-plox.user.js#L22177) |
-| `fn` | [`onSavedVideosKeyDown`](../youtube-playback-plox.user.js#L22186) | [22186](../youtube-playback-plox.user.js#L22186) |
-
-## [📂 Video Entry](../youtube-playback-plox.user.js#L22217)
-> [Line 22217](../youtube-playback-plox.user.js#L22217)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`pickPlaylistVariant`](../youtube-playback-plox.user.js#L22226) | [22226](../youtube-playback-plox.user.js#L22226) |
-| `fn` | [`generatePlaylistColor`](../youtube-playback-plox.user.js#L22253) | [22253](../youtube-playback-plox.user.js#L22253) |
-| `fn` | [`generatePlaylistBorderColor`](../youtube-playback-plox.user.js#L22266) | [22266](../youtube-playback-plox.user.js#L22266) |
-| `fn` | [`handleForceTimeAction`](../youtube-playback-plox.user.js#L22270) | [22270](../youtube-playback-plox.user.js#L22270) |
-| `fn` | [`handleUnlinkPlaylistAction`](../youtube-playback-plox.user.js#L22336) | [22336](../youtube-playback-plox.user.js#L22336) |
-| `fn` | [`handleDeleteEntryAction`](../youtube-playback-plox.user.js#L22358) | [22358](../youtube-playback-plox.user.js#L22358) |
-| `fn` | [`undoDelete`](../youtube-playback-plox.user.js#L22391) | [22391](../youtube-playback-plox.user.js#L22391) |
-| `fn` | [`handleToggleProtectionAction`](../youtube-playback-plox.user.js#L22420) | [22420](../youtube-playback-plox.user.js#L22420) |
-| `fn` | [`cleanTitleForSpotifySearch`](../youtube-playback-plox.user.js#L22461) | [22461](../youtube-playback-plox.user.js#L22461) |
-| `fn` | [`savedVideoActionIdToAttrSuffix`](../youtube-playback-plox.user.js#L22509) | [22509](../youtube-playback-plox.user.js#L22509) |
-| `fn` | [`closeSavedVideoOverflowMenu`](../youtube-playback-plox.user.js#L22515) | [22515](../youtube-playback-plox.user.js#L22515) |
-| `fn` | [`rowElToSavedVideoActionContext`](../youtube-playback-plox.user.js#L22534) | [22534](../youtube-playback-plox.user.js#L22534) |
-| `fn` | [`openSavedVideosRowActionMenu`](../youtube-playback-plox.user.js#L22568) | [22568](../youtube-playback-plox.user.js#L22568) |
-| `fn` | [`applySavedVideoActionDatasetToVideosContainer`](../youtube-playback-plox.user.js#L22620) | [22620](../youtube-playback-plox.user.js#L22620) |
-| `fn` | [`entryButtonsShown`](../youtube-playback-plox.user.js#L22635) | [22635](../youtube-playback-plox.user.js#L22635) |
-| `fn` | [`generateVideoObsidianMarkdown`](../youtube-playback-plox.user.js#L22676) | [22676](../youtube-playback-plox.user.js#L22676) |
-| `fn` | [`formatDate`](../youtube-playback-plox.user.js#L22709) | [22709](../youtube-playback-plox.user.js#L22709) |
-| `fn` | [`formatRelativeDate`](../youtube-playback-plox.user.js#L22715) | [22715](../youtube-playback-plox.user.js#L22715) |
-| `fn` | [`formatDuration`](../youtube-playback-plox.user.js#L22731) | [22731](../youtube-playback-plox.user.js#L22731) |
-| `fn` | [`watchPercent`](../youtube-playback-plox.user.js#L22741) | [22741](../youtube-playback-plox.user.js#L22741) |
-| `fn` | [`progressBar`](../youtube-playback-plox.user.js#L22749) | [22749](../youtube-playback-plox.user.js#L22749) |
-| `fn` | [`escYaml`](../youtube-playback-plox.user.js#L22754) | [22754](../youtube-playback-plox.user.js#L22754) |
-| `fn` | [`escMd`](../youtube-playback-plox.user.js#L22761) | [22761](../youtube-playback-plox.user.js#L22761) |
-| `fn` | [`oneLine`](../youtube-playback-plox.user.js#L22764) | [22764](../youtube-playback-plox.user.js#L22764) |
-| `fn` | [`formatDescription`](../youtube-playback-plox.user.js#L22768) | [22768](../youtube-playback-plox.user.js#L22768) |
-| `fn` | [`normHistory`](../youtube-playback-plox.user.js#L22814) | [22814](../youtube-playback-plox.user.js#L22814) |
-| `module` | [`normHistory`](../youtube-playback-plox.user.js#L22814) | [22814](../youtube-playback-plox.user.js#L22814) |
-| `fn` | [`validEvents`](../youtube-playback-plox.user.js#L22828) | [22828](../youtube-playback-plox.user.js#L22828) |
-| `fn` | [`createModeSelector`](../youtube-playback-plox.user.js#L23102) | [23102](../youtube-playback-plox.user.js#L23102) |
-| `fn` | [`sync`](../youtube-playback-plox.user.js#L23103) | [23103](../youtube-playback-plox.user.js#L23103) |
-| `fn` | [`createViewModeSelector`](../youtube-playback-plox.user.js#L23135) | [23135](../youtube-playback-plox.user.js#L23135) |
-| `fn` | [`syncGridOptionsVisibility`](../youtube-playback-plox.user.js#L23152) | [23152](../youtube-playback-plox.user.js#L23152) |
-| `fn` | [`isGrid`](../youtube-playback-plox.user.js#L23153) | [23153](../youtube-playback-plox.user.js#L23153) |
-| `fn` | [`syncViewModeBtn`](../youtube-playback-plox.user.js#L23169) | [23169](../youtube-playback-plox.user.js#L23169) |
-| `fn` | [`isGrid`](../youtube-playback-plox.user.js#L23170) | [23170](../youtube-playback-plox.user.js#L23170) |
-| `fn` | [`syncExpModeBtn`](../youtube-playback-plox.user.js#L23219) | [23219](../youtube-playback-plox.user.js#L23219) |
-| `fn` | [`createOverflowToggle`](../youtube-playback-plox.user.js#L23250) | [23250](../youtube-playback-plox.user.js#L23250) |
-| `fn` | [`makeToolbarGroup`](../youtube-playback-plox.user.js#L23289) | [23289](../youtube-playback-plox.user.js#L23289) |
-| `fn` | [`makeDisplayToggle`](../youtube-playback-plox.user.js#L23311) | [23311](../youtube-playback-plox.user.js#L23311) |
-| `fn` | [`mountSavedVideosModalActionsToolbar`](../youtube-playback-plox.user.js#L23345) | [23345](../youtube-playback-plox.user.js#L23345) |
-| `fn` | [`syncSectionExpanded`](../youtube-playback-plox.user.js#L23368) | [23368](../youtube-playback-plox.user.js#L23368) |
-| `fn` | [`makeToggleRow`](../youtube-playback-plox.user.js#L23382) | [23382](../youtube-playback-plox.user.js#L23382) |
-| `fn` | [`makeModeRow`](../youtube-playback-plox.user.js#L23528) | [23528](../youtube-playback-plox.user.js#L23528) |
-| `fn` | [`setupModalEventDelegation`](../youtube-playback-plox.user.js#L23678) | [23678](../youtube-playback-plox.user.js#L23678) |
-| `fn` | [`applyThumbnailToImage`](../youtube-playback-plox.user.js#L23734) | [23734](../youtube-playback-plox.user.js#L23734) |
-| `fn` | [`removeLoadListener`](../youtube-playback-plox.user.js#L23743) | [23743](../youtube-playback-plox.user.js#L23743) |
-| `fn` | [`removeErrorListener`](../youtube-playback-plox.user.js#L23744) | [23744](../youtube-playback-plox.user.js#L23744) |
-| `fn` | [`finish`](../youtube-playback-plox.user.js#L23750) | [23750](../youtube-playback-plox.user.js#L23750) |
-| `fn` | [`loadCandidate`](../youtube-playback-plox.user.js#L23765) | [23765](../youtube-playback-plox.user.js#L23765) |
-| `fn` | [`createVideoGridRow`](../youtube-playback-plox.user.js#L23800) | [23800](../youtube-playback-plox.user.js#L23800) |
-| `fn` | [`thumbClass`](../youtube-playback-plox.user.js#L23817) | [23817](../youtube-playback-plox.user.js#L23817) |
-| `fn` | [`scheduleHeightUpdate`](../youtube-playback-plox.user.js#L23866) | [23866](../youtube-playback-plox.user.js#L23866) |
-| `fn` | [`rowItemsElements`](../youtube-playback-plox.user.js#L23913) | [23913](../youtube-playback-plox.user.js#L23913) |
-| `fn` | [`createVideoEntry`](../youtube-playback-plox.user.js#L23927) | [23927](../youtube-playback-plox.user.js#L23927) |
-| `fn` | [`createButtonForId`](../youtube-playback-plox.user.js#L24156) | [24156](../youtube-playback-plox.user.js#L24156) |
-| `fn` | [`qaButtons`](../youtube-playback-plox.user.js#L24179) | [24179](../youtube-playback-plox.user.js#L24179) |
-| `fn` | [`actButtons`](../youtube-playback-plox.user.js#L24180) | [24180](../youtube-playback-plox.user.js#L24180) |
-
-## [🗑️ Clear All Data](../youtube-playback-plox.user.js#L24238)
-> [Line 24238](../youtube-playback-plox.user.js#L24238)
+## [📡 Video Observer Manager](../youtube-playback-plox.user.js#L16799)
+> [Line 16799](../youtube-playback-plox.user.js#L16799)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`restoreDeletedRecordIfUnchanged`](../youtube-playback-plox.user.js#L24257) | [24257](../youtube-playback-plox.user.js#L24257) |
-| `fn` | [`canCommit`](../youtube-playback-plox.user.js#L24258) | [24258](../youtube-playback-plox.user.js#L24258) |
-| `fn` | [`clearAllData`](../youtube-playback-plox.user.js#L24287) | [24287](../youtube-playback-plox.user.js#L24287) |
-| `fn` | [`clearCommitGuard`](../youtube-playback-plox.user.js#L24302) | [24302](../youtube-playback-plox.user.js#L24302) |
-| `fn` | [`performClearAllData`](../youtube-playback-plox.user.js#L24322) | [24322](../youtube-playback-plox.user.js#L24322) |
-| `fn` | [`undoClearAll`](../youtube-playback-plox.user.js#L24506) | [24506](../youtube-playback-plox.user.js#L24506) |
-| `fn` | [`undoCommitGuard`](../youtube-playback-plox.user.js#L24509) | [24509](../youtube-playback-plox.user.js#L24509) |
-| `fn` | [`performUndoClearAll`](../youtube-playback-plox.user.js#L24522) | [24522](../youtube-playback-plox.user.js#L24522) |
+| `fn` | [`VideoObserverManager`](../youtube-playback-plox.user.js#L16812) | [16812](../youtube-playback-plox.user.js#L16812) |
+| `module` | [`VideoObserverManager`](../youtube-playback-plox.user.js#L16812) | [16812](../youtube-playback-plox.user.js#L16812) |
+| `fn` | [`resetSessionAndEnqueue`](../youtube-playback-plox.user.js#L16834) | [16834](../youtube-playback-plox.user.js#L16834) |
+| `fn` | [`processMutationsForVideo`](../youtube-playback-plox.user.js#L16854) | [16854](../youtube-playback-plox.user.js#L16854) |
+| `fn` | [`processBatch`](../youtube-playback-plox.user.js#L16880) | [16880](../youtube-playback-plox.user.js#L16880) |
+| `fn` | [`ensurePreviewWatchdog`](../youtube-playback-plox.user.js#L16927) | [16927](../youtube-playback-plox.user.js#L16927) |
+| `fn` | [`clearWatchPlayerWait`](../youtube-playback-plox.user.js#L16957) | [16957](../youtube-playback-plox.user.js#L16957) |
+| `fn` | [`waitForWatchPlayerReactive`](../youtube-playback-plox.user.js#L16979) | [16979](../youtube-playback-plox.user.js#L16979) |
+| `fn` | [`tryProcess`](../youtube-playback-plox.user.js#L16999) | [16999](../youtube-playback-plox.user.js#L16999) |
+| `fn` | [`bootstrap`](../youtube-playback-plox.user.js#L17055) | [17055](../youtube-playback-plox.user.js#L17055) |
+| `fn` | [`scheduleAdRecovery`](../youtube-playback-plox.user.js#L17123) | [17123](../youtube-playback-plox.user.js#L17123) |
+| `fn` | [`cleanup`](../youtube-playback-plox.user.js#L17133) | [17133](../youtube-playback-plox.user.js#L17133) |
+| `fn` | [`onAdWait`](../youtube-playback-plox.user.js#L17144) | [17144](../youtube-playback-plox.user.js#L17144) |
+| `fn` | [`enqueueVideo`](../youtube-playback-plox.user.js#L17176) | [17176](../youtube-playback-plox.user.js#L17176) |
+| `fn` | [`enqueueWithResolver`](../youtube-playback-plox.user.js#L17224) | [17224](../youtube-playback-plox.user.js#L17224) |
+| `fn` | [`requeueMiniplayer`](../youtube-playback-plox.user.js#L17235) | [17235](../youtube-playback-plox.user.js#L17235) |
+| `fn` | [`initObservers`](../youtube-playback-plox.user.js#L17259) | [17259](../youtube-playback-plox.user.js#L17259) |
+| `fn` | [`clearPlayerCache`](../youtube-playback-plox.user.js#L17385) | [17385](../youtube-playback-plox.user.js#L17385) |
+| `fn` | [`cleanup`](../youtube-playback-plox.user.js#L17607) | [17607](../youtube-playback-plox.user.js#L17607) |
+| `fn` | [`clearCache`](../youtube-playback-plox.user.js#L17648) | [17648](../youtube-playback-plox.user.js#L17648) |
 
-## [⚙️ Menu Commands](../youtube-playback-plox.user.js#L24590)
-> [Line 24590](../youtube-playback-plox.user.js#L24590)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`registerOwnedMenuCommand`](../youtube-playback-plox.user.js#L24599) | [24599](../youtube-playback-plox.user.js#L24599) |
-| `fn` | [`unregisterOwnedMenuCommands`](../youtube-playback-plox.user.js#L24609) | [24609](../youtube-playback-plox.user.js#L24609) |
-| `fn` | [`registerMenuCommands`](../youtube-playback-plox.user.js#L24622) | [24622](../youtube-playback-plox.user.js#L24622) |
-
-## [🔄 Data Migration](../youtube-playback-plox.user.js#L24648)
-> [Line 24648](../youtube-playback-plox.user.js#L24648)
-
-| Type | Name | Line |
-|---|---|---|
-| `fn` | [`normalizeVideoType`](../youtube-playback-plox.user.js#L24657) | [24657](../youtube-playback-plox.user.js#L24657) |
-| `fn` | [`cleanupNonVideoData`](../youtube-playback-plox.user.js#L24679) | [24679](../youtube-playback-plox.user.js#L24679) |
-| `fn` | [`videoKeysGM`](../youtube-playback-plox.user.js#L24706) | [24706](../youtube-playback-plox.user.js#L24706) |
-| `fn` | [`runAutoCleanup`](../youtube-playback-plox.user.js#L24927) | [24927](../youtube-playback-plox.user.js#L24927) |
-| `fn` | [`cleanupCommitGuard`](../youtube-playback-plox.user.js#L24947) | [24947](../youtube-playback-plox.user.js#L24947) |
-
-## [🚀 Init](../youtube-playback-plox.user.js#L25151)
-> [Line 25151](../youtube-playback-plox.user.js#L25151)
+## [Processing Functions](../youtube-playback-plox.user.js#L17678)
+> [Line 17678](../youtube-playback-plox.user.js#L17678)
 
 | Type | Name | Line |
 |---|---|---|
-| `fn` | [`initializeGlobal`](../youtube-playback-plox.user.js#L25164) | [25164](../youtube-playback-plox.user.js#L25164) |
-| `fn` | [`handleNavigation`](../youtube-playback-plox.user.js#L25188) | [25188](../youtube-playback-plox.user.js#L25188) |
-| `fn` | [`init`](../youtube-playback-plox.user.js#L25596) | [25596](../youtube-playback-plox.user.js#L25596) |
+| `fn` | [`isSessionStale`](../youtube-playback-plox.user.js#L17695) | [17695](../youtube-playback-plox.user.js#L17695) |
+| `fn` | [`scheduleIdMismatchRetry`](../youtube-playback-plox.user.js#L17721) | [17721](../youtube-playback-plox.user.js#L17721) |
+| `fn` | [`createSessionTimeout`](../youtube-playback-plox.user.js#L17765) | [17765](../youtube-playback-plox.user.js#L17765) |
+| `fn` | [`clearSessionTimeouts`](../youtube-playback-plox.user.js#L17792) | [17792](../youtube-playback-plox.user.js#L17792) |
+| `fn` | [`SessionOrchestrator`](../youtube-playback-plox.user.js#L17802) | [17802](../youtube-playback-plox.user.js#L17802) |
+| `module` | [`SessionOrchestrator`](../youtube-playback-plox.user.js#L17802) | [17802](../youtube-playback-plox.user.js#L17802) |
+| `fn` | [`clearPendingRecovery`](../youtube-playback-plox.user.js#L17822) | [17822](../youtube-playback-plox.user.js#L17822) |
+| `fn` | [`buildSessionId`](../youtube-playback-plox.user.js#L17827) | [17827](../youtube-playback-plox.user.js#L17827) |
+| `fn` | [`buildIdentityKey`](../youtube-playback-plox.user.js#L17832) | [17832](../youtube-playback-plox.user.js#L17832) |
+| `fn` | [`canTransition`](../youtube-playback-plox.user.js#L17839) | [17839](../youtube-playback-plox.user.js#L17839) |
+| `fn` | [`transitionState`](../youtube-playback-plox.user.js#L17845) | [17845](../youtube-playback-plox.user.js#L17845) |
+| `fn` | [`startSession`](../youtube-playback-plox.user.js#L17863) | [17863](../youtube-playback-plox.user.js#L17863) |
+| `fn` | [`finalizeSession`](../youtube-playback-plox.user.js#L17961) | [17961](../youtube-playback-plox.user.js#L17961) |
+| `fn` | [`handoffSession`](../youtube-playback-plox.user.js#L18025) | [18025](../youtube-playback-plox.user.js#L18025) |
+| `fn` | [`shouldSkipResumeForActivePlayback`](../youtube-playback-plox.user.js#L18071) | [18071](../youtube-playback-plox.user.js#L18071) |
+| `fn` | [`isAwaitingFirstPlayback`](../youtube-playback-plox.user.js#L18103) | [18103](../youtube-playback-plox.user.js#L18103) |
+| `fn` | [`isProgressInCompletionZone`](../youtube-playback-plox.user.js#L18122) | [18122](../youtube-playback-plox.user.js#L18122) |
+| `fn` | [`finishPercent`](../youtube-playback-plox.user.js#L18126) | [18126](../youtube-playback-plox.user.js#L18126) |
+| `fn` | [`isPlayerReportingEnd`](../youtube-playback-plox.user.js#L18139) | [18139](../youtube-playback-plox.user.js#L18139) |
+| `fn` | [`isResumeAtCompletionZone`](../youtube-playback-plox.user.js#L18156) | [18156](../youtube-playback-plox.user.js#L18156) |
+| `fn` | [`finishPercent`](../youtube-playback-plox.user.js#L18167) | [18167](../youtube-playback-plox.user.js#L18167) |
+| `fn` | [`stopAllSessions`](../youtube-playback-plox.user.js#L18179) | [18179](../youtube-playback-plox.user.js#L18179) |
+| `fn` | [`absorbSaveResult`](../youtube-playback-plox.user.js#L18212) | [18212](../youtube-playback-plox.user.js#L18212) |
+| `fn` | [`startProcessingSession`](../youtube-playback-plox.user.js#L18226) | [18226](../youtube-playback-plox.user.js#L18226) |
+| `fn` | [`fastPlaylistId`](../youtube-playback-plox.user.js#L18301) | [18301](../youtube-playback-plox.user.js#L18301) |
+| `fn` | [`handleNaturalEnd`](../youtube-playback-plox.user.js#L18326) | [18326](../youtube-playback-plox.user.js#L18326) |
+| `fn` | [`persistCompletion`](../youtube-playback-plox.user.js#L18335) | [18335](../youtube-playback-plox.user.js#L18335) |
+| `fn` | [`handleSeekingForGradient`](../youtube-playback-plox.user.js#L18366) | [18366](../youtube-playback-plox.user.js#L18366) |
+| `fn` | [`handleSeekedForGradient`](../youtube-playback-plox.user.js#L18376) | [18376](../youtube-playback-plox.user.js#L18376) |
+| `fn` | [`canValidateStandalone`](../youtube-playback-plox.user.js#L18515) | [18515](../youtube-playback-plox.user.js#L18515) |
+| `fn` | [`sessionTick`](../youtube-playback-plox.user.js#L18540) | [18540](../youtube-playback-plox.user.js#L18540) |
+| `fn` | [`isHiddenGhost`](../youtube-playback-plox.user.js#L18669) | [18669](../youtube-playback-plox.user.js#L18669) |
+| `module` | [`PROCESS_MEDIA_VIDEO_CONFIG`](../youtube-playback-plox.user.js#L18868) | [18868](../youtube-playback-plox.user.js#L18868) |
+| `fn` | [`helperVideoId`](../youtube-playback-plox.user.js#L18981) | [18981](../youtube-playback-plox.user.js#L18981) |
+| `fn` | [`processMediaVideo`](../youtube-playback-plox.user.js#L19096) | [19096](../youtube-playback-plox.user.js#L19096) |
+
+## [PlaybackController](../youtube-playback-plox.user.js#L19151)
+> [Line 19151](../youtube-playback-plox.user.js#L19151)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`mapLiveAbsoluteToWindow`](../youtube-playback-plox.user.js#L19166) | [19166](../youtube-playback-plox.user.js#L19166) |
+| `fn` | [`applySeek`](../youtube-playback-plox.user.js#L19192) | [19192](../youtube-playback-plox.user.js#L19192) |
+| `fn` | [`getExpectedDuration`](../youtube-playback-plox.user.js#L19247) | [19247](../youtube-playback-plox.user.js#L19247) |
+| `fn` | [`isReady`](../youtube-playback-plox.user.js#L19264) | [19264](../youtube-playback-plox.user.js#L19264) |
+| `fn` | [`removeMetadataListener`](../youtube-playback-plox.user.js#L19288) | [19288](../youtube-playback-plox.user.js#L19288) |
+| `fn` | [`removeCanPlayListener`](../youtube-playback-plox.user.js#L19289) | [19289](../youtube-playback-plox.user.js#L19289) |
+| `fn` | [`removeAbortListener`](../youtube-playback-plox.user.js#L19290) | [19290](../youtube-playback-plox.user.js#L19290) |
+| `fn` | [`cleanup`](../youtube-playback-plox.user.js#L19291) | [19291](../youtube-playback-plox.user.js#L19291) |
+| `fn` | [`rejectAsStale`](../youtube-playback-plox.user.js#L19297) | [19297](../youtube-playback-plox.user.js#L19297) |
+| `fn` | [`onReady`](../youtube-playback-plox.user.js#L19301) | [19301](../youtube-playback-plox.user.js#L19301) |
+| `fn` | [`onAbort`](../youtube-playback-plox.user.js#L19310) | [19310](../youtube-playback-plox.user.js#L19310) |
+| `fn` | [`restoreThrottleMarker`](../youtube-playback-plox.user.js#L19527) | [19527](../youtube-playback-plox.user.js#L19527) |
+| `fn` | [`readApiNumber`](../youtube-playback-plox.user.js#L19542) | [19542](../youtube-playback-plox.user.js#L19542) |
+| `fn` | [`cooldownElapsed`](../youtube-playback-plox.user.js#L19697) | [19697](../youtube-playback-plox.user.js#L19697) |
+
+## [📋 Get Cascaded Video Info](../youtube-playback-plox.user.js#L19845)
+> [Line 19845](../youtube-playback-plox.user.js#L19845)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`getInnerTubeConfig`](../youtube-playback-plox.user.js#L19882) | [19882](../youtube-playback-plox.user.js#L19882) |
+| `fn` | [`fetchInnerTubeJson`](../youtube-playback-plox.user.js#L19897) | [19897](../youtube-playback-plox.user.js#L19897) |
+| `fn` | [`fetchShortsViews`](../youtube-playback-plox.user.js#L19931) | [19931](../youtube-playback-plox.user.js#L19931) |
+| `fn` | [`fetchPlaylistTitle`](../youtube-playback-plox.user.js#L19944) | [19944](../youtube-playback-plox.user.js#L19944) |
+| `fn` | [`getCascadedVideoInfo`](../youtube-playback-plox.user.js#L19954) | [19954](../youtube-playback-plox.user.js#L19954) |
+| `fn` | [`finalizeInfo`](../youtube-playback-plox.user.js#L19999) | [19999](../youtube-playback-plox.user.js#L19999) |
+
+## [📂 Sort UI](../youtube-playback-plox.user.js#L20383)
+> [Line 20383](../youtube-playback-plox.user.js#L20383)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`createCustomDropdown`](../youtube-playback-plox.user.js#L20401) | [20401](../youtube-playback-plox.user.js#L20401) |
+| `fn` | [`findOption`](../youtube-playback-plox.user.js#L20412) | [20412](../youtube-playback-plox.user.js#L20412) |
+| `fn` | [`openList`](../youtube-playback-plox.user.js#L20488) | [20488](../youtube-playback-plox.user.js#L20488) |
+| `fn` | [`closeList`](../youtube-playback-plox.user.js#L20504) | [20504](../youtube-playback-plox.user.js#L20504) |
+| `fn` | [`onOutsideClick`](../youtube-playback-plox.user.js#L20512) | [20512](../youtube-playback-plox.user.js#L20512) |
+| `fn` | [`createSortSelector`](../youtube-playback-plox.user.js#L20529) | [20529](../youtube-playback-plox.user.js#L20529) |
+| `fn` | [`updateActive`](../youtube-playback-plox.user.js#L20532) | [20532](../youtube-playback-plox.user.js#L20532) |
+
+## [📂 Filters UI](../youtube-playback-plox.user.js#L20585)
+> [Line 20585](../youtube-playback-plox.user.js#L20585)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`createFilterSelector`](../youtube-playback-plox.user.js#L20594) | [20594](../youtube-playback-plox.user.js#L20594) |
+| `fn` | [`updateActive`](../youtube-playback-plox.user.js#L20597) | [20597](../youtube-playback-plox.user.js#L20597) |
+| `fn` | [`createRangeFilter`](../youtube-playback-plox.user.js#L20642) | [20642](../youtube-playback-plox.user.js#L20642) |
+| `fn` | [`isDefault`](../youtube-playback-plox.user.js#L20645) | [20645](../youtube-playback-plox.user.js#L20645) |
+| `fn` | [`getProgressIcon`](../youtube-playback-plox.user.js#L20651) | [20651](../youtube-playback-plox.user.js#L20651) |
+| `fn` | [`updateActive`](../youtube-playback-plox.user.js#L20672) | [20672](../youtube-playback-plox.user.js#L20672) |
+| `fn` | [`updateFromInputs`](../youtube-playback-plox.user.js#L20793) | [20793](../youtube-playback-plox.user.js#L20793) |
+| `fn` | [`createSearchInput`](../youtube-playback-plox.user.js#L20848) | [20848](../youtube-playback-plox.user.js#L20848) |
+
+## [📂 Video List UI](../youtube-playback-plox.user.js#L20873)
+> [Line 20873](../youtube-playback-plox.user.js#L20873)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`acquireBodyOverflow`](../youtube-playback-plox.user.js#L20901) | [20901](../youtube-playback-plox.user.js#L20901) |
+| `fn` | [`releaseBodyOverflow`](../youtube-playback-plox.user.js#L20915) | [20915](../youtube-playback-plox.user.js#L20915) |
+| `fn` | [`getVirtualScrollerVideoItems`](../youtube-playback-plox.user.js#L20981) | [20981](../youtube-playback-plox.user.js#L20981) |
+| `fn` | [`batchLoadStorageData`](../youtube-playback-plox.user.js#L21010) | [21010](../youtube-playback-plox.user.js#L21010) |
+
+## [📁 Update Video List](../youtube-playback-plox.user.js#L21051)
+> [Line 21051](../youtube-playback-plox.user.js#L21051)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`getSortValue`](../youtube-playback-plox.user.js#L21058) | [21058](../youtube-playback-plox.user.js#L21058) |
+| `fn` | [`prog`](../youtube-playback-plox.user.js#L21070) | [21070](../youtube-playback-plox.user.js#L21070) |
+| `fn` | [`prog`](../youtube-playback-plox.user.js#L21074) | [21074](../youtube-playback-plox.user.js#L21074) |
+| `fn` | [`showLoadingState`](../youtube-playback-plox.user.js#L21091) | [21091](../youtube-playback-plox.user.js#L21091) |
+| `fn` | [`loadVideoItems`](../youtube-playback-plox.user.js#L21154) | [21154](../youtube-playback-plox.user.js#L21154) |
+| `fn` | [`resolvePlaylistTitles`](../youtube-playback-plox.user.js#L21178) | [21178](../youtube-playback-plox.user.js#L21178) |
+| `fn` | [`filterItems`](../youtube-playback-plox.user.js#L21210) | [21210](../youtube-playback-plox.user.js#L21210) |
+| `fn` | [`buildVirtualItems`](../youtube-playback-plox.user.js#L21254) | [21254](../youtube-playback-plox.user.js#L21254) |
+| `fn` | [`flushRowChunk`](../youtube-playback-plox.user.js#L21266) | [21266](../youtube-playback-plox.user.js#L21266) |
+| `fn` | [`headerTitle`](../youtube-playback-plox.user.js#L21287) | [21287](../youtube-playback-plox.user.js#L21287) |
+| `fn` | [`showEmptyState`](../youtube-playback-plox.user.js#L21317) | [21317](../youtube-playback-plox.user.js#L21317) |
+| `fn` | [`showListLoadErrorState`](../youtube-playback-plox.user.js#L21350) | [21350](../youtube-playback-plox.user.js#L21350) |
+| `fn` | [`updateVirtualScroller`](../youtube-playback-plox.user.js#L21371) | [21371](../youtube-playback-plox.user.js#L21371) |
+| `fn` | [`initVirtualScroller`](../youtube-playback-plox.user.js#L21401) | [21401](../youtube-playback-plox.user.js#L21401) |
+| `fn` | [`itemWidth`](../youtube-playback-plox.user.js#L21447) | [21447](../youtube-playback-plox.user.js#L21447) |
+| `fn` | [`resolveGridCols`](../youtube-playback-plox.user.js#L21522) | [21522](../youtube-playback-plox.user.js#L21522) |
+| `fn` | [`destroyVirtualScroller`](../youtube-playback-plox.user.js#L21535) | [21535](../youtube-playback-plox.user.js#L21535) |
+| `fn` | [`disconnectVirtualScrollerObserver`](../youtube-playback-plox.user.js#L21549) | [21549](../youtube-playback-plox.user.js#L21549) |
+| `fn` | [`connectResizeObserver`](../youtube-playback-plox.user.js#L21564) | [21564](../youtube-playback-plox.user.js#L21564) |
+| `fn` | [`updateVideoList`](../youtube-playback-plox.user.js#L21597) | [21597](../youtube-playback-plox.user.js#L21597) |
+| `fn` | [`isCurrentRender`](../youtube-playback-plox.user.js#L21602) | [21602](../youtube-playback-plox.user.js#L21602) |
+| `fn` | [`requestVideoListUpdate`](../youtube-playback-plox.user.js#L21688) | [21688](../youtube-playback-plox.user.js#L21688) |
+| `fn` | [`closeModalVideos`](../youtube-playback-plox.user.js#L21699) | [21699](../youtube-playback-plox.user.js#L21699) |
+| `fn` | [`formatBytes`](../youtube-playback-plox.user.js#L21779) | [21779](../youtube-playback-plox.user.js#L21779) |
+| `fn` | [`calculateScriptStorageUsage`](../youtube-playback-plox.user.js#L21796) | [21796](../youtube-playback-plox.user.js#L21796) |
+| `fn` | [`updateStorageUsageIndicator`](../youtube-playback-plox.user.js#L21824) | [21824](../youtube-playback-plox.user.js#L21824) |
+
+## [🔘 Floating Button](../youtube-playback-plox.user.js#L21959)
+> [Line 21959](../youtube-playback-plox.user.js#L21959)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`createFloatingButton`](../youtube-playback-plox.user.js#L21962) | [21962](../youtube-playback-plox.user.js#L21962) |
+| `fn` | [`updateVisibility`](../youtube-playback-plox.user.js#L21977) | [21977](../youtube-playback-plox.user.js#L21977) |
+
+## [📂 Show Saved Videos List](../youtube-playback-plox.user.js#L21988)
+> [Line 21988](../youtube-playback-plox.user.js#L21988)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`showSavedVideosList`](../youtube-playback-plox.user.js#L21991) | [21991](../youtube-playback-plox.user.js#L21991) |
+| `fn` | [`toggleAdvanced`](../youtube-playback-plox.user.js#L22129) | [22129](../youtube-playback-plox.user.js#L22129) |
+| `fn` | [`updateActiveFilterBadge`](../youtube-playback-plox.user.js#L22139) | [22139](../youtube-playback-plox.user.js#L22139) |
+| `fn` | [`handleOverlayClick`](../youtube-playback-plox.user.js#L22209) | [22209](../youtube-playback-plox.user.js#L22209) |
+| `fn` | [`onSavedVideosKeyDown`](../youtube-playback-plox.user.js#L22218) | [22218](../youtube-playback-plox.user.js#L22218) |
+
+## [📂 Video Entry](../youtube-playback-plox.user.js#L22249)
+> [Line 22249](../youtube-playback-plox.user.js#L22249)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`pickPlaylistVariant`](../youtube-playback-plox.user.js#L22258) | [22258](../youtube-playback-plox.user.js#L22258) |
+| `fn` | [`generatePlaylistColor`](../youtube-playback-plox.user.js#L22285) | [22285](../youtube-playback-plox.user.js#L22285) |
+| `fn` | [`generatePlaylistBorderColor`](../youtube-playback-plox.user.js#L22298) | [22298](../youtube-playback-plox.user.js#L22298) |
+| `fn` | [`handleForceTimeAction`](../youtube-playback-plox.user.js#L22302) | [22302](../youtube-playback-plox.user.js#L22302) |
+| `fn` | [`handleUnlinkPlaylistAction`](../youtube-playback-plox.user.js#L22368) | [22368](../youtube-playback-plox.user.js#L22368) |
+| `fn` | [`handleDeleteEntryAction`](../youtube-playback-plox.user.js#L22390) | [22390](../youtube-playback-plox.user.js#L22390) |
+| `fn` | [`undoDelete`](../youtube-playback-plox.user.js#L22423) | [22423](../youtube-playback-plox.user.js#L22423) |
+| `fn` | [`handleToggleProtectionAction`](../youtube-playback-plox.user.js#L22452) | [22452](../youtube-playback-plox.user.js#L22452) |
+| `fn` | [`cleanTitleForSpotifySearch`](../youtube-playback-plox.user.js#L22493) | [22493](../youtube-playback-plox.user.js#L22493) |
+| `fn` | [`savedVideoActionIdToAttrSuffix`](../youtube-playback-plox.user.js#L22541) | [22541](../youtube-playback-plox.user.js#L22541) |
+| `fn` | [`closeSavedVideoOverflowMenu`](../youtube-playback-plox.user.js#L22547) | [22547](../youtube-playback-plox.user.js#L22547) |
+| `fn` | [`rowElToSavedVideoActionContext`](../youtube-playback-plox.user.js#L22566) | [22566](../youtube-playback-plox.user.js#L22566) |
+| `fn` | [`openSavedVideosRowActionMenu`](../youtube-playback-plox.user.js#L22600) | [22600](../youtube-playback-plox.user.js#L22600) |
+| `fn` | [`applySavedVideoActionDatasetToVideosContainer`](../youtube-playback-plox.user.js#L22652) | [22652](../youtube-playback-plox.user.js#L22652) |
+| `fn` | [`entryButtonsShown`](../youtube-playback-plox.user.js#L22667) | [22667](../youtube-playback-plox.user.js#L22667) |
+| `fn` | [`generateVideoObsidianMarkdown`](../youtube-playback-plox.user.js#L22708) | [22708](../youtube-playback-plox.user.js#L22708) |
+| `fn` | [`formatDate`](../youtube-playback-plox.user.js#L22741) | [22741](../youtube-playback-plox.user.js#L22741) |
+| `fn` | [`formatRelativeDate`](../youtube-playback-plox.user.js#L22747) | [22747](../youtube-playback-plox.user.js#L22747) |
+| `fn` | [`formatDuration`](../youtube-playback-plox.user.js#L22763) | [22763](../youtube-playback-plox.user.js#L22763) |
+| `fn` | [`watchPercent`](../youtube-playback-plox.user.js#L22773) | [22773](../youtube-playback-plox.user.js#L22773) |
+| `fn` | [`progressBar`](../youtube-playback-plox.user.js#L22781) | [22781](../youtube-playback-plox.user.js#L22781) |
+| `fn` | [`escYaml`](../youtube-playback-plox.user.js#L22786) | [22786](../youtube-playback-plox.user.js#L22786) |
+| `fn` | [`escMd`](../youtube-playback-plox.user.js#L22793) | [22793](../youtube-playback-plox.user.js#L22793) |
+| `fn` | [`oneLine`](../youtube-playback-plox.user.js#L22796) | [22796](../youtube-playback-plox.user.js#L22796) |
+| `fn` | [`formatDescription`](../youtube-playback-plox.user.js#L22800) | [22800](../youtube-playback-plox.user.js#L22800) |
+| `fn` | [`normHistory`](../youtube-playback-plox.user.js#L22846) | [22846](../youtube-playback-plox.user.js#L22846) |
+| `module` | [`normHistory`](../youtube-playback-plox.user.js#L22846) | [22846](../youtube-playback-plox.user.js#L22846) |
+| `fn` | [`validEvents`](../youtube-playback-plox.user.js#L22860) | [22860](../youtube-playback-plox.user.js#L22860) |
+| `fn` | [`createModeSelector`](../youtube-playback-plox.user.js#L23134) | [23134](../youtube-playback-plox.user.js#L23134) |
+| `fn` | [`sync`](../youtube-playback-plox.user.js#L23135) | [23135](../youtube-playback-plox.user.js#L23135) |
+| `fn` | [`createViewModeSelector`](../youtube-playback-plox.user.js#L23167) | [23167](../youtube-playback-plox.user.js#L23167) |
+| `fn` | [`syncGridOptionsVisibility`](../youtube-playback-plox.user.js#L23184) | [23184](../youtube-playback-plox.user.js#L23184) |
+| `fn` | [`isGrid`](../youtube-playback-plox.user.js#L23185) | [23185](../youtube-playback-plox.user.js#L23185) |
+| `fn` | [`syncViewModeBtn`](../youtube-playback-plox.user.js#L23201) | [23201](../youtube-playback-plox.user.js#L23201) |
+| `fn` | [`isGrid`](../youtube-playback-plox.user.js#L23202) | [23202](../youtube-playback-plox.user.js#L23202) |
+| `fn` | [`syncExpModeBtn`](../youtube-playback-plox.user.js#L23251) | [23251](../youtube-playback-plox.user.js#L23251) |
+| `fn` | [`createOverflowToggle`](../youtube-playback-plox.user.js#L23282) | [23282](../youtube-playback-plox.user.js#L23282) |
+| `fn` | [`makeToolbarGroup`](../youtube-playback-plox.user.js#L23321) | [23321](../youtube-playback-plox.user.js#L23321) |
+| `fn` | [`makeDisplayToggle`](../youtube-playback-plox.user.js#L23343) | [23343](../youtube-playback-plox.user.js#L23343) |
+| `fn` | [`mountSavedVideosModalActionsToolbar`](../youtube-playback-plox.user.js#L23377) | [23377](../youtube-playback-plox.user.js#L23377) |
+| `fn` | [`syncSectionExpanded`](../youtube-playback-plox.user.js#L23400) | [23400](../youtube-playback-plox.user.js#L23400) |
+| `fn` | [`makeToggleRow`](../youtube-playback-plox.user.js#L23414) | [23414](../youtube-playback-plox.user.js#L23414) |
+| `fn` | [`makeModeRow`](../youtube-playback-plox.user.js#L23560) | [23560](../youtube-playback-plox.user.js#L23560) |
+| `fn` | [`setupModalEventDelegation`](../youtube-playback-plox.user.js#L23710) | [23710](../youtube-playback-plox.user.js#L23710) |
+| `fn` | [`applyThumbnailToImage`](../youtube-playback-plox.user.js#L23766) | [23766](../youtube-playback-plox.user.js#L23766) |
+| `fn` | [`removeLoadListener`](../youtube-playback-plox.user.js#L23775) | [23775](../youtube-playback-plox.user.js#L23775) |
+| `fn` | [`removeErrorListener`](../youtube-playback-plox.user.js#L23776) | [23776](../youtube-playback-plox.user.js#L23776) |
+| `fn` | [`finish`](../youtube-playback-plox.user.js#L23782) | [23782](../youtube-playback-plox.user.js#L23782) |
+| `fn` | [`loadCandidate`](../youtube-playback-plox.user.js#L23797) | [23797](../youtube-playback-plox.user.js#L23797) |
+| `fn` | [`createVideoGridRow`](../youtube-playback-plox.user.js#L23832) | [23832](../youtube-playback-plox.user.js#L23832) |
+| `fn` | [`thumbClass`](../youtube-playback-plox.user.js#L23849) | [23849](../youtube-playback-plox.user.js#L23849) |
+| `fn` | [`scheduleHeightUpdate`](../youtube-playback-plox.user.js#L23898) | [23898](../youtube-playback-plox.user.js#L23898) |
+| `fn` | [`rowItemsElements`](../youtube-playback-plox.user.js#L23945) | [23945](../youtube-playback-plox.user.js#L23945) |
+| `fn` | [`createVideoEntry`](../youtube-playback-plox.user.js#L23959) | [23959](../youtube-playback-plox.user.js#L23959) |
+| `fn` | [`createButtonForId`](../youtube-playback-plox.user.js#L24188) | [24188](../youtube-playback-plox.user.js#L24188) |
+| `fn` | [`qaButtons`](../youtube-playback-plox.user.js#L24211) | [24211](../youtube-playback-plox.user.js#L24211) |
+| `fn` | [`actButtons`](../youtube-playback-plox.user.js#L24212) | [24212](../youtube-playback-plox.user.js#L24212) |
+
+## [🗑️ Clear All Data](../youtube-playback-plox.user.js#L24270)
+> [Line 24270](../youtube-playback-plox.user.js#L24270)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`restoreDeletedRecordIfUnchanged`](../youtube-playback-plox.user.js#L24289) | [24289](../youtube-playback-plox.user.js#L24289) |
+| `fn` | [`canCommit`](../youtube-playback-plox.user.js#L24290) | [24290](../youtube-playback-plox.user.js#L24290) |
+| `fn` | [`clearAllData`](../youtube-playback-plox.user.js#L24319) | [24319](../youtube-playback-plox.user.js#L24319) |
+| `fn` | [`clearCommitGuard`](../youtube-playback-plox.user.js#L24334) | [24334](../youtube-playback-plox.user.js#L24334) |
+| `fn` | [`performClearAllData`](../youtube-playback-plox.user.js#L24354) | [24354](../youtube-playback-plox.user.js#L24354) |
+| `fn` | [`undoClearAll`](../youtube-playback-plox.user.js#L24538) | [24538](../youtube-playback-plox.user.js#L24538) |
+| `fn` | [`undoCommitGuard`](../youtube-playback-plox.user.js#L24541) | [24541](../youtube-playback-plox.user.js#L24541) |
+| `fn` | [`performUndoClearAll`](../youtube-playback-plox.user.js#L24554) | [24554](../youtube-playback-plox.user.js#L24554) |
+
+## [⚙️ Menu Commands](../youtube-playback-plox.user.js#L24622)
+> [Line 24622](../youtube-playback-plox.user.js#L24622)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`registerOwnedMenuCommand`](../youtube-playback-plox.user.js#L24631) | [24631](../youtube-playback-plox.user.js#L24631) |
+| `fn` | [`unregisterOwnedMenuCommands`](../youtube-playback-plox.user.js#L24641) | [24641](../youtube-playback-plox.user.js#L24641) |
+| `fn` | [`registerMenuCommands`](../youtube-playback-plox.user.js#L24654) | [24654](../youtube-playback-plox.user.js#L24654) |
+
+## [🔄 Data Migration](../youtube-playback-plox.user.js#L24680)
+> [Line 24680](../youtube-playback-plox.user.js#L24680)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`normalizeVideoType`](../youtube-playback-plox.user.js#L24689) | [24689](../youtube-playback-plox.user.js#L24689) |
+| `fn` | [`cleanupNonVideoData`](../youtube-playback-plox.user.js#L24711) | [24711](../youtube-playback-plox.user.js#L24711) |
+| `fn` | [`videoKeysGM`](../youtube-playback-plox.user.js#L24738) | [24738](../youtube-playback-plox.user.js#L24738) |
+| `fn` | [`runAutoCleanup`](../youtube-playback-plox.user.js#L24959) | [24959](../youtube-playback-plox.user.js#L24959) |
+| `fn` | [`cleanupCommitGuard`](../youtube-playback-plox.user.js#L24979) | [24979](../youtube-playback-plox.user.js#L24979) |
+
+## [🚀 Init](../youtube-playback-plox.user.js#L25183)
+> [Line 25183](../youtube-playback-plox.user.js#L25183)
+
+| Type | Name | Line |
+|---|---|---|
+| `fn` | [`initializeGlobal`](../youtube-playback-plox.user.js#L25196) | [25196](../youtube-playback-plox.user.js#L25196) |
+| `fn` | [`handleNavigation`](../youtube-playback-plox.user.js#L25220) | [25220](../youtube-playback-plox.user.js#L25220) |
+| `fn` | [`init`](../youtube-playback-plox.user.js#L25628) | [25628](../youtube-playback-plox.user.js#L25628) |
 

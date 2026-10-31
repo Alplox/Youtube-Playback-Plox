@@ -5125,13 +5125,43 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     border-radius: 8px;
     border: 1px solid var(--ypp-border);
     font-size: 1.4rem;
-    max-width: 300px;
+    max-width: min(300px, calc(100vw - 2 * var(--ypp-spacing-md) - 34px));
     animation: ypp-spring-toast-in 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     transition: opacity 0.2s ease, transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
     backdrop-filter: blur(10px);
     pointer-events: auto;
     overflow: hidden;
     /* So the progress bar does not overflow the rounded borders */
+}
+/* Toasts with buttons need room: the message goes on its own row so action
+   labels cannot squeeze (and visually clip) the main text. */
+.ypp-toast > span {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+.ypp-toast.has-actions {
+    flex-wrap: wrap;
+    align-items: center;
+    row-gap: 10px;
+    padding-right: 44px;
+    /* Border-box here: max-width already accounts for the padding, so the
+       action row can never push the toast off-screen on narrow viewports. */
+    box-sizing: border-box;
+    max-width: min(380px, calc(100vw - 2 * var(--ypp-spacing-md)));
+}
+.ypp-toast.has-actions > span {
+    flex: 1 1 100%;
+}
+.ypp-toast.has-actions .ypp-toast-actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    margin-left: 0;
+    justify-content: flex-end;
+}
+.ypp-toast.has-actions > .ypp-toast-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
 }
 .ypp-toast-progress {
     position: absolute;
@@ -14422,7 +14452,6 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         } else {
             toast = createElement('div', { className: 'ypp-toast sombra' });
             toast._yppDestroyed = false;
-            if (options.action) toast.classList.add('has-action');
             container.appendChild(toast);
             // Initialize opacity 0 before animating
             toast.style.opacity = '0';
@@ -14445,6 +14474,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
         toast.appendChild(messageSpan);
 
         const actions = options.actions || (options.action ? [options.action] : []);
+        // Reused persistent toasts keep their classes, so keep the layout class
+        // in sync with the actions actually rendered for this message.
+        toast.classList.toggle('has-actions', actions.length > 0);
         if (actions.length > 0) {
             const actionsContainer = createElement('div', { className: 'ypp-toast-actions' });
             actions.forEach(action => {

@@ -1,5 +1,5 @@
 # Userscript Structure
-> Auto-generated on 2026-10-31 · version 0.0.13
+> Auto-generated from `youtube-playback-plox.user.js` · version 0.0.13
 > **DO NOT EDIT MANUALLY** - regenerate with `node ./scripts/generate-structure.mjs`
 
 ---

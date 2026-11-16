@@ -12,15 +12,23 @@
  *
  * Output:
  *   - Creates/Updates 'docs/userscript-structure.md'.
+ *   - The output is deterministic (no generation date): the same source always
+ *     produces the same file, so CI can tell a real structural change from a
+ *     timestamp-only difference.
  *
  * Usage:
- *   node scripts/generate-structure.mjs
+ *   node scripts/generate-structure.mjs          # write the doc
+ *   node scripts/generate-structure.mjs --check  # verify, exit 1 if stale
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
 // Path to the source file relative to the docs/ output - used for links
 const SOURCE_FILE = 'youtube-playback-plox.user.js';
 const SOURCE_LINK = `../${SOURCE_FILE}`; // relative from docs/
+const OUTPUT_FILE = 'docs/userscript-structure.md';
+
+/** When set, the doc is compared instead of written (CI/local gate). */
+const CHECK_MODE = process.argv.includes('--check');
 
 const source = readFileSync(SOURCE_FILE, 'utf8');
 const lines = source.split('\n');
@@ -61,11 +69,10 @@ for (const line of lines) {
 if (currentMark) marks.push(currentMark);
 
 // Generate markdown
-const now = new Date().toISOString().split('T')[0];
 const version = source.match(/@version\s+(.+)/)?.[1]?.trim() ?? 'unknown';
 
 let md = `# Userscript Structure\n`;
-md += `> Auto-generated on ${now} · version ${version}\n`;
+md += `> Auto-generated from \`${SOURCE_FILE}\` · version ${version}\n`;
 md += "> **DO NOT EDIT MANUALLY** - regenerate with `node ./scripts/generate-structure.mjs`\n\n";
 md += `---\n\n`;
 md += `## Sections index\n\n`;
@@ -98,5 +105,52 @@ marks.forEach(mark => {
     md += `\n`;
 });
 
-writeFileSync('docs/userscript-structure.md', md);
-console.log(`✅ userscript-structure.md generated (${marks.length} sections)`);
+/**
+ * Compares the freshly generated markdown against the committed doc and exits
+ * with code 1 when they differ, pointing at the first divergent line.
+ * @param {string} generated Markdown produced from the current source.
+ * @returns {never} Calls `process.exit` in every path.
+ */
+function assertUpToDate(generated) {
+    let existing = '';
+    try {
+        existing = readFileSync(OUTPUT_FILE, 'utf8');
+    } catch {
+        console.error(`❌ ${OUTPUT_FILE} does not exist. Fix: node ./scripts/generate-structure.mjs`);
+        process.exit(1);
+    }
+    // Normalize CRLF so a Windows checkout (core.autocrlf) never reports a false drift.
+    if (existing.replace(/\r\n/g, '\n') === generated) {
+        console.log(`✅ ${OUTPUT_FILE} is up to date (${marks.length} sections)`);
+        process.exit(0);
+    }
+    const expectedLines = generated.split('\n');
+    const actualLines = existing.replace(/\r\n/g, '\n').split('\n');
+    let firstDiff = 0;
+    while (
+        firstDiff < expectedLines.length &&
+        firstDiff < actualLines.length &&
+        expectedLines[firstDiff] === actualLines[firstDiff]
+    ) {
+        firstDiff++;
+    }
+    /**
+     * Renders a diff line so an empty line is not printed as blank space.
+     * @param {string | undefined} value Line content, or undefined past the end.
+     * @returns {string} Printable representation.
+     */
+    const showLine = value => (value === undefined ? '(end of file)' : value === '' ? '(empty line)' : value);
+
+    console.error(`❌ ${OUTPUT_FILE} is stale (first difference at line ${firstDiff + 1}).`);
+    console.error(`   expected: ${showLine(expectedLines[firstDiff])}`);
+    console.error(`   found:    ${showLine(actualLines[firstDiff])}`);
+    console.error('   Fix: node ./scripts/generate-structure.mjs');
+    process.exit(1);
+}
+
+if (CHECK_MODE) {
+    assertUpToDate(md);
+}
+
+writeFileSync(OUTPUT_FILE, md);
+console.log(`✅ ${OUTPUT_FILE} generated (${marks.length} sections)`);

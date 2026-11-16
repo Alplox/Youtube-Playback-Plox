@@ -559,11 +559,12 @@ const isSamePageContext = lastHandledPageType === null || newPageType === lastHa
 
 ## Dev tooling: pnpm (v0.0.13)
 
-- **Single package manager**: commands are `pnpm install`, `pnpm run <script>` (`lint`, `lint:syntax`, `validate:translations`, `structure`, `audit`). Do not use `npm install`/`npm run`; mixing managers desyncs lockfiles.
+- **Single package manager**: commands are `pnpm install`, `pnpm run <script>` (`lint`, `lint:syntax`, `validate:translations`, `structure`, `structure:check`, `audit`). Do not use `npm install`/`npm run`; mixing managers desyncs lockfiles.
 - **`pnpm-lock.yaml` is versioned, `node_modules/` is not**: CI runs `pnpm install --frozen-lockfile`, so any `package.json` change without a regenerated lockfile fails the build by design.
 - **Zero-dependency lockfile is expected**: the repo ships no npm dependencies (only `node scripts/*.mjs`), so `pnpm-lock.yaml` contains just `lockfileVersion` + an empty importer. Do not delete it as "empty".
 - **Pinned toolchain**: `packageManager: pnpm@11.20.0` + `engines: node>=22.13` + `.npmrc` `engine-strict=true`. With Corepack enabled (`corepack enable`), the correct pnpm activates automatically.
 - **Node must be 22.13+ (CI uses 24)**: pnpm 11 loads the built-in `node:sqlite`, so on Node 20 every pnpm command dies with `ERR_UNKNOWN_BUILTIN_MODULE` — including the `pnpm store path` that `actions/setup-node`'s `cache: pnpm` runs. A workflow asking for `node-version: '20'` while pinning `pnpm@11.x` fails at the Node setup step, before `pnpm install`. Keep the workflow Node >= 22.13 (24 recommended, matches local dev) whenever the pinned pnpm is 11+.
+- **The structure doc must stay reproducible**: `generate-structure.mjs` used to stamp `new Date()` into `docs/userscript-structure.md`, which made the CI staleness check fail on the calendar, not on the code (a doc regenerated yesterday is "stale" today, and every line that carries a line number makes the diff look huge). The header is now `Auto-generated from … · version X` with no date, and `--check` only reports real drift (it also normalizes CRLF, so a Windows checkout does not produce false positives). Locally: `pnpm run structure` rewrites, `pnpm run structure:check` verifies (it is part of `pnpm run audit`). In CI the doc is regenerated and committed back on `main`; on PRs the job fails with `pnpm run structure`, because a fork branch cannot be pushed from the workflow.
 
 ## Mobile support: m.youtube.com (v0.0.13)
 

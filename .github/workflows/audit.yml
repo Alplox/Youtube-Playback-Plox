@@ -8,6 +8,8 @@ on:
 jobs:
   audit:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,8 +42,27 @@ jobs:
       - name: Validate translations
         run: node scripts/validate-translations.mjs
 
+      # Self-healing: the generated doc only depends on the source, so CI can
+      # rebuild it. On `main` the result is committed back; on pull requests
+      # (including forks) there is nothing to push to, so the check fails.
+      - name: Regenerate structure doc
+        run: node scripts/generate-structure.mjs
+
+      - name: Commit regenerated structure doc
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        run: |
+          git add docs/userscript-structure.md
+          git diff --cached --quiet && exit 0
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git commit -m 'docs: regenerate userscript-structure.md'
+          git pull --rebase --autostash
+          git push
+
       - name: Structure doc is up to date
         run: |
-          node scripts/generate-structure.mjs
-          git diff --exit-code docs/userscript-structure.md || \
-            (echo "::error::docs/userscript-structure.md is stale. Run: node scripts/generate-structure.mjs" && exit 1)
+          git diff --quiet -- docs/userscript-structure.md || (
+            echo "::error::docs/userscript-structure.md was stale and could not be committed (PR or protected branch). Run: pnpm run structure"
+            git diff --stat -- docs/userscript-structure.md
+            exit 1
+          )

@@ -1,6 +1,17 @@
 
 # Changelog
 
+## 0.0.13-1
+
+### Fixed
+
+- **Async failures in the delayed Settings menu and the auto-backup check escaped error handling**: the `document.body`-missing branch of the ⚙️ menu command used a synchronous `try/catch` around `showSettingsUI()`, so a rejected promise never reached the `catch` (the adjacent history handler had already been fixed for this exact pattern). `checkGitHubBackup()` read its settings with an unguarded `await Storage.get()` and was invoked with `void` / from `setInterval` without a rejection handler, so a failed read aborted the whole backup cycle and surfaced only as an unhandled rejection. The menu now uses `.catch(logWarn)`, the backup check logs and returns early when settings cannot be read, and a synchronous throw from `indexedDB.open()` is logged like its asynchronous counterpart instead of only rejecting.
+- **Saved-videos search lowercased the query once per item**: `filterItems()` recomputed `currentSearchQuery.toLowerCase()` inside the per-row `.filter()`, so a refresh over thousands of records did thousands of identical string operations. The normalized query is now computed once before the filter chain; behavior is unchanged for empty/null queries.
+
+### Changed
+
+- **`AGENTS.md` no longer describes a dependency that was removed in 0.0.13**: it still listed `YouTube-Helper-API.js` as an `@require` and the YTHelper global as an always-present instance, which could lead a future agent to reintroduce the upstream tick error. It now states there is no external runtime dependency, marks the YTHelper metadata level as optional, records mobile-site coverage and refreshes the stale line count.
+
 ## 0.0.13
 
 ### Fixed

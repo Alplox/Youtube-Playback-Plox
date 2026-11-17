@@ -94,6 +94,21 @@ Rules of thumb:
 - A `ReferenceError` raised while evaluating arguments lands in the surrounding `catch` and looks like an unrelated failure - check the logged error name before assuming the operation itself is at fault.
 - `node scripts/scope-check.mjs` (part of `pnpm run audit` and of CI) parses the file with acorn + eslint-scope and fails on any reference that does not resolve in scope. Names probed with `typeof x !== 'undefined'` (optional integrations such as `youtubeHelperApi`) are allow-listed; extend it with `--allow name1,name2` if a new optional global shows up.
 
+#### A synchronous `try/catch` cannot catch an `async` failure (v0.0.13-1)
+
+`try { someAsyncFn(); } catch (e) { ... }` only covers errors thrown before the
+promise is returned. A rejection from `someAsyncFn()` lands in
+`unhandledrejection` (and the global tracker drops it when the stack cannot be
+attributed to this script), so the `catch` body is dead code. Every call to an
+`async` function whose failure matters must use `await` inside the `try` or
+`.catch(...)` on the returned promise. This applies to menu commands, the
+deferred `showSettingsUI()` path, periodic jobs such as `checkGitHubBackup()`,
+and fallback paths such as `processMediaVideo()`.
+
+`logWarn`/`logError` always print, but `logLog`/`logInfo` are no-ops while
+`level = L.silent` (logger system). Catch blocks that must leave a production
+trace need `logWarn`, not a debug-level log.
+
 #### Unreadable records are quarantined, not fatal (v0.0.13)
 
 `Malformed IndexedDB value for key "<id>"` / `Malformed IndexedDB JSON for key "<id>"` means a row in `savedVideos` exists but its value cannot be read (not a string, not a serializable object, or not valid JSON). Before 0.0.13 that single row failed the whole `getAll()` transaction, so `keys()` returned `Cannot enumerate a complete video key set from durable storage` (saved-videos modal shows only the error state) and `getSyncData()` failed, killing every export and GitHub backup for the whole database.

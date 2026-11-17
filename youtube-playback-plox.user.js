@@ -111,7 +111,7 @@
 // @description:es-419  Guarda y reanuda automáticamente el progreso de reproducción de videos en YouTube sin necesidad de iniciar sesión.
 // @homepage     https://github.com/Alplox/Youtube-Playback-Plox
 // @supportURL   https://github.com/Alplox/Youtube-Playback-Plox/issues
-// @version      0.0.13
+// @version      0.0.13-1
 // @author       Alplox
 // @match        https://www.youtube.com/*
 // @match        https://m.youtube.com/*
@@ -273,7 +273,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * Used to detect reloads and prevent duplicate initialization.
      * @type {string}
      */
-    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.13';
+    const SCRIPT_VERSION = typeof GM_info !== 'undefined' ? GM_info.script.version : '0.0.13-1';
 
     /**
      * @typedef {Object} YPPState
@@ -427,14 +427,14 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
         /* Default values for user settings */
         defaultSettings: {
             language: 'en-US',               // Default language
-            showFloatingButtons: false,      // Show floating buttons       
+            showFloatingButtons: false,      // Show floating buttons
             showHistoryButton: true,         // Show button to open history/saved videos
             enableProgressBarGradient: true, // Enable gradient colors in progress bar
 
             manualSaveMode: false,           // Manual save mode
             manualSaveHybridMode: false,     // Automatic saving after first manual save
 
-            saveRegularVideos: true,         // Save regular videos       
+            saveRegularVideos: true,         // Save regular videos
             saveMiniplayerVideos: true,      // Save videos in miniplayer
             saveShorts: false,               // Save Shorts
             saveLiveStreams: false,          // Save live streams
@@ -1194,7 +1194,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     // MARK: 🔧 Is Visibly Displayed
     /**
      * Determine if the element is displayed
-     * First check: if the element is connected 
+     * First check: if the element is connected
      * Second check: if the element has width > 0 and height > 0
      * Third check: if the element is not display:none, visibility:hidden or opacity:0
      * @param {HTMLElement} el
@@ -2014,7 +2014,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     // ============================================================================================================
     /**
      * Selector Infrastructure Layer
-     * 
+     *
      * Naming conventions:
      * - elements => raw tag selectors (e.g. 'ytd-shorts')
      * - classes => compiled with "." (e.g. '.html5-video-player')
@@ -2316,7 +2316,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
         /**
          * Get a value from the cache.
-         * @param {string} key 
+         * @param {string} key
          * @returns {*} The value or undefined
          */
         get(key) {
@@ -2329,8 +2329,8 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
         /**
          * Set a value in the cache.
-         * @param {string} key 
-         * @param {*} value 
+         * @param {string} key
+         * @param {*} value
          */
         set(key, value) {
             if (this.cache.has(key)) this.cache.delete(key);
@@ -2345,7 +2345,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
          * Check if a value exists in the cache.
          * Refreshes recency (MRU bump) to stay consistent with get(): otherwise a
          * has()+get() pattern could evict a hot key.
-         * @param {string} key 
+         * @param {string} key
          * @returns {boolean}
          */
         has(key) {
@@ -2358,7 +2358,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 
         /**
          * Delete a value from the cache.
-         * @param {string} key 
+         * @param {string} key
          */
         delete(key) { this.cache.delete(key); }
 
@@ -2394,10 +2394,10 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
      * @example
      * // Get a cached element
      * const button = DOMHelpers.get(SELECTORS.BUTTONS.SKIP);
-     * 
+     *
      * // Clear all cache elements (prefix = undefined)
      * DOMHelpers.clear();
-     * 
+     *
      * // Clear cache elements with a specific prefix
      * DOMHelpers.clear('miniplayer:video');
      */
@@ -4214,7 +4214,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     gap: var(--ypp-spacing-md);
     display: flex;
     flex-direction: column;
-    
+
 }
 .ypp-settings-third-level-section {
     display: flex;
@@ -4230,7 +4230,7 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
     gap: var(--ypp-spacing-md);
     display: flex;
     flex-direction: column;
-    
+
     border-top: none;
     border-radius: 0 0 6px 6px;
 }
@@ -5707,20 +5707,20 @@ const { log: logLog, info: logInfo, warn: logWarn, error: logError } = window.My
 /* Measure for https://greasyfork.org/es/scripts/564036-old-youtube-player */
 #movie_player:not(:has(.ytp-delhi-modern)) {
     .ytp-time-wrapper:not(.ytp-miniplayer-ui *) {
-        display: flex !important; 
-        flex-direction: row !important; 
-        align-items: center !important; 
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
         gap: 10px !important;
     }
 }
 ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
     .ytp-time-wrapper {
-        display: flex !important; 
-        flex-direction: row !important; 
-        align-items: center !important; 
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
         gap: 10px !important;
     }
-}  
+}
         `);
 
     // ============================================================================================================
@@ -8561,6 +8561,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                         }
                     };
                 } catch (error) {
+                    logError('IndexedDBAdapter', 'Database open failed synchronously, will retry on next operation:', error);
                     failOpen(error);
                 }
             });
@@ -11330,7 +11331,13 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      */
     const checkGitHubBackup = async () => {
         logLog('checkGitHubBackup', 'Checking automatic backup...');
-        let githubSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+        let githubSettings;
+        try {
+            githubSettings = await Storage.get(CONFIG.STORAGE_KEYS.github) ?? CONFIG.defaultGithubSettings;
+        } catch (error) {
+            logWarn('checkGitHubBackup', 'Could not read backup settings, skipping this check', error);
+            return;
+        }
 
         const now = Date.now();
         const types = ['gist', 'repo'];
@@ -15465,9 +15472,9 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             let display = PlaybackDisplayManager.getDisplay(surface);
 
             logLog('notifySeekOrProgress', `
-                video is paused: ${videoEl?.paused} - 
-                svg-seek: ${!!display?.querySelector('#svg-player-end')} - 
-                saveResult.isManual: ${saveResult.isManual} - 
+                video is paused: ${videoEl?.paused} -
+                svg-seek: ${!!display?.querySelector('#svg-player-end')} -
+                saveResult.isManual: ${saveResult.isManual} -
                 saveResult.success: ${saveResult.success}
             `)
             if (videoEl?.paused && display?.querySelector('#svg-player-end') && !saveResult.isManual && !isLoading) return;
@@ -21208,6 +21215,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
      * @returns {Array} filteredItems
      */
     function filterItems(allItems) {
+        const normalizedSearchQuery = currentSearchQuery?.toLowerCase();
         return allItems.filter(item => {
             const vType = item.info.type;
             if (currentFilterBy === 'completed') return item.info.isCompleted === true;
@@ -21222,11 +21230,10 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
             if (currentFilterBy === 'all') return true;
             return vType === currentFilterBy;
         }).filter(item => {
-            if (!currentSearchQuery) return true;
-            const query = currentSearchQuery.toLowerCase();
-            return (item.info.title || '').toLowerCase().includes(query) ||
-                (item.info.author || '').toLowerCase().includes(query) ||
-                (item.playlistTitle || '').toLowerCase().includes(query);
+            if (!normalizedSearchQuery) return true;
+            return (item.info.title || '').toLowerCase().includes(normalizedSearchQuery) ||
+                (item.info.author || '').toLowerCase().includes(normalizedSearchQuery) ||
+                (item.playlistTitle || '').toLowerCase().includes(normalizedSearchQuery);
         }).filter(item => {
             const views = item.info.viewCount ?? 0;
             if (currentMinViews > 0 && views < currentMinViews) return false;
@@ -24657,7 +24664,7 @@ ytd-miniplayer-player-container:not(:has(.ytp-time-wrapper-delhi)) {
                 if (!document || !document.body) {
                     setTimeout(() => {
                         if (window.__YPP__?.instanceId !== INSTANCE_ID) return;
-                        try { showSettingsUI(); } catch (_) { logWarn('MenuCommands', 'Error on showSettingsUI delayed', _); }
+                        void showSettingsUI().catch(error => logWarn('MenuCommands', 'Error on showSettingsUI delayed', error));
                     }, 0);
                 } else {
                     await showSettingsUI();

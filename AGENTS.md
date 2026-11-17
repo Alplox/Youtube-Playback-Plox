@@ -7,10 +7,10 @@
 
 ## 1. What does this project do?
 
-Single file userscript (~19,200 lines) that saves and resumes YouTube playback position without login. Covers: regular videos, Shorts, Miniplayer, and Inline Previews (hover on Home).
+Single file userscript (~23,400 lines) that saves and resumes YouTube playback position without login. Covers: regular videos, Shorts, Miniplayer, Inline Previews (hover on Home) and the mobile site (`m.youtube.com`).
 
 Main file: `youtube-playback-plox.user.js`
-External dependency: `YouTube-Helper-API.js` (via `@require`)
+No external runtime dependency. `YouTube-Helper-API.js` was removed as an `@require` in 0.0.13 (it threw once the player had no video element); it is only consumed as an optional metadata source when another script injects it. See `docs/gotchas.md` → "YouTube-Helper-API was removed as a dependency".
 
 ---
 
@@ -144,7 +144,7 @@ youtube-playback-plox.user.js
 │
 ├── getCascadedVideoInfo()      ← Metadata (Waterfall: API → YTHelper → DOM)
 │     Level 1: player.getPlayerResponse() / getVideoData() / microformat
-│     Level 2: YTHelper global
+│     Level 2: YTHelper global (optional; absent since 0.0.13)
 │     Level 3: DOM fallbacks + fetch
 │
 ├── showFloatingToast(message, duration?, options?) ← User notifications
@@ -160,7 +160,7 @@ youtube-playback-plox.user.js
 │     ├── performRemoteBackup(type, isManual, settingsOverride)
 │     └── checkGitHubBackup()    ← Auto-backup trigger (5 min interval)
 │
-└── YTHelper / youtubeHelperApi ← Global instance of YouTube-Helper-API.js
+└── YTHelper / youtubeHelperApi ← Optional metadata source if another script injects YouTube-Helper-API.js
 ```
 
 **Correct selector naming:**
